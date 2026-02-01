@@ -1,9 +1,9 @@
 #!/bin/bash
-# Stocker App - Quick Setup Script
+# RigaCap App - Quick Setup Script
 
 set -e
 
-echo "🚀 Stocker App Setup"
+echo "🚀 RigaCap App Setup"
 echo "===================="
 
 # Check prerequisites
@@ -31,7 +31,7 @@ pip install -r requirements.txt --quiet
 # Create .env if not exists
 if [ ! -f ".env" ]; then
     cat > .env << EOF
-DATABASE_URL=postgresql://stocker:stocker@localhost:5432/stocker
+DATABASE_URL=postgresql://rigacap:rigacap@localhost:5432/rigacap
 REDIS_URL=redis://localhost:6379
 DEBUG=true
 EOF

@@ -2,11 +2,13 @@
 Database configuration and connection
 """
 
+import uuid
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.core.config import settings
 
@@ -14,7 +16,16 @@ from app.core.config import settings
 # Convert sync URL to async
 DATABASE_URL = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
-engine = create_async_engine(DATABASE_URL, echo=settings.DEBUG)
+# Connection pool settings with timeout to fail fast if DB unavailable
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=settings.DEBUG,
+    pool_pre_ping=True,
+    pool_timeout=5,  # 5 second timeout for getting connection from pool
+    connect_args={
+        "timeout": 5,  # 5 second connection timeout
+    }
+)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
@@ -103,7 +114,7 @@ class Trade(Base):
 class BacktestResult(Base):
     """Backtest run results"""
     __tablename__ = "backtest_results"
-    
+
     id = Column(Integer, primary_key=True)
     name = Column(String(100))
     start_date = Column(DateTime)
@@ -120,14 +131,160 @@ class BacktestResult(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class User(Base):
+    """User account for authentication and subscription management"""
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=True)  # Null for OAuth users
+    name = Column(String(255), nullable=True)
+    role = Column(String(20), default="user")  # "admin" or "user"
+    is_active = Column(Boolean, default=True)
+
+    # OAuth identifiers
+    google_id = Column(String(255), nullable=True, unique=True)
+    apple_id = Column(String(255), nullable=True, unique=True)
+
+    # Stripe customer ID
+    stripe_customer_id = Column(String(255), nullable=True, unique=True)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
+
+    # Relationships
+    subscription = relationship("Subscription", back_populates="user", uselist=False)
+
+    def is_admin(self) -> bool:
+        """Check if user has admin privileges."""
+        return self.role == "admin" and self.email == "erik@rigacap.com"
+
+    def to_dict(self, include_subscription: bool = False) -> dict:
+        """Convert user to dictionary for API responses.
+
+        Note: Don't access self.subscription here as it triggers lazy loading
+        which doesn't work with async SQLAlchemy. The subscription is loaded
+        separately in the auth endpoints and added to the response.
+        """
+        result = {
+            "id": str(self.id),
+            "email": self.email,
+            "name": self.name,
+            "role": self.role,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_login": self.last_login.isoformat() if self.last_login else None,
+        }
+        return result
+
+
+class Subscription(Base):
+    """User subscription for trial and payment management"""
+    __tablename__ = "subscriptions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True)
+
+    # Status: trial, active, canceled, expired, past_due
+    status = Column(String(20), default="trial")
+
+    # Trial tracking (no card required)
+    trial_start = Column(DateTime, default=datetime.utcnow)
+    trial_end = Column(DateTime)
+
+    # Stripe subscription (after trial converts)
+    stripe_subscription_id = Column(String(255), nullable=True)
+    stripe_price_id = Column(String(255), nullable=True)
+
+    # Billing periods
+    current_period_start = Column(DateTime, nullable=True)
+    current_period_end = Column(DateTime, nullable=True)
+    cancel_at_period_end = Column(Boolean, default=False)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+
+    # Relationships
+    user = relationship("User", back_populates="subscription")
+
+    @classmethod
+    def create_trial(cls, user_id) -> "Subscription":
+        """Create a new trial subscription."""
+        now = datetime.utcnow()
+        return cls(
+            user_id=user_id,
+            status="trial",
+            trial_start=now,
+            trial_end=now + timedelta(days=7),
+        )
+
+    def is_valid(self) -> bool:
+        """Check if subscription is currently valid (trial or active)."""
+        now = datetime.utcnow()
+
+        if self.status == "trial":
+            return self.trial_end and now < self.trial_end
+
+        if self.status == "active":
+            if self.current_period_end:
+                return now < self.current_period_end
+            return True
+
+        return False
+
+    def days_remaining(self) -> int:
+        """Get days remaining in trial or current period."""
+        now = datetime.utcnow()
+
+        if self.status == "trial" and self.trial_end:
+            delta = self.trial_end - now
+            return max(0, delta.days)
+
+        if self.status == "active" and self.current_period_end:
+            delta = self.current_period_end - now
+            return max(0, delta.days)
+
+        return 0
+
+    def to_dict(self) -> dict:
+        """Convert subscription to dictionary for API responses."""
+        return {
+            "id": str(self.id),
+            "status": self.status,
+            "is_valid": self.is_valid(),
+            "days_remaining": self.days_remaining(),
+            "trial_start": self.trial_start.isoformat() if self.trial_start else None,
+            "trial_end": self.trial_end.isoformat() if self.trial_end else None,
+            "current_period_start": self.current_period_start.isoformat() if self.current_period_start else None,
+            "current_period_end": self.current_period_end.isoformat() if self.current_period_end else None,
+            "cancel_at_period_end": self.cancel_at_period_end,
+        }
+
+
+# Track database availability (set during init_db)
+db_available = False
+
+
 async def init_db():
     """Initialize database tables"""
+    global db_available
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    db_available = True
     print("✅ Database initialized")
 
 
 async def get_db():
     """Dependency for getting database session"""
+    from fastapi import HTTPException, status
+
+    if not db_available:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database not available. Running in memory-only mode."
+        )
+
     async with async_session() as session:
         yield session

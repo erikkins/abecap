@@ -1,348 +1,650 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, ComposedChart, Bar, ReferenceLine, Legend
+import { Routes, Route, Navigate } from 'react-router-dom';
+import {
+  LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, ComposedChart, Bar, ReferenceLine, ReferenceDot, Legend
 } from 'recharts';
-import { 
+import {
   TrendingUp, TrendingDown, RefreshCw, Settings, Bell, User, LogOut,
   DollarSign, Target, Shield, Activity, PieChart as PieIcon, History,
   ArrowUpRight, ArrowDownRight, Clock, Zap, X, ChevronRight, Eye,
-  Calendar, BarChart3, Wallet, LogIn
+  Calendar, BarChart3, Wallet, LogIn, AlertCircle, Loader2
 } from 'lucide-react';
+import LandingPage from './LandingPage';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import LoginModal from './components/LoginModal';
+import AdminDashboard from './components/AdminDashboard';
+import SubscriptionBanner from './components/SubscriptionBanner';
 
 // ============================================================================
-// Authentication Context
+// API Configuration
 // ============================================================================
 
-const AuthContext = React.createContext(null);
-const useAuth = () => React.useContext(AuthContext);
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+// CDN URL for static signals (same bucket as price data, publicly accessible)
+const SIGNALS_CDN_URL = 'https://rigacap-prod-price-data-149218244179.s3.amazonaws.com/signals/latest.json';
 
-  useEffect(() => {
-    const stored = localStorage.getItem('stocker_user');
-    if (stored) setUser(JSON.parse(stored));
-    setLoading(false);
-  }, []);
-
-  const login = async (provider) => {
-    const mockUser = { id: '1', name: 'Demo User', email: 'demo@stocker.app', provider };
-    setUser(mockUser);
-    localStorage.setItem('stocker_user', JSON.stringify(mockUser));
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('stocker_user');
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
+// localStorage cache keys
+const CACHE_KEYS = {
+  SIGNALS: 'rigacap_signals_cache',
+  POSITIONS: 'rigacap_positions_cache',
+  MISSED: 'rigacap_missed_cache',
+  BACKTEST: 'rigacap_backtest_cache',
+  CACHE_TIME: 'rigacap_cache_time'
 };
 
-// ============================================================================
-// Mock Data Generators (2 years of history)
-// ============================================================================
+// Cache duration: 5 minutes for signals, 1 hour for user data
+const CACHE_DURATION = {
+  SIGNALS: 5 * 60 * 1000,  // 5 minutes
+  USER_DATA: 60 * 60 * 1000  // 1 hour
+};
 
-const generatePriceHistory = (symbol, days = 504) => {
-  const data = [];
-  let price = 100 + Math.random() * 200;
-  const volatility = 0.02 + Math.random() * 0.02;
-  
-  for (let i = days; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    const change = (Math.random() - 0.48) * volatility * price;
-    price = Math.max(20, price + change);
-    const volume = Math.floor(5000000 + Math.random() * 20000000);
-    
-    data.push({
-      date: date.toISOString().split('T')[0],
-      price: Math.round(price * 100) / 100,
-      volume,
-      high: Math.round((price * (1 + Math.random() * 0.02)) * 100) / 100,
-      low: Math.round((price * (1 - Math.random() * 0.02)) * 100) / 100,
+// Helper to get cached data
+const getCache = (key) => {
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) return JSON.parse(cached);
+  } catch (e) {
+    console.log('Cache read error:', e);
+  }
+  return null;
+};
+
+// Helper to set cached data
+const setCache = (key, data) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+    localStorage.setItem(CACHE_KEYS.CACHE_TIME + '_' + key, Date.now().toString());
+  } catch (e) {
+    console.log('Cache write error:', e);
+  }
+};
+
+// Helper to check if cache is still valid
+const isCacheValid = (key, maxAge) => {
+  try {
+    const cacheTime = localStorage.getItem(CACHE_KEYS.CACHE_TIME + '_' + key);
+    if (!cacheTime) return false;
+    return (Date.now() - parseInt(cacheTime)) < maxAge;
+  } catch (e) {
+    return false;
+  }
+};
+
+const api = {
+  async get(endpoint) {
+    const res = await fetch(`${API_BASE}${endpoint}`);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return res.json();
+  },
+  async post(endpoint, data) {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
     });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return res.json();
+  },
+  async delete(endpoint) {
+    const res = await fetch(`${API_BASE}${endpoint}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return res.json();
   }
-  
-  // Calculate indicators
-  for (let i = 0; i < data.length; i++) {
-    if (i >= 49) {
-      data[i].ma50 = Math.round(data.slice(i - 49, i + 1).reduce((s, d) => s + d.price, 0) / 50 * 100) / 100;
-    }
-    if (i >= 199) {
-      data[i].ma200 = Math.round(data.slice(i - 199, i + 1).reduce((s, d) => s + d.price, 0) / 200 * 100) / 100;
-      const slice = data.slice(i - 199, i + 1);
-      const pv = slice.reduce((s, d) => s + d.price * d.volume, 0);
-      const v = slice.reduce((s, d) => s + d.volume, 0);
-      data[i].dwap = Math.round((pv / v) * 100) / 100;
-    }
-  }
-  return data;
 };
 
-const generateHistoricalTrades = () => {
-  const trades = [];
-  const symbols = ['AAPL', 'NVDA', 'MSFT', 'AMD', 'GOOGL', 'META', 'TSLA', 'AMZN', 'AVGO', 'CRM'];
-  
-  for (let i = 0; i < 50; i++) {
-    const entryDate = new Date();
-    entryDate.setDate(entryDate.getDate() - Math.floor(Math.random() * 700) - 30);
-    const holdDays = Math.floor(Math.random() * 60) + 5;
-    const exitDate = new Date(entryDate);
-    exitDate.setDate(exitDate.getDate() + holdDays);
-    
-    const entryPrice = 50 + Math.random() * 400;
-    const pnlPct = (Math.random() - 0.4) * 40;
-    const exitPrice = entryPrice * (1 + pnlPct / 100);
-    const shares = Math.floor(1000 / entryPrice) * 10;
-    
-    trades.push({
-      id: i + 1,
-      symbol: symbols[Math.floor(Math.random() * symbols.length)],
-      entryDate: entryDate.toISOString().split('T')[0],
-      exitDate: exitDate.toISOString().split('T')[0],
-      entryPrice: Math.round(entryPrice * 100) / 100,
-      exitPrice: Math.round(exitPrice * 100) / 100,
-      shares,
-      pnl: Math.round((exitPrice - entryPrice) * shares * 100) / 100,
-      pnlPct: Math.round(pnlPct * 100) / 100,
-      exitReason: pnlPct > 15 ? 'PROFIT_TARGET' : pnlPct < -7 ? 'STOP_LOSS' : 'MANUAL',
-      daysHeld: holdDays
-    });
+// Fetch signals from CDN (static JSON, instant load)
+const fetchSignalsFromCDN = async () => {
+  try {
+    const res = await fetch(SIGNALS_CDN_URL, { cache: 'default' });
+    if (!res.ok) throw new Error(`CDN error: ${res.status}`);
+    const data = await res.json();
+    return data.signals || [];
+  } catch (e) {
+    console.log('CDN signals fetch failed, falling back to API:', e);
+    return null; // Will trigger API fallback
   }
-  return trades.sort((a, b) => new Date(b.exitDate) - new Date(a.exitDate));
 };
 
-const mockSignals = [
-  { symbol: 'NVDA', price: 512.30, pct_above_dwap: 8.2, volume_ratio: 2.1, is_strong: true, stop_loss: 471.32, profit_target: 614.76, volume: 45000000 },
-  { symbol: 'AMD', price: 158.90, pct_above_dwap: 6.5, volume_ratio: 1.8, is_strong: true, stop_loss: 146.19, profit_target: 190.68, volume: 32000000 },
-  { symbol: 'AVGO', price: 1245.50, pct_above_dwap: 5.8, volume_ratio: 1.4, is_strong: false, stop_loss: 1145.86, profit_target: 1494.60, volume: 8000000 },
-  { symbol: 'MSFT', price: 385.40, pct_above_dwap: 5.3, volume_ratio: 1.2, is_strong: false, stop_loss: 354.57, profit_target: 462.48, volume: 22000000 },
-  { symbol: 'CRM', price: 298.75, pct_above_dwap: 5.1, volume_ratio: 1.1, is_strong: false, stop_loss: 274.85, profit_target: 358.50, volume: 6000000 },
-];
-
-const mockPositions = [
-  { id: 1, symbol: 'AAPL', shares: 55, entry_price: 182.50, current_price: 195.90, pnl_pct: 7.34, days_held: 18, entry_date: '2025-01-12', stop_loss: 167.90, profit_target: 219.00 },
-  { id: 2, symbol: 'META', shares: 22, entry_price: 485.00, current_price: 468.20, pnl_pct: -3.46, days_held: 8, entry_date: '2025-01-22', stop_loss: 446.20, profit_target: 582.00 },
-  { id: 3, symbol: 'GOOGL', shares: 40, entry_price: 141.20, current_price: 152.80, pnl_pct: 8.22, days_held: 25, entry_date: '2025-01-05', stop_loss: 129.90, profit_target: 169.44 },
-];
+// Note: AuthContext, useAuth, LoginModal, AdminDashboard, SubscriptionBanner
+// are now imported from separate files
 
 // ============================================================================
 // Components
 // ============================================================================
 
-// Login Modal
-const LoginModal = ({ onClose }) => {
-  const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
+// Custom triangle markers for buy/sell points on charts
+const BuyMarker = ({ cx, cy, payload }) => (
+  <svg x={cx - 10} y={cy - 20} width={20} height={20} viewBox="0 0 20 20" style={{ cursor: 'pointer' }}>
+    <title>BUY POINT: {payload?.date} @ ${payload?.close?.toFixed(2)}</title>
+    <polygon
+      points="10,2 18,18 2,18"
+      fill="#10B981"
+      stroke="#059669"
+      strokeWidth="1"
+    />
+    <text x="10" y="14" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">B</text>
+  </svg>
+);
 
-  const handleLogin = async (provider) => {
-    setLoading(true);
-    await login(provider);
-    setLoading(false);
-    onClose();
+const SellMarker = ({ cx, cy, payload }) => (
+  <svg x={cx - 10} y={cy} width={20} height={20} viewBox="0 0 20 20" style={{ cursor: 'pointer' }}>
+    <title>SELL POINT (+20%): {payload?.date} @ ${payload?.close?.toFixed(2)}</title>
+    <polygon
+      points="10,18 18,2 2,2"
+      fill="#EF4444"
+      stroke="#DC2626"
+      strokeWidth="1"
+    />
+    <text x="10" y="12" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">S</text>
+  </svg>
+);
+
+// Loading Spinner
+const LoadingSpinner = ({ message = "Loading..." }) => (
+  <div className="flex flex-col items-center justify-center py-12">
+    <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-3" />
+    <p className="text-gray-500">{message}</p>
+  </div>
+);
+
+// Error Display
+const ErrorDisplay = ({ message, onRetry }) => (
+  <div className="flex flex-col items-center justify-center py-12">
+    <AlertCircle className="w-12 h-12 text-red-400 mb-3" />
+    <p className="text-red-600 mb-4">{message}</p>
+    {onRetry && (
+      <button onClick={onRetry} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+        Retry
+      </button>
+    )}
+  </div>
+);
+
+// LoginModal is now imported from ./components/LoginModal
+
+// Stock Chart Modal with Entry Point Marker
+// Buy Modal Component
+const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy }) => {
+  const [shares, setShares] = useState(Math.floor(10000 / price)); // Default ~$10k position
+  const [entryPrice, setEntryPrice] = useState(price);
+  const [submitting, setSubmitting] = useState(false);
+
+  const totalCost = shares * entryPrice;
+  const stopLoss = entryPrice * 0.92; // 8% stop
+  const profitTarget = entryPrice * 1.20; // 20% target
+
+  const handleBuy = async () => {
+    setSubmitting(true);
+    try {
+      await api.post('/api/portfolio/positions', {
+        symbol,
+        shares,
+        price: entryPrice
+      });
+      onBuy();
+      onClose();
+    } catch (err) {
+      console.error('Buy failed:', err);
+      alert('Failed to create position. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-          <X size={24} />
-        </button>
-        
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <TrendingUp className="text-white" size={32} />
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-emerald-500 to-green-600">
+          <h2 className="text-xl font-bold text-white">Buy {symbol}</h2>
+          {stockInfo?.name && <p className="text-emerald-100 text-sm">{stockInfo.name}</p>}
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Number of Shares</label>
+            <input
+              type="number"
+              value={shares}
+              onChange={(e) => setShares(Math.max(1, parseInt(e.target.value) || 0))}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              min="1"
+            />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Welcome to Stocker</h2>
-          <p className="text-gray-500 mt-2">Sign in to track your portfolio</p>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Entry Price</label>
+            <input
+              type="number"
+              step="0.01"
+              value={entryPrice}
+              onChange={(e) => setEntryPrice(parseFloat(e.target.value) || 0)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Total Cost</span>
+              <span className="font-semibold">${totalCost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Stop Loss (8%)</span>
+              <span className="text-red-500 font-medium">${stopLoss.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Profit Target (20%)</span>
+              <span className="text-emerald-600 font-medium">${profitTarget.toFixed(2)}</span>
+            </div>
+          </div>
         </div>
 
-        <button
-          onClick={() => handleLogin('google')}
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors mb-3"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          <span className="font-medium text-gray-700">Continue with Google</span>
-        </button>
-
-        <button
-          onClick={() => handleLogin('apple')}
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-black text-white rounded-xl hover:bg-gray-800 transition-colors mb-6"
-        >
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-          </svg>
-          <span className="font-medium">Continue with Apple</span>
-        </button>
-
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
-          <div className="relative flex justify-center text-sm"><span className="px-4 bg-white text-gray-500">or</span></div>
+        <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-xl font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleBuy}
+            disabled={submitting || shares < 1 || entryPrice <= 0}
+            className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign size={18} />}
+            {submitting ? 'Buying...' : 'Confirm Buy'}
+          </button>
         </div>
-
-        <input
-          type="email"
-          placeholder="Email address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
-        />
-        <button
-          onClick={() => handleLogin('email')}
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors"
-        >
-          {loading ? 'Signing in...' : 'Continue with Email'}
-        </button>
       </div>
     </div>
   );
 };
 
-// Stock Chart Modal
 const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
   const [timeRange, setTimeRange] = useState('1Y');
   const [priceData, setPriceData] = useState([]);
-  
-  useEffect(() => {
-    const history = generatePriceHistory(symbol);
-    const days = { '1M': 30, '3M': 90, '6M': 180, '1Y': 252, '2Y': 504 }[timeRange] || 252;
-    setPriceData(history.slice(-days));
-  }, [symbol, timeRange]);
+  const [stockInfo, setStockInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showBuyModal, setShowBuyModal] = useState(false);
 
-  const currentPrice = priceData[priceData.length - 1]?.price || data?.price || 0;
-  const startPrice = priceData[0]?.price || currentPrice;
-  const changePct = ((currentPrice - startPrice) / startPrice * 100).toFixed(1);
+  // Fetch company info once when modal opens
+  useEffect(() => {
+    const fetchInfo = async () => {
+      try {
+        const info = await api.get(`/api/signals/info/${symbol}`);
+        setStockInfo(info);
+      } catch (err) {
+        console.log('Could not fetch stock info');
+      }
+    };
+    fetchInfo();
+  }, [symbol]);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // For missed opportunities, fetch enough data to show the transaction window
+        let days = { '1M': 30, '3M': 90, '6M': 180, '1Y': 252, '2Y': 504 }[timeRange] || 252;
+
+        // For missed opportunities, we need enough data to cover entry_date - 30 days
+        if (type === 'missed' && data?.entry_date) {
+          const entryDate = new Date(data.entry_date);
+          const today = new Date();
+          const daysSinceEntry = Math.ceil((today - entryDate) / (1000 * 60 * 60 * 24));
+          days = Math.max(days, daysSinceEntry + 60); // Extra buffer for 30 days before entry
+        }
+
+        const response = await api.get(`/api/stock/${symbol}/history?days=${days}`);
+        let chartData = response.data || [];
+
+        // For missed opportunities, filter to show transaction window (30 days before buy, 30 days after sell)
+        if (type === 'missed' && data?.entry_date && data?.sell_date) {
+          const entryDate = new Date(data.entry_date);
+          const sellDate = new Date(data.sell_date);
+          const windowStart = new Date(entryDate);
+          windowStart.setDate(windowStart.getDate() - 30);
+          const windowEnd = new Date(sellDate);
+          windowEnd.setDate(windowEnd.getDate() + 30);
+
+          chartData = chartData.filter(d => {
+            const date = new Date(d.date);
+            return date >= windowStart && date <= windowEnd;
+          });
+        }
+
+        setPriceData(chartData);
+      } catch (err) {
+        setError('Failed to load chart data');
+        setPriceData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHistory();
+  }, [symbol, timeRange, type, data?.entry_date, data?.sell_date]);
+
+  // Format market cap for display
+  const formatMarketCap = (mcap) => {
+    if (!mcap) return '';
+    const num = parseFloat(mcap.replace(/,/g, ''));
+    if (isNaN(num)) return mcap;
+    if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
+    if (num >= 1e9) return `$${(num / 1e9).toFixed(1)}B`;
+    if (num >= 1e6) return `$${(num / 1e6).toFixed(0)}M`;
+    return `$${num.toLocaleString()}`;
+  };
+
+  const currentPrice = priceData[priceData.length - 1]?.close || data?.current_price || data?.price || 0;
+  const startPrice = priceData[0]?.close || currentPrice;
+  const changePct = startPrice > 0 ? ((currentPrice - startPrice) / startPrice * 100).toFixed(1) : 0;
   const isPositive = changePct >= 0;
+
+  // Find entry point index for positions
+  const entryPointIndex = type === 'position' && data?.entry_date
+    ? priceData.findIndex(d => d.date === data.entry_date)
+    : -1;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3">
+        <div className="px-6 py-4 border-b border-gray-100 relative flex-shrink-0">
+          {/* Close button - top right */}
+          <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg z-10">
+            <X size={24} className="text-gray-400" />
+          </button>
+
+          <div className="pr-12">
+            <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-2xl font-bold text-gray-900">{symbol}</h2>
               {data?.is_strong && (
                 <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full flex items-center gap-1">
                   <Zap size={12} /> STRONG SIGNAL
                 </span>
               )}
+              {type === 'position' && (
+                <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                  OPEN POSITION
+                </span>
+              )}
+              {type === 'missed' && (
+                <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full flex items-center gap-1">
+                  <Clock size={12} /> MISSED +20%
+                </span>
+              )}
+              {data?.signal_strength > 0 && (
+                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                  data.signal_strength >= 70 ? 'bg-emerald-100 text-emerald-700' :
+                  data.signal_strength >= 50 ? 'bg-blue-100 text-blue-700' :
+                  'bg-yellow-100 text-yellow-700'
+                }`}>
+                  Strength: {data.signal_strength.toFixed(0)}
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-2 mt-1">
+            {/* Company Name & Sector */}
+            {stockInfo?.name && (
+              <div className="mt-1">
+                <p className="text-gray-600 text-sm">{stockInfo.name}</p>
+                {stockInfo?.sector && (
+                  <span className="inline-block mt-1 px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
+                    {stockInfo.sector}{stockInfo?.industry ? ` - ${stockInfo.industry}` : ''}
+                  </span>
+                )}
+              </div>
+            )}
+            <div className="flex items-center gap-4 mt-2">
               <span className="text-2xl font-semibold">${currentPrice.toFixed(2)}</span>
               <span className={`flex items-center text-sm font-medium ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
                 {isPositive ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
                 {isPositive ? '+' : ''}{changePct}%
               </span>
+              {stockInfo?.market_cap && (
+                <span className="text-sm text-gray-500">
+                  Market Cap: {formatMarketCap(stockInfo.market_cap)}
+                </span>
+              )}
             </div>
+            {/* Company Description - scrollable */}
+            {stockInfo?.description && (
+              <div className="mt-2 max-h-20 overflow-y-auto">
+                <p className="text-sm text-gray-500">{stockInfo.description}</p>
+              </div>
+            )}
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
-            <X size={24} className="text-gray-400" />
-          </button>
         </div>
 
-        {/* Time Range */}
-        <div className="px-6 py-3 border-b border-gray-100 flex gap-2">
-          {['1M', '3M', '6M', '1Y', '2Y'].map((range) => (
-            <button
-              key={range}
-              onClick={() => setTimeRange(range)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                timeRange === range ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {range}
-            </button>
-          ))}
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Time Range */}
+          <div className="px-6 py-3 border-b border-gray-100 flex gap-2 items-center">
+          {type === 'missed' ? (
+            <div className="flex items-center gap-2">
+              <span className="px-4 py-1.5 rounded-lg text-sm font-medium bg-amber-100 text-amber-700">
+                Transaction Window
+              </span>
+              <span className="text-sm text-gray-500">
+                {data?.entry_date} → {data?.sell_date} (±30 days)
+              </span>
+            </div>
+          ) : (
+            ['1M', '3M', '6M', '1Y', '2Y'].map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  timeRange === range ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {range}
+              </button>
+            ))
+          )}
         </div>
 
         {/* Chart */}
         <div className="p-6">
-          <ResponsiveContainer width="100%" height={320}>
-            <ComposedChart data={priceData}>
-              <defs>
-                <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.15}/>
-                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-              <XAxis 
-                dataKey="date" 
-                tick={{ fontSize: 11 }} 
-                stroke="#9CA3AF" 
-                tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { month: 'short' })}
-                interval={Math.floor(priceData.length / 8)}
-              />
-              <YAxis 
-                yAxisId="price"
-                tick={{ fontSize: 11 }} 
-                stroke="#9CA3AF" 
-                domain={['dataMin - 10', 'dataMax + 10']}
-                tickFormatter={(val) => `$${val.toFixed(0)}`}
-              />
-              <YAxis 
-                yAxisId="volume"
-                orientation="right"
-                tick={{ fontSize: 10 }}
-                stroke="#D1D5DB"
-                tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`}
-              />
-              <Tooltip 
-                content={({ active, payload, label }) => {
-                  if (!active || !payload?.length) return null;
-                  const d = payload[0]?.payload;
-                  return (
-                    <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 text-sm">
-                      <p className="font-medium text-gray-900 mb-1">{new Date(label).toLocaleDateString()}</p>
-                      <p className="text-blue-600">Price: ${d?.price?.toFixed(2)}</p>
-                      {d?.dwap && <p className="text-purple-600">DWAP: ${d.dwap.toFixed(2)}</p>}
-                      {d?.ma50 && <p className="text-orange-500">MA50: ${d.ma50.toFixed(2)}</p>}
-                      <p className="text-gray-400">Vol: {(d?.volume / 1000000).toFixed(1)}M</p>
-                    </div>
-                  );
-                }}
-              />
-              <Bar yAxisId="volume" dataKey="volume" fill="#E5E7EB" opacity={0.5} />
-              <Line yAxisId="price" type="monotone" dataKey="dwap" stroke="#8B5CF6" strokeWidth={2} dot={false} name="DWAP" />
-              <Line yAxisId="price" type="monotone" dataKey="ma50" stroke="#F97316" strokeWidth={1.5} dot={false} strokeDasharray="5 5" name="MA50" />
-              <Area yAxisId="price" type="monotone" dataKey="price" stroke="#3B82F6" strokeWidth={2} fill="url(#priceGradient)" name="Price" />
-              
-              {/* Buy signal marker */}
-              {type === 'signal' && data?.price && (
-                <ReferenceLine yAxisId="price" y={data.price} stroke="#10B981" strokeWidth={2} strokeDasharray="8 4"
-                  label={{ value: '▶ BUY SIGNAL', fill: '#10B981', fontWeight: 'bold', fontSize: 12, position: 'insideRight' }}
+          {loading ? (
+            <LoadingSpinner message="Loading chart data..." />
+          ) : error ? (
+            <ErrorDisplay message={error} />
+          ) : priceData.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <BarChart3 className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+              <p>No price data available</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={320}>
+              <ComposedChart data={priceData}>
+                <defs>
+                  <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11 }}
+                  stroke="#9CA3AF"
+                  tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  interval={Math.floor(priceData.length / 6)}
                 />
-              )}
-              
-              {/* Entry price for positions */}
-              {type === 'position' && data?.entry_price && (
-                <ReferenceLine yAxisId="price" y={data.entry_price} stroke="#3B82F6" strokeWidth={2} strokeDasharray="8 4"
-                  label={{ value: `Entry $${data.entry_price}`, fill: '#3B82F6', fontWeight: 'bold', fontSize: 12, position: 'insideLeft' }}
+                <YAxis
+                  yAxisId="price"
+                  tick={{ fontSize: 11 }}
+                  stroke="#9CA3AF"
+                  domain={['dataMin - 10', 'dataMax + 10']}
+                  tickFormatter={(val) => `$${val.toFixed(0)}`}
                 />
-              )}
-            </ComposedChart>
-          </ResponsiveContainer>
+                <YAxis
+                  yAxisId="volume"
+                  orientation="right"
+                  tick={{ fontSize: 10 }}
+                  stroke="#D1D5DB"
+                  tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`}
+                />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0]?.payload;
+                    const isEntryDay = d?.date === data?.entry_date;
+                    const isSellDay = d?.date === data?.sell_date;
+                    const borderClass = isEntryDay ? 'border-emerald-400 border-2' :
+                                       isSellDay ? 'border-amber-400 border-2' : 'border-gray-200';
+                    return (
+                      <div className={`bg-white p-3 rounded-lg shadow-lg border ${borderClass} text-sm`}>
+                        <p className="font-medium text-gray-900 mb-1">
+                          {new Date(label).toLocaleDateString()}
+                          {isEntryDay && <span className="ml-2 text-emerald-600 font-bold">BUY POINT</span>}
+                          {isSellDay && <span className="ml-2 text-amber-600 font-bold">SELL POINT (+20%)</span>}
+                        </p>
+                        <p className="text-blue-600">Price: ${d?.close?.toFixed(2)}</p>
+                        {isEntryDay && data?.entry_price && (
+                          <p className="text-emerald-600 font-medium">Entry: ${data.entry_price.toFixed(2)}</p>
+                        )}
+                        {isSellDay && data?.sell_price && (
+                          <p className="text-amber-600 font-medium">Exit: ${data.sell_price.toFixed(2)}</p>
+                        )}
+                        {d?.dwap && <p className="text-purple-600">DWAP: ${d.dwap.toFixed(2)}</p>}
+                        {d?.ma_50 && <p className="text-orange-500">MA50: ${d.ma_50.toFixed(2)}</p>}
+                        <p className="text-gray-400">Vol: {(d?.volume / 1000000).toFixed(1)}M</p>
+                      </div>
+                    );
+                  }}
+                />
+                <Bar yAxisId="volume" dataKey="volume" fill="#E5E7EB" opacity={0.5} />
+                {priceData.some(d => d.dwap) && (
+                  <Line yAxisId="price" type="monotone" dataKey="dwap" stroke="#8B5CF6" strokeWidth={2} dot={false} name="DWAP" />
+                )}
+                {priceData.some(d => d.ma_50) && (
+                  <Line yAxisId="price" type="monotone" dataKey="ma_50" stroke="#F97316" strokeWidth={1.5} dot={false} strokeDasharray="5 5" name="MA50" />
+                )}
+                <Area yAxisId="price" type="monotone" dataKey="close" stroke="#3B82F6" strokeWidth={2} fill="url(#priceGradient)" name="Price" />
+
+                {/* Entry price marker for positions and missed opportunities */}
+                {(type === 'position' || type === 'missed') && data?.entry_price && (
+                  <ReferenceLine
+                    yAxisId="price"
+                    y={data.entry_price}
+                    stroke="#10B981"
+                    strokeWidth={2}
+                    strokeDasharray="8 4"
+                    label={{
+                      value: `Buy $${data.entry_price.toFixed(2)}`,
+                      fill: '#10B981',
+                      fontWeight: 'bold',
+                      fontSize: 12,
+                      position: 'insideLeft'
+                    }}
+                  />
+                )}
+
+                {/* Exit/Sell price marker for missed opportunities */}
+                {type === 'missed' && data?.sell_price && (
+                  <ReferenceLine
+                    yAxisId="price"
+                    y={data.sell_price}
+                    stroke="#F59E0B"
+                    strokeWidth={2}
+                    strokeDasharray="8 4"
+                    label={{
+                      value: `Sell $${data.sell_price.toFixed(2)} (+20%)`,
+                      fill: '#F59E0B',
+                      fontWeight: 'bold',
+                      fontSize: 12,
+                      position: 'insideRight'
+                    }}
+                  />
+                )}
+
+                {/* Stop loss line */}
+                {data?.stop_loss && (
+                  <ReferenceLine
+                    yAxisId="price"
+                    y={data.stop_loss}
+                    stroke="#EF4444"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 4"
+                    label={{
+                      value: `Stop $${data.stop_loss.toFixed(2)}`,
+                      fill: '#EF4444',
+                      fontSize: 10,
+                      position: 'insideRight'
+                    }}
+                  />
+                )}
+
+                {/* Profit target line */}
+                {data?.profit_target && (
+                  <ReferenceLine
+                    yAxisId="price"
+                    y={data.profit_target}
+                    stroke="#10B981"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 4"
+                    label={{
+                      value: `Target $${data.profit_target.toFixed(2)}`,
+                      fill: '#10B981',
+                      fontSize: 10,
+                      position: 'insideRight'
+                    }}
+                  />
+                )}
+
+                {/* Buy point marker - triangle at entry date */}
+                {(() => {
+                  const entryMatch = data?.entry_date && priceData.find(d => d.date === data.entry_date);
+                  return entryMatch ? (
+                    <ReferenceDot
+                      yAxisId="price"
+                      x={data.entry_date}
+                      y={entryMatch.close || data.entry_price}
+                      shape={(props) => <BuyMarker {...props} payload={entryMatch} />}
+                    />
+                  ) : null;
+                })()}
+
+                {/* Sell point marker - triangle at sell date (for trades) */}
+                {(() => {
+                  const sellMatch = data?.sell_date && priceData.find(d => d.date === data.sell_date);
+                  return sellMatch ? (
+                    <ReferenceDot
+                      yAxisId="price"
+                      x={data.sell_date}
+                      y={sellMatch.close || data.sell_price}
+                      shape={(props) => <SellMarker {...props} payload={sellMatch} />}
+                    />
+                  ) : null;
+                })()}
+
+                {/* Signal point marker - triangle at current date for NEW signals only (not missed opportunities) */}
+                {type === 'signal' && !data?.exit_date && priceData.length > 0 && (
+                  <ReferenceDot
+                    yAxisId="price"
+                    x={priceData[priceData.length - 1]?.date}
+                    y={priceData[priceData.length - 1]?.close}
+                    shape={BuyMarker}
+                  />
+                )}
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* Details */}
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+          {/* Recommendation banner */}
+          {data?.recommendation && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+              <strong>Recommendation:</strong> {data.recommendation}
+            </div>
+          )}
+
           <div className="grid grid-cols-4 gap-4">
             {type === 'signal' ? (
               <>
@@ -363,21 +665,48 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
                   <p className="text-lg font-semibold text-emerald-600">${data?.profit_target?.toFixed(2)}</p>
                 </div>
               </>
+            ) : type === 'missed' ? (
+              <>
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Buy Date</p>
+                  <p className="text-lg font-semibold">{data?.entry_date}</p>
+                  <p className="text-xs text-emerald-600">${data?.entry_price?.toFixed(2)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Sell Date</p>
+                  <p className="text-lg font-semibold">{data?.sell_date}</p>
+                  <p className="text-xs text-emerald-600">${data?.sell_price?.toFixed(2)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Return</p>
+                  <p className="text-lg font-semibold text-emerald-600">
+                    +{data?.would_be_return?.toFixed(1)}%
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Days Held</p>
+                  <p className="text-lg font-semibold">{data?.days_held || '-'}</p>
+                </div>
+              </>
             ) : (
               <>
                 <div className="text-center">
                   <p className="text-sm text-gray-500">Entry Price</p>
                   <p className="text-lg font-semibold">${data?.entry_price?.toFixed(2)}</p>
+                  <p className="text-xs text-gray-400">{data?.entry_date}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-gray-500">Current P&L</p>
                   <p className={`text-lg font-semibold ${data?.pnl_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                     {data?.pnl_pct >= 0 ? '+' : ''}{data?.pnl_pct?.toFixed(1)}%
                   </p>
+                  <p className={`text-xs ${data?.pnl_dollars >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                    ${data?.pnl_dollars?.toFixed(0) || ((data?.current_price - data?.entry_price) * data?.shares).toFixed(0)}
+                  </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-gray-500">Shares</p>
-                  <p className="text-lg font-semibold">{data?.shares}</p>
+                  <p className="text-lg font-semibold">{data?.shares?.toFixed(2)}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-gray-500">Days Held</p>
@@ -386,25 +715,65 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
               </>
             )}
           </div>
+
+          {/* Technical Indicators - Signal only */}
+          {type === 'signal' && (data?.ma_50 || stockInfo?.ma_50) && (
+            <div className="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-200">
+              <div className="text-center">
+                <p className="text-sm text-gray-500">50-Day MA</p>
+                <p className="text-lg font-semibold">${(data?.ma_50 || stockInfo?.ma_50)?.toFixed(2)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-500">200-Day MA</p>
+                <p className="text-lg font-semibold">${(data?.ma_200 || stockInfo?.ma_200)?.toFixed(2)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-500">52-Week High</p>
+                <p className="text-lg font-semibold">${(data?.high_52w || stockInfo?.high_52w)?.toFixed(2)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-500">DWAP Price</p>
+                <p className="text-lg font-semibold">${data?.dwap?.toFixed(2)}</p>
+              </div>
+            </div>
+          )}
+        </div>
         </div>
 
-        {/* Actions */}
-        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+        {/* Actions - fixed footer */}
+        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 flex-shrink-0 bg-white">
           <button onClick={onClose} className="px-6 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl font-medium">
-            Cancel
+            Close
           </button>
-          <button 
-            onClick={() => onAction(data)}
-            className={`px-6 py-2.5 rounded-xl font-medium flex items-center gap-2 shadow-lg transition-all ${
-              type === 'signal' 
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
-                : 'bg-red-600 hover:bg-red-700 text-white shadow-red-500/20'
-            }`}
-          >
-            {type === 'signal' ? <><DollarSign size={18} /> Buy {symbol}</> : <><TrendingDown size={18} /> Sell Position</>}
-          </button>
+          {type === 'signal' && !data?.exit_date && (
+            <button
+              onClick={() => setShowBuyModal(true)}
+              className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 flex items-center gap-2"
+            >
+              <DollarSign size={18} />
+              Buy {symbol}
+            </button>
+          )}
+          {type === 'missed' && (
+            <div className="px-4 py-2 bg-amber-50 text-amber-700 rounded-xl text-sm">
+              This opportunity has already passed
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Buy Modal */}
+      {showBuyModal && (
+        <BuyModal
+          symbol={symbol}
+          price={currentPrice}
+          stockInfo={stockInfo}
+          onClose={() => setShowBuyModal(false)}
+          onBuy={() => {
+            onAction && onAction();
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -427,6 +796,19 @@ const MetricCard = ({ title, value, subtitle, trend, icon: Icon }) => (
   </div>
 );
 
+// Signal Strength indicator
+const SignalStrengthBar = ({ strength }) => {
+  const color = strength >= 70 ? 'bg-emerald-500' : strength >= 50 ? 'bg-blue-500' : strength >= 30 ? 'bg-yellow-500' : 'bg-gray-400';
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${strength}%` }} />
+      </div>
+      <span className="text-xs font-semibold text-gray-600">{strength?.toFixed(0)}</span>
+    </div>
+  );
+};
+
 // Signal Card
 const SignalCard = ({ signal, onClick }) => (
   <div onClick={() => onClick(signal)} className={`bg-white rounded-lg border-l-4 ${signal.is_strong ? 'border-emerald-500' : 'border-blue-500'} shadow-sm p-4 hover:shadow-md transition-all cursor-pointer group`}>
@@ -436,11 +818,11 @@ const SignalCard = ({ signal, onClick }) => (
         {signal.is_strong && <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full flex items-center gap-1"><Zap size={12} /> STRONG</span>}
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-lg font-semibold text-gray-900">${signal.price.toFixed(2)}</span>
+        <span className="text-lg font-semibold text-gray-900">${signal.price?.toFixed(2)}</span>
         <ChevronRight size={18} className="text-gray-400 group-hover:text-blue-600 transition-colors" />
       </div>
     </div>
-    <div className="grid grid-cols-2 gap-2 text-sm">
+    <div className="grid grid-cols-3 gap-2 text-sm">
       <div className="flex items-center gap-1">
         <TrendingUp size={14} className="text-emerald-500" />
         <span className="text-gray-500">DWAP:</span>
@@ -451,7 +833,14 @@ const SignalCard = ({ signal, onClick }) => (
         <span className="text-gray-500">Vol:</span>
         <span className="font-medium">{signal.volume_ratio}x</span>
       </div>
+      <div className="flex items-center gap-1">
+        <span className="text-gray-500">Str:</span>
+        <SignalStrengthBar strength={signal.signal_strength || 0} />
+      </div>
     </div>
+    {signal.recommendation && (
+      <div className="mt-2 text-xs text-gray-500 italic truncate">{signal.recommendation}</div>
+    )}
   </div>
 );
 
@@ -462,10 +851,10 @@ const PositionRow = ({ position, onClick }) => {
   return (
     <tr onClick={() => onClick(position)} className="hover:bg-blue-50 transition-colors cursor-pointer group">
       <td className="py-3 px-4"><div className="flex items-center gap-2"><span className="font-semibold text-gray-900">{position.symbol}</span><Eye size={14} className="text-gray-300 group-hover:text-blue-500" /></div></td>
-      <td className="py-3 px-4 text-gray-600">{position.shares}</td>
-      <td className="py-3 px-4 text-gray-600">${position.entry_price.toFixed(2)}</td>
-      <td className="py-3 px-4 font-medium text-gray-900">${position.current_price.toFixed(2)}</td>
-      <td className="py-3 px-4"><span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold text-sm ${pnlBg} ${pnlColor}`}>{position.pnl_pct >= 0 ? '+' : ''}{position.pnl_pct.toFixed(1)}%</span></td>
+      <td className="py-3 px-4 text-gray-600">{position.shares?.toFixed(2)}</td>
+      <td className="py-3 px-4 text-gray-600">${position.entry_price?.toFixed(2)}</td>
+      <td className="py-3 px-4 font-medium text-gray-900">${position.current_price?.toFixed(2)}</td>
+      <td className="py-3 px-4"><span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold text-sm ${pnlBg} ${pnlColor}`}>{position.pnl_pct >= 0 ? '+' : ''}{position.pnl_pct?.toFixed(1)}%</span></td>
       <td className="py-3 px-4 text-gray-500"><Clock size={14} className="inline mr-1" />{position.days_held}d</td>
     </tr>
   );
@@ -476,57 +865,229 @@ const PositionRow = ({ position, onClick }) => {
 // ============================================================================
 
 function Dashboard() {
-  const { user, logout } = useAuth();
-  const [signals, setSignals] = useState(mockSignals);
-  const [positions, setPositions] = useState(mockPositions);
-  const [historicalTrades, setHistoricalTrades] = useState([]);
+  const { user, logout, isAdmin, isAuthenticated, loading: authLoading } = useAuth();
+  const [signals, setSignals] = useState([]);
+  const [positions, setPositions] = useState([]);
+  const [trades, setTrades] = useState([]);
+  const [missedOpportunities, setMissedOpportunities] = useState([]);
+  const [backtest, setBacktest] = useState(null);
   const [scanning, setScanning] = useState(false);
-  const [lastScan, setLastScan] = useState(new Date());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastScan, setLastScan] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [chartModal, setChartModal] = useState(null);
+  const [dataStatus, setDataStatus] = useState({ loaded: 0, status: 'loading' });
+  const [marketRegime, setMarketRegime] = useState(null);
 
-  useEffect(() => { setHistoricalTrades(generateHistoricalTrades()); }, []);
+  // Initial data load - HYBRID APPROACH for instant dashboard display
+  // 1. Show cached data immediately (no loading state for returning users)
+  // 2. Fetch signals from CDN (same for all users, instant)
+  // 3. Background refresh user-specific data from API
+  useEffect(() => {
+    const loadData = async () => {
+      // Step 1: Load cached data IMMEDIATELY (no loading spinner for returning users)
+      const cachedSignals = getCache(CACHE_KEYS.SIGNALS);
+      const cachedBacktest = getCache(CACHE_KEYS.BACKTEST);
+      const cachedPositions = getCache(CACHE_KEYS.POSITIONS);
+      const cachedMissed = getCache(CACHE_KEYS.MISSED);
+
+      // If we have any cached data, show the dashboard immediately
+      if (cachedSignals || cachedBacktest) {
+        if (cachedSignals) setSignals(cachedSignals);
+        if (cachedBacktest) {
+          setBacktest(cachedBacktest.backtest);
+          setPositions(cachedBacktest.positions || cachedPositions || []);
+          setTrades(cachedBacktest.trades || []);
+        }
+        if (cachedMissed) setMissedOpportunities(cachedMissed);
+        setLoading(false); // Dashboard visible immediately!
+      }
+
+      // Step 2: Fetch signals from CDN (static JSON, instant for ALL users)
+      try {
+        const cdnSignals = await fetchSignalsFromCDN();
+        if (cdnSignals && cdnSignals.length > 0) {
+          setSignals(cdnSignals);
+          setCache(CACHE_KEYS.SIGNALS, cdnSignals);
+          setLastScan(new Date()); // CDN signals are fresh
+        }
+      } catch (e) {
+        console.log('CDN signals not available, will use API fallback');
+      }
+
+      // Step 3: Quick health check to show data status
+      try {
+        const health = await api.get('/health');
+        setDataStatus({ loaded: health.symbols_loaded, status: 'ready' });
+        if (health.last_scan) {
+          setLastScan(new Date(health.last_scan));
+        }
+        setLoading(false); // Definitely show dashboard now
+      } catch (err) {
+        // If health check fails but we have cached data, still show dashboard
+        if (cachedSignals || cachedBacktest) {
+          setDataStatus({ loaded: 0, status: 'cached' });
+          setLoading(false);
+        } else {
+          setError('Failed to connect to backend. Make sure the API is running.');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Step 4: Background refresh - load fresh data from API (don't block UI)
+      const refreshData = async () => {
+        try {
+          // Load all data in parallel
+          const [backtestResult, signalsResult, marketResult, missedResult] = await Promise.allSettled([
+            api.get('/api/backtest/run?days=252').catch(() => null),
+            // Only fetch from API if CDN failed
+            signals.length === 0 ? api.get('/api/signals/memory-scan?refresh=false&apply_market_filter=true').catch(() => null) : Promise.resolve(null),
+            api.get('/api/market/regime').catch(() => null),
+            api.get('/api/signals/missed?days=30&limit=10').catch(() => null)
+          ]);
+
+          // Process backtest result
+          if (backtestResult.status === 'fulfilled' && backtestResult.value?.success) {
+            const bt = backtestResult.value;
+            setBacktest(bt.backtest);
+            setPositions(bt.positions || []);
+            setTrades(bt.trades || []);
+            setCache(CACHE_KEYS.BACKTEST, bt);
+            setCache(CACHE_KEYS.POSITIONS, bt.positions || []);
+          }
+
+          // Process signals result (only if CDN didn't work)
+          if (signalsResult.status === 'fulfilled' && signalsResult.value?.signals) {
+            setSignals(signalsResult.value.signals);
+            setCache(CACHE_KEYS.SIGNALS, signalsResult.value.signals);
+            if (signalsResult.value.timestamp) {
+              setLastScan(new Date(signalsResult.value.timestamp));
+            }
+          }
+
+          // Process market regime
+          if (marketResult.status === 'fulfilled' && marketResult.value) {
+            setMarketRegime(marketResult.value);
+          }
+
+          // Process missed opportunities
+          if (missedResult.status === 'fulfilled' && missedResult.value) {
+            setMissedOpportunities(missedResult.value || []);
+            setCache(CACHE_KEYS.MISSED, missedResult.value);
+          }
+        } catch (err) {
+          console.log('Background refresh failed:', err);
+        }
+      };
+
+      // Run background refresh
+      refreshData();
+    };
+
+    loadData();
+  }, []);
 
   const runScan = async () => {
     setScanning(true);
-    await new Promise(r => setTimeout(r, 1500));
-    setLastScan(new Date());
-    setScanning(false);
+    try {
+      // Refresh signals from API (memory-scan exports to CDN automatically)
+      const signalsResult = await api.get('/api/signals/memory-scan?refresh=true&apply_market_filter=true&export_to_cdn=true');
+      setSignals(signalsResult.signals || []);
+      setCache(CACHE_KEYS.SIGNALS, signalsResult.signals || []);
+      setLastScan(new Date(signalsResult.timestamp));
+
+      // Update market regime
+      const marketResult = await api.get('/api/market/regime');
+      setMarketRegime(marketResult);
+
+      // Re-run backtest with fresh data
+      try {
+        const backtestResult = await api.get('/api/backtest/run?days=252');
+        setBacktest(backtestResult.backtest);
+        setPositions(backtestResult.positions || []);
+        setTrades(backtestResult.trades || []);
+        setCache(CACHE_KEYS.BACKTEST, backtestResult);
+        setCache(CACHE_KEYS.POSITIONS, backtestResult.positions || []);
+      } catch (btErr) {
+        console.log('Backtest failed - data may still be loading');
+      }
+
+    } catch (err) {
+      console.error('Scan failed:', err);
+    } finally {
+      setScanning(false);
+    }
   };
 
-  const handleBuy = (signal) => {
-    if (!user) { setShowLoginModal(true); return; }
-    const newPosition = {
-      id: Date.now(), symbol: signal.symbol, shares: Math.floor(10000 / signal.price),
-      entry_price: signal.price, current_price: signal.price, pnl_pct: 0, days_held: 0,
-      entry_date: new Date().toISOString().split('T')[0], stop_loss: signal.stop_loss, profit_target: signal.profit_target
-    };
-    setPositions([newPosition, ...positions]);
-    setSignals(signals.filter(s => s.symbol !== signal.symbol));
-    setChartModal(null);
+  // Reload positions and missed opportunities after a buy
+  const reloadPositions = async () => {
+    try {
+      // Try to get real positions from database
+      const posResult = await api.get('/api/portfolio/positions');
+      if (posResult.positions && posResult.positions.length > 0) {
+        setPositions(posResult.positions);
+        setCache(CACHE_KEYS.POSITIONS, posResult.positions);
+      } else {
+        // Fall back to backtest positions
+        const backtestResult = await api.get('/api/backtest/run?days=252');
+        setPositions(backtestResult.positions || []);
+        setCache(CACHE_KEYS.POSITIONS, backtestResult.positions || []);
+      }
+
+      // Also refresh missed opportunities (now that user bought something)
+      const missedResult = await api.get('/api/signals/missed?days=30&limit=10');
+      setMissedOpportunities(missedResult || []);
+      setCache(CACHE_KEYS.MISSED, missedResult || []);
+    } catch (err) {
+      console.log('Could not reload positions:', err);
+    }
   };
 
-  const handleSell = (position) => {
-    if (!user) { setShowLoginModal(true); return; }
-    const trade = {
-      id: Date.now(), symbol: position.symbol, entryDate: position.entry_date,
-      exitDate: new Date().toISOString().split('T')[0], entryPrice: position.entry_price,
-      exitPrice: position.current_price, shares: position.shares,
-      pnl: (position.current_price - position.entry_price) * position.shares,
-      pnlPct: position.pnl_pct, exitReason: 'MANUAL', daysHeld: position.days_held
-    };
-    setHistoricalTrades([trade, ...historicalTrades]);
-    setPositions(positions.filter(p => p.id !== position.id));
-    setChartModal(null);
-  };
-
-  const totalValue = positions.reduce((sum, p) => sum + p.shares * p.current_price, 0);
-  const totalCost = positions.reduce((sum, p) => sum + p.shares * p.entry_price, 0);
+  const totalValue = positions.reduce((sum, p) => sum + (p.shares || 0) * (p.current_price || 0), 0);
+  const totalCost = positions.reduce((sum, p) => sum + (p.shares || 0) * (p.entry_price || 0), 0);
   const totalPnlPct = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
-  const wins = historicalTrades.filter(t => t.pnl > 0);
-  const winRate = historicalTrades.length > 0 ? (wins.length / historicalTrades.length * 100) : 0;
-  const totalHistoricalPnl = historicalTrades.reduce((sum, t) => sum + t.pnl, 0);
+  const wins = trades.filter(t => t.pnl > 0);
+  const winRate = trades.length > 0 ? (wins.length / trades.length * 100) : 0;
+  const totalHistoricalPnl = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading RigaCap</h2>
+          <p className="text-gray-500">Initializing your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Connection Error</h2>
+          <p className="text-gray-500 mb-4">{error}</p>
+          <p className="text-sm text-gray-400 mb-4">
+            Backend: {API_BASE}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show data loading state if backend is up but no data yet
+  const noDataAvailable = positions.length === 0 && signals.length === 0 && trades.length === 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -537,7 +1098,10 @@ function Dashboard() {
             <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
               <TrendingUp className="text-white" size={24} />
             </div>
-            <div><h1 className="text-xl font-bold text-gray-900">Stocker</h1><p className="text-xs text-gray-500">DWAP Trading System</p></div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">RigaCap</h1>
+              <p className="text-xs text-gray-500">DWAP Trading System</p>
+            </div>
           </div>
 
           <nav className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
@@ -547,12 +1111,28 @@ function Dashboard() {
             <button onClick={() => setActiveTab('history')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
               <History size={16} className="inline mr-2" />Trade History
             </button>
+            {isAdmin && (
+              <button onClick={() => setActiveTab('admin')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'admin' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
+                <Settings size={16} className="inline mr-2" />Admin
+              </button>
+            )}
           </nav>
-          
+
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500">Last: {lastScan.toLocaleTimeString()}</span>
-            <button onClick={runScan} disabled={scanning} className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 ${scanning ? 'bg-gray-100 text-gray-400' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20'}`}>
-              <RefreshCw size={16} className={scanning ? 'animate-spin' : ''} />{scanning ? 'Scanning...' : 'Scan'}
+            <div className="text-right text-sm">
+              <span className="text-gray-500">Last scan: </span>
+              <span className="text-gray-700 font-medium">{lastScan?.toLocaleTimeString() || 'Never'}</span>
+              <div className="text-xs text-gray-400">{dataStatus.loaded} symbols loaded</div>
+            </div>
+            <button
+              onClick={runScan}
+              disabled={scanning}
+              className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 ${
+                scanning ? 'bg-gray-100 text-gray-400' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20'
+              }`}
+            >
+              <RefreshCw size={16} className={scanning ? 'animate-spin' : ''} />
+              {scanning ? 'Scanning...' : 'Scan'}
             </button>
             {user ? (
               <div className="flex items-center gap-2">
@@ -569,14 +1149,104 @@ function Dashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-6">
+        {/* Subscription Banner */}
+        {isAuthenticated && <SubscriptionBanner />}
+
+        {/* Admin Dashboard */}
+        {activeTab === 'admin' && isAdmin && (
+          <AdminDashboard />
+        )}
+
+        {/* No data warning banner */}
+        {noDataAvailable && (
+          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+            <AlertCircle className="text-amber-500 flex-shrink-0" size={24} />
+            <div>
+              <h3 className="font-semibold text-amber-800">Market Data Loading</h3>
+              <p className="text-sm text-amber-700">
+                Historical data is being fetched. This may take a moment.
+                Click "Scan" to retry, or wait for the automatic refresh.
+              </p>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'dashboard' ? (
           <>
+            {/* Backtest summary banner */}
+            {backtest && (
+              <div className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Simulated Portfolio (Backtest)</h3>
+                    <p className="text-sm text-gray-500">
+                      Based on DWAP strategy from {backtest.start_date} to {backtest.end_date}
+                    </p>
+                  </div>
+                  <div className="flex gap-6 text-sm">
+                    <div className="text-center">
+                      <p className="text-gray-500">Return</p>
+                      <p className={`font-bold ${backtest.total_return_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {backtest.total_return_pct >= 0 ? '+' : ''}{backtest.total_return_pct}%
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-gray-500">Win Rate</p>
+                      <p className="font-bold text-gray-900">{backtest.win_rate}%</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-gray-500">Sharpe</p>
+                      <p className="font-bold text-gray-900">{backtest.sharpe_ratio}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-gray-500">Max DD</p>
+                      <p className="font-bold text-red-500">-{backtest.max_drawdown_pct}%</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Market Regime Banner */}
+            {marketRegime && (
+              <div className={`mb-4 p-3 rounded-lg flex items-center justify-between ${
+                marketRegime.regime === 'strong_bull' ? 'bg-emerald-50 border border-emerald-200' :
+                marketRegime.regime === 'bull' ? 'bg-green-50 border border-green-200' :
+                marketRegime.regime === 'neutral' ? 'bg-yellow-50 border border-yellow-200' :
+                marketRegime.regime === 'bear' ? 'bg-orange-50 border border-orange-200' :
+                'bg-red-50 border border-red-200'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-full ${
+                    marketRegime.regime?.includes('bull') ? 'bg-emerald-100' :
+                    marketRegime.regime === 'neutral' ? 'bg-yellow-100' : 'bg-red-100'
+                  }`}>
+                    {marketRegime.regime?.includes('bull') ? <TrendingUp className="w-5 h-5 text-emerald-600" /> :
+                     marketRegime.regime === 'neutral' ? <Activity className="w-5 h-5 text-yellow-600" /> :
+                     <TrendingDown className="w-5 h-5 text-red-600" />}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-900 capitalize">
+                      {marketRegime.regime?.replace('_', ' ')} Market
+                    </span>
+                    <span className="mx-2 text-gray-400">|</span>
+                    <span className="text-gray-600">SPY ${marketRegime.spy_price}</span>
+                    <span className="mx-2 text-gray-400">|</span>
+                    <span className="text-gray-600">VIX {marketRegime.vix_level}</span>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-600 max-w-md truncate">
+                  {marketRegime.recommendation}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-5 gap-4 mb-6">
               <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={Wallet} trend="up" />
               <MetricCard title="Open P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} icon={totalPnlPct >= 0 ? TrendingUp : TrendingDown} trend={totalPnlPct >= 0 ? 'up' : 'down'} />
               <MetricCard title="Positions" value={`${positions.length}/15`} icon={PieIcon} />
               <MetricCard title="Signals" value={signals.length} subtitle={`${signals.filter(s => s.is_strong).length} strong`} icon={Zap} />
-              <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${historicalTrades.length} trades`} icon={Target} />
+              <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${trades.length} trades`} icon={Target} />
             </div>
 
             <div className="grid grid-cols-3 gap-6">
@@ -587,8 +1257,15 @@ function Dashboard() {
                     <span className="text-xs text-gray-500">Click to view chart</span>
                   </div>
                   <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
-                    {signals.map((s, i) => <SignalCard key={i} signal={s} onClick={(sig) => setChartModal({ type: 'signal', data: sig, symbol: sig.symbol })} />)}
-                    {signals.length === 0 && <div className="text-center py-8 text-gray-500"><Activity className="w-12 h-12 mx-auto text-gray-300 mb-3" /><p>No signals</p></div>}
+                    {signals.length > 0 ? signals.map((s, i) => (
+                      <SignalCard key={i} signal={s} onClick={(sig) => setChartModal({ type: 'signal', data: sig, symbol: sig.symbol })} />
+                    )) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <Activity className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                        <p>No signals found</p>
+                        <p className="text-xs mt-1">Run a scan to check for opportunities</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -597,64 +1274,187 @@ function Dashboard() {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                   <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                     <h2 className="text-lg font-semibold text-gray-900">Open Positions</h2>
-                    <span className="text-xs text-gray-500">Click row to view chart & sell</span>
+                    <span className="text-xs text-gray-500">Click row to view chart with entry point</span>
                   </div>
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-100">
-                      <tr>{['Symbol', 'Shares', 'Entry', 'Current', 'P&L', 'Days'].map(h => <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr>
-                    </thead>
-                    <tbody>
-                      {positions.map(p => <PositionRow key={p.id} position={p} onClick={(pos) => setChartModal({ type: 'position', data: pos, symbol: pos.symbol })} />)}
-                    </tbody>
-                  </table>
-                  {positions.length === 0 && <div className="text-center py-12 text-gray-500"><PieIcon className="w-12 h-12 mx-auto text-gray-300 mb-3" /><p>No positions - click a signal to buy</p></div>}
+                  {positions.length > 0 ? (
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-100">
+                        <tr>{['Symbol', 'Shares', 'Entry', 'Current', 'P&L', 'Days'].map(h => <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr>
+                      </thead>
+                      <tbody>
+                        {positions.map(p => <PositionRow key={p.id} position={p} onClick={(pos) => setChartModal({ type: 'position', data: pos, symbol: pos.symbol })} />)}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="text-center py-12 text-gray-500">
+                      <PieIcon className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                      <p>No open positions</p>
+                      <p className="text-xs mt-1">Positions will appear when signals meet buy criteria</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
+
+            {/* Missed Opportunities Section */}
+            {missedOpportunities.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-semibold text-gray-900">Missed Opportunities</h2>
+                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">Hit +20% Target</span>
+                  </div>
+                  <span className="text-xs text-gray-500">Completed winning trades you could have made</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-100">
+                      <tr>
+                        {['Symbol', 'Buy Date', 'Buy Price', 'Sell Date', 'Sell Price', 'Return', 'P&L', 'Days'].map(h => (
+                          <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {missedOpportunities.map((opp, idx) => (
+                        <tr
+                          key={`${opp.symbol}-${idx}`}
+                          className="hover:bg-amber-50 border-b border-gray-50 cursor-pointer"
+                          onClick={() => setChartModal({
+                            type: 'missed',
+                            data: {
+                              ...opp,
+                              entry_date: opp.signal_date,
+                              entry_price: opp.signal_price,
+                              sell_date: opp.exit_date,
+                              sell_price: opp.exit_price
+                            },
+                            symbol: opp.symbol
+                          })}
+                        >
+                          <td className="py-3 px-4 font-semibold text-gray-900">{opp.symbol}</td>
+                          <td className="py-3 px-4 text-gray-500 text-sm">{opp.signal_date}</td>
+                          <td className="py-3 px-4">${opp.signal_price?.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-gray-500 text-sm">{opp.exit_date}</td>
+                          <td className="py-3 px-4">${opp.exit_price?.toFixed(2)}</td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-1 rounded text-sm font-semibold bg-green-50 text-green-600">
+                              +{opp.would_be_return?.toFixed(0)}%
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-medium text-green-600">
+                            +${opp.would_be_pnl?.toFixed(0)}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-500">{opp.days_held || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="px-5 py-3 bg-green-50 border-t border-green-100 text-sm text-green-700">
+                  <span className="font-medium">Total missed gains:</span> $
+                  {missedOpportunities.reduce((sum, o) => sum + (o.would_be_pnl || 0), 0).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                  {' '}(based on $6k position size)
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <div className="space-y-6">
             <div className="grid grid-cols-4 gap-4">
-              <MetricCard title="Total Trades" value={historicalTrades.length} icon={History} />
-              <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${wins.length}W / ${historicalTrades.length - wins.length}L`} icon={Target} trend={winRate > 50 ? 'up' : 'down'} />
+              <MetricCard title="Total Trades" value={trades.length} icon={History} />
+              <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${wins.length}W / ${trades.length - wins.length}L`} icon={Target} trend={winRate > 50 ? 'up' : 'down'} />
               <MetricCard title="Total P&L" value={`$${totalHistoricalPnl.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={Wallet} trend={totalHistoricalPnl >= 0 ? 'up' : 'down'} />
-              <MetricCard title="Avg Return" value={`${historicalTrades.length ? (historicalTrades.reduce((s,t) => s + t.pnlPct, 0) / historicalTrades.length).toFixed(1) : 0}%`} icon={BarChart3} />
+              <MetricCard title="Avg Return" value={`${trades.length ? (trades.reduce((s,t) => s + (t.pnl_pct || 0), 0) / trades.length).toFixed(1) : 0}%`} icon={BarChart3} />
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100"><h2 className="text-lg font-semibold text-gray-900">Trade History (2 Years)</h2></div>
+              <div className="px-5 py-4 border-b border-gray-100"><h2 className="text-lg font-semibold text-gray-900">Trade History (1 Year Backtest)</h2></div>
               <div className="overflow-x-auto max-h-[600px]">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-100 sticky top-0">
-                    <tr>{['Symbol', 'Entry', 'Exit', 'Entry $', 'Exit $', 'Return', 'P&L', 'Reason'].map(h => <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    {historicalTrades.map(t => (
-                      <tr key={t.id} className="hover:bg-gray-50 border-b border-gray-50">
-                        <td className="py-3 px-4 font-medium">{t.symbol}</td>
-                        <td className="py-3 px-4 text-gray-500 text-sm">{t.entryDate}</td>
-                        <td className="py-3 px-4 text-gray-500 text-sm">{t.exitDate}</td>
-                        <td className="py-3 px-4">${t.entryPrice.toFixed(2)}</td>
-                        <td className="py-3 px-4">${t.exitPrice.toFixed(2)}</td>
-                        <td className="py-3 px-4"><span className={`px-2 py-1 rounded text-sm font-semibold ${t.pnlPct >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>{t.pnlPct >= 0 ? '+' : ''}{t.pnlPct.toFixed(1)}%</span></td>
-                        <td className={`py-3 px-4 font-medium ${t.pnl >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>${t.pnl.toFixed(0)}</td>
-                        <td className="py-3 px-4"><span className={`px-2 py-1 rounded text-xs font-medium ${t.exitReason === 'PROFIT_TARGET' ? 'bg-emerald-100 text-emerald-700' : t.exitReason === 'STOP_LOSS' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{t.exitReason}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                {trades.length > 0 ? (
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-100 sticky top-0">
+                      <tr>{['Symbol', 'Entry', 'Exit', 'Entry $', 'Exit $', 'Return', 'P&L', 'Reason', 'Days'].map(h => <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {trades.map(t => (
+                        <tr key={t.id} className="hover:bg-gray-50 border-b border-gray-50">
+                          <td className="py-3 px-4 font-medium">{t.symbol}</td>
+                          <td className="py-3 px-4 text-gray-500 text-sm">{t.entry_date}</td>
+                          <td className="py-3 px-4 text-gray-500 text-sm">{t.exit_date}</td>
+                          <td className="py-3 px-4">${t.entry_price?.toFixed(2)}</td>
+                          <td className="py-3 px-4">${t.exit_price?.toFixed(2)}</td>
+                          <td className="py-3 px-4"><span className={`px-2 py-1 rounded text-sm font-semibold ${t.pnl_pct >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>{t.pnl_pct >= 0 ? '+' : ''}{t.pnl_pct?.toFixed(1)}%</span></td>
+                          <td className={`py-3 px-4 font-medium ${t.pnl >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>${t.pnl?.toFixed(0)}</td>
+                          <td className="py-3 px-4"><span className={`px-2 py-1 rounded text-xs font-medium ${t.exit_reason === 'profit_target' ? 'bg-emerald-100 text-emerald-700' : t.exit_reason === 'stop_loss' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{t.exit_reason?.toUpperCase()}</span></td>
+                          <td className="py-3 px-4 text-gray-500">{t.days_held}d</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="text-center py-12 text-gray-500">
+                    <History className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                    <p>No trades in backtest period</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
       </main>
 
-      {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
-      {chartModal && <StockChartModal {...chartModal} onClose={() => setChartModal(null)} onAction={chartModal.type === 'signal' ? handleBuy : handleSell} />}
+      {showLoginModal && <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />}
+      {chartModal && <StockChartModal {...chartModal} onClose={() => setChartModal(null)} onAction={() => { setChartModal(null); reloadPositions(); }} />}
     </div>
   );
 }
 
+// Protected Route wrapper
+function ProtectedRoute({ children }) {
+  const { isAuthenticated, loading, user } = useAuth();
+
+  console.log('ProtectedRoute: loading=', loading, 'isAuthenticated=', isAuthenticated, 'user=', user?.email);
+
+  if (loading) {
+    console.log('ProtectedRoute: Still loading, showing spinner');
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    console.log('ProtectedRoute: Not authenticated, redirecting to /');
+    return <Navigate to="/" replace />;
+  }
+
+  console.log('ProtectedRoute: Authenticated, rendering children');
+  return children;
+}
+
 export default function App() {
-  return <AuthProvider><Dashboard /></AuthProvider>;
+  return (
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/app" element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin" element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } />
+      </Routes>
+    </AuthProvider>
+  );
 }

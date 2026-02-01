@@ -24,7 +24,7 @@ services:
       - postgres
       - redis
     environment:
-      - DATABASE_URL=postgresql://stocker:stocker@postgres:5432/stocker
+      - DATABASE_URL=postgresql://rigacap:rigacap@postgres:5432/rigacap
       - REDIS_URL=redis://redis:6379
       - DEBUG=true
     volumes:
@@ -37,9 +37,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=stocker
-      - POSTGRES_PASSWORD=stocker
-      - POSTGRES_DB=stocker
+      - POSTGRES_USER=rigacap
+      - POSTGRES_PASSWORD=rigacap
+      - POSTGRES_DB=rigacap
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

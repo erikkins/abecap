@@ -178,8 +178,8 @@ app.include_router(billing_router, prefix="/api/billing", tags=["billing"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 
 # Lambda handler (for AWS Lambda deployment)
-# lifespan="auto" runs startup once on cold start, not every request
-_mangum_handler = Mangum(app, lifespan="auto")
+# lifespan="off" avoids issues with event loop reuse on warm Lambdas
+_mangum_handler = None
 
 
 def handler(event, context):
@@ -188,6 +188,8 @@ def handler(event, context):
     1. Warmer events (from EventBridge scheduled warmer)
     2. API Gateway HTTP API events (via Mangum)
     """
+    import asyncio
+
     # Handle warmer events - just return success to keep Lambda warm
     if event.get("warmer"):
         print("🔥 Warmer ping received - Lambda is warm")
@@ -197,6 +199,22 @@ def handler(event, context):
         }
 
     # For API Gateway events, use Mangum
+    # Create a fresh Mangum handler to avoid event loop issues on warm Lambdas
+    global _mangum_handler
+
+    # Check if event loop is closed and reset if needed
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            asyncio.set_event_loop(asyncio.new_event_loop())
+            _mangum_handler = None  # Force recreation
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+        _mangum_handler = None
+
+    if _mangum_handler is None:
+        _mangum_handler = Mangum(app, lifespan="off")
+
     return _mangum_handler(event, context)
 
 

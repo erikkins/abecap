@@ -1,5 +1,5 @@
 """
-Configuration settings for the Stocker API
+Configuration settings for the RigaCap API
 """
 
 from pydantic_settings import BaseSettings
@@ -9,24 +9,51 @@ import os
 
 class Settings(BaseSettings):
     # App
-    APP_NAME: str = "Stocker API"
+    APP_NAME: str = "RigaCap API"
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
-    
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "https://rigacap.com")
+
     # Database
     DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", 
-        "postgresql://stocker:stocker@localhost:5432/stocker"
+        "DATABASE_URL",
+        "postgresql://rigacap:rigacap@localhost:5432/rigacap"
     )
-    
+
     # Redis (for caching)
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
-    
+
     # CORS
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:5173",
-        "https://stocker.yourdomain.com",
+        "http://localhost:5176",
+        "https://rigacap.com",
+        "https://www.rigacap.com",
     ]
+
+    # JWT Authentication
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "dev-secret-key-change-in-production")
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # Stripe
+    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "")
+    STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+    STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    STRIPE_PRICE_ID: str = os.getenv("STRIPE_PRICE_ID", "")  # Monthly subscription price
+    STRIPE_PRICE_ID_ANNUAL: str = os.getenv("STRIPE_PRICE_ID_ANNUAL", "")  # Annual subscription price
+
+    # Cloudflare Turnstile
+    TURNSTILE_SECRET_KEY: str = os.getenv("TURNSTILE_SECRET_KEY", "")
+    TURNSTILE_SITE_KEY: str = os.getenv("TURNSTILE_SITE_KEY", "")
+
+    # OAuth
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    APPLE_CLIENT_ID: str = os.getenv("APPLE_CLIENT_ID", "")
+    APPLE_TEAM_ID: str = os.getenv("APPLE_TEAM_ID", "")
+    APPLE_KEY_ID: str = os.getenv("APPLE_KEY_ID", "")
     
     # Trading strategy (optimized from backtesting)
     DWAP_THRESHOLD_PCT: float = 5.0
@@ -44,7 +71,7 @@ class Settings(BaseSettings):
     
     # AWS
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
-    S3_BUCKET: str = os.getenv("S3_BUCKET", "stocker-data")
+    S3_BUCKET: str = os.getenv("S3_BUCKET", "rigacap-data")
     
     class Config:
         env_file = ".env"

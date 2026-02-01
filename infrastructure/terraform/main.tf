@@ -223,7 +223,7 @@ resource "aws_route53_record" "api" {
 # ============================================================================
 
 resource "aws_s3_bucket" "frontend" {
-  bucket = "${local.prefix}-frontend"
+  bucket = "${local.prefix}-frontend-149218244179"
 }
 
 resource "aws_s3_bucket_website_configuration" "frontend" {
@@ -369,7 +369,7 @@ resource "aws_iam_role_policy_attachment" "lambda_vpc" {
 
 # S3 bucket for Lambda code (kept for backwards compatibility)
 resource "aws_s3_bucket" "lambda_code" {
-  bucket = "${local.prefix}-lambda-deploy-774558858301"
+  bucket = "${local.prefix}-lambda-deploy-149218244179"
 }
 
 # ============================================================================
@@ -413,7 +413,7 @@ resource "aws_ecr_lifecycle_policy" "api" {
 
 # S3 bucket for persistent price data (parquet files)
 resource "aws_s3_bucket" "price_data" {
-  bucket = "${local.prefix}-price-data-774558858301"
+  bucket = "${local.prefix}-price-data-149218244179"
 
   tags = {
     Name = "${local.prefix}-price-data"

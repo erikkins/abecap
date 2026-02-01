@@ -1,7 +1,7 @@
 """
-Stocker Technical Indicators Library
+RigaCap Technical Indicators Library
 
-This module implements all technical indicators from the original Stocker SQL Server database,
+This module implements all technical indicators from the original RigaCap SQL Server database,
 optimized for vectorized operations with pandas/numpy.
 
 Each function is designed to match the exact logic of the corresponding SQL function.

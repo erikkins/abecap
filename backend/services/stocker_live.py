@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Stocker Live Trading System
+RigaCap Live Trading System
 ============================
 
 Optimized DWAP-based stock scanner and trading system.
@@ -19,10 +19,10 @@ Configuration:
 - Position Size: 6% each
 
 Usage:
-    python stocker_live.py scan          # Run market scan
-    python stocker_live.py scan --save   # Save to JSON
-    python stocker_live.py download      # Download fresh data
-    python stocker_live.py backtest      # Run backtest on fresh data
+    python rigacap_live.py scan          # Run market scan
+    python rigacap_live.py scan --save   # Save to JSON
+    python rigacap_live.py download      # Download fresh data
+    python rigacap_live.py backtest      # Run backtest on fresh data
 """
 
 import pandas as pd
@@ -176,7 +176,7 @@ class Position:
 # SCANNER
 # =============================================================================
 
-class StockerScanner:
+class RigaCapScanner:
     """Live market scanner"""
     
     def __init__(self, config: Dict = None):
@@ -301,7 +301,7 @@ class StockerScanner:
                 self.signals.append(signal)
         
         # Sort by strength, then by pct above DWAP
-        self.signals.sort(key=lambda s: (-s.is_strong, -s.pct_above_dwap))
+        self.signals.sort(key=lambda s: (not s.is_strong, -s.pct_above_dwap))
         
         return self.signals
     
@@ -525,7 +525,7 @@ class Backtester:
 # =============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description='Stocker Live Trading System')
+    parser = argparse.ArgumentParser(description='RigaCap Live Trading System')
     parser.add_argument('command', choices=['scan', 'download', 'backtest'],
                        help='Command to run')
     parser.add_argument('--save', action='store_true', help='Save results to file')
@@ -533,11 +533,11 @@ def main():
     args = parser.parse_args()
     
     if args.command == 'download':
-        scanner = StockerScanner()
+        scanner = RigaCapScanner()
         scanner.download_data(period=args.period)
         
     elif args.command == 'scan':
-        scanner = StockerScanner()
+        scanner = RigaCapScanner()
         scanner.download_data(period=args.period)
         scanner.scan()
         scanner.print_signals()
@@ -546,7 +546,7 @@ def main():
             scanner.save_signals()
     
     elif args.command == 'backtest':
-        scanner = StockerScanner()
+        scanner = RigaCapScanner()
         scanner.download_data(period=args.period)
         
         backtester = Backtester()

@@ -1,0 +1,757 @@
+"""
+Email Service - Daily summary emails for subscribers
+
+Sends beautiful HTML emails with:
+- Top signals of the day
+- Market regime summary
+- Open positions P&L
+- Missed opportunities
+"""
+
+import asyncio
+import logging
+from datetime import datetime
+from typing import List, Dict, Optional
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import os
+
+logger = logging.getLogger(__name__)
+
+# Email configuration from environment
+SMTP_HOST = os.getenv('SMTP_HOST', 'smtp.gmail.com')
+SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
+SMTP_USER = os.getenv('SMTP_USER', '')
+SMTP_PASS = os.getenv('SMTP_PASS', '')
+FROM_EMAIL = os.getenv('FROM_EMAIL', 'signals@rigacap.com')
+FROM_NAME = os.getenv('FROM_NAME', 'RigaCap Signals')
+
+
+class EmailService:
+    """
+    Manages email sending for daily summaries and alerts
+    """
+
+    def __init__(self):
+        self.enabled = bool(SMTP_USER and SMTP_PASS)
+        if not self.enabled:
+            logger.warning("Email service disabled - SMTP credentials not configured")
+
+    async def send_email(
+        self,
+        to_email: str,
+        subject: str,
+        html_content: str,
+        text_content: Optional[str] = None
+    ) -> bool:
+        """
+        Send an email to a single recipient
+
+        Args:
+            to_email: Recipient email address
+            subject: Email subject line
+            html_content: HTML body of the email
+            text_content: Plain text fallback (optional)
+
+        Returns:
+            True if sent successfully, False otherwise
+        """
+        if not self.enabled:
+            logger.warning(f"Email service disabled, would have sent to: {to_email}")
+            return False
+
+        try:
+            import aiosmtplib
+
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = f"{FROM_NAME} <{FROM_EMAIL}>"
+            msg['To'] = to_email
+
+            # Add plain text part
+            if text_content:
+                text_part = MIMEText(text_content, 'plain', 'utf-8')
+                msg.attach(text_part)
+
+            # Add HTML part
+            html_part = MIMEText(html_content, 'html', 'utf-8')
+            msg.attach(html_part)
+
+            # Send via SMTP
+            await aiosmtplib.send(
+                msg,
+                hostname=SMTP_HOST,
+                port=SMTP_PORT,
+                username=SMTP_USER,
+                password=SMTP_PASS,
+                start_tls=True
+            )
+
+            logger.info(f"Email sent to {to_email}: {subject}")
+            return True
+
+        except ImportError:
+            logger.error("aiosmtplib not installed. Run: pip install aiosmtplib")
+            return False
+        except Exception as e:
+            logger.error(f"Failed to send email to {to_email}: {e}")
+            return False
+
+    def generate_daily_summary_html(
+        self,
+        signals: List[Dict],
+        market_regime: Dict,
+        positions: List[Dict],
+        missed_opportunities: List[Dict],
+        date: Optional[datetime] = None
+    ) -> str:
+        """
+        Generate beautiful HTML for daily summary email
+
+        Args:
+            signals: List of today's signals
+            market_regime: Market regime info (regime, spy_price, vix_level)
+            positions: User's open positions with P&L
+            missed_opportunities: Recent missed opportunities
+            date: Date for the summary (default: today)
+
+        Returns:
+            HTML string for email body
+        """
+        if date is None:
+            date = datetime.now()
+
+        date_str = date.strftime("%A, %B %d, %Y")
+        strong_signals = [s for s in signals if s.get('is_strong')]
+
+        # Calculate totals
+        total_positions_pnl = sum(
+            (p.get('current_price', 0) - p.get('entry_price', 0)) * p.get('shares', 0)
+            for p in positions
+        )
+        total_missed = sum(m.get('would_be_pnl', 0) for m in missed_opportunities[:5])
+
+        # Regime styling
+        regime = market_regime.get('regime', 'neutral') if market_regime else 'neutral'
+        regime_colors = {
+            'strong_bull': ('#059669', '#d1fae5', 'Strong Bull'),
+            'bull': ('#10b981', '#ecfdf5', 'Bull Market'),
+            'neutral': ('#6b7280', '#f3f4f6', 'Neutral'),
+            'bear': ('#f59e0b', '#fef3c7', 'Bear Market'),
+            'strong_bear': ('#dc2626', '#fee2e2', 'Strong Bear')
+        }
+        regime_color, regime_bg, regime_label = regime_colors.get(regime, regime_colors['neutral'])
+
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <tr>
+            <td style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 32px 24px; text-align: center;">
+                <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
+                    📈 RigaCap Daily
+                </h1>
+                <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
+                    {date_str}
+                </p>
+            </td>
+        </tr>
+
+        <!-- Market Summary -->
+        <tr>
+            <td style="padding: 24px;">
+                <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                    <tr>
+                        <td style="background-color: {regime_bg}; border-radius: 12px; padding: 20px;">
+                            <div style="font-size: 12px; text-transform: uppercase; color: #6b7280; font-weight: 600; margin-bottom: 8px;">
+                                Market Regime
+                            </div>
+                            <div style="font-size: 24px; font-weight: 700; color: {regime_color};">
+                                {regime_label}
+                            </div>
+                            <div style="margin-top: 12px; font-size: 14px; color: #374151;">
+                                SPY: ${market_regime.get('spy_price', 'N/A') if market_regime else 'N/A'} &nbsp;•&nbsp;
+                                VIX: {market_regime.get('vix_level', 'N/A') if market_regime else 'N/A'}
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+
+        <!-- Signals Section -->
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827;">
+                    🎯 Today's Signals ({len(strong_signals)} Strong)
+                </h2>
+                {"".join(self._signal_row(s) for s in signals[:8]) if signals else '''
+                <div style="background-color: #f9fafb; border-radius: 8px; padding: 24px; text-align: center; color: #6b7280;">
+                    No signals found today. Check back tomorrow!
+                </div>
+                '''}
+            </td>
+        </tr>
+
+        <!-- Open Positions -->
+        {self._positions_section(positions, total_positions_pnl) if positions else ''}
+
+        <!-- Missed Opportunities -->
+        {self._missed_section(missed_opportunities[:5], total_missed) if missed_opportunities else ''}
+
+        <!-- Footer -->
+        <tr>
+            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+                    <a href="#" style="color: #4f46e5; text-decoration: none;">View Dashboard</a>
+                    &nbsp;•&nbsp;
+                    <a href="#" style="color: #4f46e5; text-decoration: none;">Manage Alerts</a>
+                    &nbsp;•&nbsp;
+                    <a href="#" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
+                </p>
+                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                    Trading involves risk. Past performance does not guarantee future results.
+                </p>
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
+                    &copy; {date.year} RigaCap. All rights reserved.
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+        return html
+
+    def _signal_row(self, signal: Dict) -> str:
+        """Generate HTML for a single signal row"""
+        symbol = signal.get('symbol', 'N/A')
+        price = signal.get('price', 0)
+        pct_above = signal.get('pct_above_dwap', 0)
+        strength = signal.get('signal_strength', 0)
+        is_strong = signal.get('is_strong', False)
+        sector = signal.get('sector', '')
+
+        strength_color = '#059669' if strength >= 70 else '#f59e0b' if strength >= 50 else '#6b7280'
+        badge = '🔥' if is_strong else '📊'
+
+        return f"""
+        <div style="background-color: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 8px;">
+            <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                <tr>
+                    <td>
+                        <div style="font-size: 16px; font-weight: 600; color: #111827;">
+                            {badge} {symbol}
+                            {f'<span style="font-size: 12px; font-weight: 400; color: #6b7280; margin-left: 8px;">{sector}</span>' if sector else ''}
+                        </div>
+                        <div style="font-size: 14px; color: #6b7280; margin-top: 4px;">
+                            ${price:.2f} &nbsp;•&nbsp; +{pct_above:.1f}% above DWAP
+                        </div>
+                    </td>
+                    <td style="text-align: right;">
+                        <div style="display: inline-block; background-color: {strength_color}; color: #ffffff; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 99px;">
+                            {strength:.0f}
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        """
+
+    def _positions_section(self, positions: List[Dict], total_pnl: float) -> str:
+        """Generate HTML for positions section"""
+        pnl_color = '#059669' if total_pnl >= 0 else '#dc2626'
+        pnl_sign = '+' if total_pnl >= 0 else ''
+
+        rows = ""
+        for p in positions[:5]:
+            symbol = p.get('symbol', 'N/A')
+            shares = p.get('shares', 0)
+            entry = p.get('entry_price', 0)
+            current = p.get('current_price', entry)
+            pnl = (current - entry) * shares
+            pnl_pct = ((current - entry) / entry * 100) if entry > 0 else 0
+            color = '#059669' if pnl >= 0 else '#dc2626'
+            sign = '+' if pnl >= 0 else ''
+
+            rows += f"""
+            <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                    <span style="font-weight: 600;">{symbol}</span>
+                    <span style="color: #6b7280; font-size: 12px;"> ({shares} shares)</span>
+                </td>
+                <td style="padding: 8px 0; text-align: right; border-bottom: 1px solid #e5e7eb;">
+                    <span style="color: {color}; font-weight: 600;">{sign}${abs(pnl):.0f}</span>
+                    <span style="color: {color}; font-size: 12px;"> ({sign}{pnl_pct:.1f}%)</span>
+                </td>
+            </tr>
+            """
+
+        return f"""
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827;">
+                    💼 Open Positions
+                </h2>
+                <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                    {rows}
+                    <tr>
+                        <td style="padding: 12px 0 0 0; font-weight: 600;">Total P&L</td>
+                        <td style="padding: 12px 0 0 0; text-align: right; font-weight: 700; font-size: 18px; color: {pnl_color};">
+                            {pnl_sign}${abs(total_pnl):,.0f}
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        """
+
+    def _missed_section(self, missed: List[Dict], total_missed: float) -> str:
+        """Generate HTML for missed opportunities section"""
+        rows = ""
+        for m in missed:
+            symbol = m.get('symbol', 'N/A')
+            would_be = m.get('would_be_return', 0)
+            would_be_pnl = m.get('would_be_pnl', 0)
+            date = m.get('signal_date', '')
+
+            rows += f"""
+            <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #fef3c7;">
+                    <span style="font-weight: 600;">{symbol}</span>
+                    <span style="color: #92400e; font-size: 12px;"> ({date})</span>
+                </td>
+                <td style="padding: 8px 0; text-align: right; border-bottom: 1px solid #fef3c7; color: #b45309;">
+                    +{would_be:.1f}% (+${would_be_pnl:.0f})
+                </td>
+            </tr>
+            """
+
+        return f"""
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px;">
+                    <h2 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e;">
+                        😮 Missed Opportunities
+                    </h2>
+                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                        {rows}
+                    </table>
+                    <div style="margin-top: 12px; font-size: 14px; color: #b45309; font-weight: 600;">
+                        Total missed: +${total_missed:,.0f}
+                    </div>
+                </div>
+            </td>
+        </tr>
+        """
+
+    def generate_plain_text(
+        self,
+        signals: List[Dict],
+        market_regime: Dict,
+        date: Optional[datetime] = None
+    ) -> str:
+        """Generate plain text fallback for email"""
+        if date is None:
+            date = datetime.now()
+
+        date_str = date.strftime("%A, %B %d, %Y")
+        strong_signals = [s for s in signals if s.get('is_strong')]
+
+        lines = [
+            f"STOCKER DAILY - {date_str}",
+            "=" * 40,
+            "",
+            f"Market Regime: {market_regime.get('regime', 'N/A') if market_regime else 'N/A'}",
+            f"SPY: ${market_regime.get('spy_price', 'N/A') if market_regime else 'N/A'}",
+            f"VIX: {market_regime.get('vix_level', 'N/A') if market_regime else 'N/A'}",
+            "",
+            f"TODAY'S SIGNALS ({len(strong_signals)} Strong)",
+            "-" * 40,
+        ]
+
+        for s in signals[:10]:
+            symbol = s.get('symbol', 'N/A')
+            price = s.get('price', 0)
+            pct = s.get('pct_above_dwap', 0)
+            strength = s.get('signal_strength', 0)
+            marker = "***" if s.get('is_strong') else ""
+            lines.append(f"{marker}{symbol}: ${price:.2f} (+{pct:.1f}% DWAP) - Strength: {strength:.0f}")
+
+        lines.extend([
+            "",
+            "View full details at: https://rigacap.com/dashboard",
+            "",
+            "---",
+            "RigaCap - DWAP Trading Signals",
+            "Trading involves risk. Past performance does not guarantee future results."
+        ])
+
+        return "\n".join(lines)
+
+    async def send_daily_summary(
+        self,
+        to_email: str,
+        signals: List[Dict],
+        market_regime: Dict,
+        positions: List[Dict] = None,
+        missed_opportunities: List[Dict] = None
+    ) -> bool:
+        """
+        Send daily summary email to a subscriber
+
+        Args:
+            to_email: Subscriber email
+            signals: Today's signals
+            market_regime: Current market regime info
+            positions: User's open positions
+            missed_opportunities: Recent missed opportunities
+
+        Returns:
+            True if sent successfully
+        """
+        positions = positions or []
+        missed_opportunities = missed_opportunities or []
+
+        strong_count = len([s for s in signals if s.get('is_strong')])
+        subject = f"📊 RigaCap Daily: {strong_count} Strong Signals Found"
+
+        html = self.generate_daily_summary_html(
+            signals=signals,
+            market_regime=market_regime,
+            positions=positions,
+            missed_opportunities=missed_opportunities
+        )
+
+        text = self.generate_plain_text(signals, market_regime)
+
+        return await self.send_email(to_email, subject, html, text)
+
+    async def send_bulk_daily_summary(
+        self,
+        subscribers: List[str],
+        signals: List[Dict],
+        market_regime: Dict
+    ) -> Dict:
+        """
+        Send daily summary to all subscribers
+
+        Args:
+            subscribers: List of subscriber emails
+            signals: Today's signals
+            market_regime: Current market regime
+
+        Returns:
+            Summary of sent/failed emails
+        """
+        sent = 0
+        failed = 0
+
+        for email in subscribers:
+            try:
+                # TODO: Fetch user-specific positions and missed opportunities
+                success = await self.send_daily_summary(
+                    to_email=email,
+                    signals=signals,
+                    market_regime=market_regime
+                )
+                if success:
+                    sent += 1
+                else:
+                    failed += 1
+            except Exception as e:
+                logger.error(f"Failed to send to {email}: {e}")
+                failed += 1
+
+            # Rate limiting - don't spam SMTP server
+            await asyncio.sleep(0.5)
+
+        logger.info(f"Bulk email complete: {sent} sent, {failed} failed")
+        return {"sent": sent, "failed": failed, "total": len(subscribers)}
+
+
+    async def send_welcome_email(self, to_email: str, name: str) -> bool:
+        """
+        Send a beautiful welcome email when a user signs up.
+        """
+        first_name = name.split()[0] if name else "there"
+
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <tr>
+            <td style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 48px 24px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 16px;">🚀</div>
+                <h1 style="margin: 0; color: #ffffff; font-size: 32px; font-weight: 700;">
+                    Welcome to RigaCap!
+                </h1>
+                <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.9); font-size: 18px;">
+                    Your journey to smarter trading starts now
+                </p>
+            </td>
+        </tr>
+
+        <!-- Welcome Message -->
+        <tr>
+            <td style="padding: 40px 32px;">
+                <p style="font-size: 18px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    Hey {first_name}! 👋
+                </p>
+                <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    Thank you for joining RigaCap! We're thrilled to have you on board.
+                    You've just unlocked access to our powerful DWAP trading signals that
+                    have helped traders achieve <strong>216% returns</strong> in backtesting.
+                </p>
+
+                <!-- What You Get Box -->
+                <div style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
+                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #059669;">
+                        ✨ Here's what you get:
+                    </h2>
+                    <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
+                        <li><strong>Daily AI-powered signals</strong> — Know exactly when to buy</li>
+                        <li><strong>4,500+ stocks scanned</strong> — Never miss an opportunity</li>
+                        <li><strong>Stop-loss & profit targets</strong> — Manage risk automatically</li>
+                        <li><strong>Market regime analysis</strong> — Bull or bear, we've got you</li>
+                        <li><strong>Daily email digest</strong> — Signals delivered to your inbox</li>
+                        <li><strong>Portfolio tracking</strong> — See your P&L in real-time</li>
+                    </ul>
+                </div>
+
+                <p style="font-size: 16px; color: #374151; margin: 24px 0; line-height: 1.6;">
+                    Your <strong>7-day free trial</strong> starts now. Explore the dashboard,
+                    check out today's signals, and see the DWAP algorithm in action!
+                </p>
+
+                <!-- CTA Button -->
+                <div style="text-align: center; margin: 32px 0;">
+                    <a href="https://rigacap.com/app"
+                       style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; font-size: 16px; font-weight: 600; padding: 16px 40px; border-radius: 12px; text-decoration: none;">
+                        View Today's Signals →
+                    </a>
+                </div>
+
+                <!-- Pro Tip -->
+                <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px; margin: 24px 0;">
+                    <p style="margin: 0; font-size: 14px; color: #92400e;">
+                        <strong>💡 Pro Tip:</strong> For the best results, focus on signals with
+                        a strength score above 70. These "Strong Signals" have the highest
+                        probability of success!
+                    </p>
+                </div>
+
+                <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
+                    If you have any questions, just reply to this email — we're always here to help.
+                </p>
+
+                <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
+                    Happy trading! 📈<br>
+                    <strong>The RigaCap Team</strong>
+                </p>
+            </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                    Trading involves risk. Past performance does not guarantee future results.
+                </p>
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
+                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+        text = f"""
+Welcome to RigaCap, {first_name}!
+
+Your journey to smarter trading starts now.
+
+Here's what you get:
+- Daily AI-powered signals
+- 4,500+ stocks scanned daily
+- Stop-loss & profit targets
+- Market regime analysis
+- Daily email digest
+- Portfolio tracking
+
+Your 7-day free trial starts now. Visit https://rigacap.com/app to see today's signals!
+
+Pro Tip: Focus on signals with strength above 70 for the best results.
+
+Happy trading!
+The RigaCap Team
+
+---
+Trading involves risk. Past performance does not guarantee future results.
+"""
+
+        return await self.send_email(
+            to_email=to_email,
+            subject="🚀 Welcome to RigaCap — Your Trading Edge Starts Now!",
+            html_content=html,
+            text_content=text
+        )
+
+    async def send_goodbye_email(self, to_email: str, name: str) -> bool:
+        """
+        Send a 'sorry to see you go' email when a user cancels or trial expires.
+        """
+        first_name = name.split()[0] if name else "there"
+
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <tr>
+            <td style="background: linear-gradient(135deg, #1f2937 0%, #374151 100%); padding: 48px 24px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 16px;">💔</div>
+                <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
+                    We're Sad to See You Go
+                </h1>
+            </td>
+        </tr>
+
+        <!-- Message -->
+        <tr>
+            <td style="padding: 40px 32px;">
+                <p style="font-size: 18px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    Hey {first_name},
+                </p>
+                <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    We noticed your RigaCap subscription has ended. We're truly sorry to see you go!
+                    Before you leave completely, we wanted to share what you might be missing...
+                </p>
+
+                <!-- What You're Missing -->
+                <div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
+                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #dc2626;">
+                        📉 What You're Missing Today:
+                    </h2>
+                    <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
+                        <li>Fresh daily signals from 4,500+ stocks</li>
+                        <li>Real-time market regime updates</li>
+                        <li>Buy signals before they surge</li>
+                        <li>Stop-loss alerts to protect your capital</li>
+                    </ul>
+                </div>
+
+                <!-- Stats -->
+                <div style="background-color: #f0fdf4; border-radius: 16px; padding: 24px; margin: 24px 0; text-align: center;">
+                    <p style="margin: 0; font-size: 14px; color: #059669; text-transform: uppercase; font-weight: 600;">
+                        Our Backtest Performance
+                    </p>
+                    <p style="margin: 8px 0 0 0; font-size: 48px; font-weight: 700; color: #059669;">
+                        216%
+                    </p>
+                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #374151;">
+                        Total return over the test period
+                    </p>
+                </div>
+
+                <p style="font-size: 16px; color: #374151; margin: 24px 0; line-height: 1.6;">
+                    We'd love to have you back. If you left because something wasn't working,
+                    please reply to this email and let us know — we're always improving based on feedback.
+                </p>
+
+                <!-- Special Offer -->
+                <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border-radius: 16px; padding: 24px; margin: 24px 0; text-align: center;">
+                    <p style="margin: 0 0 8px 0; font-size: 14px; color: rgba(255,255,255,0.9); text-transform: uppercase; font-weight: 600;">
+                        Come Back Offer
+                    </p>
+                    <p style="margin: 0 0 16px 0; font-size: 24px; font-weight: 700; color: #ffffff;">
+                        Get 20% Off Your First Month
+                    </p>
+                    <a href="https://rigacap.com/app?promo=COMEBACK20"
+                       style="display: inline-block; background-color: #ffffff; color: #4f46e5; font-size: 16px; font-weight: 600; padding: 14px 32px; border-radius: 10px; text-decoration: none;">
+                        Reactivate Now →
+                    </a>
+                </div>
+
+                <p style="font-size: 16px; color: #374151; margin: 24px 0; line-height: 1.6;">
+                    Whatever you decide, we wish you the best with your trading journey.
+                    The markets will always be here, and so will we if you ever want to come back.
+                </p>
+
+                <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
+                    All the best,<br>
+                    <strong>The RigaCap Team</strong>
+                </p>
+            </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+                    <a href="#" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
+                </p>
+                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+        text = f"""
+Hey {first_name},
+
+We noticed your RigaCap subscription has ended. We're sad to see you go!
+
+What you're missing:
+- Fresh daily signals from 4,500+ stocks
+- Real-time market regime updates
+- Buy signals before they surge
+- Stop-loss alerts to protect your capital
+
+Our backtest showed 216% returns. We'd love to have you back.
+
+SPECIAL OFFER: Get 20% off your first month when you reactivate.
+Visit: https://rigacap.com/app?promo=COMEBACK20
+
+If something wasn't working for you, please reply and let us know — we're always improving.
+
+All the best,
+The RigaCap Team
+
+---
+Unsubscribe: https://rigacap.com/unsubscribe
+"""
+
+        return await self.send_email(
+            to_email=to_email,
+            subject="💔 We Miss You at RigaCap — Here's a Special Offer",
+            html_content=html,
+            text_content=text
+        )
+
+
+# Singleton instance
+email_service = EmailService()
