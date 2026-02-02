@@ -501,7 +501,31 @@ class ScannerService:
         Returns:
             List of SignalData objects sorted by signal strength
         """
-        if refresh_data or not self.data_cache:
+        # In Lambda mode, always try to load from S3 cache first (faster than yfinance)
+        import os
+        is_lambda = os.environ.get("ENVIRONMENT") == "prod"
+
+        print(f"🔍 Scan called: is_lambda={is_lambda}, data_cache_size={len(self.data_cache)}, refresh_data={refresh_data}")
+
+        if not self.data_cache and is_lambda:
+            try:
+                from app.services.data_export import data_export_service
+                print("📥 Lambda cold start - loading price data from S3...")
+                cached_data = data_export_service.import_all()
+                if cached_data:
+                    self.data_cache = cached_data
+                    print(f"✅ Loaded {len(cached_data)} symbols from S3 cache")
+                else:
+                    print("⚠️ S3 import returned empty data")
+            except Exception as e:
+                import traceback
+                print(f"❌ Failed to load from S3: {e}")
+                print(traceback.format_exc())
+
+        # In Lambda mode with S3 data, skip yfinance refresh (use cached data)
+        # In local mode or if no S3 data, fetch from yfinance
+        should_fetch = (refresh_data and not is_lambda) or not self.data_cache
+        if should_fetch:
             await self.fetch_data()
 
         # Update market analysis

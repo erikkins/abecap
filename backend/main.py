@@ -239,10 +239,25 @@ async def root():
 @app.get("/health")
 async def health():
     scheduler_status = scheduler_service.get_status()
+
+    # Use local cache if available, otherwise get metadata from S3
+    symbols_loaded = len(scanner_service.data_cache)
+    last_scan = scanner_service.last_scan.isoformat() if scanner_service.last_scan else None
+
+    # If no local data, try to get metadata from S3
+    if symbols_loaded == 0:
+        try:
+            status = data_export_service.get_status()
+            symbols_loaded = status.get("files_count", 0)
+            if status.get("last_export"):
+                last_scan = status.get("last_export")
+        except Exception:
+            pass  # Ignore errors, just use default values
+
     return {
         "status": "healthy",
-        "symbols_loaded": len(scanner_service.data_cache),
-        "last_scan": scanner_service.last_scan.isoformat() if scanner_service.last_scan else None,
+        "symbols_loaded": symbols_loaded,
+        "last_scan": last_scan,
         "scheduler": {
             "running": scheduler_status["is_running"],
             "last_run": scheduler_status["last_run"],
@@ -286,11 +301,15 @@ async def warmup():
     except Exception as e:
         results["price_data"] = {"loaded": 0, "status": f"error: {e}"}
 
-    # 3. Export consolidated file if we have data but no consolidated file
+    # 3. Report consolidated status (don't export - could overwrite larger S3 file)
     if scanner_service.data_cache and len(scanner_service.data_cache) > 0:
         try:
-            export_result = data_export_service.export_consolidated(scanner_service.data_cache)
-            results["consolidated"] = export_result
+            status = data_export_service.get_status()
+            results["consolidated"] = {
+                "success": True,
+                "count": len(scanner_service.data_cache),
+                "s3_status": status
+            }
         except Exception as e:
             results["consolidated"] = {"status": f"error: {e}"}
 

@@ -171,36 +171,68 @@ class DataExportService:
         return df
 
     def _import_from_s3(self) -> Dict[str, pd.DataFrame]:
-        """Import price data from S3 - uses consolidated file for speed"""
+        """Import price data from S3 - uses pickle file for speed"""
         data_cache = {}
 
         try:
             s3 = self._get_s3_client()
+            print(f"📥 S3 import starting. Bucket={S3_BUCKET}")
 
-            # Try consolidated file first (single download, much faster)
+            # Try pickle file first (fastest - no parsing/splitting needed)
             try:
-                logger.info("Loading consolidated price data from S3...")
+                print("📦 Loading pickle data from S3...")
+                import pickle
+                response = s3.get_object(Bucket=S3_BUCKET, Key='prices/all_data.pkl.gz')
+                print(f"📦 Got S3 response, reading body...")
+                raw_bytes = response['Body'].read()
+                print(f"📦 Read {len(raw_bytes)} bytes, decompressing...")
+                pkl_bytes = gzip.decompress(raw_bytes)
+                print(f"📦 Decompressed to {len(pkl_bytes)} bytes, unpickling...")
+                data_cache = pickle.loads(pkl_bytes)
+                print(f"✅ Loaded {len(data_cache)} symbols from pickle file")
+                # Update metadata with correct count
+                self.exported_symbols = list(data_cache.keys())
+                self.last_export = datetime.now()
+                self._save_metadata()
+                return data_cache
+            except Exception as e:
+                # Handle both NoSuchKey and other errors
+                error_code = getattr(getattr(e, 'response', {}), 'get', lambda *a: None)('Error', {}).get('Code')
+                if error_code == 'NoSuchKey' or 'NoSuchKey' in str(e):
+                    print("📦 No pickle file found, trying CSV...")
+                else:
+                    print(f"⚠️ Pickle load failed: {e}, trying CSV...")
+
+            # Fallback to CSV (slower)
+            try:
+                print("📦 Loading CSV data from S3...")
                 response = s3.get_object(Bucket=S3_BUCKET, Key='prices/all_prices.csv.gz')
-                csv_bytes = gzip.decompress(response['Body'].read())
+                print(f"📦 Got S3 response, reading body...")
+                raw_bytes = response['Body'].read()
+                print(f"📦 Read {len(raw_bytes)} bytes, decompressing...")
+                csv_bytes = gzip.decompress(raw_bytes)
+                print(f"📦 Decompressed to {len(csv_bytes)} bytes, parsing CSV...")
                 csv_content = csv_bytes.decode('utf-8')
                 buffer = io.StringIO(csv_content)
 
                 # Read the consolidated CSV with symbol column
                 df_all = pd.read_csv(buffer)
                 df_all['date'] = pd.to_datetime(df_all['date'])
+                print(f"📦 Parsed CSV with {len(df_all)} rows, splitting by symbol...")
 
-                # Split by symbol (indicators are computed lazily by scanner)
-                for symbol, group in df_all.groupby('symbol'):
-                    df = group.drop(columns=['symbol']).set_index('date').sort_index()
-                    data_cache[symbol] = df
+                # Faster split: set multi-index and group
+                df_all = df_all.set_index(['symbol', 'date']).sort_index()
+                for symbol in df_all.index.get_level_values('symbol').unique():
+                    data_cache[symbol] = df_all.loc[symbol]
 
-                logger.info(f"Loaded {len(data_cache)} symbols from consolidated S3 file")
+                print(f"✅ Loaded {len(data_cache)} symbols from CSV file")
                 return data_cache
 
-            except s3.exceptions.NoSuchKey:
-                logger.info("No consolidated file found, falling back to individual files")
             except Exception as e:
-                logger.warning(f"Consolidated load failed ({e}), falling back to individual files")
+                import traceback
+                print(f"⚠️ CSV load failed: {e}")
+                print(traceback.format_exc())
+                print("Falling back to individual files...")
 
             # Fallback: load individual CSV files
             paginator = s3.get_paginator('list_objects_v2')
@@ -240,6 +272,67 @@ class DataExportService:
             logger.error(f"Failed to list S3 objects: {e}")
 
         return data_cache
+
+    def export_pickle(self, data_cache: Dict[str, pd.DataFrame]) -> Dict:
+        """
+        Export all cached data to a single gzipped pickle file.
+        This is the fastest format to load (no parsing/splitting needed).
+        """
+        if not data_cache:
+            return {"success": False, "message": "No data to export", "count": 0}
+
+        try:
+            import pickle
+
+            # Filter out small dataframes
+            clean_cache = {
+                symbol: df for symbol, df in data_cache.items()
+                if len(df) >= 50
+            }
+
+            if not clean_cache:
+                return {"success": False, "message": "No valid data to export", "count": 0}
+
+            # Pickle the dictionary
+            pkl_bytes = pickle.dumps(clean_cache)
+            gzipped = gzip.compress(pkl_bytes)
+
+            if self._use_s3():
+                s3 = self._get_s3_client()
+                s3.put_object(
+                    Bucket=S3_BUCKET,
+                    Key='prices/all_data.pkl.gz',
+                    Body=gzipped,
+                    ContentType='application/octet-stream'
+                )
+                file_size = len(gzipped)
+                storage_type = "S3"
+            else:
+                filepath = LOCAL_DATA_DIR / "all_data.pkl.gz"
+                with open(filepath, 'wb') as f:
+                    f.write(gzipped)
+                file_size = len(gzipped)
+                storage_type = "local"
+
+            self.last_export = datetime.now()
+            self.exported_symbols = list(clean_cache.keys())
+
+            print(f"✅ Exported pickle with {len(clean_cache)} symbols ({file_size / 1024 / 1024:.1f} MB)")
+
+            return {
+                "success": True,
+                "count": len(clean_cache),
+                "total_size_mb": round(file_size / 1024 / 1024, 2),
+                "storage": storage_type,
+                "bucket": S3_BUCKET if self._use_s3() else None,
+                "timestamp": self.last_export.isoformat()
+            }
+
+        except Exception as e:
+            import traceback
+            print(f"❌ Failed to export pickle: {e}")
+            print(traceback.format_exc())
+            return {"success": False, "message": str(e), "count": 0}
 
     def export_consolidated(self, data_cache: Dict[str, pd.DataFrame]) -> Dict:
         """
@@ -398,15 +491,18 @@ class DataExportService:
         """Get export status and statistics"""
         self._load_metadata()
 
-        symbols = self.get_symbols_with_data()
+        # Use stored count from metadata if available, otherwise count files
+        symbols_count = len(self.exported_symbols) if self.exported_symbols else 0
+        if symbols_count == 0:
+            symbols_count = len(self.get_symbols_with_data())
 
         if self._use_s3():
             return {
                 "storage": "s3",
                 "bucket": S3_BUCKET,
-                "files_count": len(symbols),
+                "files_count": symbols_count,
                 "last_export": self.last_export.isoformat() if self.last_export else None,
-                "symbols": symbols[:50]  # First 50 for display
+                "symbols": self.exported_symbols[:50] if self.exported_symbols else []
             }
         else:
             parquet_files = list(LOCAL_DATA_DIR.glob("*.parquet")) if LOCAL_DATA_DIR.exists() else []
@@ -464,6 +560,9 @@ class DataExportService:
 
             if metadata.get("last_export"):
                 self.last_export = datetime.fromisoformat(metadata["last_export"])
+            # Load symbols count (create placeholder list for count)
+            if metadata.get("symbols_count") and not self.exported_symbols:
+                self.exported_symbols = ["symbol"] * metadata["symbols_count"]  # Placeholder for count
         except Exception:
             pass
 

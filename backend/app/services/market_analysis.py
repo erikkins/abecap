@@ -250,6 +250,26 @@ class MarketAnalysisService:
             logger.error(f"Failed to update sector strength: {e}")
             return {}
 
+    def get_market_regime(self) -> Dict:
+        """
+        Get current market regime as a dictionary.
+        Returns cached state or a neutral default if not initialized.
+        """
+        if self.market_state:
+            return self.market_state.to_dict()
+        # Return default neutral state if not initialized
+        return {
+            "regime": "neutral",
+            "spy_price": 0,
+            "spy_ma_200": 0,
+            "spy_ma_50": 0,
+            "spy_pct_from_high": 0,
+            "vix_level": 20,
+            "trend_strength": 0,
+            "recommendation": "Market data not yet loaded",
+            "updated": None
+        }
+
     def get_sector_for_stock(self, symbol: str, symbol_info: dict = None) -> Optional[str]:
         """Get sector for a stock symbol"""
         if symbol_info and "sector" in symbol_info:

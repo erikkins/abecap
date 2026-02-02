@@ -922,7 +922,9 @@ function Dashboard() {
         const health = await api.get('/health');
         setDataStatus({ loaded: health.symbols_loaded, status: 'ready' });
         if (health.last_scan) {
-          setLastScan(new Date(health.last_scan));
+          // Ensure timestamp is parsed as UTC (backend returns UTC without Z suffix)
+          const ts = health.last_scan.endsWith('Z') ? health.last_scan : health.last_scan + 'Z';
+          setLastScan(new Date(ts));
         }
         setLoading(false); // Definitely show dashboard now
       } catch (err) {
@@ -1121,7 +1123,7 @@ function Dashboard() {
           <div className="flex items-center gap-4">
             <div className="text-right text-sm">
               <span className="text-gray-500">Last scan: </span>
-              <span className="text-gray-700 font-medium">{lastScan?.toLocaleTimeString() || 'Never'}</span>
+              <span className="text-gray-700 font-medium">{lastScan ? lastScan.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : 'Never'}</span>
               <div className="text-xs text-gray-400">{dataStatus.loaded} symbols loaded</div>
             </div>
             <button
