@@ -981,8 +981,21 @@ async def get_stock_history(symbol: str, days: int = 252):
     """Get historical price data for a symbol from cache"""
     symbol = symbol.upper()
 
+    # If cache is empty, try to load from S3 first (Lambda mode)
+    if not scanner_service.data_cache:
+        import os
+        is_lambda = os.environ.get("ENVIRONMENT") == "prod"
+        if is_lambda:
+            try:
+                cached_data = data_export_service.import_all()
+                if cached_data:
+                    scanner_service.data_cache = cached_data
+                    print(f"📦 Loaded {len(cached_data)} symbols from S3 for history request")
+            except Exception as e:
+                print(f"⚠️ Failed to load from S3: {e}")
+
     if symbol not in scanner_service.data_cache:
-        # Try to fetch it
+        # Try to fetch it from yfinance
         try:
             await scanner_service.fetch_data([symbol], period="5y")
         except Exception as e:
@@ -991,7 +1004,18 @@ async def get_stock_history(symbol: str, days: int = 252):
     if symbol not in scanner_service.data_cache:
         raise HTTPException(status_code=404, detail=f"No data for {symbol}")
 
-    df = scanner_service.data_cache[symbol].tail(days)
+    df = scanner_service.data_cache[symbol].copy()
+
+    # Calculate indicators if they don't exist (e.g., for newly added symbols)
+    if 'dwap' not in df.columns:
+        # Calculate DWAP (Daily Weighted Average Price) - 200-day volume-weighted average
+        df['dwap'] = (df['close'] * df['volume']).rolling(200).sum() / df['volume'].rolling(200).sum()
+    if 'ma_50' not in df.columns:
+        df['ma_50'] = df['close'].rolling(50).mean()
+    if 'ma_200' not in df.columns:
+        df['ma_200'] = df['close'].rolling(200).mean()
+
+    df = df.tail(days)
 
     return {
         "symbol": symbol,
@@ -1003,9 +1027,9 @@ async def get_stock_history(symbol: str, days: int = 252):
                 "low": round(row['low'], 2),
                 "close": round(row['close'], 2),
                 "volume": int(row['volume']),
-                "dwap": round(row['dwap'], 2) if not pd.isna(row['dwap']) else None,
-                "ma_50": round(row['ma_50'], 2) if not pd.isna(row['ma_50']) else None,
-                "ma_200": round(row['ma_200'], 2) if not pd.isna(row['ma_200']) else None,
+                "dwap": round(row['dwap'], 2) if pd.notna(row.get('dwap')) else None,
+                "ma_50": round(row['ma_50'], 2) if pd.notna(row.get('ma_50')) else None,
+                "ma_200": round(row['ma_200'], 2) if pd.notna(row.get('ma_200')) else None,
             }
             for idx, row in df.iterrows()
         ]

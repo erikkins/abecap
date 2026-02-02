@@ -253,7 +253,7 @@ const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy }) => {
             className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign size={18} />}
-            {submitting ? 'Buying...' : 'Confirm Buy'}
+            {submitting ? 'Saving...' : 'Track Position'}
           </button>
         </div>
       </div>
@@ -574,7 +574,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
                       value: `Stop $${data.stop_loss.toFixed(2)}`,
                       fill: '#EF4444',
                       fontSize: 10,
-                      position: 'insideRight'
+                      position: 'insideBottomRight'
                     }}
                   />
                 )}
@@ -591,7 +591,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
                       value: `Target $${data.profit_target.toFixed(2)}`,
                       fill: '#10B981',
                       fontSize: 10,
-                      position: 'insideRight'
+                      position: 'insideTopRight'
                     }}
                   />
                 )}
@@ -751,7 +751,26 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
               className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 flex items-center gap-2"
             >
               <DollarSign size={18} />
-              Buy {symbol}
+              Track Position
+            </button>
+          )}
+          {type === 'position' && (
+            <button
+              onClick={async () => {
+                if (confirm(`Mark ${symbol} as sold?`)) {
+                  try {
+                    await api.delete(`/api/portfolio/positions/${data.id}`);
+                    onAction && onAction();
+                    onClose();
+                  } catch (err) {
+                    alert('Failed to close position');
+                  }
+                }
+              }}
+              className="px-6 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 flex items-center gap-2"
+            >
+              <DollarSign size={18} />
+              Mark as Sold
             </button>
           )}
           {type === 'missed' && (
@@ -943,22 +962,31 @@ function Dashboard() {
       const refreshData = async () => {
         try {
           // Load all data in parallel
-          const [backtestResult, signalsResult, marketResult, missedResult] = await Promise.allSettled([
+          const [backtestResult, signalsResult, marketResult, missedResult, userPositionsResult] = await Promise.allSettled([
             api.get('/api/backtest/run?days=252').catch(() => null),
             // Only fetch from API if CDN failed
             signals.length === 0 ? api.get('/api/signals/memory-scan?refresh=false&apply_market_filter=true').catch(() => null) : Promise.resolve(null),
             api.get('/api/market/regime').catch(() => null),
-            api.get('/api/signals/missed?days=30&limit=10').catch(() => null)
+            api.get('/api/signals/missed?days=30&limit=10').catch(() => null),
+            api.get('/api/portfolio/positions').catch(() => null)
           ]);
 
           // Process backtest result
           if (backtestResult.status === 'fulfilled' && backtestResult.value?.success) {
             const bt = backtestResult.value;
             setBacktest(bt.backtest);
-            setPositions(bt.positions || []);
             setTrades(bt.trades || []);
             setCache(CACHE_KEYS.BACKTEST, bt);
-            setCache(CACHE_KEYS.POSITIONS, bt.positions || []);
+          }
+
+          // Process user positions (prioritize over backtest positions)
+          if (userPositionsResult.status === 'fulfilled' && userPositionsResult.value?.positions?.length > 0) {
+            setPositions(userPositionsResult.value.positions);
+            setCache(CACHE_KEYS.POSITIONS, userPositionsResult.value.positions);
+          } else if (backtestResult.status === 'fulfilled' && backtestResult.value?.positions?.length > 0) {
+            // Fallback to backtest positions if no user positions
+            setPositions(backtestResult.value.positions || []);
+            setCache(CACHE_KEYS.POSITIONS, backtestResult.value.positions || []);
           }
 
           // Process signals result (only if CDN didn't work)
@@ -1275,7 +1303,12 @@ function Dashboard() {
               <div className="col-span-2">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                   <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900">Open Positions</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-semibold text-gray-900">Open Positions</h2>
+                      {positions.length > 0 && positions[0]?.source === 'backtest' && (
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">Simulated</span>
+                      )}
+                    </div>
                     <span className="text-xs text-gray-500">Click row to view chart with entry point</span>
                   </div>
                   {positions.length > 0 ? (
@@ -1300,7 +1333,7 @@ function Dashboard() {
 
             {/* Missed Opportunities Section */}
             {missedOpportunities.length > 0 && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h2 className="text-lg font-semibold text-gray-900">Missed Opportunities</h2>
