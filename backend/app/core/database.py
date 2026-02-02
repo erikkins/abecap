@@ -134,6 +134,46 @@ class BacktestResult(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class StrategyDefinition(Base):
+    """Trading strategy definitions"""
+    __tablename__ = "strategy_definitions"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False, unique=True)
+    description = Column(Text, nullable=True)
+    strategy_type = Column(String(50), nullable=False)  # "dwap", "momentum"
+    parameters = Column(Text, nullable=False)  # JSON string
+    is_active = Column(Boolean, default=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+    activated_at = Column(DateTime, nullable=True)
+
+    evaluations = relationship("StrategyEvaluation", back_populates="strategy")
+
+
+class StrategyEvaluation(Base):
+    """Strategy backtest evaluation results"""
+    __tablename__ = "strategy_evaluations"
+
+    id = Column(Integer, primary_key=True)
+    strategy_id = Column(Integer, ForeignKey("strategy_definitions.id"))
+    evaluation_date = Column(DateTime, default=datetime.utcnow)
+    lookback_days = Column(Integer, default=90)  # 3-month rolling window
+
+    # Performance metrics
+    total_return_pct = Column(Float)
+    sharpe_ratio = Column(Float)
+    max_drawdown_pct = Column(Float)
+    win_rate = Column(Float)
+    total_trades = Column(Integer)
+
+    # AI recommendation
+    recommendation_score = Column(Float)  # 0-100
+    recommendation_notes = Column(Text)
+
+    strategy = relationship("StrategyDefinition", back_populates="evaluations")
+
+
 class User(Base):
     """User account for authentication and subscription management"""
     __tablename__ = "users"

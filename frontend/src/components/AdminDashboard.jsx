@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus } from 'lucide-react';
+import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -13,6 +13,13 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Strategy management state
+  const [strategies, setStrategies] = useState([]);
+  const [activeStrategy, setActiveStrategy] = useState(null);
+  const [analysisResults, setAnalysisResults] = useState(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [strategiesLoading, setStrategiesLoading] = useState(false);
 
   // Fetch admin stats
   const fetchStats = async () => {
@@ -92,6 +99,83 @@ export default function AdminDashboard() {
     }
   };
 
+  // Fetch strategies
+  const fetchStrategies = async () => {
+    setStrategiesLoading(true);
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/strategies`);
+      if (response.ok) {
+        const data = await response.json();
+        setStrategies(data);
+        const active = data.find(s => s.is_active);
+        if (active) setActiveStrategy(active);
+      }
+    } catch (err) {
+      console.error('Failed to fetch strategies:', err);
+    } finally {
+      setStrategiesLoading(false);
+    }
+  };
+
+  // Fetch latest analysis
+  const fetchLatestAnalysis = async () => {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/strategies/analysis`);
+      if (response.ok) {
+        const data = await response.json();
+        setAnalysisResults(data);
+      }
+    } catch (err) {
+      // 404 is expected if no analysis has been run yet
+      if (err.message?.includes('404')) {
+        console.log('No analysis results yet');
+      } else {
+        console.error('Failed to fetch analysis:', err);
+      }
+    }
+  };
+
+  // Run strategy analysis
+  const runAnalysis = async (lookbackDays = 90) => {
+    setAnalysisLoading(true);
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/strategies/analyze?lookback_days=${lookbackDays}`, {
+        method: 'POST',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAnalysisResults(data);
+        await fetchStrategies(); // Refresh strategies to get updated evaluations
+      } else {
+        const error = await response.json();
+        alert(`Analysis failed: ${error.detail || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Failed to run analysis:', err);
+      alert('Failed to run analysis. Make sure market data is loaded.');
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
+
+  // Activate a strategy
+  const activateStrategy = async (strategyId) => {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/strategies/${strategyId}/activate`, {
+        method: 'POST',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setActiveStrategy(data);
+        await fetchStrategies(); // Refresh all strategies
+        alert(`Strategy "${data.name}" is now active`);
+      }
+    } catch (err) {
+      console.error('Failed to activate strategy:', err);
+      alert('Failed to activate strategy');
+    }
+  };
+
   // Initial load
   useEffect(() => {
     const loadData = async () => {
@@ -100,6 +184,8 @@ export default function AdminDashboard() {
         fetchStats(),
         fetchServiceStatus(),
         fetchUsers(),
+        fetchStrategies(),
+        fetchLatestAnalysis(),
       ]);
       setLoading(false);
     };
@@ -210,6 +296,212 @@ export default function AdminDashboard() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Strategy Management */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">Strategy Management</h3>
+          <button
+            onClick={() => runAnalysis(90)}
+            disabled={analysisLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {analysisLoading ? (
+              <>
+                <RefreshCw size={16} className="animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <PlayCircle size={16} />
+                Run Analysis
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Active Strategy Card */}
+        {activeStrategy && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Zap size={18} className="text-emerald-600" />
+                  <span className="text-sm font-medium text-emerald-700">Active Strategy</span>
+                </div>
+                <h4 className="text-xl font-bold text-gray-900">{activeStrategy.name}</h4>
+                <p className="text-sm text-gray-600 mt-1">{activeStrategy.description}</p>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                activeStrategy.strategy_type === 'momentum'
+                  ? 'bg-purple-100 text-purple-800'
+                  : 'bg-blue-100 text-blue-800'
+              }`}>
+                {activeStrategy.strategy_type.toUpperCase()}
+              </span>
+            </div>
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div>
+                <p className="text-xs text-gray-500">Max Positions</p>
+                <p className="font-semibold">{activeStrategy.parameters?.max_positions || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Position Size</p>
+                <p className="font-semibold">{activeStrategy.parameters?.position_size_pct || '-'}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Stop Type</p>
+                <p className="font-semibold">
+                  {activeStrategy.parameters?.trailing_stop_pct
+                    ? `${activeStrategy.parameters.trailing_stop_pct}% Trailing`
+                    : `${activeStrategy.parameters?.stop_loss_pct || '-'}% Fixed`}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Activated</p>
+                <p className="font-semibold">
+                  {activeStrategy.activated_at
+                    ? new Date(activeStrategy.activated_at).toLocaleDateString()
+                    : '-'}
+                </p>
+              </div>
+            </div>
+            {activeStrategy.latest_evaluation && (
+              <div className="mt-4 pt-4 border-t border-emerald-200 grid grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500">Sharpe</p>
+                  <p className="font-semibold text-emerald-700">{activeStrategy.latest_evaluation.sharpe_ratio?.toFixed(2) || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Return</p>
+                  <p className={`font-semibold ${(activeStrategy.latest_evaluation.total_return_pct || 0) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {(activeStrategy.latest_evaluation.total_return_pct || 0) >= 0 ? '+' : ''}{activeStrategy.latest_evaluation.total_return_pct?.toFixed(1) || '-'}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Max DD</p>
+                  <p className="font-semibold text-red-600">-{activeStrategy.latest_evaluation.max_drawdown_pct?.toFixed(1) || '-'}%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Score</p>
+                  <p className="font-semibold">{activeStrategy.latest_evaluation.recommendation_score?.toFixed(0) || '-'}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Strategy Library Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Strategy</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Sharpe</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Return</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Max DD</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Score</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {strategies.map((strategy) => (
+                <tr key={strategy.id} className={strategy.is_active ? 'bg-emerald-50' : 'hover:bg-gray-50'}>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-gray-900">{strategy.name}</div>
+                    <div className="text-xs text-gray-500 truncate max-w-[200px]">{strategy.description}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      strategy.strategy_type === 'momentum'
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {strategy.strategy_type}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium">
+                    {strategy.latest_evaluation?.sharpe_ratio?.toFixed(2) || '-'}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={`font-medium ${(strategy.latest_evaluation?.total_return_pct || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {strategy.latest_evaluation?.total_return_pct != null
+                        ? `${strategy.latest_evaluation.total_return_pct >= 0 ? '+' : ''}${strategy.latest_evaluation.total_return_pct.toFixed(1)}%`
+                        : '-'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-red-600 font-medium">
+                    {strategy.latest_evaluation?.max_drawdown_pct != null
+                      ? `-${strategy.latest_evaluation.max_drawdown_pct.toFixed(1)}%`
+                      : '-'}
+                  </td>
+                  <td className="px-4 py-3 text-right font-bold">
+                    {strategy.latest_evaluation?.recommendation_score?.toFixed(0) || '-'}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {strategy.is_active ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                        <CheckCircle size={12} /> Active
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-500">Inactive</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {!strategy.is_active && (
+                      <button
+                        onClick={() => activateStrategy(strategy.id)}
+                        className="px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                      >
+                        Activate
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Analysis Results Panel */}
+        {analysisResults && (
+          <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-semibold text-gray-900">Latest Analysis</h4>
+              <span className="text-xs text-gray-500">
+                {analysisResults.analysis_date
+                  ? new Date(analysisResults.analysis_date).toLocaleString()
+                  : '-'}
+                {' '}&bull;{' '}{analysisResults.lookback_days} day lookback
+              </span>
+            </div>
+            <div className="p-3 bg-white rounded-lg border border-gray-200">
+              <div className="flex items-start gap-3">
+                {analysisResults.recommended_strategy_id === analysisResults.current_active_strategy_id ? (
+                  <CheckCircle size={20} className="text-emerald-600 mt-0.5" />
+                ) : (
+                  <AlertCircle size={20} className="text-amber-500 mt-0.5" />
+                )}
+                <div>
+                  <p className="text-sm text-gray-700 whitespace-pre-line">
+                    {analysisResults.recommendation_notes}
+                  </p>
+                  {analysisResults.recommended_strategy_id !== analysisResults.current_active_strategy_id && (
+                    <button
+                      onClick={() => activateStrategy(analysisResults.recommended_strategy_id)}
+                      className="mt-3 px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors"
+                    >
+                      Accept Recommendation
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Users Table */}

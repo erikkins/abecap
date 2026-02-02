@@ -1,18 +1,90 @@
 """Admin API endpoints for user management and service monitoring."""
 
+import json
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, desc
 
-from app.core.database import get_db, User, Subscription, Signal, Position
+from app.core.database import get_db, User, Subscription, Signal, Position, StrategyDefinition, StrategyEvaluation
 from app.core.security import get_admin_user
 from app.core.config import settings
 from app.services.scheduler import scheduler_service
+from app.services.strategy_analyzer import strategy_analyzer_service
 
 router = APIRouter()
+
+
+# ============================================================================
+# Initial Strategy Definitions
+# ============================================================================
+
+INITIAL_STRATEGIES = [
+    {
+        "name": "DWAP Classic",
+        "description": "Buy when price > DWAP x 1.05, fixed 8% stop loss, 20% profit target",
+        "strategy_type": "dwap",
+        "parameters": {
+            "dwap_threshold_pct": 5.0,
+            "stop_loss_pct": 8.0,
+            "profit_target_pct": 20.0,
+            "max_positions": 15,
+            "position_size_pct": 6.6,
+            "min_volume": 500000,
+            "min_price": 20.0,
+            "volume_spike_mult": 1.5
+        },
+        "is_active": False
+    },
+    {
+        "name": "Momentum v2",
+        "description": "10/60 day momentum ranking, 15% trailing stop, SPY market filter",
+        "strategy_type": "momentum",
+        "parameters": {
+            "max_positions": 5,
+            "position_size_pct": 18.0,
+            "short_momentum_days": 10,
+            "long_momentum_days": 60,
+            "trailing_stop_pct": 15.0,
+            "market_filter_enabled": True,
+            "rebalance_frequency": "weekly",
+            "short_mom_weight": 0.5,
+            "long_mom_weight": 0.3,
+            "volatility_penalty": 0.2,
+            "near_50d_high_pct": 5.0,
+            "min_volume": 500000,
+            "min_price": 20.0
+        },
+        "is_active": True
+    }
+]
+
+
+async def seed_strategies(db: AsyncSession) -> int:
+    """Seed initial strategies if none exist. Returns count of created strategies."""
+    result = await db.execute(select(func.count(StrategyDefinition.id)))
+    count = result.scalar()
+
+    if count > 0:
+        return 0  # Already seeded
+
+    created = 0
+    for strat_data in INITIAL_STRATEGIES:
+        strategy = StrategyDefinition(
+            name=strat_data["name"],
+            description=strat_data["description"],
+            strategy_type=strat_data["strategy_type"],
+            parameters=json.dumps(strat_data["parameters"]),
+            is_active=strat_data["is_active"],
+            activated_at=datetime.utcnow() if strat_data["is_active"] else None
+        )
+        db.add(strategy)
+        created += 1
+
+    await db.commit()
+    return created
 
 
 # Response schemas
@@ -57,6 +129,50 @@ class ServiceStatusResponse(BaseModel):
     overall_status: str
     services: dict
     metrics: dict
+
+
+# Strategy Management Schemas
+class EvaluationSummary(BaseModel):
+    date: Optional[str] = None
+    sharpe_ratio: Optional[float] = None
+    total_return_pct: Optional[float] = None
+    max_drawdown_pct: Optional[float] = None
+    win_rate: Optional[float] = None
+    recommendation_score: Optional[float] = None
+
+
+class StrategyResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    strategy_type: str
+    parameters: Dict[str, Any]
+    is_active: bool
+    created_at: Optional[str] = None
+    activated_at: Optional[str] = None
+    latest_evaluation: Optional[EvaluationSummary] = None
+
+
+class StrategyEvaluationDetail(BaseModel):
+    strategy_id: int
+    name: str
+    strategy_type: str
+    total_return_pct: float
+    sharpe_ratio: float
+    max_drawdown_pct: float
+    win_rate: float
+    total_trades: int
+    recommendation_score: float
+    lookback_days: int
+
+
+class StrategyAnalysisResponse(BaseModel):
+    analysis_date: str
+    lookback_days: int
+    evaluations: List[StrategyEvaluationDetail]
+    recommended_strategy_id: Optional[int] = None
+    recommendation_notes: str
+    current_active_strategy_id: Optional[int] = None
 
 
 @router.get("/users", response_model=UserListResponse)
@@ -542,4 +658,298 @@ async def get_ticker_health(
         "must_includes_checked": len(must_check),
         "issues_count": len(issues),
         "issues": issues
+    }
+
+
+# ============================================================================
+# Strategy Management Endpoints
+# ============================================================================
+
+@router.get("/strategies", response_model=List[StrategyResponse])
+async def list_strategies(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List all trading strategies with their latest evaluation.
+
+    Returns all strategies in the library with performance metrics
+    from the most recent evaluation.
+    """
+    # Seed strategies if needed
+    seeded = await seed_strategies(db)
+    if seeded > 0:
+        print(f"Seeded {seeded} initial strategies")
+
+    # Get all strategies
+    result = await db.execute(
+        select(StrategyDefinition).order_by(StrategyDefinition.id)
+    )
+    strategies = result.scalars().all()
+
+    responses = []
+    for strat in strategies:
+        # Get latest evaluation
+        eval_result = await db.execute(
+            select(StrategyEvaluation)
+            .where(StrategyEvaluation.strategy_id == strat.id)
+            .order_by(desc(StrategyEvaluation.evaluation_date))
+            .limit(1)
+        )
+        latest_eval = eval_result.scalar_one_or_none()
+
+        latest_eval_summary = None
+        if latest_eval:
+            latest_eval_summary = EvaluationSummary(
+                date=latest_eval.evaluation_date.isoformat() if latest_eval.evaluation_date else None,
+                sharpe_ratio=latest_eval.sharpe_ratio,
+                total_return_pct=latest_eval.total_return_pct,
+                max_drawdown_pct=latest_eval.max_drawdown_pct,
+                win_rate=latest_eval.win_rate,
+                recommendation_score=latest_eval.recommendation_score
+            )
+
+        responses.append(StrategyResponse(
+            id=strat.id,
+            name=strat.name,
+            description=strat.description,
+            strategy_type=strat.strategy_type,
+            parameters=json.loads(strat.parameters),
+            is_active=strat.is_active,
+            created_at=strat.created_at.isoformat() if strat.created_at else None,
+            activated_at=strat.activated_at.isoformat() if strat.activated_at else None,
+            latest_evaluation=latest_eval_summary
+        ))
+
+    return responses
+
+
+@router.get("/strategies/active", response_model=StrategyResponse)
+async def get_active_strategy(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get the currently active trading strategy."""
+    # Seed strategies if needed
+    await seed_strategies(db)
+
+    result = await db.execute(
+        select(StrategyDefinition).where(StrategyDefinition.is_active == True)
+    )
+    strategy = result.scalar_one_or_none()
+
+    if not strategy:
+        raise HTTPException(status_code=404, detail="No active strategy found")
+
+    # Get latest evaluation
+    eval_result = await db.execute(
+        select(StrategyEvaluation)
+        .where(StrategyEvaluation.strategy_id == strategy.id)
+        .order_by(desc(StrategyEvaluation.evaluation_date))
+        .limit(1)
+    )
+    latest_eval = eval_result.scalar_one_or_none()
+
+    latest_eval_summary = None
+    if latest_eval:
+        latest_eval_summary = EvaluationSummary(
+            date=latest_eval.evaluation_date.isoformat() if latest_eval.evaluation_date else None,
+            sharpe_ratio=latest_eval.sharpe_ratio,
+            total_return_pct=latest_eval.total_return_pct,
+            max_drawdown_pct=latest_eval.max_drawdown_pct,
+            win_rate=latest_eval.win_rate,
+            recommendation_score=latest_eval.recommendation_score
+        )
+
+    return StrategyResponse(
+        id=strategy.id,
+        name=strategy.name,
+        description=strategy.description,
+        strategy_type=strategy.strategy_type,
+        parameters=json.loads(strategy.parameters),
+        is_active=strategy.is_active,
+        created_at=strategy.created_at.isoformat() if strategy.created_at else None,
+        activated_at=strategy.activated_at.isoformat() if strategy.activated_at else None,
+        latest_evaluation=latest_eval_summary
+    )
+
+
+@router.post("/strategies/{strategy_id}/activate", response_model=StrategyResponse)
+async def activate_strategy(
+    strategy_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Activate a strategy (deactivates current active strategy).
+
+    Only one strategy can be active at a time.
+    """
+    # Find the strategy to activate
+    result = await db.execute(
+        select(StrategyDefinition).where(StrategyDefinition.id == strategy_id)
+    )
+    strategy = result.scalar_one_or_none()
+
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+
+    # Deactivate all other strategies
+    all_strategies = await db.execute(select(StrategyDefinition))
+    for strat in all_strategies.scalars():
+        strat.is_active = False
+
+    # Activate the selected strategy
+    strategy.is_active = True
+    strategy.activated_at = datetime.utcnow()
+
+    await db.commit()
+    await db.refresh(strategy)
+
+    # Get latest evaluation
+    eval_result = await db.execute(
+        select(StrategyEvaluation)
+        .where(StrategyEvaluation.strategy_id == strategy.id)
+        .order_by(desc(StrategyEvaluation.evaluation_date))
+        .limit(1)
+    )
+    latest_eval = eval_result.scalar_one_or_none()
+
+    latest_eval_summary = None
+    if latest_eval:
+        latest_eval_summary = EvaluationSummary(
+            date=latest_eval.evaluation_date.isoformat() if latest_eval.evaluation_date else None,
+            sharpe_ratio=latest_eval.sharpe_ratio,
+            total_return_pct=latest_eval.total_return_pct,
+            max_drawdown_pct=latest_eval.max_drawdown_pct,
+            win_rate=latest_eval.win_rate,
+            recommendation_score=latest_eval.recommendation_score
+        )
+
+    return StrategyResponse(
+        id=strategy.id,
+        name=strategy.name,
+        description=strategy.description,
+        strategy_type=strategy.strategy_type,
+        parameters=json.loads(strategy.parameters),
+        is_active=strategy.is_active,
+        created_at=strategy.created_at.isoformat() if strategy.created_at else None,
+        activated_at=strategy.activated_at.isoformat() if strategy.activated_at else None,
+        latest_evaluation=latest_eval_summary
+    )
+
+
+@router.post("/strategies/analyze", response_model=StrategyAnalysisResponse)
+async def run_strategy_analysis(
+    lookback_days: int = Query(90, ge=30, le=365),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Run backtest analysis on all strategies.
+
+    Backtests each strategy over the specified lookback period
+    and generates AI-powered recommendations based on performance.
+
+    Args:
+        lookback_days: Number of days to backtest (default: 90, 3 months)
+
+    Returns:
+        Performance comparison and recommendation
+    """
+    # Seed strategies if needed
+    await seed_strategies(db)
+
+    try:
+        result = await strategy_analyzer_service.evaluate_all_strategies(
+            db=db,
+            lookback_days=lookback_days
+        )
+
+        return StrategyAnalysisResponse(
+            analysis_date=result['analysis_date'],
+            lookback_days=result['lookback_days'],
+            evaluations=[
+                StrategyEvaluationDetail(
+                    strategy_id=e['strategy_id'],
+                    name=e['name'],
+                    strategy_type=e['strategy_type'],
+                    total_return_pct=e['total_return_pct'],
+                    sharpe_ratio=e['sharpe_ratio'],
+                    max_drawdown_pct=e['max_drawdown_pct'],
+                    win_rate=e['win_rate'],
+                    total_trades=e['total_trades'],
+                    recommendation_score=e['recommendation_score'],
+                    lookback_days=e['lookback_days']
+                )
+                for e in result['evaluations']
+            ],
+            recommended_strategy_id=result['recommended_strategy_id'],
+            recommendation_notes=result['recommendation_notes'],
+            current_active_strategy_id=result['current_active_strategy_id']
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Analysis failed: {str(e)}"
+        )
+
+
+@router.get("/strategies/analysis", response_model=StrategyAnalysisResponse)
+async def get_latest_analysis(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get the most recent strategy analysis results.
+
+    Returns cached results from the last analysis run.
+    """
+    result = await strategy_analyzer_service.get_latest_analysis(db)
+
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail="No analysis results found. Run /strategies/analyze first."
+        )
+
+    return StrategyAnalysisResponse(
+        analysis_date=result['analysis_date'],
+        lookback_days=result['lookback_days'],
+        evaluations=[
+            StrategyEvaluationDetail(
+                strategy_id=e['strategy_id'],
+                name=e['name'],
+                strategy_type=e['strategy_type'],
+                total_return_pct=e['total_return_pct'],
+                sharpe_ratio=e['sharpe_ratio'],
+                max_drawdown_pct=e['max_drawdown_pct'],
+                win_rate=e['win_rate'],
+                total_trades=e['total_trades'],
+                recommendation_score=e['recommendation_score'],
+                lookback_days=e['lookback_days']
+            )
+            for e in result['evaluations']
+        ],
+        recommended_strategy_id=result['recommended_strategy_id'],
+        recommendation_notes=result['recommendation_notes'],
+        current_active_strategy_id=result['current_active_strategy_id']
+    )
+
+
+@router.post("/strategies/seed")
+async def seed_strategies_endpoint(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Manually seed initial strategies.
+
+    This is called automatically when listing strategies,
+    but can be triggered manually if needed.
+    """
+    count = await seed_strategies(db)
+    return {
+        "message": f"Seeded {count} strategies" if count > 0 else "Strategies already exist",
+        "count": count
     }
