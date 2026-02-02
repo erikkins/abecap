@@ -120,21 +120,24 @@ async def store_signals_callback(signals):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize database on startup (fast - no data loading for Lambda)"""
+    """Initialize on startup - skip DB for Lambda to avoid INIT timeout"""
     print("🚀 Starting RigaCap API...")
 
-    # Initialize database tables only (fast operation)
-    try:
-        await init_db()
-    except Exception as e:
-        print(f"⚠️ Database not available: {e}")
-        print("   Running in memory-only mode (positions won't persist)")
-
-    # Skip slow data loading for Lambda - use /api/warmup endpoint instead
-    # This keeps lifespan fast (<3s) to avoid Lambda init timeout
     import os
-    if os.environ.get("ENVIRONMENT") != "prod":
-        # For local dev, load data and start scheduler
+    is_lambda = os.environ.get("ENVIRONMENT") == "prod"
+
+    if is_lambda:
+        # Lambda: Skip DB init during startup to avoid 10s INIT timeout
+        # Database will initialize lazily on first request
+        print("📦 Lambda mode: Skipping DB init (will initialize on first request)")
+    else:
+        # Local dev: Initialize DB and start scheduler
+        try:
+            await init_db()
+        except Exception as e:
+            print(f"⚠️ Database not available: {e}")
+            print("   Running in memory-only mode (positions won't persist)")
+
         cached_data = data_export_service.import_all()
         if cached_data:
             scanner_service.data_cache = cached_data
@@ -147,7 +150,7 @@ async def lifespan(app: FastAPI):
 
     # Cleanup
     print("👋 Shutting down RigaCap API...")
-    if os.environ.get("ENVIRONMENT") != "prod":
+    if not is_lambda:
         scheduler_service.stop()
 
 

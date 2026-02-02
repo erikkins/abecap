@@ -158,6 +158,26 @@ uvicorn main:app --reload --port 8000
 cd frontend && npm install && npm run dev
 ```
 
+### Lambda Container Deployment
+
+**CRITICAL: AWS Lambda requires single-platform linux/amd64 images.**
+
+Docker BuildKit creates multi-platform manifest lists with attestations that Lambda rejects with:
+> "The image manifest, config or layer media type is not supported"
+
+Always use `--provenance=false --sbom=false` when building Lambda container images:
+
+```bash
+# Build Lambda-compatible image
+cd backend
+docker buildx build --platform linux/amd64 --provenance=false --sbom=false -f Dockerfile.lambda -t rigacap-prod-api:latest --load .
+
+# Or use the deploy script which handles this automatically:
+./scripts/deploy-container.sh
+```
+
+**Note:** The Lambda init phase has a 10-second timeout. Database connections are initialized lazily on first request to avoid this timeout.
+
 ### Deployment
 ```bash
 cd infrastructure/terraform

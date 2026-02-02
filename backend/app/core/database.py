@@ -21,9 +21,12 @@ engine = create_async_engine(
     DATABASE_URL,
     echo=settings.DEBUG,
     pool_pre_ping=True,
-    pool_timeout=5,  # 5 second timeout for getting connection from pool
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=3,  # 3 second timeout for getting connection from pool
     connect_args={
-        "timeout": 5,  # 5 second connection timeout
+        "command_timeout": 5,  # 5 second query timeout
+        "timeout": 3,  # 3 second connection timeout (asyncpg)
     }
 )
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -265,20 +268,36 @@ class Subscription(Base):
 
 # Track database availability (set during init_db)
 db_available = False
+db_init_attempted = False
 
 
 async def init_db():
     """Initialize database tables"""
-    global db_available
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    db_available = True
-    print("✅ Database initialized")
+    global db_available, db_init_attempted
+    db_init_attempted = True
+
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        db_available = True
+        print("✅ Database initialized")
+    except Exception as e:
+        print(f"⚠️ Database init failed: {e}")
+        db_available = False
+        raise
 
 
 async def get_db():
-    """Dependency for getting database session"""
+    """Dependency for getting database session - with lazy initialization"""
     from fastapi import HTTPException, status
+    global db_available, db_init_attempted
+
+    # Lazy initialization: try to init DB on first request if not done during startup
+    if not db_init_attempted:
+        try:
+            await init_db()
+        except Exception as e:
+            print(f"⚠️ Lazy DB init failed: {e}")
 
     if not db_available:
         raise HTTPException(

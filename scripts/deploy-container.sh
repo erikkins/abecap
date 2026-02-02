@@ -54,11 +54,15 @@ echo "✅ Logged into ECR"
 echo ""
 echo "🔨 Step 3: Building Docker image..."
 cd "$(dirname "$0")/../backend"
-# Build for x86_64 (Lambda default), with Lambda-compatible format
-docker build -f Dockerfile.lambda -t ${ECR_REPOSITORY}:${IMAGE_TAG} \
+# CRITICAL: Use --provenance=false --sbom=false to prevent manifest lists
+# that Lambda rejects with: "The image manifest, config or layer media type is not supported"
+# Also use --no-cache to ensure latest code is included
+docker buildx build -f Dockerfile.lambda -t ${ECR_REPOSITORY}:${IMAGE_TAG} \
   --platform linux/amd64 \
   --provenance=false \
   --sbom=false \
+  --no-cache \
+  --load \
   .
 docker tag ${ECR_REPOSITORY}:${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
 docker tag ${ECR_REPOSITORY}:${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest
