@@ -42,6 +42,51 @@ from app.services.data_export import data_export_service
 
 
 # ============================================================================
+# Helper Functions
+# ============================================================================
+
+def get_split_adjusted_price(symbol: str, entry_date: datetime, fallback_price: float) -> float:
+    """
+    Get the split-adjusted close price for a symbol on a given date.
+
+    yfinance retroactively adjusts all historical prices after splits,
+    so looking up the close price for an entry date gives us the
+    split-adjusted value automatically.
+
+    Args:
+        symbol: Stock symbol
+        entry_date: Date the position was opened
+        fallback_price: Original stored entry price (used if date not found)
+
+    Returns:
+        Split-adjusted close price, or fallback_price if not found
+    """
+    if symbol not in scanner_service.data_cache:
+        return fallback_price
+
+    df = scanner_service.data_cache[symbol]
+    if df.empty:
+        return fallback_price
+
+    # Convert entry_date to date-only for comparison
+    target_date = entry_date.date() if hasattr(entry_date, 'date') else entry_date
+
+    # Find the closest date on or before entry_date
+    # (markets may be closed on exact entry date)
+    try:
+        # Filter to dates <= entry_date
+        df_before = df[df.index.date <= target_date]
+        if df_before.empty:
+            return fallback_price
+
+        # Get the most recent date
+        adjusted_price = float(df_before.iloc[-1]['close'])
+        return adjusted_price
+    except Exception:
+        return fallback_price
+
+
+# ============================================================================
 # Pydantic Models
 # ============================================================================
 
@@ -758,7 +803,7 @@ async def get_backtest_trades(days: int = 252, limit: int = 50):
 
 @app.get("/api/portfolio/positions", response_model=PositionsListResponse)
 async def get_positions(db: AsyncSession = Depends(get_db)):
-    """Get all open positions with current prices"""
+    """Get all open positions with current prices (split-adjusted)"""
 
     result = await db.execute(
         select(DBPosition).where(DBPosition.status == "open").order_by(desc(DBPosition.created_at))
@@ -770,29 +815,37 @@ async def get_positions(db: AsyncSession = Depends(get_db)):
     total_cost = 0.0
 
     for pos in db_positions:
+        # Get split-adjusted entry price from historical data
+        # This handles stock splits automatically - yfinance adjusts all historical prices
+        adjusted_entry = get_split_adjusted_price(pos.symbol, pos.entry_date, pos.entry_price)
+
         # Get current price from cache if available
-        current_price = pos.entry_price  # Default to entry if no live data
+        current_price = adjusted_entry  # Default to entry if no live data
         if pos.symbol in scanner_service.data_cache:
             df = scanner_service.data_cache[pos.symbol]
             if len(df) > 0:
                 current_price = float(df.iloc[-1]['close'])
 
+        # Calculate stop/target based on adjusted entry (not stored values which may be pre-split)
+        stop_loss = round(adjusted_entry * (1 - settings.STOP_LOSS_PCT / 100), 2)
+        profit_target = round(adjusted_entry * (1 + settings.PROFIT_TARGET_PCT / 100), 2)
+
         days_held = (datetime.now() - pos.entry_date).days
-        pnl_pct = ((current_price - pos.entry_price) / pos.entry_price) * 100
+        pnl_pct = ((current_price - adjusted_entry) / adjusted_entry) * 100
         position_value = pos.shares * current_price
 
         total_value += position_value
-        total_cost += pos.shares * pos.entry_price
+        total_cost += pos.shares * adjusted_entry
 
         positions.append(PositionResponse(
             id=pos.id,
             symbol=pos.symbol,
             shares=pos.shares,
-            entry_price=pos.entry_price,
+            entry_price=round(adjusted_entry, 2),
             entry_date=pos.entry_date.strftime('%Y-%m-%d'),
             current_price=round(current_price, 2),
-            stop_loss=pos.stop_loss or round(pos.entry_price * 0.92, 2),
-            profit_target=pos.profit_target or round(pos.entry_price * 1.20, 2),
+            stop_loss=stop_loss,
+            profit_target=profit_target,
             pnl_pct=round(pnl_pct, 2),
             days_held=days_held
         ))
@@ -853,13 +906,16 @@ async def open_position(request: OpenPositionRequest, db: AsyncSession = Depends
 
 @app.delete("/api/portfolio/positions/{position_id}")
 async def close_position(position_id: int, exit_price: Optional[float] = None, db: AsyncSession = Depends(get_db)):
-    """Close a position and record the trade"""
+    """Close a position and record the trade (with split-adjusted prices)"""
 
     result = await db.execute(select(DBPosition).where(DBPosition.id == position_id))
     position = result.scalar_one_or_none()
 
     if not position:
         raise HTTPException(status_code=404, detail="Position not found")
+
+    # Get split-adjusted entry price
+    adjusted_entry = get_split_adjusted_price(position.symbol, position.entry_date, position.entry_price)
 
     # Get exit price
     price = exit_price
@@ -869,25 +925,29 @@ async def close_position(position_id: int, exit_price: Optional[float] = None, d
             price = float(df.iloc[-1]['close'])
 
     if not price:
-        price = position.entry_price  # Fallback
+        price = adjusted_entry  # Fallback
 
-    # Calculate P&L
-    pnl = (price - position.entry_price) * position.shares
-    pnl_pct = ((price - position.entry_price) / position.entry_price) * 100
+    # Calculate P&L using split-adjusted entry
+    pnl = (price - adjusted_entry) * position.shares
+    pnl_pct = ((price - adjusted_entry) / adjusted_entry) * 100
+
+    # Calculate split-adjusted stop/target for exit reason
+    stop_loss = adjusted_entry * (1 - settings.STOP_LOSS_PCT / 100)
+    profit_target = adjusted_entry * (1 + settings.PROFIT_TARGET_PCT / 100)
 
     # Determine exit reason
     exit_reason = "manual"
-    if price <= position.stop_loss:
+    if price <= stop_loss:
         exit_reason = "stop_loss"
-    elif price >= position.profit_target:
+    elif price >= profit_target:
         exit_reason = "profit_target"
 
-    # Record trade
+    # Record trade with split-adjusted entry price
     trade = DBTrade(
         position_id=position.id,
         symbol=position.symbol,
         entry_date=position.entry_date,
-        entry_price=position.entry_price,
+        entry_price=round(adjusted_entry, 2),
         exit_date=datetime.now(),
         exit_price=price,
         shares=position.shares,
