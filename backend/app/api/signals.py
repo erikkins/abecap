@@ -522,15 +522,16 @@ async def get_stock_info(symbol: str):
     if symbol in scanner_service.data_cache:
         df = scanner_service.data_cache[symbol]
         if len(df) > 0:
+            import pandas as pd
             row = df.iloc[-1]
             current_data = {
                 "current_price": round(float(row['close']), 2),
-                "dwap": round(float(row['dwap']), 2) if row['dwap'] else None,
-                "ma_50": round(float(row['ma_50']), 2) if row['ma_50'] else None,
-                "ma_200": round(float(row['ma_200']), 2) if row['ma_200'] else None,
-                "high_52w": round(float(row['high_52w']), 2) if row['high_52w'] else None,
-                "volume": int(row['volume']),
-                "avg_volume": int(row['vol_avg']) if row['vol_avg'] else None,
+                "dwap": round(float(row['dwap']), 2) if pd.notna(row.get('dwap')) else None,
+                "ma_50": round(float(row['ma_50']), 2) if pd.notna(row.get('ma_50')) else None,
+                "ma_200": round(float(row['ma_200']), 2) if pd.notna(row.get('ma_200')) else None,
+                "high_52w": round(float(row['high_52w']), 2) if pd.notna(row.get('high_52w')) else None,
+                "volume": int(row['volume']) if pd.notna(row.get('volume')) else 0,
+                "avg_volume": int(row['vol_avg']) if pd.notna(row.get('vol_avg')) else None,
             }
 
     return {

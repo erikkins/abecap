@@ -411,6 +411,46 @@ class StockUniverseService:
 
         return await self.fetch_all_symbols(use_cache=True, max_cache_age_hours=max_cache_age_hours)
 
+    async def fetch_company_details(self, symbol: str) -> dict:
+        """
+        Fetch detailed company information from yfinance.
+
+        Returns dict with name, sector, industry, description, website, etc.
+        Caches the result in symbol_info.
+        """
+        import yfinance as yf
+
+        try:
+            ticker = yf.Ticker(symbol)
+            info = ticker.info or {}
+
+            # Extract relevant fields
+            details = {
+                "name": info.get("longName") or info.get("shortName", symbol),
+                "sector": info.get("sector", ""),
+                "industry": info.get("industry", ""),
+                "description": info.get("longBusinessSummary", ""),
+                "market_cap": str(info.get("marketCap", "")) if info.get("marketCap") else "",
+                "exchange": info.get("exchange", ""),
+                "website": info.get("website", ""),
+                "employees": info.get("fullTimeEmployees"),
+                "country": info.get("country", ""),
+                "last_price": info.get("regularMarketPrice", 0),
+            }
+
+            # Update the cache
+            if symbol in self.symbol_info:
+                self.symbol_info[symbol].update(details)
+            else:
+                self.symbol_info[symbol] = details
+
+            return details
+
+        except Exception as e:
+            logger.warning(f"Failed to fetch company details for {symbol}: {e}")
+            # Return existing cached info or empty dict
+            return self.symbol_info.get(symbol, {"name": symbol})
+
 
 # Singleton instance
 stock_universe_service = StockUniverseService()

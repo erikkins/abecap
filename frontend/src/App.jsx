@@ -164,7 +164,6 @@ const ErrorDisplay = ({ message, onRetry }) => (
 
 // LoginModal is now imported from ./components/LoginModal
 
-// Stock Chart Modal with Entry Point Marker
 // Buy Modal Component
 const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy }) => {
   const [shares, setShares] = useState(Math.floor(10000 / price)); // Default ~$10k position
@@ -261,6 +260,105 @@ const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy }) => {
   );
 };
 
+// Sell Modal Component (for closing positions)
+const SellModal = ({ symbol, position, currentPrice, stockInfo, onClose, onSell }) => {
+  const [shares, setShares] = useState(position?.shares || 0);
+  const [exitPrice, setExitPrice] = useState(currentPrice);
+  const [submitting, setSubmitting] = useState(false);
+
+  const entryPrice = position?.entry_price || 0;
+  const totalProceeds = shares * exitPrice;
+  const totalCost = shares * entryPrice;
+  const pnl = totalProceeds - totalCost;
+  const pnlPct = entryPrice > 0 ? ((exitPrice - entryPrice) / entryPrice) * 100 : 0;
+
+  const handleSell = async () => {
+    setSubmitting(true);
+    try {
+      await api.delete(`/api/portfolio/positions/${position.id}?exit_price=${exitPrice}`);
+      onSell();
+      onClose();
+    } catch (err) {
+      console.error('Sell failed:', err);
+      alert('Failed to close position. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+        <div className={`px-6 py-4 border-b border-gray-100 ${pnl >= 0 ? 'bg-gradient-to-r from-emerald-500 to-green-600' : 'bg-gradient-to-r from-red-500 to-rose-600'}`}>
+          <h2 className="text-xl font-bold text-white">Sell {symbol}</h2>
+          {stockInfo?.name && <p className="text-white/80 text-sm">{stockInfo.name}</p>}
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Number of Shares</label>
+            <input
+              type="number"
+              value={shares}
+              onChange={(e) => setShares(Math.max(0, Math.min(position?.shares || 0, parseFloat(e.target.value) || 0)))}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              max={position?.shares || 0}
+            />
+            <p className="text-xs text-gray-400 mt-1">Max: {position?.shares || 0} shares</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Exit Price</label>
+            <input
+              type="number"
+              step="0.01"
+              value={exitPrice}
+              onChange={(e) => setExitPrice(parseFloat(e.target.value) || 0)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Entry Price</span>
+              <span className="font-medium">${entryPrice.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Total Proceeds</span>
+              <span className="font-semibold">${totalProceeds.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+            </div>
+            <div className="border-t border-gray-200 my-2"></div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Profit/Loss</span>
+              <span className={`font-bold ${pnl >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                {pnl >= 0 ? '+' : ''}{pnl.toLocaleString(undefined, { maximumFractionDigits: 2 })} ({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-xl font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSell}
+            disabled={submitting || shares <= 0 || exitPrice <= 0}
+            className={`flex-1 px-4 py-3 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${pnl >= 0 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
+          >
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign size={18} />}
+            {submitting ? 'Selling...' : 'Confirm Sale'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Stock Chart Modal
 const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
   const [timeRange, setTimeRange] = useState('1Y');
   const [priceData, setPriceData] = useState([]);
@@ -268,6 +366,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showBuyModal, setShowBuyModal] = useState(false);
+  const [showSellModal, setShowSellModal] = useState(false);
 
   // Fetch company info once when modal opens
   useEffect(() => {
@@ -756,17 +855,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
           )}
           {type === 'position' && (
             <button
-              onClick={async () => {
-                if (confirm(`Mark ${symbol} as sold?`)) {
-                  try {
-                    await api.delete(`/api/portfolio/positions/${data.id}`);
-                    onAction && onAction();
-                    onClose();
-                  } catch (err) {
-                    alert('Failed to close position');
-                  }
-                }
-              }}
+              onClick={() => setShowSellModal(true)}
               className="px-6 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 flex items-center gap-2"
             >
               <DollarSign size={18} />
@@ -789,6 +878,20 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
           stockInfo={stockInfo}
           onClose={() => setShowBuyModal(false)}
           onBuy={() => {
+            onAction && onAction();
+          }}
+        />
+      )}
+
+      {/* Sell Modal */}
+      {showSellModal && (
+        <SellModal
+          symbol={symbol}
+          position={data}
+          currentPrice={currentPrice}
+          stockInfo={stockInfo}
+          onClose={() => setShowSellModal(false)}
+          onSell={() => {
             onAction && onAction();
           }}
         />
@@ -917,10 +1020,11 @@ function Dashboard() {
         if (cachedSignals) setSignals(cachedSignals);
         if (cachedBacktest) {
           setBacktest(cachedBacktest.backtest);
-          setPositions(cachedBacktest.positions || cachedPositions || []);
-          setTrades(cachedBacktest.trades || []);
+          // Don't load positions/trades from backtest cache - only from user data
         }
-        if (cachedMissed) setMissedOpportunities(cachedMissed);
+        // Load user positions from cache (NOT backtest positions)
+        if (cachedPositions) setPositions(cachedPositions);
+        // Missed opportunities removed - was simulated data
         setLoading(false); // Dashboard visible immediately!
       }
 
@@ -962,37 +1066,46 @@ function Dashboard() {
       const refreshData = async () => {
         try {
           // Load all data in parallel
-          const [backtestResult, signalsResult, marketResult, missedResult, userPositionsResult] = await Promise.allSettled([
+          const [backtestResult, signalsResult, marketResult, userPositionsResult, userTradesResult] = await Promise.allSettled([
             api.get('/api/backtest/run?days=252').catch(() => null),
             // Only fetch from API if CDN failed
             signals.length === 0 ? api.get('/api/signals/memory-scan?refresh=false&apply_market_filter=true').catch(() => null) : Promise.resolve(null),
             api.get('/api/market/regime').catch(() => null),
-            api.get('/api/signals/missed?days=30&limit=10').catch(() => null),
-            api.get('/api/portfolio/positions').catch(() => null)
+            api.get('/api/portfolio/positions').catch(() => null),
+            api.get('/api/portfolio/trades?limit=50').catch(() => null)
           ]);
 
-          // Process backtest result
+          // Process backtest result (for stats display only, NOT for positions/trades)
           if (backtestResult.status === 'fulfilled' && backtestResult.value?.success) {
             const bt = backtestResult.value;
             setBacktest(bt.backtest);
-            setTrades(bt.trades || []);
             setCache(CACHE_KEYS.BACKTEST, bt);
           }
 
-          // Process user positions (prioritize over backtest positions)
-          if (userPositionsResult.status === 'fulfilled' && userPositionsResult.value?.positions?.length > 0) {
-            setPositions(userPositionsResult.value.positions);
-            setCache(CACHE_KEYS.POSITIONS, userPositionsResult.value.positions);
-          } else if (backtestResult.status === 'fulfilled' && backtestResult.value?.positions?.length > 0) {
-            // Fallback to backtest positions if no user positions
-            setPositions(backtestResult.value.positions || []);
-            setCache(CACHE_KEYS.POSITIONS, backtestResult.value.positions || []);
+          // Process user positions ONLY - no backtest fallback
+          let userPositions = [];
+          if (userPositionsResult.status === 'fulfilled' && userPositionsResult.value?.positions) {
+            userPositions = userPositionsResult.value.positions;
+            setPositions(userPositions);
+            setCache(CACHE_KEYS.POSITIONS, userPositions);
+          } else {
+            setPositions([]);
+          }
+
+          // Process user trades ONLY - no backtest fallback
+          if (userTradesResult.status === 'fulfilled' && userTradesResult.value?.trades) {
+            setTrades(userTradesResult.value.trades);
+          } else {
+            setTrades([]);
           }
 
           // Process signals result (only if CDN didn't work)
+          // Filter out signals for stocks user already has positions in
           if (signalsResult.status === 'fulfilled' && signalsResult.value?.signals) {
-            setSignals(signalsResult.value.signals);
-            setCache(CACHE_KEYS.SIGNALS, signalsResult.value.signals);
+            const positionSymbols = new Set(userPositions.map(p => p.symbol));
+            const filteredSignals = signalsResult.value.signals.filter(s => !positionSymbols.has(s.symbol));
+            setSignals(filteredSignals);
+            setCache(CACHE_KEYS.SIGNALS, filteredSignals);
             if (signalsResult.value.timestamp) {
               setLastScan(new Date(signalsResult.value.timestamp));
             }
@@ -1003,11 +1116,9 @@ function Dashboard() {
             setMarketRegime(marketResult.value);
           }
 
-          // Process missed opportunities
-          if (missedResult.status === 'fulfilled' && missedResult.value) {
-            setMissedOpportunities(missedResult.value || []);
-            setCache(CACHE_KEYS.MISSED, missedResult.value);
-          }
+          // Note: Missed opportunities removed - was showing simulated backtest data
+          // Real missed opportunities would require tracking signals user saw but didn't act on
+          setMissedOpportunities([]);
         } catch (err) {
           console.log('Background refresh failed:', err);
         }
@@ -1025,22 +1136,24 @@ function Dashboard() {
     try {
       // Refresh signals from API (memory-scan exports to CDN automatically)
       const signalsResult = await api.get('/api/signals/memory-scan?refresh=true&apply_market_filter=true&export_to_cdn=true');
-      setSignals(signalsResult.signals || []);
-      setCache(CACHE_KEYS.SIGNALS, signalsResult.signals || []);
+
+      // Filter out signals for stocks user already has positions in
+      const positionSymbols = new Set(positions.map(p => p.symbol));
+      const filteredSignals = (signalsResult.signals || []).filter(s => !positionSymbols.has(s.symbol));
+      setSignals(filteredSignals);
+      setCache(CACHE_KEYS.SIGNALS, filteredSignals);
       setLastScan(new Date(signalsResult.timestamp));
 
       // Update market regime
       const marketResult = await api.get('/api/market/regime');
       setMarketRegime(marketResult);
 
-      // Re-run backtest with fresh data
+      // Re-run backtest for stats only (NOT for positions/trades)
       try {
         const backtestResult = await api.get('/api/backtest/run?days=252');
         setBacktest(backtestResult.backtest);
-        setPositions(backtestResult.positions || []);
-        setTrades(backtestResult.trades || []);
         setCache(CACHE_KEYS.BACKTEST, backtestResult);
-        setCache(CACHE_KEYS.POSITIONS, backtestResult.positions || []);
+        // Don't set positions/trades from backtest - use real user data only
       } catch (btErr) {
         console.log('Backtest failed - data may still be loading');
       }
@@ -1052,25 +1165,24 @@ function Dashboard() {
     }
   };
 
-  // Reload positions and missed opportunities after a buy
+  // Reload positions after a buy/sell - user data only, no backtest fallback
   const reloadPositions = async () => {
     try {
-      // Try to get real positions from database
+      // Get real positions from database only
       const posResult = await api.get('/api/portfolio/positions');
-      if (posResult.positions && posResult.positions.length > 0) {
-        setPositions(posResult.positions);
-        setCache(CACHE_KEYS.POSITIONS, posResult.positions);
-      } else {
-        // Fall back to backtest positions
-        const backtestResult = await api.get('/api/backtest/run?days=252');
-        setPositions(backtestResult.positions || []);
-        setCache(CACHE_KEYS.POSITIONS, backtestResult.positions || []);
+      const userPositions = posResult.positions || [];
+      setPositions(userPositions);
+      setCache(CACHE_KEYS.POSITIONS, userPositions);
+
+      // Also reload trades
+      const tradesResult = await api.get('/api/portfolio/trades?limit=50');
+      if (tradesResult.trades) {
+        setTrades(tradesResult.trades);
       }
 
-      // Also refresh missed opportunities (now that user bought something)
-      const missedResult = await api.get('/api/signals/missed?days=30&limit=10');
-      setMissedOpportunities(missedResult || []);
-      setCache(CACHE_KEYS.MISSED, missedResult || []);
+      // Update signals to exclude stocks user now has positions in
+      const positionSymbols = new Set(userPositions.map(p => p.symbol));
+      setSignals(prev => prev.filter(s => !positionSymbols.has(s.symbol)));
     } catch (err) {
       console.log('Could not reload positions:', err);
     }
@@ -1166,7 +1278,9 @@ function Dashboard() {
             </button>
             {user ? (
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">{user.name[0]}</div>
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">
+                  {(user.name || user.email || 'U')[0].toUpperCase()}
+                </div>
                 <button onClick={logout} className="p-2 text-gray-400 hover:text-gray-600"><LogOut size={18} /></button>
               </div>
             ) : (
