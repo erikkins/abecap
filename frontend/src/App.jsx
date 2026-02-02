@@ -742,38 +742,53 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote }) =
 
                 {/* Buy point marker - triangle at entry date */}
                 {(() => {
-                  if (!data?.entry_date || priceData.length === 0) return null;
+                  if (!data?.entry_date || chartDataWithLive.length === 0) return null;
+
+                  // Normalize entry date to YYYY-MM-DD format for comparison
+                  const entryDateStr = data.entry_date.split('T')[0];
+
                   // Find exact match or closest date on/after entry date
-                  let entryMatch = priceData.find(d => d.date === data.entry_date);
+                  let entryMatch = chartDataWithLive.find(d => d.date === entryDateStr);
                   if (!entryMatch) {
                     // Find closest date on or after entry_date (entry might be on weekend/holiday)
-                    entryMatch = priceData.find(d => d.date >= data.entry_date);
+                    entryMatch = chartDataWithLive.find(d => d.date >= entryDateStr);
                   }
                   if (!entryMatch) {
-                    // If entry is before all chart data, use first data point
-                    entryMatch = priceData[0];
+                    // If entry is before all chart data, don't show marker (it's out of view)
+                    return null;
                   }
-                  return entryMatch ? (
+
+                  // Use actual entry_price for y position (not close price which may differ)
+                  const yPrice = data.entry_price || entryMatch.close;
+                  if (!yPrice || !entryMatch.date) return null;
+
+                  return (
                     <ReferenceDot
                       yAxisId="price"
                       x={entryMatch.date}
-                      y={entryMatch.close || data.entry_price}
-                      shape={(props) => <BuyMarker {...props} payload={entryMatch} />}
+                      y={yPrice}
+                      shape={(props) => <BuyMarker {...props} payload={{...entryMatch, close: yPrice}} />}
                     />
-                  ) : null;
+                  );
                 })()}
 
                 {/* Sell point marker - triangle at sell date (for trades) */}
                 {(() => {
-                  if (!data?.sell_date || priceData.length === 0) return null;
+                  if (!data?.sell_date || chartDataWithLive.length === 0) return null;
+
+                  // Normalize sell date to YYYY-MM-DD format for comparison
+                  const sellDateStr = data.sell_date.split('T')[0];
+
                   // Find exact match or closest date on/after sell date
-                  let sellMatch = priceData.find(d => d.date === data.sell_date);
+                  let sellMatch = chartDataWithLive.find(d => d.date === sellDateStr);
                   if (!sellMatch) {
-                    sellMatch = priceData.find(d => d.date >= data.sell_date);
+                    sellMatch = chartDataWithLive.find(d => d.date >= sellDateStr);
                   }
                   if (!sellMatch) {
-                    sellMatch = priceData[priceData.length - 1];
+                    // If sell date is after all chart data, use last point
+                    sellMatch = chartDataWithLive[chartDataWithLive.length - 1];
                   }
+                  if (!sellMatch?.date) return null;
                   return sellMatch ? (
                     <ReferenceDot
                       yAxisId="price"
