@@ -39,6 +39,21 @@ EXCLUDED_PATTERNS = [
     'DWAC', 'PHUN',  # Highly volatile meme stocks
 ]
 
+# Must-include symbols (major stocks that bypass all filters)
+# These are important index components that should never be excluded
+MUST_INCLUDE = [
+    # Dow 30 components (as of 2025 - WBA went private Dec 2024)
+    'AAPL', 'AMGN', 'AXP', 'BA', 'CAT', 'CRM', 'CSCO', 'CVX', 'DIS', 'DOW',
+    'GS', 'HD', 'HON', 'IBM', 'INTC', 'JNJ', 'JPM', 'KO', 'MCD', 'MMM',
+    'MRK', 'MSFT', 'NKE', 'PG', 'TRV', 'UNH', 'V', 'VZ', 'WMT',
+    # Major stocks sometimes filtered (price < $5 or other issues)
+    'NIO', 'GRAB', 'SOFI', 'RIVN', 'LCID', 'PLTR', 'HOOD', 'COIN',
+    # Block Inc (was SQ, now XYZ as of June 2024)
+    'XYZ', 'SQ',
+    # Berkshire (handled specially due to dot/dash in symbol)
+    'BRK.A', 'BRK.B', 'BRK-A', 'BRK-B',
+]
+
 # Minimum requirements for inclusion
 MIN_PRICE = 5.0  # Exclude penny stocks
 MIN_AVG_VOLUME = 100000  # Minimum average daily volume
@@ -156,18 +171,30 @@ class StockUniverseService:
 
         # Process and filter symbols
         symbols = set()
+        must_include_set = set(MUST_INCLUDE)
+
         for stock in all_stocks:
             symbol = stock.get("symbol", "").strip()
 
-            # Skip empty or invalid symbols
-            if not symbol or len(symbol) > 5:
+            # Skip empty symbols
+            if not symbol:
                 continue
 
-            # Skip symbols with special characters (warrants, units, etc.)
-            if any(c in symbol for c in ['^', '.', '/', '-']):
+            # Check if this is a must-include symbol (bypass most filters)
+            is_must_include = symbol in must_include_set
+
+            # Skip symbols longer than 5 chars (unless must-include)
+            if len(symbol) > 5 and not is_must_include:
                 continue
 
-            # Skip excluded symbols
+            # Skip symbols with special characters (unless must-include like BRK.B)
+            if any(c in symbol for c in ['^', '/', '-']) and not is_must_include:
+                continue
+            # Allow dots only for must-include symbols (BRK.B, BRK.A)
+            if '.' in symbol and not is_must_include:
+                continue
+
+            # Skip excluded symbols (these are never included)
             if symbol in EXCLUDED_PATTERNS:
                 continue
 
@@ -177,8 +204,8 @@ class StockUniverseService:
                 last_sale = stock.get("lastsale", "$0").replace("$", "").replace(",", "")
                 price = float(last_sale) if last_sale else 0
 
-                # Skip penny stocks
-                if price < MIN_PRICE:
+                # Skip penny stocks (unless must-include)
+                if price < MIN_PRICE and not is_must_include:
                     continue
 
                 # Store symbol info
@@ -196,13 +223,27 @@ class StockUniverseService:
             except (ValueError, TypeError):
                 continue
 
+        # Ensure must-include symbols are present even if not in API response
+        for symbol in MUST_INCLUDE:
+            if symbol not in symbols and symbol not in EXCLUDED_PATTERNS:
+                symbols.add(symbol)
+                if symbol not in self.symbol_info:
+                    self.symbol_info[symbol] = {
+                        "name": f"{symbol} (must-include)",
+                        "exchange": "",
+                        "sector": "",
+                        "industry": "",
+                        "market_cap": "",
+                        "last_price": 0
+                    }
+
         self.symbols = sorted(list(symbols))
         self.last_updated = datetime.now()
 
         # Save to cache
         self._save_to_cache()
 
-        logger.info(f"Found {len(self.symbols)} valid symbols after filtering")
+        logger.info(f"Found {len(self.symbols)} valid symbols after filtering (including {len(MUST_INCLUDE)} must-include)")
         return self.symbols
 
     def _load_from_cache(self, max_age_hours: int = 24) -> bool:
