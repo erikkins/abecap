@@ -359,7 +359,7 @@ const SellModal = ({ symbol, position, currentPrice, stockInfo, onClose, onSell 
 };
 
 // Stock Chart Modal
-const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
+const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote }) => {
   const [timeRange, setTimeRange] = useState('1Y');
   const [priceData, setPriceData] = useState([]);
   const [stockInfo, setStockInfo] = useState(null);
@@ -367,6 +367,26 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
   const [error, setError] = useState(null);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [showSellModal, setShowSellModal] = useState(false);
+  const [currentLiveQuote, setCurrentLiveQuote] = useState(liveQuote);
+
+  // Poll for live quote updates while modal is open
+  useEffect(() => {
+    const fetchLiveQuote = async () => {
+      try {
+        const response = await api.get(`/api/quotes/live?symbols=${symbol}`);
+        if (response.quotes?.[symbol]) {
+          setCurrentLiveQuote(response.quotes[symbol]);
+        }
+      } catch (err) {
+        // Silently fail - live quotes are optional
+      }
+    };
+
+    // Initial fetch and poll every 15 seconds while modal is open
+    fetchLiveQuote();
+    const interval = setInterval(fetchLiveQuote, 15000);
+    return () => clearInterval(interval);
+  }, [symbol]);
 
   // Fetch company info once when modal opens
   useEffect(() => {
@@ -437,14 +457,28 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
     return `$${num.toLocaleString()}`;
   };
 
-  const currentPrice = priceData[priceData.length - 1]?.close || data?.current_price || data?.price || 0;
+  // Use live quote if available, otherwise fall back to chart data
+  const livePrice = currentLiveQuote?.price;
+  const currentPrice = livePrice || priceData[priceData.length - 1]?.close || data?.current_price || data?.price || 0;
   const startPrice = priceData[0]?.close || currentPrice;
   const changePct = startPrice > 0 ? ((currentPrice - startPrice) / startPrice * 100).toFixed(1) : 0;
   const isPositive = changePct >= 0;
 
+  // Add live price point to chart data if available
+  const chartDataWithLive = livePrice && priceData.length > 0
+    ? [...priceData, {
+        date: new Date().toISOString().split('T')[0],
+        close: livePrice,
+        open: livePrice,
+        high: livePrice,
+        low: livePrice,
+        isLive: true, // Flag for special rendering
+      }]
+    : priceData;
+
   // Find entry point index for positions
   const entryPointIndex = type === 'position' && data?.entry_date
-    ? priceData.findIndex(d => d.date === data.entry_date)
+    ? chartDataWithLive.findIndex(d => d.date === data.entry_date)
     : -1;
 
   return (
@@ -498,10 +532,21 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
             )}
             <div className="flex items-center gap-4 mt-2">
               <span className="text-2xl font-semibold">${currentPrice.toFixed(2)}</span>
+              {currentLiveQuote && (
+                <span className={`flex items-center text-sm font-medium ${currentLiveQuote.change_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {currentLiveQuote.change_pct >= 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                  {currentLiveQuote.change_pct >= 0 ? '+' : ''}{currentLiveQuote.change_pct?.toFixed(2)}% today
+                </span>
+              )}
               <span className={`flex items-center text-sm font-medium ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
                 {isPositive ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
-                {isPositive ? '+' : ''}{changePct}%
+                {isPositive ? '+' : ''}{changePct}% ({timeRange})
               </span>
+              {currentLiveQuote && (
+                <span className="flex items-center gap-1 text-xs text-blue-500">
+                  <Activity size={12} className="animate-pulse" /> Live
+                </span>
+              )}
               {stockInfo?.market_cap && (
                 <span className="text-sm text-gray-500">
                   Market Cap: {formatMarketCap(stockInfo.market_cap)}
@@ -558,7 +603,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={320}>
-              <ComposedChart data={priceData}>
+              <ComposedChart data={chartDataWithLive}>
                 <defs>
                   <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.15}/>
@@ -617,10 +662,10 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
                   }}
                 />
                 <Bar yAxisId="volume" dataKey="volume" fill="#E5E7EB" opacity={0.5} />
-                {priceData.some(d => d.dwap) && (
+                {chartDataWithLive.some(d => d.dwap) && (
                   <Line yAxisId="price" type="monotone" dataKey="dwap" stroke="#8B5CF6" strokeWidth={2} dot={false} name="DWAP" />
                 )}
-                {priceData.some(d => d.ma_50) && (
+                {chartDataWithLive.some(d => d.ma_50) && (
                   <Line yAxisId="price" type="monotone" dataKey="ma_50" stroke="#F97316" strokeWidth={1.5} dot={false} strokeDasharray="5 5" name="MA50" />
                 )}
                 <Area yAxisId="price" type="monotone" dataKey="close" stroke="#3B82F6" strokeWidth={2} fill="url(#priceGradient)" name="Price" />
@@ -740,12 +785,25 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
                 })()}
 
                 {/* Signal point marker - triangle at current date for NEW signals only (not missed opportunities) */}
-                {type === 'signal' && !data?.exit_date && priceData.length > 0 && (
+                {type === 'signal' && !data?.exit_date && chartDataWithLive.length > 0 && !livePrice && (
                   <ReferenceDot
                     yAxisId="price"
-                    x={priceData[priceData.length - 1]?.date}
-                    y={priceData[priceData.length - 1]?.close}
+                    x={chartDataWithLive[chartDataWithLive.length - 1]?.date}
+                    y={chartDataWithLive[chartDataWithLive.length - 1]?.close}
                     shape={BuyMarker}
+                  />
+                )}
+
+                {/* Live price marker - pulsing dot at current live price */}
+                {livePrice && chartDataWithLive.length > 0 && (
+                  <ReferenceDot
+                    yAxisId="price"
+                    x={chartDataWithLive[chartDataWithLive.length - 1]?.date}
+                    y={livePrice}
+                    r={8}
+                    fill="#3B82F6"
+                    stroke="#fff"
+                    strokeWidth={2}
                   />
                 )}
               </ComposedChart>
@@ -1675,7 +1733,7 @@ function Dashboard() {
       </main>
 
       {showLoginModal && <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />}
-      {chartModal && <StockChartModal {...chartModal} onClose={() => setChartModal(null)} onAction={() => { setChartModal(null); reloadPositions(); }} />}
+      {chartModal && <StockChartModal {...chartModal} liveQuote={liveQuotes[chartModal.symbol]} onClose={() => setChartModal(null)} onAction={() => { setChartModal(null); reloadPositions(); }} />}
     </div>
   );
 }
