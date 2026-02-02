@@ -753,5 +753,155 @@ Unsubscribe: https://rigacap.com/unsubscribe
         )
 
 
+    async def send_ticker_alert(
+        self,
+        to_email: str,
+        issues: list,
+        check_type: str = "position"
+    ) -> bool:
+        """
+        Send alert email when ticker issues are detected.
+
+        Args:
+            to_email: Admin email to alert
+            issues: List of dicts with 'symbol', 'issue', 'last_price', 'last_date'
+            check_type: 'position' or 'universe'
+
+        Returns:
+            True if sent successfully
+        """
+        if not issues:
+            return True
+
+        issue_rows = ""
+        for issue in issues:
+            symbol = issue.get('symbol', 'N/A')
+            problem = issue.get('issue', 'Unknown issue')
+            last_price = issue.get('last_price', 'N/A')
+            last_date = issue.get('last_date', 'N/A')
+            suggestion = issue.get('suggestion', 'Research ticker change or delisting')
+
+            issue_rows += f"""
+            <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #fee2e2; font-weight: 600; color: #dc2626;">
+                    {symbol}
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid #fee2e2; color: #374151;">
+                    {problem}
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid #fee2e2; color: #6b7280; font-size: 13px;">
+                    Last: ${last_price} on {last_date}
+                </td>
+            </tr>
+            <tr>
+                <td colspan="3" style="padding: 8px 12px 16px; color: #92400e; font-size: 13px; background-color: #fef3c7;">
+                    💡 {suggestion}
+                </td>
+            </tr>
+            """
+
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <tr>
+            <td style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 32px 24px; text-align: center;">
+                <div style="font-size: 40px; margin-bottom: 12px;">⚠️</div>
+                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
+                    Ticker Health Alert
+                </h1>
+                <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
+                    {len(issues)} issue(s) detected in {"open positions" if check_type == "position" else "stock universe"}
+                </p>
+            </td>
+        </tr>
+
+        <!-- Issues Table -->
+        <tr>
+            <td style="padding: 24px;">
+                <p style="margin: 0 0 16px 0; font-size: 14px; color: #374151;">
+                    The following tickers failed to return data during the daily health check.
+                    This may indicate a ticker change, delisting, or merger.
+                </p>
+
+                <table cellpadding="0" cellspacing="0" style="width: 100%; border: 1px solid #fecaca; border-radius: 8px; overflow: hidden;">
+                    <tr style="background-color: #fef2f2;">
+                        <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #991b1b;">Symbol</th>
+                        <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #991b1b;">Issue</th>
+                        <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #991b1b;">Last Known</th>
+                    </tr>
+                    {issue_rows}
+                </table>
+            </td>
+        </tr>
+
+        <!-- Action Items -->
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <div style="background-color: #f0f9ff; border-radius: 12px; padding: 20px;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #0369a1;">
+                        🔧 Recommended Actions
+                    </h3>
+                    <ol style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 1.8;">
+                        <li>Search for recent news about the affected ticker(s)</li>
+                        <li>Check if ticker changed (e.g., SQ → XYZ for Block Inc)</li>
+                        <li>If delisted/acquired, close any open positions manually</li>
+                        <li>Update MUST_INCLUDE list in stock_universe.py if needed</li>
+                    </ol>
+                </div>
+            </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                    This is an automated alert from RigaCap Health Monitor
+                </p>
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
+                    Generated at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ET
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+        text_lines = [
+            "⚠️ TICKER HEALTH ALERT",
+            "=" * 40,
+            f"{len(issues)} issue(s) detected in {'open positions' if check_type == 'position' else 'stock universe'}",
+            "",
+        ]
+
+        for issue in issues:
+            text_lines.append(f"• {issue.get('symbol')}: {issue.get('issue')}")
+            text_lines.append(f"  Last: ${issue.get('last_price', 'N/A')} on {issue.get('last_date', 'N/A')}")
+            text_lines.append(f"  → {issue.get('suggestion', 'Research ticker change')}")
+            text_lines.append("")
+
+        text_lines.extend([
+            "RECOMMENDED ACTIONS:",
+            "1. Search for recent news about the ticker(s)",
+            "2. Check if ticker changed (e.g., SQ → XYZ)",
+            "3. Close positions manually if delisted",
+            "4. Update MUST_INCLUDE list if needed",
+        ])
+
+        return await self.send_email(
+            to_email=to_email,
+            subject=f"⚠️ RigaCap Alert: {len(issues)} Ticker Issue(s) Detected",
+            html_content=html,
+            text_content="\n".join(text_lines)
+        )
+
+
 # Singleton instance
 email_service = EmailService()

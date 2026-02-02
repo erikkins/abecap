@@ -21,8 +21,12 @@ from app.core.config import settings
 from app.services.scanner import scanner_service
 from app.services.email_service import email_service
 from app.services.data_export import data_export_service
+from app.services.stock_universe import MUST_INCLUDE
 
 logger = logging.getLogger(__name__)
+
+# Admin email for alerts
+ADMIN_EMAIL = "erik@rigacap.com"
 
 # US Eastern timezone for market hours
 ET = pytz.timezone('US/Eastern')
@@ -193,6 +197,21 @@ class SchedulerService:
             replace_existing=True
         )
 
+        # Ticker health check at 7:00 AM ET (before market open)
+        # Checks open positions and must-include symbols for data issues
+        self.scheduler.add_job(
+            self.check_ticker_health,
+            CronTrigger(
+                day_of_week='mon-fri',
+                hour=7,
+                minute=0,
+                timezone=ET
+            ),
+            id='ticker_health_check',
+            name='Ticker Health Check',
+            replace_existing=True
+        )
+
         self.scheduler.start()
         self.is_running = True
 
@@ -233,6 +252,132 @@ class SchedulerService:
                 logger.info(f"💾 Saved to {export_result.get('storage', 'storage')}")
         except Exception as e:
             logger.error(f"❌ Pre-market refresh failed: {e}")
+
+    async def check_ticker_health(self):
+        """
+        Daily health check for ticker issues.
+
+        Runs at 7 AM ET to detect:
+        - Open positions with missing/stale data
+        - Must-include symbols that fail to resolve
+
+        Sends alert email if issues found.
+        """
+        logger.info("🏥 Starting daily ticker health check...")
+
+        try:
+            issues = []
+
+            # Import database components
+            try:
+                from app.core.database import async_session, db_available
+                from app.core.database import Position as DBPosition
+                from sqlalchemy import select
+            except ImportError as e:
+                logger.warning(f"Database not available for health check: {e}")
+                db_available = False
+
+            # Check 1: Open positions
+            if db_available:
+                try:
+                    async with async_session() as session:
+                        result = await session.execute(
+                            select(DBPosition).where(DBPosition.status == "open")
+                        )
+                        positions = result.scalars().all()
+
+                        for pos in positions:
+                            symbol = pos.symbol
+                            issue = await self._check_symbol_health(symbol)
+                            if issue:
+                                issue['last_price'] = f"{pos.entry_price:.2f}" if pos.entry_price else "N/A"
+                                issue['last_date'] = pos.entry_date.strftime('%Y-%m-%d') if pos.entry_date else "N/A"
+                                issue['suggestion'] = f"You have an open position in {symbol}. Research if ticker changed or company was acquired."
+                                issues.append(issue)
+
+                        logger.info(f"✅ Checked {len(positions)} open positions")
+                except Exception as e:
+                    logger.error(f"Failed to check positions: {e}")
+
+            # Check 2: Must-include symbols (sample check - top 10)
+            must_check = MUST_INCLUDE[:10]  # Check first 10 must-includes
+            for symbol in must_check:
+                # Skip if already in issues
+                if any(i['symbol'] == symbol for i in issues):
+                    continue
+
+                issue = await self._check_symbol_health(symbol)
+                if issue:
+                    issue['suggestion'] = f"{symbol} is in MUST_INCLUDE list. Check for ticker change and update stock_universe.py."
+                    issues.append(issue)
+
+            logger.info(f"✅ Checked {len(must_check)} must-include symbols")
+
+            # Send alert if issues found
+            if issues:
+                logger.warning(f"⚠️ Found {len(issues)} ticker issues!")
+                for issue in issues:
+                    logger.warning(f"   • {issue['symbol']}: {issue['issue']}")
+
+                # Send alert email
+                await email_service.send_ticker_alert(
+                    to_email=ADMIN_EMAIL,
+                    issues=issues,
+                    check_type="position"
+                )
+                logger.info(f"📧 Alert email sent to {ADMIN_EMAIL}")
+            else:
+                logger.info("✅ All tickers healthy - no issues found")
+
+        except Exception as e:
+            logger.error(f"❌ Health check failed: {e}")
+            import traceback
+            traceback.print_exc()
+
+    async def _check_symbol_health(self, symbol: str) -> dict:
+        """
+        Check if a symbol can return valid data.
+
+        Returns:
+            dict with issue details if problem found, None if healthy
+        """
+        try:
+            import yfinance as yf
+
+            # First check cache
+            if symbol in scanner_service.data_cache:
+                df = scanner_service.data_cache[symbol]
+                if not df.empty:
+                    # Check if data is recent (within 7 days)
+                    last_date = df.index[-1]
+                    days_old = (datetime.now() - last_date.to_pydatetime().replace(tzinfo=None)).days
+                    if days_old <= 7:
+                        return None  # Healthy
+
+            # Try to fetch fresh data
+            stock = yf.Ticker(symbol)
+            hist = stock.history(period="5d")
+
+            if hist.empty:
+                # Check if ticker info exists at all
+                info = stock.info
+                if not info or not info.get('regularMarketPrice'):
+                    return {
+                        'symbol': symbol,
+                        'issue': 'No data available - possibly delisted or ticker changed',
+                        'last_price': 'N/A',
+                        'last_date': 'N/A'
+                    }
+
+            return None  # Healthy
+
+        except Exception as e:
+            return {
+                'symbol': symbol,
+                'issue': f'Failed to fetch data: {str(e)[:50]}',
+                'last_price': 'N/A',
+                'last_date': 'N/A'
+            }
 
     async def send_daily_emails(self):
         """

@@ -7,9 +7,10 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 
-from app.core.database import get_db, User, Subscription, Signal
+from app.core.database import get_db, User, Subscription, Signal, Position
 from app.core.security import get_admin_user
 from app.core.config import settings
+from app.services.scheduler import scheduler_service
 
 router = APIRouter()
 
@@ -426,3 +427,119 @@ async def get_service_status(
         services=services,
         metrics=metrics
     )
+
+
+@router.post("/ticker-health-check")
+async def run_ticker_health_check(
+    admin: User = Depends(get_admin_user)
+):
+    """
+    Manually trigger the ticker health check.
+
+    Checks:
+    - All open positions for valid data
+    - Must-include symbols from stock universe
+
+    Sends alert email if issues found.
+    """
+    try:
+        await scheduler_service.check_ticker_health()
+        return {
+            "status": "completed",
+            "message": "Health check completed. Alert email sent if issues found."
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Health check failed: {str(e)}"
+        )
+
+
+@router.get("/ticker-health-check")
+async def get_ticker_health(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get current ticker health status without sending alerts.
+
+    Returns list of any problematic tickers.
+    """
+    from app.services.scanner import scanner_service
+    from app.services.stock_universe import MUST_INCLUDE
+    import yfinance as yf
+
+    issues = []
+
+    # Check open positions
+    result = await db.execute(
+        select(Position).where(Position.status == "open")
+    )
+    positions = result.scalars().all()
+
+    for pos in positions:
+        symbol = pos.symbol
+
+        # Check if in cache with recent data
+        has_data = False
+        if symbol in scanner_service.data_cache:
+            df = scanner_service.data_cache[symbol]
+            if not df.empty:
+                last_date = df.index[-1]
+                days_old = (datetime.utcnow() - last_date.to_pydatetime().replace(tzinfo=None)).days
+                if days_old <= 7:
+                    has_data = True
+
+        if not has_data:
+            # Try yfinance
+            try:
+                stock = yf.Ticker(symbol)
+                hist = stock.history(period="5d")
+                if hist.empty:
+                    issues.append({
+                        "symbol": symbol,
+                        "type": "position",
+                        "issue": "No data available",
+                        "entry_date": pos.entry_date.strftime('%Y-%m-%d') if pos.entry_date else None,
+                        "entry_price": pos.entry_price
+                    })
+            except Exception as e:
+                issues.append({
+                    "symbol": symbol,
+                    "type": "position",
+                    "issue": f"Fetch failed: {str(e)[:50]}",
+                    "entry_date": pos.entry_date.strftime('%Y-%m-%d') if pos.entry_date else None,
+                    "entry_price": pos.entry_price
+                })
+
+    # Check sample of must-includes
+    must_check = MUST_INCLUDE[:10]
+    for symbol in must_check:
+        if any(i['symbol'] == symbol for i in issues):
+            continue
+
+        has_data = symbol in scanner_service.data_cache and not scanner_service.data_cache[symbol].empty
+        if not has_data:
+            try:
+                stock = yf.Ticker(symbol)
+                hist = stock.history(period="5d")
+                if hist.empty:
+                    issues.append({
+                        "symbol": symbol,
+                        "type": "must_include",
+                        "issue": "No data available"
+                    })
+            except Exception as e:
+                issues.append({
+                    "symbol": symbol,
+                    "type": "must_include",
+                    "issue": f"Fetch failed: {str(e)[:50]}"
+                })
+
+    return {
+        "status": "healthy" if not issues else "issues_found",
+        "positions_checked": len(positions),
+        "must_includes_checked": len(must_check),
+        "issues_count": len(issues),
+        "issues": issues
+    }
