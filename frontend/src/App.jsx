@@ -697,11 +697,21 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
 
                 {/* Buy point marker - triangle at entry date */}
                 {(() => {
-                  const entryMatch = data?.entry_date && priceData.find(d => d.date === data.entry_date);
+                  if (!data?.entry_date || priceData.length === 0) return null;
+                  // Find exact match or closest date on/after entry date
+                  let entryMatch = priceData.find(d => d.date === data.entry_date);
+                  if (!entryMatch) {
+                    // Find closest date on or after entry_date (entry might be on weekend/holiday)
+                    entryMatch = priceData.find(d => d.date >= data.entry_date);
+                  }
+                  if (!entryMatch) {
+                    // If entry is before all chart data, use first data point
+                    entryMatch = priceData[0];
+                  }
                   return entryMatch ? (
                     <ReferenceDot
                       yAxisId="price"
-                      x={data.entry_date}
+                      x={entryMatch.date}
                       y={entryMatch.close || data.entry_price}
                       shape={(props) => <BuyMarker {...props} payload={entryMatch} />}
                     />
@@ -710,11 +720,19 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction }) => {
 
                 {/* Sell point marker - triangle at sell date (for trades) */}
                 {(() => {
-                  const sellMatch = data?.sell_date && priceData.find(d => d.date === data.sell_date);
+                  if (!data?.sell_date || priceData.length === 0) return null;
+                  // Find exact match or closest date on/after sell date
+                  let sellMatch = priceData.find(d => d.date === data.sell_date);
+                  if (!sellMatch) {
+                    sellMatch = priceData.find(d => d.date >= data.sell_date);
+                  }
+                  if (!sellMatch) {
+                    sellMatch = priceData[priceData.length - 1];
+                  }
                   return sellMatch ? (
                     <ReferenceDot
                       yAxisId="price"
-                      x={data.sell_date}
+                      x={sellMatch.date}
                       y={sellMatch.close || data.sell_price}
                       shape={(props) => <SellMarker {...props} payload={sellMatch} />}
                     />
