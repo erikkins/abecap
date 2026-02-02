@@ -656,7 +656,8 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote }) =
                         )}
                         {d?.dwap && <p className="text-purple-600">DWAP: ${d.dwap.toFixed(2)}</p>}
                         {d?.ma_50 && <p className="text-orange-500">MA50: ${d.ma_50.toFixed(2)}</p>}
-                        <p className="text-gray-400">Vol: {(d?.volume / 1000000).toFixed(1)}M</p>
+                        {d?.volume > 0 && <p className="text-gray-400">Vol: {(d.volume / 1000000).toFixed(1)}M</p>}
+                        {d?.isLive && <p className="text-blue-500 font-medium">Live Price</p>}
                       </div>
                     );
                   }}
