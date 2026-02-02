@@ -45,3 +45,4 @@ package/
 # Docker
 docker-compose.override.yml
 terraform.tfvars
+backend/data/

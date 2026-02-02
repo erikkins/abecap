@@ -950,50 +950,85 @@ const SignalStrengthBar = ({ strength }) => {
 };
 
 // Signal Card
-const SignalCard = ({ signal, onClick }) => (
-  <div onClick={() => onClick(signal)} className={`bg-white rounded-lg border-l-4 ${signal.is_strong ? 'border-emerald-500' : 'border-blue-500'} shadow-sm p-4 hover:shadow-md transition-all cursor-pointer group`}>
-    <div className="flex items-center justify-between mb-2">
-      <div className="flex items-center gap-2">
-        <span className="text-lg font-bold text-gray-900">{signal.symbol}</span>
-        {signal.is_strong && <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full flex items-center gap-1"><Zap size={12} /> STRONG</span>}
+const SignalCard = ({ signal, onClick }) => {
+  const displayPrice = signal.live_price || signal.price;
+  const hasLiveData = !!signal.live_price;
+
+  return (
+    <div onClick={() => onClick(signal)} className={`bg-white rounded-lg border-l-4 ${signal.is_strong ? 'border-emerald-500' : 'border-blue-500'} shadow-sm p-4 hover:shadow-md transition-all cursor-pointer group`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-bold text-gray-900">{signal.symbol}</span>
+          {signal.is_strong && <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full flex items-center gap-1"><Zap size={12} /> STRONG</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="text-right">
+            <span className="text-lg font-semibold text-gray-900">${displayPrice?.toFixed(2)}</span>
+            {hasLiveData && signal.live_change_pct !== undefined && (
+              <span className={`ml-2 text-sm ${signal.live_change_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                {signal.live_change_pct >= 0 ? '+' : ''}{signal.live_change_pct?.toFixed(2)}%
+              </span>
+            )}
+          </div>
+          <ChevronRight size={18} className="text-gray-400 group-hover:text-blue-600 transition-colors" />
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <span className="text-lg font-semibold text-gray-900">${signal.price?.toFixed(2)}</span>
-        <ChevronRight size={18} className="text-gray-400 group-hover:text-blue-600 transition-colors" />
+      <div className="grid grid-cols-3 gap-2 text-sm">
+        <div className="flex items-center gap-1">
+          <TrendingUp size={14} className="text-emerald-500" />
+          <span className="text-gray-500">DWAP:</span>
+          <span className="font-medium text-emerald-600">+{signal.pct_above_dwap}%</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Activity size={14} className="text-blue-500" />
+          <span className="text-gray-500">Vol:</span>
+          <span className="font-medium">{signal.volume_ratio}x</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-gray-500">Str:</span>
+          <SignalStrengthBar strength={signal.signal_strength || 0} />
+        </div>
       </div>
+      {signal.recommendation && (
+        <div className="mt-2 text-xs text-gray-500 italic truncate">{signal.recommendation}</div>
+      )}
+      {hasLiveData && (
+        <div className="mt-1 text-xs text-blue-500 flex items-center gap-1">
+          <Activity size={10} className="animate-pulse" /> Live
+        </div>
+      )}
     </div>
-    <div className="grid grid-cols-3 gap-2 text-sm">
-      <div className="flex items-center gap-1">
-        <TrendingUp size={14} className="text-emerald-500" />
-        <span className="text-gray-500">DWAP:</span>
-        <span className="font-medium text-emerald-600">+{signal.pct_above_dwap}%</span>
-      </div>
-      <div className="flex items-center gap-1">
-        <Activity size={14} className="text-blue-500" />
-        <span className="text-gray-500">Vol:</span>
-        <span className="font-medium">{signal.volume_ratio}x</span>
-      </div>
-      <div className="flex items-center gap-1">
-        <span className="text-gray-500">Str:</span>
-        <SignalStrengthBar strength={signal.signal_strength || 0} />
-      </div>
-    </div>
-    {signal.recommendation && (
-      <div className="mt-2 text-xs text-gray-500 italic truncate">{signal.recommendation}</div>
-    )}
-  </div>
-);
+  );
+};
 
 // Position Row
 const PositionRow = ({ position, onClick }) => {
   const pnlColor = position.pnl_pct >= 0 ? 'text-emerald-600' : 'text-red-500';
   const pnlBg = position.pnl_pct >= 0 ? 'bg-emerald-50' : 'bg-red-50';
+  const hasLiveData = position.live_change !== undefined;
+  const dayChangeColor = (position.live_change_pct || 0) >= 0 ? 'text-emerald-600' : 'text-red-500';
+
   return (
     <tr onClick={() => onClick(position)} className="hover:bg-blue-50 transition-colors cursor-pointer group">
-      <td className="py-3 px-4"><div className="flex items-center gap-2"><span className="font-semibold text-gray-900">{position.symbol}</span><Eye size={14} className="text-gray-300 group-hover:text-blue-500" /></div></td>
+      <td className="py-3 px-4">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-gray-900">{position.symbol}</span>
+          {hasLiveData && <Activity size={10} className="text-blue-500 animate-pulse" />}
+          <Eye size={14} className="text-gray-300 group-hover:text-blue-500" />
+        </div>
+      </td>
       <td className="py-3 px-4 text-gray-600">{position.shares?.toFixed(2)}</td>
       <td className="py-3 px-4 text-gray-600">${position.entry_price?.toFixed(2)}</td>
-      <td className="py-3 px-4 font-medium text-gray-900">${position.current_price?.toFixed(2)}</td>
+      <td className="py-3 px-4">
+        <div className="flex flex-col">
+          <span className="font-medium text-gray-900">${position.current_price?.toFixed(2)}</span>
+          {hasLiveData && (
+            <span className={`text-xs ${dayChangeColor}`}>
+              {position.live_change_pct >= 0 ? '+' : ''}{position.live_change_pct?.toFixed(2)}% today
+            </span>
+          )}
+        </div>
+      </td>
       <td className="py-3 px-4"><span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold text-sm ${pnlBg} ${pnlColor}`}>{position.pnl_pct >= 0 ? '+' : ''}{position.pnl_pct?.toFixed(1)}%</span></td>
       <td className="py-3 px-4 text-gray-500"><Clock size={14} className="inline mr-1" />{position.days_held}d</td>
     </tr>
@@ -1020,6 +1055,73 @@ function Dashboard() {
   const [chartModal, setChartModal] = useState(null);
   const [dataStatus, setDataStatus] = useState({ loaded: 0, status: 'loading' });
   const [marketRegime, setMarketRegime] = useState(null);
+  const [liveQuotes, setLiveQuotes] = useState({});
+  const [quotesLastUpdate, setQuotesLastUpdate] = useState(null);
+
+  // Live quotes polling - updates prices every 30 seconds during market hours
+  useEffect(() => {
+    const fetchLiveQuotes = async () => {
+      // Get symbols from positions and signals
+      const positionSymbols = positions.map(p => p.symbol);
+      const signalSymbols = signals.slice(0, 10).map(s => s.symbol); // Top 10 signals
+      const allSymbols = [...new Set([...positionSymbols, ...signalSymbols])];
+
+      if (allSymbols.length === 0) return;
+
+      try {
+        const response = await api.get(`/api/quotes/live?symbols=${allSymbols.join(',')}`);
+        if (response.quotes) {
+          setLiveQuotes(response.quotes);
+          setQuotesLastUpdate(new Date(response.timestamp));
+        }
+      } catch (err) {
+        console.log('Live quotes fetch failed:', err);
+      }
+    };
+
+    // Initial fetch
+    if (positions.length > 0 || signals.length > 0) {
+      fetchLiveQuotes();
+    }
+
+    // Poll every 30 seconds
+    const interval = setInterval(fetchLiveQuotes, 30000);
+
+    return () => clearInterval(interval);
+  }, [positions.length, signals.length]); // Re-run when positions or signals change
+
+  // Merge live quotes into positions for display
+  const positionsWithLiveQuotes = positions.map(p => {
+    const quote = liveQuotes[p.symbol];
+    if (quote) {
+      const livePrice = quote.price;
+      const pnlPct = ((livePrice - p.entry_price) / p.entry_price) * 100;
+      const pnlDollars = (livePrice - p.entry_price) * p.shares;
+      return {
+        ...p,
+        current_price: livePrice,
+        pnl_pct: pnlPct,
+        pnl_dollars: pnlDollars,
+        live_change: quote.change,
+        live_change_pct: quote.change_pct,
+      };
+    }
+    return p;
+  });
+
+  // Merge live quotes into signals for display
+  const signalsWithLiveQuotes = signals.map(s => {
+    const quote = liveQuotes[s.symbol];
+    if (quote) {
+      return {
+        ...s,
+        live_price: quote.price,
+        live_change: quote.change,
+        live_change_pct: quote.change_pct,
+      };
+    }
+    return s;
+  });
 
   // Initial data load - HYBRID APPROACH for instant dashboard display
   // 1. Show cached data immediately (no loading state for returning users)
@@ -1206,8 +1308,9 @@ function Dashboard() {
     }
   };
 
-  const totalValue = positions.reduce((sum, p) => sum + (p.shares || 0) * (p.current_price || 0), 0);
-  const totalCost = positions.reduce((sum, p) => sum + (p.shares || 0) * (p.entry_price || 0), 0);
+  // Use live-quoted positions for calculations
+  const totalValue = positionsWithLiveQuotes.reduce((sum, p) => sum + (p.shares || 0) * (p.current_price || 0), 0);
+  const totalCost = positionsWithLiveQuotes.reduce((sum, p) => sum + (p.shares || 0) * (p.entry_price || 0), 0);
   const totalPnlPct = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
   const wins = trades.filter(t => t.pnl > 0);
   const winRate = trades.length > 0 ? (wins.length / trades.length * 100) : 0;
@@ -1407,7 +1510,7 @@ function Dashboard() {
               <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={Wallet} trend="up" />
               <MetricCard title="Open P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} icon={totalPnlPct >= 0 ? TrendingUp : TrendingDown} trend={totalPnlPct >= 0 ? 'up' : 'down'} />
               <MetricCard title="Positions" value={`${positions.length}/15`} icon={PieIcon} />
-              <MetricCard title="Signals" value={signals.length} subtitle={`${signals.filter(s => s.is_strong).length} strong`} icon={Zap} />
+              <MetricCard title="Signals" value={signalsWithLiveQuotes.length} subtitle={`${signalsWithLiveQuotes.filter(s => s.is_strong).length} strong`} icon={Zap} />
               <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${trades.length} trades`} icon={Target} />
             </div>
 
@@ -1419,7 +1522,7 @@ function Dashboard() {
                     <span className="text-xs text-gray-500">Click to view chart</span>
                   </div>
                   <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
-                    {signals.length > 0 ? signals.map((s, i) => (
+                    {signalsWithLiveQuotes.length > 0 ? signalsWithLiveQuotes.map((s, i) => (
                       <SignalCard key={i} signal={s} onClick={(sig) => setChartModal({ type: 'signal', data: sig, symbol: sig.symbol })} />
                     )) : (
                       <div className="text-center py-8 text-gray-500">
@@ -1449,7 +1552,7 @@ function Dashboard() {
                         <tr>{['Symbol', 'Shares', 'Entry', 'Current', 'P&L', 'Days'].map(h => <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr>
                       </thead>
                       <tbody>
-                        {positions.map(p => <PositionRow key={p.id} position={p} onClick={(pos) => setChartModal({ type: 'position', data: pos, symbol: pos.symbol })} />)}
+                        {positionsWithLiveQuotes.map(p => <PositionRow key={p.id} position={p} onClick={(pos) => setChartModal({ type: 'position', data: pos, symbol: pos.symbol })} />)}
                       </tbody>
                     </table>
                   ) : (

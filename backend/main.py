@@ -1096,6 +1096,131 @@ async def get_stock_history(symbol: str, days: int = 252):
     }
 
 
+# ============================================================================
+# Live Quotes Endpoint (for real-time UI updates)
+# ============================================================================
+
+@app.get("/api/quotes/live")
+async def get_live_quotes(symbols: str = ""):
+    """
+    Get live/current quotes for symbols.
+
+    Uses yfinance to fetch current prices for display in UI.
+    Note: Signals are still based on daily CLOSE prices.
+
+    Args:
+        symbols: Comma-separated list of symbols, or empty for all positions
+
+    Returns:
+        Dict of symbol -> quote data
+    """
+    import yfinance as yf
+
+    # Parse symbols or get from open positions
+    if symbols:
+        symbol_list = [s.strip().upper() for s in symbols.split(",")]
+    else:
+        # Get symbols from user's open positions
+        try:
+            async with async_session() as db:
+                result = await db.execute(
+                    select(DBPosition.symbol).where(DBPosition.status == 'open').distinct()
+                )
+                symbol_list = [row[0] for row in result.fetchall()]
+        except:
+            symbol_list = []
+
+    if not symbol_list:
+        return {"quotes": {}, "timestamp": datetime.now().isoformat()}
+
+    # Fetch current quotes from yfinance
+    quotes = {}
+    try:
+        # Use yfinance download with period="1d" for current day data
+        # This gives us the most recent price
+        tickers = yf.Tickers(" ".join(symbol_list))
+
+        for symbol in symbol_list:
+            try:
+                ticker = tickers.tickers.get(symbol)
+                if ticker:
+                    info = ticker.fast_info
+                    last_price = info.last_price if hasattr(info, 'last_price') else None
+                    prev_close = info.previous_close if hasattr(info, 'previous_close') else None
+
+                    if last_price:
+                        change = last_price - prev_close if prev_close else 0
+                        change_pct = (change / prev_close * 100) if prev_close else 0
+
+                        quotes[symbol] = {
+                            "price": round(last_price, 2),
+                            "change": round(change, 2),
+                            "change_pct": round(change_pct, 2),
+                            "prev_close": round(prev_close, 2) if prev_close else None,
+                        }
+            except Exception as e:
+                logger.warning(f"Failed to get quote for {symbol}: {e}")
+                continue
+
+    except Exception as e:
+        logger.error(f"Failed to fetch live quotes: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch quotes: {str(e)}")
+
+    return {
+        "quotes": quotes,
+        "timestamp": datetime.now().isoformat(),
+        "count": len(quotes)
+    }
+
+
+@app.post("/api/quotes/batch")
+async def get_batch_quotes(symbols: List[str]):
+    """
+    Get live quotes for a batch of symbols (POST for larger lists).
+    """
+    import yfinance as yf
+
+    if not symbols:
+        return {"quotes": {}, "timestamp": datetime.now().isoformat()}
+
+    symbol_list = [s.upper() for s in symbols[:100]]  # Limit to 100 symbols
+
+    quotes = {}
+    try:
+        tickers = yf.Tickers(" ".join(symbol_list))
+
+        for symbol in symbol_list:
+            try:
+                ticker = tickers.tickers.get(symbol)
+                if ticker:
+                    info = ticker.fast_info
+                    last_price = info.last_price if hasattr(info, 'last_price') else None
+                    prev_close = info.previous_close if hasattr(info, 'previous_close') else None
+
+                    if last_price:
+                        change = last_price - prev_close if prev_close else 0
+                        change_pct = (change / prev_close * 100) if prev_close else 0
+
+                        quotes[symbol] = {
+                            "price": round(last_price, 2),
+                            "change": round(change, 2),
+                            "change_pct": round(change_pct, 2),
+                            "prev_close": round(prev_close, 2) if prev_close else None,
+                        }
+            except Exception as e:
+                continue
+
+    except Exception as e:
+        logger.error(f"Failed to fetch batch quotes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {
+        "quotes": quotes,
+        "timestamp": datetime.now().isoformat(),
+        "count": len(quotes)
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
