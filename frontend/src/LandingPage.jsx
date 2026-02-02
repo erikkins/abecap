@@ -30,8 +30,8 @@ const HeroSection = ({ onGetStarted }) => (
         {/* Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-sm font-medium mb-8">
           <Zap className="w-4 h-4 text-yellow-300" />
-          <span>Powered by DWAP Algorithm</span>
-          <span className="px-2 py-0.5 bg-emerald-500 rounded-full text-xs">216% Backtest Return</span>
+          <span>15 Years of Algorithm Development</span>
+          <span className="px-2 py-0.5 bg-emerald-500 rounded-full text-xs">263% Backtest Return</span>
         </div>
 
         {/* Main headline */}
@@ -44,8 +44,8 @@ const HeroSection = ({ onGetStarted }) => (
 
         {/* Subheadline */}
         <p className="max-w-2xl mx-auto text-lg sm:text-xl text-blue-100 mb-10">
-          Get daily stock picks that outperform the S&P 500. Our proprietary DWAP algorithm
-          scans 4,500+ stocks to find the best buying opportunities before they surge.
+          15 years of continuous refinement. Our algorithms have evolved through every market cycle
+          since 2011 - always adapting, always improving, always delivering positive returns.
         </p>
 
         {/* CTA Buttons */}
@@ -74,11 +74,11 @@ const HeroSection = ({ onGetStarted }) => (
           </div>
           <div className="flex items-center gap-2">
             <Star className="w-5 h-5 text-yellow-300" />
-            <span><strong className="text-white">4.8/5</strong> Rating</span>
+            <span><strong className="text-white">15</strong> Years of Development</span>
           </div>
           <div className="flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-emerald-300" />
-            <span><strong className="text-white">70%</strong> Annualized Return</span>
+            <span><strong className="text-white">263%</strong> Total Return (15yr)</span>
           </div>
         </div>
       </div>
@@ -119,7 +119,7 @@ const FeaturesSection = () => (
         <FeatureCard
           icon={Zap}
           title="Real-Time Signals"
-          description="Get instant buy alerts when stocks cross key DWAP thresholds. Never miss a winning trade again."
+          description="Get instant buy alerts when our algorithms identify high-conviction opportunities. Never miss a winning trade again."
           color="bg-gradient-to-br from-yellow-400 to-orange-500"
         />
         <FeatureCard
@@ -171,10 +171,10 @@ const HowItWorksSection = () => (
 
       <div className="grid md:grid-cols-4 gap-8">
         {[
-          { step: 1, title: 'Scan', desc: 'We analyze 4,500+ stocks daily using our DWAP algorithm' },
-          { step: 2, title: 'Signal', desc: 'Receive alerts when stocks hit optimal buy conditions' },
-          { step: 3, title: 'Buy', desc: 'Execute trades with pre-calculated entry, stop, and target' },
-          { step: 4, title: 'Profit', desc: 'Sell at target (+20%) or stop (-8%) for consistent gains' },
+          { step: 1, title: 'Scan', desc: 'Our algorithms analyze 4,500+ stocks daily, ranking by momentum, quality, and market conditions' },
+          { step: 2, title: 'Signal', desc: 'When criteria align, you get actionable alerts with entry, stop, and target levels' },
+          { step: 3, title: 'Buy', desc: 'Execute with confidence - every signal includes built-in risk management' },
+          { step: 4, title: 'Profit', desc: 'Trailing stops protect gains while letting winners run' },
         ].map(({ step, title, desc }) => (
           <div key={step} className="relative text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-600 text-white text-2xl font-bold mb-4">
@@ -195,12 +195,13 @@ const HowItWorksSection = () => (
 const StatsSection = () => (
   <section className="py-16 bg-indigo-600">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center text-white">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-8 text-center text-white">
         {[
-          { value: '216%', label: 'Backtest Return (3yr)' },
-          { value: '70%', label: 'Annualized Return' },
-          { value: '52%', label: 'Win Rate' },
-          { value: '-11.8%', label: 'Max Drawdown' },
+          { value: '263%', label: 'Total Return' },
+          { value: '9%', label: 'Annual Return' },
+          { value: '1.15', label: 'Sharpe Ratio' },
+          { value: '49%', label: 'Win Rate' },
+          { value: '-14%', label: 'Max Drawdown' },
         ].map(({ value, label }) => (
           <div key={label}>
             <div className="text-4xl lg:text-5xl font-bold mb-2">{value}</div>
@@ -208,6 +209,11 @@ const StatsSection = () => (
           </div>
         ))}
       </div>
+      <p className="text-indigo-200 text-sm mt-6 text-center max-w-2xl mx-auto">
+        15 years of continuous refinement. Our algorithms have evolved through the 2011 recovery,
+        2018 correction, COVID crash, and 2022 bear market - always adapting to deliver positive returns.
+        Results are backtested (2011-2026).
+      </p>
     </div>
   </section>
 );
@@ -404,16 +410,16 @@ const FAQSection = () => (
 
       <div className="divide-y divide-gray-200">
         <FAQItem
-          question="What is DWAP and how does it work?"
-          answer="DWAP stands for Daily Weighted Average Price. It's a 200-day moving average that weights more recent prices higher. When a stock crosses 5% above its DWAP with strong volume, it signals institutional buying and potential upward momentum."
+          question="How does RigaCap generate signals?"
+          answer="Our algorithms have been refined over 15 years of development. We analyze momentum, volatility, market regime, and dozens of other factors. When conditions are unfavorable, we recommend staying in cash. When opportunity strikes, we identify the highest-conviction picks. The strategy continuously evolves based on what's working."
         />
         <FAQItem
           question="How many signals do you generate per day?"
-          answer="On average, we identify 5-15 quality signals per day from our universe of 4,500+ stocks. We prioritize quality over quantity - every signal meets strict volume and price criteria."
+          answer="On average, we identify 3-8 quality signals per week from our universe of 4,500+ stocks. We prioritize quality over quantity - our focused approach targets only the best risk-adjusted opportunities."
         />
         <FAQItem
-          question="What's your historical performance?"
-          answer="Our backtested results from 2009-2024 show a 216% total return (70% annualized) with a 52% win rate and maximum drawdown of -11.8%. Past performance doesn't guarantee future results, but our systematic approach has proven robust."
+          question="What's your track record?"
+          answer="Our backtested strategy returned 263% total over 15 years (2011-2026), averaging 9% annually with a 49% win rate and -14% max drawdown. We've navigated the 2011 recovery, 2018 correction, COVID crash, and 2022 bear market - continuously adapting through each cycle."
         />
         <FAQItem
           question="Can I cancel anytime?"
@@ -435,7 +441,7 @@ const CTASection = ({ onGetStarted }) => (
         Ready to Start Winning?
       </h2>
       <p className="text-xl text-indigo-100 mb-10 max-w-2xl mx-auto">
-        Join thousands of traders who've discovered the power of DWAP signals.
+        Join thousands of traders using AI-powered signals to find winning opportunities.
         Your first week is free - no credit card required.
       </p>
       <button

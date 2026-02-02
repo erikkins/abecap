@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SignalData:
-    """Trading signal data"""
+    """Trading signal data (legacy DWAP)"""
     symbol: str
     signal_type: str
     price: float
@@ -47,6 +47,29 @@ class SignalData:
     timestamp: str
     # New fields for enhanced analysis
     signal_strength: float = 0.0  # 0-100 composite score
+    sector: str = ""
+    recommendation: str = ""
+
+    def to_dict(self):
+        return asdict(self)
+
+
+@dataclass
+class MomentumSignalData:
+    """Momentum-based trading signal data (v2 strategy)"""
+    symbol: str
+    rank: int
+    price: float
+    short_momentum: float  # 10-day momentum %
+    long_momentum: float   # 60-day momentum %
+    volatility: float      # Annualized volatility %
+    composite_score: float # Weighted score for ranking
+    ma_20: float
+    ma_50: float
+    dist_from_50d_high: float  # % below 50-day high (0 = at high)
+    passes_quality_filter: bool
+    trailing_stop: float
+    timestamp: str
     sector: str = ""
     recommendation: str = ""
 
@@ -124,6 +147,23 @@ class ScannerService:
     def high_52w(prices: pd.Series) -> pd.Series:
         """52-week rolling high"""
         return prices.rolling(252, min_periods=1).max()
+
+    @staticmethod
+    def momentum(prices: pd.Series, period: int) -> pd.Series:
+        """Price momentum (% change over period)"""
+        return (prices / prices.shift(period) - 1) * 100
+
+    @staticmethod
+    def volatility(prices: pd.Series, period: int = 20) -> pd.Series:
+        """Annualized volatility"""
+        returns = prices.pct_change()
+        return returns.rolling(period).std() * np.sqrt(252) * 100
+
+    @staticmethod
+    def distance_from_high(prices: pd.Series, period: int = 50) -> pd.Series:
+        """% below rolling high (0 = at high, negative = below)"""
+        rolling_high = prices.rolling(period, min_periods=1).max()
+        return (prices / rolling_high - 1) * 100
     
     # =========================================================================
     # DATA FETCHING
@@ -405,6 +445,119 @@ class ScannerService:
             df['high_52w'] = self.high_52w(df['close'])
         return df
 
+    def _ensure_momentum_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Compute momentum indicators if missing (lazy computation)"""
+        if 'short_mom' not in df.columns:
+            df = df.copy()
+            df['short_mom'] = self.momentum(df['close'], settings.SHORT_MOMENTUM_DAYS)
+            df['long_mom'] = self.momentum(df['close'], settings.LONG_MOMENTUM_DAYS)
+            df['volatility'] = self.volatility(df['close'], 20)
+            df['ma_20'] = self.sma(df['close'], 20)
+            df['ma_50'] = self.sma(df['close'], 50)
+            df['dist_from_50d_high'] = self.distance_from_high(df['close'], 50)
+        return df
+
+    def rank_stocks_momentum(self, apply_market_filter: bool = True) -> List[MomentumSignalData]:
+        """
+        Rank all stocks by momentum composite score (v2 strategy)
+
+        Scoring: short_mom * 0.5 + long_mom * 0.3 - volatility * 0.2
+
+        Quality filters:
+        - Price > MA20 and MA50 (uptrend)
+        - Within 5% of 50-day high (breakout zone)
+        - Volume > MIN_VOLUME
+        - Price > MIN_PRICE
+
+        Returns:
+            List of MomentumSignalData sorted by composite score (highest first)
+        """
+        # Check market regime if enabled
+        if apply_market_filter and settings.MARKET_FILTER_ENABLED:
+            try:
+                from app.services.market_analysis import market_analysis_service
+                market_state = market_analysis_service.get_market_state()
+                if market_state and not market_state.get('spy_above_200ma', True):
+                    logger.info("Market filter: SPY below 200MA, returning empty signals")
+                    return []
+            except Exception as e:
+                logger.warning(f"Market filter check failed: {e}")
+
+        candidates = []
+
+        for symbol in self.data_cache:
+            df = self.data_cache[symbol]
+            if len(df) < settings.LONG_MOMENTUM_DAYS + 20:
+                continue
+
+            # Ensure momentum indicators are computed
+            df = self._ensure_momentum_indicators(df)
+            self.data_cache[symbol] = df
+
+            row = df.iloc[-1]
+            price = row['close']
+            volume = row.get('volume', 0)
+            short_mom = row.get('short_mom', np.nan)
+            long_mom = row.get('long_mom', np.nan)
+            vol = row.get('volatility', np.nan)
+            ma_20 = row.get('ma_20', 0)
+            ma_50 = row.get('ma_50', 0)
+            dist_from_high = row.get('dist_from_50d_high', -100)
+
+            # Skip invalid data
+            if pd.isna(short_mom) or pd.isna(long_mom) or pd.isna(vol):
+                continue
+
+            # Apply basic filters
+            if price < settings.MIN_PRICE or volume < settings.MIN_VOLUME:
+                continue
+
+            # Quality filter: uptrend (price > MA20 and MA50)
+            passes_trend = price > ma_20 > 0 and price > ma_50 > 0
+
+            # Quality filter: near 50-day high (within NEAR_50D_HIGH_PCT)
+            passes_breakout = dist_from_high >= -settings.NEAR_50D_HIGH_PCT
+
+            passes_quality = passes_trend and passes_breakout
+
+            # Calculate composite score
+            composite_score = (
+                short_mom * settings.SHORT_MOM_WEIGHT +
+                long_mom * settings.LONG_MOM_WEIGHT -
+                vol * settings.VOLATILITY_PENALTY
+            )
+
+            # Calculate trailing stop
+            trailing_stop = price * (1 - settings.TRAILING_STOP_PCT / 100)
+
+            candidates.append(MomentumSignalData(
+                symbol=symbol,
+                rank=0,  # Will be set after sorting
+                price=round(price, 2),
+                short_momentum=round(short_mom, 2),
+                long_momentum=round(long_mom, 2),
+                volatility=round(vol, 2),
+                composite_score=round(composite_score, 2),
+                ma_20=round(ma_20, 2),
+                ma_50=round(ma_50, 2),
+                dist_from_50d_high=round(dist_from_high, 2),
+                passes_quality_filter=passes_quality,
+                trailing_stop=round(trailing_stop, 2),
+                timestamp=datetime.now().isoformat()
+            ))
+
+        # Sort by composite score (highest first), prioritizing quality filter pass
+        candidates.sort(key=lambda x: (not x.passes_quality_filter, -x.composite_score))
+
+        # Assign ranks
+        for i, c in enumerate(candidates):
+            c.rank = i + 1
+
+        logger.info(f"Momentum ranking complete: {len(candidates)} candidates, "
+                   f"{sum(1 for c in candidates if c.passes_quality_filter)} pass quality filter")
+
+        return candidates
+
     def analyze_stock(self, symbol: str) -> Optional[SignalData]:
         """
         Analyze single stock for buy signals
@@ -528,15 +681,26 @@ class ScannerService:
         if should_fetch:
             await self.fetch_data()
 
-        # Update market analysis
+        # Update market analysis and check regime
+        market_available = False
+        market_favorable = True  # Default to favorable if we can't check
+
         try:
             from app.services.market_analysis import market_analysis_service
             await market_analysis_service.update_market_state()
             await market_analysis_service.update_sector_strength()
             market_available = True
+
+            # Check if SPY is above 200-day MA (market filter)
+            if settings.MARKET_FILTER_ENABLED:
+                market_state = market_analysis_service.get_market_state()
+                if market_state:
+                    market_favorable = market_state.get('spy_above_200ma', True)
+                    if not market_favorable:
+                        logger.info("Market filter active: SPY below 200MA, returning empty signals")
+                        return []
         except Exception as e:
             logger.warning(f"Market analysis unavailable: {e}")
-            market_available = False
 
         self.signals = []
 

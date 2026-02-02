@@ -82,24 +82,144 @@ class BacktestResult:
 
 class BacktesterService:
     """
-    Simulates the DWAP trading strategy over historical data
+    Simulates the momentum trading strategy over historical data
+
+    Strategy v2 features:
+    - Momentum-based ranking (10/60 day)
+    - Trailing stops (15%)
+    - Weekly rebalancing (Fridays)
+    - Market regime filter (SPY > 200MA)
     """
 
     def __init__(self):
         self.initial_capital = 100000
-        self.position_size_pct = settings.POSITION_SIZE_PCT / 100  # 6%
-        self.max_positions = settings.MAX_POSITIONS  # 15
+        self.position_size_pct = settings.POSITION_SIZE_PCT / 100  # 18%
+        self.max_positions = settings.MAX_POSITIONS  # 5
+        self.trailing_stop_pct = settings.TRAILING_STOP_PCT / 100  # 15%
+        self.short_mom_days = settings.SHORT_MOMENTUM_DAYS  # 10
+        self.long_mom_days = settings.LONG_MOMENTUM_DAYS  # 60
+        self.min_volume = settings.MIN_VOLUME
+        self.min_price = settings.MIN_PRICE
+        # Legacy DWAP settings for backward compatibility
         self.stop_loss_pct = settings.STOP_LOSS_PCT / 100  # 8%
         self.profit_target_pct = settings.PROFIT_TARGET_PCT / 100  # 20%
         self.dwap_threshold_pct = settings.DWAP_THRESHOLD_PCT / 100  # 5%
-        self.min_volume = settings.MIN_VOLUME
-        self.min_price = settings.MIN_PRICE
         self.volume_spike_mult = settings.VOLUME_SPIKE_MULT
+
+    def _should_rebalance(self, date: pd.Timestamp, last_rebalance: Optional[pd.Timestamp]) -> bool:
+        """
+        Check if we should rebalance on this date (weekly on Fridays)
+
+        Args:
+            date: Current date
+            last_rebalance: Date of last rebalance
+
+        Returns:
+            True if we should rebalance
+        """
+        is_friday = date.weekday() == 4
+        if last_rebalance is None:
+            return True
+        days_since = (date - last_rebalance).days
+        return is_friday and days_since >= 5
+
+    def _check_market_regime(self, date: pd.Timestamp) -> bool:
+        """
+        Check if SPY is above 200-day MA (favorable market)
+
+        Returns:
+            True if market is favorable (SPY > 200MA)
+        """
+        if 'SPY' not in scanner_service.data_cache:
+            return True  # Default to favorable if no SPY data
+
+        spy_df = scanner_service.data_cache['SPY']
+        if date not in spy_df.index:
+            return True
+
+        row = spy_df.loc[date]
+        spy_price = row['close']
+        spy_ma200 = row.get('ma_200', np.nan)
+
+        if pd.isna(spy_ma200):
+            return True
+
+        return spy_price > spy_ma200
+
+    def _calculate_momentum_score(self, symbol: str, date: pd.Timestamp) -> Optional[dict]:
+        """
+        Calculate momentum score for a symbol on a given date
+
+        Returns:
+            Dict with score info or None if invalid
+        """
+        if symbol not in scanner_service.data_cache:
+            return None
+
+        df = scanner_service.data_cache[symbol]
+        if date not in df.index:
+            return None
+
+        # Get location of date and ensure we have enough history
+        loc = df.index.get_loc(date)
+        if loc < max(self.short_mom_days, self.long_mom_days, 50):
+            return None
+
+        row = df.loc[date]
+        price = row['close']
+        volume = row['volume']
+
+        # Basic filters
+        if price < self.min_price or volume < self.min_volume:
+            return None
+
+        # Calculate momentum
+        short_mom_price = df.iloc[loc - self.short_mom_days]['close']
+        long_mom_price = df.iloc[loc - self.long_mom_days]['close']
+
+        short_mom = (price / short_mom_price - 1) * 100
+        long_mom = (price / long_mom_price - 1) * 100
+
+        # Calculate volatility (20-day)
+        returns = df['close'].iloc[loc-19:loc+1].pct_change().dropna()
+        volatility = returns.std() * np.sqrt(252) * 100 if len(returns) > 0 else 30
+
+        # MA filters
+        ma_20 = df['close'].iloc[loc-19:loc+1].mean()
+        ma_50 = df['close'].iloc[loc-49:loc+1].mean() if loc >= 49 else price
+
+        # Distance from 50-day high
+        high_50d = df['close'].iloc[max(0, loc-49):loc+1].max()
+        dist_from_high = (price / high_50d - 1) * 100
+
+        # Quality filter
+        passes_trend = price > ma_20 and price > ma_50
+        passes_breakout = dist_from_high >= -settings.NEAR_50D_HIGH_PCT
+        passes_quality = passes_trend and passes_breakout
+
+        # Composite score
+        composite_score = (
+            short_mom * settings.SHORT_MOM_WEIGHT +
+            long_mom * settings.LONG_MOM_WEIGHT -
+            volatility * settings.VOLATILITY_PENALTY
+        )
+
+        return {
+            'symbol': symbol,
+            'price': price,
+            'short_mom': short_mom,
+            'long_mom': long_mom,
+            'volatility': volatility,
+            'composite_score': composite_score,
+            'passes_quality': passes_quality,
+            'dist_from_high': dist_from_high
+        }
 
     def run_backtest(
         self,
         lookback_days: int = 252,  # 1 year default
-        end_date: Optional[datetime] = None
+        end_date: Optional[datetime] = None,
+        use_momentum_strategy: bool = True
     ) -> BacktestResult:
         """
         Run backtest over historical data
@@ -107,6 +227,7 @@ class BacktesterService:
         Args:
             lookback_days: Number of trading days to simulate
             end_date: End date for backtest (default: today)
+            use_momentum_strategy: Use v2 momentum strategy (True) or legacy DWAP (False)
 
         Returns:
             BacktestResult with positions, trades, and metrics
@@ -119,7 +240,7 @@ class BacktesterService:
         # Get all symbols with enough data
         symbols = []
         for symbol, df in scanner_service.data_cache.items():
-            if len(df) >= lookback_days + 200:  # Need extra for DWAP calculation
+            if len(df) >= lookback_days + 200:  # Need extra for indicator calculation
                 symbols.append(symbol)
 
         if not symbols:
@@ -132,6 +253,8 @@ class BacktesterService:
         equity_curve = []
         position_id = 0
         trade_id = 0
+        last_rebalance: Optional[pd.Timestamp] = None
+        in_cash_mode = False  # True when market is unfavorable
 
         # Get common date range
         sample_df = scanner_service.data_cache[symbols[0]]
@@ -140,6 +263,42 @@ class BacktesterService:
         # Simulate each trading day
         for i, date in enumerate(dates):
             date_str = date.strftime('%Y-%m-%d')
+
+            # Check market regime (v2 strategy)
+            if use_momentum_strategy and settings.MARKET_FILTER_ENABLED:
+                market_favorable = self._check_market_regime(date)
+
+                # If market turns unfavorable, close all positions
+                if not market_favorable and not in_cash_mode:
+                    in_cash_mode = True
+                    for symbol in list(positions.keys()):
+                        pos = positions[symbol]
+                        df = scanner_service.data_cache[symbol]
+                        if date not in df.index:
+                            continue
+                        current_price = df.loc[date, 'close']
+                        pnl_pct = (current_price - pos['entry_price']) / pos['entry_price']
+
+                        trade_id += 1
+                        trades.append(SimulatedTrade(
+                            id=trade_id,
+                            symbol=symbol,
+                            entry_date=pos['entry_date'],
+                            exit_date=date_str,
+                            entry_price=pos['entry_price'],
+                            exit_price=current_price,
+                            shares=pos['shares'],
+                            pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
+                            pnl_pct=round(pnl_pct * 100, 2),
+                            exit_reason='market_regime',
+                            days_held=(date - pd.Timestamp(pos['entry_date'])).days,
+                            dwap_at_entry=pos.get('dwap_at_entry', 0)
+                        ))
+                        capital += pos['shares'] * current_price
+                    positions.clear()
+
+                elif market_favorable:
+                    in_cash_mode = False
 
             # Check existing positions for exits
             symbols_to_close = []
@@ -154,125 +313,204 @@ class BacktesterService:
                 current_price = df.loc[date, 'close']
                 pnl_pct = (current_price - pos['entry_price']) / pos['entry_price']
 
-                # Check stop loss
-                if current_price <= pos['stop_loss']:
-                    trade_id += 1
-                    trades.append(SimulatedTrade(
-                        id=trade_id,
-                        symbol=symbol,
-                        entry_date=pos['entry_date'],
-                        exit_date=date_str,
-                        entry_price=pos['entry_price'],
-                        exit_price=current_price,
-                        shares=pos['shares'],
-                        pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
-                        pnl_pct=round(pnl_pct * 100, 2),
-                        exit_reason='stop_loss',
-                        days_held=(date - pd.Timestamp(pos['entry_date'])).days,
-                        dwap_at_entry=pos['dwap_at_entry']
-                    ))
-                    capital += pos['shares'] * current_price
-                    symbols_to_close.append(symbol)
+                if use_momentum_strategy:
+                    # Update high water mark and trailing stop
+                    if current_price > pos.get('high_water_mark', pos['entry_price']):
+                        pos['high_water_mark'] = current_price
+                        pos['trailing_stop'] = current_price * (1 - self.trailing_stop_pct)
 
-                # Check profit target
-                elif current_price >= pos['profit_target']:
-                    trade_id += 1
-                    trades.append(SimulatedTrade(
-                        id=trade_id,
-                        symbol=symbol,
-                        entry_date=pos['entry_date'],
-                        exit_date=date_str,
-                        entry_price=pos['entry_price'],
-                        exit_price=current_price,
-                        shares=pos['shares'],
-                        pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
-                        pnl_pct=round(pnl_pct * 100, 2),
-                        exit_reason='profit_target',
-                        days_held=(date - pd.Timestamp(pos['entry_date'])).days,
-                        dwap_at_entry=pos['dwap_at_entry']
-                    ))
-                    capital += pos['shares'] * current_price
-                    symbols_to_close.append(symbol)
+                    # Check trailing stop
+                    if current_price <= pos.get('trailing_stop', 0):
+                        trade_id += 1
+                        trades.append(SimulatedTrade(
+                            id=trade_id,
+                            symbol=symbol,
+                            entry_date=pos['entry_date'],
+                            exit_date=date_str,
+                            entry_price=pos['entry_price'],
+                            exit_price=current_price,
+                            shares=pos['shares'],
+                            pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
+                            pnl_pct=round(pnl_pct * 100, 2),
+                            exit_reason='trailing_stop',
+                            days_held=(date - pd.Timestamp(pos['entry_date'])).days,
+                            dwap_at_entry=pos.get('dwap_at_entry', 0)
+                        ))
+                        capital += pos['shares'] * current_price
+                        symbols_to_close.append(symbol)
+                else:
+                    # Legacy DWAP strategy: fixed stop loss and profit target
+                    if current_price <= pos['stop_loss']:
+                        trade_id += 1
+                        trades.append(SimulatedTrade(
+                            id=trade_id,
+                            symbol=symbol,
+                            entry_date=pos['entry_date'],
+                            exit_date=date_str,
+                            entry_price=pos['entry_price'],
+                            exit_price=current_price,
+                            shares=pos['shares'],
+                            pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
+                            pnl_pct=round(pnl_pct * 100, 2),
+                            exit_reason='stop_loss',
+                            days_held=(date - pd.Timestamp(pos['entry_date'])).days,
+                            dwap_at_entry=pos['dwap_at_entry']
+                        ))
+                        capital += pos['shares'] * current_price
+                        symbols_to_close.append(symbol)
+
+                    elif current_price >= pos['profit_target']:
+                        trade_id += 1
+                        trades.append(SimulatedTrade(
+                            id=trade_id,
+                            symbol=symbol,
+                            entry_date=pos['entry_date'],
+                            exit_date=date_str,
+                            entry_price=pos['entry_price'],
+                            exit_price=current_price,
+                            shares=pos['shares'],
+                            pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
+                            pnl_pct=round(pnl_pct * 100, 2),
+                            exit_reason='profit_target',
+                            days_held=(date - pd.Timestamp(pos['entry_date'])).days,
+                            dwap_at_entry=pos['dwap_at_entry']
+                        ))
+                        capital += pos['shares'] * current_price
+                        symbols_to_close.append(symbol)
 
             # Remove closed positions
             for symbol in symbols_to_close:
                 del positions[symbol]
 
-            # Look for new entries if we have room
-            if len(positions) < self.max_positions:
-                # Score all potential entries
+            # Skip new entries if in cash mode (unfavorable market)
+            if in_cash_mode:
+                position_value = sum(
+                    pos['shares'] * scanner_service.data_cache[sym].loc[date, 'close']
+                    for sym, pos in positions.items()
+                    if sym in scanner_service.data_cache and date in scanner_service.data_cache[sym].index
+                )
+                equity_curve.append({'date': date_str, 'equity': capital + position_value})
+                continue
+
+            # Rebalancing logic (v2: weekly; legacy: daily)
+            should_rebalance = (
+                self._should_rebalance(date, last_rebalance)
+                if use_momentum_strategy
+                else True
+            )
+
+            # Look for new entries if we have room and it's rebalance time
+            if len(positions) < self.max_positions and should_rebalance:
                 candidates = []
 
-                for symbol in symbols:
-                    if symbol in positions:
-                        continue
+                if use_momentum_strategy:
+                    # Momentum-based ranking
+                    for symbol in symbols:
+                        if symbol in positions:
+                            continue
+                        score_data = self._calculate_momentum_score(symbol, date)
+                        if score_data and score_data['passes_quality']:
+                            candidates.append(score_data)
 
-                    df = scanner_service.data_cache[symbol]
-                    if date not in df.index:
-                        continue
+                    # Sort by composite score (highest first)
+                    candidates.sort(key=lambda x: -x['composite_score'])
 
-                    row = df.loc[date]
-                    price = row['close']
-                    volume = row['volume']
-                    dwap = row.get('dwap', np.nan)
-                    vol_avg = row.get('vol_avg', np.nan)
-                    ma_50 = row.get('ma_50', np.nan)
-                    ma_200 = row.get('ma_200', np.nan)
+                    # Enter positions up to max
+                    for cand in candidates:
+                        if len(positions) >= self.max_positions:
+                            break
 
-                    if pd.isna(dwap) or dwap <= 0:
-                        continue
+                        position_value = self.initial_capital * self.position_size_pct
+                        if position_value > capital:
+                            continue
 
-                    pct_above_dwap = (price / dwap - 1)
+                        shares = position_value / cand['price']
+                        capital -= shares * cand['price']
 
-                    # Check buy conditions
-                    if (pct_above_dwap >= self.dwap_threshold_pct and
-                        volume >= self.min_volume and
-                        price >= self.min_price):
+                        position_id += 1
+                        entry_price = cand['price']
+                        positions[cand['symbol']] = {
+                            'id': position_id,
+                            'entry_price': entry_price,
+                            'entry_date': date_str,
+                            'shares': round(shares, 2),
+                            'high_water_mark': entry_price,
+                            'trailing_stop': round(entry_price * (1 - self.trailing_stop_pct), 2),
+                            'dwap_at_entry': 0,  # Not used in momentum strategy
+                            'pct_above_dwap_at_entry': 0,
+                            'composite_score': cand['composite_score']
+                        }
 
-                        # Calculate signal strength
-                        vol_ratio = volume / vol_avg if vol_avg > 0 else 0
-                        is_strong = (
-                            vol_ratio >= self.volume_spike_mult and
-                            not pd.isna(ma_50) and not pd.isna(ma_200) and
-                            price > ma_50 > ma_200
-                        )
+                    if candidates:
+                        last_rebalance = date
 
-                        candidates.append({
-                            'symbol': symbol,
-                            'price': price,
-                            'dwap': dwap,
-                            'pct_above_dwap': pct_above_dwap,
-                            'is_strong': is_strong,
-                            'vol_ratio': vol_ratio
-                        })
+                else:
+                    # Legacy DWAP strategy
+                    for symbol in symbols:
+                        if symbol in positions:
+                            continue
 
-                # Sort by strength (strong first, then by pct above DWAP)
-                candidates.sort(key=lambda x: (not x['is_strong'], -x['pct_above_dwap']))
+                        df = scanner_service.data_cache[symbol]
+                        if date not in df.index:
+                            continue
 
-                # Enter positions up to max
-                for cand in candidates:
-                    if len(positions) >= self.max_positions:
-                        break
+                        row = df.loc[date]
+                        price = row['close']
+                        volume = row['volume']
+                        dwap = row.get('dwap', np.nan)
+                        vol_avg = row.get('vol_avg', np.nan)
+                        ma_50 = row.get('ma_50', np.nan)
+                        ma_200 = row.get('ma_200', np.nan)
 
-                    # Calculate position size
-                    position_value = self.initial_capital * self.position_size_pct
-                    if position_value > capital:
-                        continue  # Not enough capital
+                        if pd.isna(dwap) or dwap <= 0:
+                            continue
 
-                    shares = position_value / cand['price']
-                    capital -= shares * cand['price']
+                        pct_above_dwap = (price / dwap - 1)
 
-                    position_id += 1
-                    positions[cand['symbol']] = {
-                        'id': position_id,
-                        'entry_price': cand['price'],
-                        'entry_date': date_str,
-                        'shares': round(shares, 2),
-                        'stop_loss': round(cand['price'] * (1 - self.stop_loss_pct), 2),
-                        'profit_target': round(cand['price'] * (1 + self.profit_target_pct), 2),
-                        'dwap_at_entry': round(cand['dwap'], 2),
-                        'pct_above_dwap_at_entry': round(cand['pct_above_dwap'] * 100, 1)
-                    }
+                        if (pct_above_dwap >= self.dwap_threshold_pct and
+                            volume >= self.min_volume and
+                            price >= self.min_price):
+
+                            vol_ratio = volume / vol_avg if vol_avg > 0 else 0
+                            is_strong = (
+                                vol_ratio >= self.volume_spike_mult and
+                                not pd.isna(ma_50) and not pd.isna(ma_200) and
+                                price > ma_50 > ma_200
+                            )
+
+                            candidates.append({
+                                'symbol': symbol,
+                                'price': price,
+                                'dwap': dwap,
+                                'pct_above_dwap': pct_above_dwap,
+                                'is_strong': is_strong,
+                                'vol_ratio': vol_ratio
+                            })
+
+                    candidates.sort(key=lambda x: (not x['is_strong'], -x['pct_above_dwap']))
+
+                    for cand in candidates:
+                        if len(positions) >= self.max_positions:
+                            break
+
+                        position_value = self.initial_capital * self.position_size_pct
+                        if position_value > capital:
+                            continue
+
+                        shares = position_value / cand['price']
+                        capital -= shares * cand['price']
+
+                        position_id += 1
+                        positions[cand['symbol']] = {
+                            'id': position_id,
+                            'entry_price': cand['price'],
+                            'entry_date': date_str,
+                            'shares': round(shares, 2),
+                            'stop_loss': round(cand['price'] * (1 - self.stop_loss_pct), 2),
+                            'profit_target': round(cand['price'] * (1 + self.profit_target_pct), 2),
+                            'dwap_at_entry': round(cand['dwap'], 2),
+                            'pct_above_dwap_at_entry': round(cand['pct_above_dwap'] * 100, 1)
+                        }
 
             # Calculate daily equity
             position_value = sum(
@@ -294,6 +532,10 @@ class BacktesterService:
             current_price = df.iloc[-1]['close']
             pnl_pct = (current_price - pos['entry_price']) / pos['entry_price']
 
+            # Handle both momentum (trailing_stop) and legacy (stop_loss/profit_target) positions
+            stop_loss = pos.get('stop_loss') or pos.get('trailing_stop', 0)
+            profit_target = pos.get('profit_target', 0)
+
             final_positions.append(SimulatedPosition(
                 id=pos['id'],
                 symbol=symbol,
@@ -301,13 +543,13 @@ class BacktesterService:
                 entry_price=round(pos['entry_price'], 2),
                 entry_date=pos['entry_date'],
                 current_price=round(current_price, 2),
-                stop_loss=pos['stop_loss'],
-                profit_target=pos['profit_target'],
+                stop_loss=stop_loss,
+                profit_target=profit_target,
                 pnl_pct=round(pnl_pct * 100, 2),
                 pnl_dollars=round((current_price - pos['entry_price']) * pos['shares'], 2),
                 days_held=(today - pd.Timestamp(pos['entry_date'])).days,
-                dwap_at_entry=pos['dwap_at_entry'],
-                pct_above_dwap_at_entry=pos['pct_above_dwap_at_entry']
+                dwap_at_entry=pos.get('dwap_at_entry', 0),
+                pct_above_dwap_at_entry=pos.get('pct_above_dwap_at_entry', 0)
             ))
 
         # Calculate metrics

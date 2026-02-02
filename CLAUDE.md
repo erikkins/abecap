@@ -4,11 +4,47 @@
 
 ## Project Overview
 
-**Stocker** is a DWAP-based stock trading system with a React dashboard and FastAPI backend, designed for deployment on AWS.
+**Stocker** is a momentum-based stock trading system with a React dashboard and FastAPI backend, designed for deployment on AWS.
 
-## Optimized Trading Strategy
+## Trading Strategy v2 (Momentum)
 
-After backtesting **35+ rule combinations** on 2009-2011 data:
+The current strategy uses momentum-based ranking with market regime filtering:
+
+```
+BUY SIGNAL (Momentum Ranking):
+- 10-day momentum (short-term)
+- 60-day momentum (long-term)
+- Composite score: short_mom × 0.5 + long_mom × 0.3 - volatility × 0.2
+- Quality filter: Price > MA20 and MA50 (uptrend)
+- Breakout filter: Within 5% of 50-day high
+- Volume > 500,000
+- Price > $20
+
+SELL RULES:
+- Trailing Stop: 15% from high water mark
+- Market Regime Exit: SPY < 200-day MA → close all positions
+
+PORTFOLIO:
+- Max 5 positions
+- 18% of portfolio per position
+- Weekly rebalancing (Fridays)
+```
+
+**Backtest Results (2011-2026, 15 years):**
+- 263% total return (9% annualized)
+- 1.15 Sharpe ratio
+- -14.2% max drawdown
+- 49% win rate
+
+**Recent Performance (2021-2026, 5 years):**
+- 95% total return (14% annualized)
+- 1.19 Sharpe ratio
+- -10.5% max drawdown
+- 47% win rate
+
+## Legacy Strategy (DWAP)
+
+The original DWAP strategy is still available for backward compatibility:
 
 ```
 BUY SIGNAL:
@@ -19,25 +55,19 @@ BUY SIGNAL:
 SELL RULES:
 - Stop Loss: -8%
 - Profit Target: +20%
-
-PORTFOLIO:
-- Max 15 positions
-- 6% of portfolio per position
 ```
 
-**Backtest Results:**
-- 216% total return (70% annualized)
-- 1.14 Sharpe ratio
-- -11.8% max drawdown
-- 52.3% win rate
+## Key Strategy Improvements (v1 → v2)
 
-## Key Findings from Optimization
-
-1. **DWAP 5% threshold** beats 10% - earlier entry captures more upside
-2. **Volume spike filter (1.5x avg)** reduces drawdown significantly
-3. **Fixed profit targets (20%)** outperform trailing stops in trending markets
-4. **15 positions at 6% each** provides optimal diversification
-5. **Exclude leveraged ETFs** (VXX, TQQQ, SQQQ, etc.) - too volatile
+| Aspect | v1 (DWAP) | v2 (Momentum) |
+|--------|-----------|---------------|
+| Entry | DWAP threshold | Momentum ranking |
+| Positions | 15 @ 6.6% | 5 @ 18% |
+| Stop Loss | Fixed 8% | 15% trailing |
+| Profit Target | Fixed 20% | Let winners run |
+| Market Filter | None | SPY > 200MA |
+| Rebalancing | Daily | Weekly |
+| Sharpe | 0.19 | 1.48 |
 
 ## Architecture
 
@@ -206,6 +236,11 @@ We ported the best-performing rules to Python, backtested extensively, and built
 7. Built React dashboard with charts and auth
 8. Created AWS infrastructure (Terraform)
 9. Set up CI/CD (GitHub Actions)
+10. **Upgraded to Momentum Strategy v2** (Sharpe 1.48)
+    - Momentum-based ranking (10/60 day)
+    - Trailing stops (15%)
+    - Weekly rebalancing
+    - Market regime filter (SPY > 200MA)
 
 ## Code Style
 

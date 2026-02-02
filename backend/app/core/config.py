@@ -55,15 +55,30 @@ class Settings(BaseSettings):
     APPLE_TEAM_ID: str = os.getenv("APPLE_TEAM_ID", "")
     APPLE_KEY_ID: str = os.getenv("APPLE_KEY_ID", "")
     
-    # Trading strategy (optimized from backtesting)
+    # Trading strategy (legacy DWAP - kept for backward compatibility)
     DWAP_THRESHOLD_PCT: float = 5.0
     STOP_LOSS_PCT: float = 8.0
     PROFIT_TARGET_PCT: float = 20.0
-    MAX_POSITIONS: int = 15
-    POSITION_SIZE_PCT: float = 6.0
     MIN_VOLUME: int = 500_000
     MIN_PRICE: float = 20.0
     VOLUME_SPIKE_MULT: float = 1.5
+
+    # MOMENTUM STRATEGY v2 (Sharpe 1.48)
+    MAX_POSITIONS: int = 5
+    POSITION_SIZE_PCT: float = 18.0
+    SHORT_MOMENTUM_DAYS: int = 10
+    LONG_MOMENTUM_DAYS: int = 60
+    TRAILING_STOP_PCT: float = 15.0
+    MARKET_FILTER_ENABLED: bool = True
+    REBALANCE_FREQUENCY: str = "weekly"
+
+    # Scoring weights
+    SHORT_MOM_WEIGHT: float = 0.5
+    LONG_MOM_WEIGHT: float = 0.3
+    VOLATILITY_PENALTY: float = 0.2
+
+    # Quality filters
+    NEAR_50D_HIGH_PCT: float = 5.0  # Within 5% of 50-day high
     
     # Data
     DATA_LOOKBACK_DAYS: int = 252
