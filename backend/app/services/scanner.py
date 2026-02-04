@@ -86,6 +86,9 @@ class ScannerService:
     Auto-loads full universe from S3 cache on startup.
     """
 
+    # Required symbols that are always fetched (for market regime, benchmark, etc.)
+    REQUIRED_SYMBOLS = ['SPY', '^VIX']
+
     def __init__(self):
         # Start with config universe, will be replaced by full universe on load
         self.universe = get_universe()
@@ -185,6 +188,13 @@ class ScannerService:
             raise RuntimeError("yfinance not installed")
 
         symbols = symbols or self.universe
+
+        # Always include required symbols (SPY for benchmark, ^VIX for market regime)
+        symbols_set = set(symbols)
+        for req in self.REQUIRED_SYMBOLS:
+            if req not in symbols_set:
+                symbols = list(symbols) + [req]
+                symbols_set.add(req)
 
         # Batch settings to avoid rate limiting
         BATCH_SIZE = 10  # Fetch 10 stocks at a time
