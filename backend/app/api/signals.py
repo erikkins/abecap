@@ -254,11 +254,11 @@ async def get_missed_opportunities(
     recent_cutoff = datetime.now() - timedelta(days=1)
 
     # Get signals from the lookback period (but not too recent)
+    # Include all signals, not just strong ones
     query = select(Signal).where(
         and_(
             Signal.created_at >= cutoff_date,
-            Signal.created_at <= recent_cutoff,
-            Signal.is_strong == True
+            Signal.created_at <= recent_cutoff
         )
     ).order_by(desc(Signal.created_at))
 
