@@ -100,7 +100,7 @@ jobs:
       - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --distribution-id E1BA002TIC6UBN \
             --paths "/*"
       
       # Pre-deploy: Save current data to S3 before updating Lambda
