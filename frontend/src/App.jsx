@@ -1272,13 +1272,14 @@ function Dashboard() {
       const refreshData = async () => {
         try {
           // Load all data in parallel
-          const [backtestResult, signalsResult, marketResult, userPositionsResult, userTradesResult] = await Promise.allSettled([
+          const [backtestResult, signalsResult, marketResult, userPositionsResult, userTradesResult, missedResult] = await Promise.allSettled([
             api.get('/api/backtest/run?days=252').catch(() => null),
             // Only fetch from API if CDN failed
             signals.length === 0 ? api.get('/api/signals/memory-scan?refresh=false&apply_market_filter=true').catch(() => null) : Promise.resolve(null),
             api.get('/api/market/regime').catch(() => null),
             api.get('/api/portfolio/positions').catch(() => null),
-            api.get('/api/portfolio/trades?limit=50').catch(() => null)
+            api.get('/api/portfolio/trades?limit=50').catch(() => null),
+            api.get('/api/signals/missed?days=90&limit=5').catch(() => null)
           ]);
 
           // Process backtest result (for stats display only, NOT for positions/trades)
@@ -1322,9 +1323,11 @@ function Dashboard() {
             setMarketRegime(marketResult.value);
           }
 
-          // Note: Missed opportunities removed - was showing simulated backtest data
-          // Real missed opportunities would require tracking signals user saw but didn't act on
-          setMissedOpportunities([]);
+          // Process missed opportunities - signals that hit +20% profit target
+          if (missedResult.status === 'fulfilled' && Array.isArray(missedResult.value)) {
+            setMissedOpportunities(missedResult.value);
+            setCache(CACHE_KEYS.MISSED, missedResult.value);
+          }
         } catch (err) {
           console.log('Background refresh failed:', err);
         }
