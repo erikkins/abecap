@@ -89,7 +89,7 @@ jobs:
           npm ci
           npm run build
         env:
-          VITE_API_URL: ${{ secrets.API_URL }}
+          VITE_API_URL: https://api.rigacap.com
       
       # Deploy Frontend to S3
       - name: Deploy frontend to S3
@@ -107,7 +107,7 @@ jobs:
       - name: Pre-deploy data export
         run: |
           echo "📦 Exporting current price data to S3..."
-          curl -X POST "${{ secrets.API_URL }}/api/data/pre-deploy" \
+          curl -X POST "https://api.rigacap.com/api/data/pre-deploy" \
             -H "Content-Type: application/json" \
             --max-time 120 || echo "⚠️ Pre-deploy export skipped (Lambda may be cold)"
 
@@ -147,7 +147,7 @@ jobs:
           # Wait a moment for Lambda to be ready
           sleep 10
           # Call warmup endpoint to preload data from S3
-          curl -X POST "${{ secrets.API_URL }}/api/warmup" \
+          curl -X POST "https://api.rigacap.com/api/warmup" \
             -H "Content-Type: application/json" \
             --max-time 300 || echo "⚠️ Warmup timed out - data will load on first request"
           echo "✅ Lambda warmed up!"
