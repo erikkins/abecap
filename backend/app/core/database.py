@@ -387,6 +387,22 @@ db_available = False
 db_init_attempted = False
 
 
+async def _run_schema_migrations(conn):
+    """Run schema migrations for columns that don't exist yet."""
+    from sqlalchemy import text
+
+    # Migration: Add is_daily_cache column to walk_forward_simulations
+    try:
+        await conn.execute(text("""
+            ALTER TABLE walk_forward_simulations
+            ADD COLUMN IF NOT EXISTS is_daily_cache BOOLEAN DEFAULT FALSE
+        """))
+        print("✅ Schema migration: is_daily_cache column ready")
+    except Exception as e:
+        # Column might already exist or table doesn't exist yet
+        print(f"⚠️ Schema migration skipped: {e}")
+
+
 async def init_db():
     """Initialize database tables"""
     global db_available, db_init_attempted
@@ -395,6 +411,8 @@ async def init_db():
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            # Run any pending schema migrations
+            await _run_schema_migrations(conn)
         db_available = True
         print("✅ Database initialized")
     except Exception as e:
