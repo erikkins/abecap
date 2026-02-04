@@ -706,9 +706,13 @@ class WalkForwardService:
 
         # Get SPY starting price for benchmark line
         spy_start_price = None
+        spy_df = None
         if 'SPY' in scanner_service.data_cache:
             spy_df = scanner_service.data_cache['SPY']
             start_ts = pd.Timestamp(start_date)
+            # Handle timezone-aware index
+            if spy_df.index.tz is not None:
+                start_ts = start_ts.tz_localize(spy_df.index.tz) if start_ts.tz is None else start_ts.tz_convert(spy_df.index.tz)
             spy_at_start = spy_df[spy_df.index >= start_ts]
             if len(spy_at_start) > 0:
                 spy_start_price = spy_at_start.iloc[0]['close']
@@ -716,10 +720,13 @@ class WalkForwardService:
 
         def get_spy_equity(date_str: str) -> float:
             """Get SPY equity normalized to initial capital"""
-            if spy_start_price is None:
+            if spy_start_price is None or spy_df is None:
                 return None
             try:
                 date_ts = pd.Timestamp(date_str)
+                # Handle timezone-aware index
+                if spy_df.index.tz is not None:
+                    date_ts = date_ts.tz_localize(spy_df.index.tz) if date_ts.tz is None else date_ts.tz_convert(spy_df.index.tz)
                 spy_at_date = spy_df[spy_df.index <= date_ts]
                 if len(spy_at_date) > 0:
                     spy_price = spy_at_date.iloc[-1]['close']
@@ -957,6 +964,10 @@ class WalkForwardService:
             spy_df = scanner_service.data_cache['SPY']
             start_ts = pd.Timestamp(start_date)
             end_ts = pd.Timestamp(end_date)
+            # Handle timezone-aware index
+            if spy_df.index.tz is not None:
+                start_ts = start_ts.tz_localize(spy_df.index.tz) if start_ts.tz is None else start_ts.tz_convert(spy_df.index.tz)
+                end_ts = end_ts.tz_localize(spy_df.index.tz) if end_ts.tz is None else end_ts.tz_convert(spy_df.index.tz)
             spy_data = spy_df[(spy_df.index >= start_ts) & (spy_df.index <= end_ts)]
             if len(spy_data) >= 2:
                 spy_start = spy_data.iloc[0]['close']

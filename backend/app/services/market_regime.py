@@ -270,7 +270,11 @@ class MarketRegimeService:
     ) -> MarketConditions:
         """Calculate market condition indicators for a given date."""
         if as_of_date:
-            spy_df = spy_df[spy_df.index <= pd.Timestamp(as_of_date)]
+            # Handle timezone-aware index comparison
+            as_of_ts = pd.Timestamp(as_of_date)
+            if spy_df.index.tz is not None:
+                as_of_ts = as_of_ts.tz_localize(spy_df.index.tz) if as_of_ts.tz is None else as_of_ts.tz_convert(spy_df.index.tz)
+            spy_df = spy_df[spy_df.index <= as_of_ts]
 
         if len(spy_df) < 200:
             raise ValueError("Need at least 200 days of SPY data")
@@ -303,7 +307,10 @@ class MarketRegimeService:
 
         if vix_df is not None and len(vix_df) > 0:
             if as_of_date:
-                vix_df = vix_df[vix_df.index <= pd.Timestamp(as_of_date)]
+                vix_ts = pd.Timestamp(as_of_date)
+                if vix_df.index.tz is not None:
+                    vix_ts = vix_ts.tz_localize(vix_df.index.tz) if vix_ts.tz is None else vix_ts.tz_convert(vix_df.index.tz)
+                vix_df = vix_df[vix_df.index <= vix_ts]
             vix_level = vix_df.iloc[-1]['close'] if len(vix_df) > 0 else 20
             vix_1y = vix_df['close'].tail(252)
             vix_percentile = (vix_level <= vix_1y).sum() / len(vix_1y) * 100
@@ -325,7 +332,10 @@ class MarketRegimeService:
                 if symbol in ['SPY', '^VIX']:
                     continue
                 if as_of_date:
-                    df = df[df.index <= pd.Timestamp(as_of_date)]
+                    sym_ts = pd.Timestamp(as_of_date)
+                    if df.index.tz is not None:
+                        sym_ts = sym_ts.tz_localize(df.index.tz) if sym_ts.tz is None else sym_ts.tz_convert(df.index.tz)
+                    df = df[df.index <= sym_ts]
                 if len(df) >= 252:
                     latest_price = df.iloc[-1]['close']
                     ma_50_sym = df['close'].tail(50).mean()
@@ -475,9 +485,15 @@ class MarketRegimeService:
     ) -> List[MarketRegime]:
         """Get regime classification history over a date range."""
         if start_date:
-            spy_df = spy_df[spy_df.index >= pd.Timestamp(start_date)]
+            start_ts = pd.Timestamp(start_date)
+            if spy_df.index.tz is not None:
+                start_ts = start_ts.tz_localize(spy_df.index.tz) if start_ts.tz is None else start_ts.tz_convert(spy_df.index.tz)
+            spy_df = spy_df[spy_df.index >= start_ts]
         if end_date:
-            spy_df = spy_df[spy_df.index <= pd.Timestamp(end_date)]
+            end_ts = pd.Timestamp(end_date)
+            if spy_df.index.tz is not None:
+                end_ts = end_ts.tz_localize(spy_df.index.tz) if end_ts.tz is None else end_ts.tz_convert(spy_df.index.tz)
+            spy_df = spy_df[spy_df.index <= end_ts]
 
         if sample_frequency == 'daily':
             dates = spy_df.index.tolist()
