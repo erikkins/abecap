@@ -907,10 +907,18 @@ class WalkForwardService:
             start_ts = pd.Timestamp(start_date)
             end_ts = pd.Timestamp(end_date)
             spy_data = spy_df[(spy_df.index >= start_ts) & (spy_df.index <= end_ts)]
+            print(f"[BENCHMARK] SPY data range: {spy_df.index.min()} to {spy_df.index.max()}")
+            print(f"[BENCHMARK] Query range: {start_ts} to {end_ts}")
+            print(f"[BENCHMARK] Filtered rows: {len(spy_data)}")
             if len(spy_data) >= 2:
                 spy_start = spy_data.iloc[0]['close']
                 spy_end = spy_data.iloc[-1]['close']
                 benchmark_return_pct = (spy_end - spy_start) / spy_start * 100
+                print(f"[BENCHMARK] SPY {spy_start:.2f} -> {spy_end:.2f} = {benchmark_return_pct:.2f}%")
+            else:
+                print(f"[BENCHMARK] Not enough SPY data points: {len(spy_data)}")
+        else:
+            print("[BENCHMARK] SPY not in data cache!")
 
         # Count AI-generated switches
         ai_switches = sum(1 for s in switch_history if s.is_ai_generated)
