@@ -238,107 +238,51 @@ async def get_missed_opportunities(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get missed opportunities - signals from the past N days that HIT the +20% profit target.
-    These are completed trades the user could have made.
+    Get missed opportunities - profitable trades from a backtest of the past N days.
+    Shows what returns users could have achieved using our momentum strategy.
 
     - **days**: Look back period (default 90 days)
     - **limit**: Maximum results to return (default 10)
     """
-    from datetime import timedelta
-    from sqlalchemy import and_
-    import pandas as pd
+    from app.services.backtester import backtester_service
 
-    # Look back further to find completed opportunities
-    cutoff_date = datetime.now() - timedelta(days=days)
-    # Don't include signals from the last 1 day (too recent to have hit target)
-    recent_cutoff = datetime.now() - timedelta(days=1)
-
-    # Get signals from the lookback period (but not too recent)
-    # Include all signals, not just strong ones
-    query = select(Signal).where(
-        and_(
-            Signal.created_at >= cutoff_date,
-            Signal.created_at <= recent_cutoff
+    # Run backtest for the specified period
+    try:
+        result = backtester_service.run_backtest(
+            lookback_days=days,
+            use_momentum_strategy=True
         )
-    ).order_by(desc(Signal.created_at))
+    except Exception as e:
+        print(f"[MISSED] Backtest failed: {e}")
+        return []
 
-    result = await db.execute(query)
-    signals = result.scalars().all()
-
-    # Get current positions to exclude
-    from app.core.database import Position
-    positions_query = select(Position.symbol).where(Position.status == 'open')
-    positions_result = await db.execute(positions_query)
-    owned_symbols = set(row[0] for row in positions_result.fetchall())
-
-    # Find signals that hit +20% profit target
+    # Filter to only profitable closed trades (winners)
     opportunities = []
-    seen_symbols = set()  # Track symbols to avoid duplicates
-    PROFIT_TARGET = 0.20  # 20%
-
-    for sig in signals:
-        # Skip if user owns this stock or we've already processed it
-        if sig.symbol in owned_symbols or sig.symbol in seen_symbols:
+    for trade in result.trades:
+        # Only show profitable trades
+        if trade.pnl_pct <= 0:
             continue
 
-        # Check if we have price data for this symbol
-        if sig.symbol not in scanner_service.data_cache:
-            continue
+        # Get sector info
+        sector = ""
+        info = stock_universe_service.symbol_info.get(trade.symbol, {})
+        sector = info.get("sector", "")
 
-        df = scanner_service.data_cache[sig.symbol]
-        if len(df) == 0:
-            continue
+        opportunities.append(MissedOpportunity(
+            symbol=trade.symbol,
+            signal_date=trade.entry_date,
+            signal_price=round(trade.entry_price, 2),
+            exit_date=trade.exit_date,
+            exit_price=round(trade.exit_price, 2),
+            would_be_return=round(trade.pnl_pct, 1),
+            would_be_pnl=round(trade.pnl, 2),
+            days_held=trade.days_held,
+            signal_strength=0.0,  # Not applicable for backtest trades
+            sector=sector
+        ))
 
-        # Get the signal date and find prices after that date
-        signal_date = sig.created_at.date()
-        target_price = sig.price * (1 + PROFIT_TARGET)
-
-        # Filter to dates after the signal
-        try:
-            future_prices = df[df.index.date > signal_date]
-        except:
-            continue
-
-        if len(future_prices) == 0:
-            continue
-
-        # Check if the stock ever hit the +20% target
-        high_prices = future_prices['high'] if 'high' in future_prices.columns else future_prices['close']
-        hit_target = high_prices >= target_price
-
-        if hit_target.any():
-            # Find when it first hit the target
-            first_hit_idx = hit_target.idxmax()
-            exit_date = first_hit_idx.date() if hasattr(first_hit_idx, 'date') else first_hit_idx
-            days_held = (first_hit_idx - pd.Timestamp(signal_date)).days
-
-            seen_symbols.add(sig.symbol)
-
-            # Get sector info
-            sector = ""
-            info = stock_universe_service.symbol_info.get(sig.symbol, {})
-            sector = info.get("sector", "")
-
-            # Calculate P&L (assume $6,000 position size = 6% of $100k)
-            position_value = 6000
-            shares = position_value / sig.price
-            pnl = shares * sig.price * PROFIT_TARGET  # Always 20% gain
-
-            opportunities.append(MissedOpportunity(
-                symbol=sig.symbol,
-                signal_date=sig.created_at.strftime("%Y-%m-%d"),
-                signal_price=round(sig.price, 2),
-                exit_date=str(exit_date),
-                exit_price=round(target_price, 2),
-                would_be_return=round(PROFIT_TARGET * 100, 1),  # Always 20%
-                would_be_pnl=round(pnl, 2),
-                days_held=days_held,
-                signal_strength=getattr(sig, 'signal_strength', 0) or 0,
-                sector=sector
-            ))
-
-    # Sort by most recent signal date first
-    opportunities.sort(key=lambda x: x.signal_date, reverse=True)
+    # Sort by highest return first (most impressive opportunities)
+    opportunities.sort(key=lambda x: x.would_be_return, reverse=True)
     return opportunities[:limit]
 
 
