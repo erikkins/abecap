@@ -1248,15 +1248,17 @@ async def start_walk_forward_async(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Run a walk-forward simulation.
+    Start a walk-forward simulation asynchronously.
 
-    Note: This runs synchronously in Lambda. For long simulations, reduce max_symbols
-    or disable AI optimization. Lambda has 15min timeout but API Gateway has 29s.
+    Creates a job record and invokes Lambda asynchronously. Use the status
+    endpoint to poll for completion.
     """
     print(f"[WALK-FORWARD] Endpoint called: start={start_date}, end={end_date}, ai={enable_ai}, symbols={max_symbols}")
 
     from datetime import datetime
     from app.services.walk_forward_service import walk_forward_service
+    import boto3
+    import os
 
     try:
         start = datetime.strptime(start_date, "%Y-%m-%d")
@@ -1267,93 +1269,79 @@ async def start_walk_forward_async(
     if end <= start:
         raise HTTPException(status_code=400, detail="End date must be after start date")
 
-    # Run simulation synchronously (Lambda background tasks don't work reliably)
+    # Create a pending job record in the database
+    job = WalkForwardSimulation(
+        simulation_date=datetime.utcnow(),
+        start_date=start,
+        end_date=end,
+        reoptimization_frequency=frequency,
+        status="pending",
+        total_return_pct=0,
+        sharpe_ratio=0,
+        max_drawdown_pct=0,
+        num_strategy_switches=0,
+        benchmark_return_pct=0,
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+    job_id = job.id
+
+    print(f"[WALK-FORWARD] Created job {job_id}, invoking Lambda async...")
+
+    # Invoke Lambda asynchronously
     try:
-        print(f"[WALK-FORWARD] Starting simulation: {start_date} to {end_date}, freq={frequency}, ai={enable_ai}, symbols={max_symbols}")
-        result = await walk_forward_service.run_walk_forward_simulation(
-            db=db,
-            start_date=start,
-            end_date=end,
-            reoptimization_frequency=frequency,
-            min_score_diff=min_score_diff,
-            enable_ai_optimization=enable_ai,
-            max_symbols=max_symbols
-        )
-        print(f"[WALK-FORWARD] Simulation completed: return={result.total_return_pct}%, switches={result.num_strategy_switches}")
-
-        # Count AI-driven switches
-        ai_switches = sum(1 for s in result.switch_history if s.is_ai_generated)
-
-        response_data = {
-            "job_id": None,  # No async job, results returned directly
-            "status": "completed",
-            "start_date": result.start_date,
-            "end_date": result.end_date,
-            "reoptimization_frequency": result.reoptimization_frequency,
-            "total_return_pct": result.total_return_pct,
-            "sharpe_ratio": result.sharpe_ratio,
-            "max_drawdown_pct": result.max_drawdown_pct,
-            "num_strategy_switches": result.num_strategy_switches,
-            "benchmark_return_pct": result.benchmark_return_pct,
-            "ai_switches": ai_switches,
-            "switch_history": [
-                {
-                    "date": s.date,
-                    "from_id": s.from_strategy_id,
-                    "from_name": s.from_strategy_name,
-                    "to_id": s.to_strategy_id,
-                    "to_name": s.to_strategy_name,
-                    "reason": s.reason,
-                    "score_before": s.score_before,
-                    "score_after": s.score_after,
-                    "is_ai_generated": s.is_ai_generated,
-                    "ai_params": s.ai_params
-                }
-                for s in result.switch_history
-            ],
-            "equity_curve": result.equity_curve,
-            "ai_optimizations": [
-                {
-                    "date": a.date,
-                    "best_params": a.best_params,
-                    "expected_sharpe": a.expected_sharpe,
-                    "expected_return_pct": a.expected_return_pct,
-                    "expected_sortino": a.expected_sortino,
-                    "expected_calmar": a.expected_calmar,
-                    "expected_profit_factor": a.expected_profit_factor,
-                    "expected_max_dd": a.expected_max_dd,
-                    "market_regime": a.market_regime,
-                    "regime_risk_level": a.regime_risk_level,
-                    "regime_confidence": a.regime_confidence,
-                    "combinations_tested": a.combinations_tested,
-                    "adaptive_score": a.adaptive_score,
-                    "was_adopted": a.was_adopted,
-                    "reason": a.reason
-                }
-                for a in result.ai_optimizations
-            ] if result.ai_optimizations else [],
-            "parameter_evolution": [
-                {
-                    "date": p.date,
-                    "strategy_name": p.strategy_name,
-                    "params": p.params,
-                    "source": p.source
-                }
-                for p in result.parameter_evolution
-            ] if result.parameter_evolution else []
+        lambda_client = boto3.client('lambda', region_name='us-east-1')
+        payload = {
+            "walk_forward_job": {
+                "job_id": job_id,
+                "start_date": start_date,
+                "end_date": end_date,
+                "frequency": frequency,
+                "min_score_diff": min_score_diff,
+                "enable_ai": enable_ai,
+                "max_symbols": max_symbols
+            }
         }
-        print(f"[WALK-FORWARD] Returning response with {len(response_data.get('equity_curve', []))} equity points")
-        return response_data
-    except Exception as e:
-        import traceback
-        error_msg = f"Simulation failed: {str(e)}"
-        tb = traceback.format_exc()
-        print(f"[WALK-FORWARD] ERROR: {error_msg}")
-        print(f"[WALK-FORWARD] TRACEBACK: {tb}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"{error_msg}"
+        lambda_client.invoke(
+            FunctionName=os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'rigacap-prod-api'),
+            InvocationType='Event',  # Async invocation
+            Payload=json.dumps(payload)
         )
+        print(f"[WALK-FORWARD] Lambda invoked async for job {job_id}")
+    except Exception as e:
+        print(f"[WALK-FORWARD] Failed to invoke Lambda async: {e}, running synchronously...")
+        # Fallback: run synchronously (for local dev)
+        try:
+            result = await walk_forward_service.run_walk_forward_simulation(
+                db=db,
+                start_date=start,
+                end_date=end,
+                reoptimization_frequency=frequency,
+                min_score_diff=min_score_diff,
+                enable_ai_optimization=enable_ai,
+                max_symbols=max_symbols,
+                existing_job_id=job_id
+            )
+            return {
+                "job_id": job_id,
+                "status": "completed",
+                "total_return_pct": result.total_return_pct,
+                "sharpe_ratio": result.sharpe_ratio,
+                "max_drawdown_pct": result.max_drawdown_pct,
+                "num_strategy_switches": result.num_strategy_switches,
+            }
+        except Exception as sync_err:
+            job.status = "failed"
+            job.switch_history_json = json.dumps({"error": str(sync_err)})
+            await db.commit()
+            raise HTTPException(status_code=500, detail=str(sync_err))
+
+    return {
+        "job_id": job_id,
+        "status": "pending",
+        "message": "Simulation started. Poll /status/{job_id} for results."
+    }
 
 
 @router.get("/strategies/walk-forward/status/{job_id}")

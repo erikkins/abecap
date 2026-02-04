@@ -61,11 +61,74 @@ asyncio.get_event_loop().run_until_complete(_cold_start_init())
 _mangum_handler = Mangum(app, lifespan="off")
 
 
+async def _run_walk_forward_job(job_config: dict):
+    """Run walk-forward simulation job asynchronously."""
+    import json
+    from datetime import datetime
+    from app.core.database import async_session
+    from app.services.walk_forward_service import walk_forward_service
+    from sqlalchemy import select
+    from app.core.database import WalkForwardSimulation
+
+    job_id = job_config["job_id"]
+    print(f"[ASYNC-WF] Starting walk-forward job {job_id}")
+
+    async with async_session() as db:
+        try:
+            # Update status to running
+            result = await db.execute(
+                select(WalkForwardSimulation).where(WalkForwardSimulation.id == job_id)
+            )
+            job = result.scalar_one_or_none()
+            if job:
+                job.status = "running"
+                await db.commit()
+
+            # Run the simulation
+            start = datetime.strptime(job_config["start_date"], "%Y-%m-%d")
+            end = datetime.strptime(job_config["end_date"], "%Y-%m-%d")
+
+            sim_result = await walk_forward_service.run_walk_forward_simulation(
+                db=db,
+                start_date=start,
+                end_date=end,
+                reoptimization_frequency=job_config["frequency"],
+                min_score_diff=job_config["min_score_diff"],
+                enable_ai_optimization=job_config["enable_ai"],
+                max_symbols=job_config["max_symbols"],
+                existing_job_id=job_id
+            )
+
+            print(f"[ASYNC-WF] Job {job_id} completed: return={sim_result.total_return_pct}%")
+            return {"status": "completed", "job_id": job_id}
+
+        except Exception as e:
+            import traceback
+            print(f"[ASYNC-WF] Job {job_id} failed: {e}")
+            print(traceback.format_exc())
+
+            # Update job status to failed
+            try:
+                result = await db.execute(
+                    select(WalkForwardSimulation).where(WalkForwardSimulation.id == job_id)
+                )
+                job = result.scalar_one_or_none()
+                if job:
+                    job.status = "failed"
+                    job.switch_history_json = json.dumps({"error": str(e)})
+                    await db.commit()
+            except Exception:
+                pass
+
+            return {"status": "failed", "job_id": job_id, "error": str(e)}
+
+
 def handler(event, context):
     """
     Lambda handler that supports:
     1. Warmer events (from EventBridge scheduled warmer)
-    2. API Gateway HTTP API events (via Mangum)
+    2. Walk-forward async jobs (from async Lambda invocation)
+    3. API Gateway HTTP API events (via Mangum)
     """
     # Handle warmer events - just return success to keep Lambda warm
     if event.get("warmer"):
@@ -74,6 +137,13 @@ def handler(event, context):
             "statusCode": 200,
             "body": '{"status": "warm"}'
         }
+
+    # Handle async walk-forward jobs
+    if event.get("walk_forward_job"):
+        print("📊 Walk-forward async job received")
+        job_config = event["walk_forward_job"]
+        result = asyncio.get_event_loop().run_until_complete(_run_walk_forward_job(job_config))
+        return result
 
     # For API Gateway events, use Mangum
     return _mangum_handler(event, context)
