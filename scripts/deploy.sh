@@ -22,6 +22,21 @@
 
 set -e  # Exit on error
 
+# IMPORTANT: Always use the rigacap AWS profile - never default
+export AWS_PROFILE="rigacap"
+
+# Verify we're using the correct AWS account
+EXPECTED_ACCOUNT="149218244179"
+ACTUAL_ACCOUNT=$(aws sts get-caller-identity --query Account --output text 2>/dev/null || echo "")
+if [ "$ACTUAL_ACCOUNT" != "$EXPECTED_ACCOUNT" ]; then
+  echo "❌ ERROR: Wrong AWS account!"
+  echo "   Expected: $EXPECTED_ACCOUNT (rigacap)"
+  echo "   Got: $ACTUAL_ACCOUNT"
+  echo ""
+  echo "   Make sure the 'rigacap' profile is configured in ~/.aws/credentials"
+  exit 1
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

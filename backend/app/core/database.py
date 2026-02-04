@@ -147,6 +147,8 @@ class StrategyDefinition(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, onupdate=datetime.utcnow)
     activated_at = Column(DateTime, nullable=True)
+    source = Column(String(50), default="manual")  # "manual", "ai_generated"
+    is_custom = Column(Boolean, default=False)
 
     evaluations = relationship("StrategyEvaluation", back_populates="strategy")
 
@@ -172,6 +174,79 @@ class StrategyEvaluation(Base):
     recommendation_notes = Column(Text)
 
     strategy = relationship("StrategyDefinition", back_populates="evaluations")
+
+
+class AutoSwitchConfig(Base):
+    """Configuration for automated strategy switching"""
+    __tablename__ = "auto_switch_config"
+
+    id = Column(Integer, primary_key=True)
+    is_enabled = Column(Boolean, default=False)
+    analysis_frequency = Column(String(20), default="biweekly")  # weekly/biweekly/monthly
+    min_score_diff_to_switch = Column(Float, default=10.0)
+    min_days_since_last_switch = Column(Integer, default=14)
+    notify_on_analysis = Column(Boolean, default=True)
+    notify_on_switch = Column(Boolean, default=True)
+    admin_email = Column(String(255))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+
+
+class StrategySwitchHistory(Base):
+    """Audit log of all strategy switches"""
+    __tablename__ = "strategy_switch_history"
+
+    id = Column(Integer, primary_key=True)
+    switch_date = Column(DateTime, default=datetime.utcnow, index=True)
+    from_strategy_id = Column(Integer, ForeignKey("strategy_definitions.id"), nullable=True)
+    to_strategy_id = Column(Integer, ForeignKey("strategy_definitions.id"), nullable=False)
+    trigger = Column(String(50), nullable=False)  # "manual", "auto_scheduled"
+    reason = Column(Text)
+    score_before = Column(Float)
+    score_after = Column(Float)
+
+    from_strategy = relationship("StrategyDefinition", foreign_keys=[from_strategy_id])
+    to_strategy = relationship("StrategyDefinition", foreign_keys=[to_strategy_id])
+
+
+class WalkForwardSimulation(Base):
+    """Walk-forward analysis simulation results"""
+    __tablename__ = "walk_forward_simulations"
+
+    id = Column(Integer, primary_key=True)
+    simulation_date = Column(DateTime, default=datetime.utcnow, index=True)
+    start_date = Column(DateTime, nullable=False)
+    end_date = Column(DateTime, nullable=False)
+    reoptimization_frequency = Column(String(20), nullable=False)  # weekly/biweekly/monthly
+    total_return_pct = Column(Float)
+    sharpe_ratio = Column(Float)
+    max_drawdown_pct = Column(Float)
+    num_strategy_switches = Column(Integer)
+    benchmark_return_pct = Column(Float)
+    switch_history_json = Column(Text)  # JSON array of switch events
+    equity_curve_json = Column(Text)  # JSON array of equity points
+    status = Column(String(20), default="completed")  # pending/completed/failed
+
+
+class StrategyGenerationRun(Base):
+    """Track AI-generated strategy optimization runs"""
+    __tablename__ = "strategy_generation_runs"
+
+    id = Column(Integer, primary_key=True)
+    run_date = Column(DateTime, default=datetime.utcnow, index=True)
+    lookback_weeks = Column(Integer, nullable=False)
+    strategy_type = Column(String(50), nullable=False)
+    optimization_metric = Column(String(50), nullable=False)  # sharpe/return/calmar
+    market_regime_detected = Column(String(50))  # bull/bear/neutral
+    best_params_json = Column(Text)  # JSON of best parameters found
+    expected_sharpe = Column(Float)
+    expected_return_pct = Column(Float)
+    expected_drawdown_pct = Column(Float)
+    combinations_tested = Column(Integer)
+    status = Column(String(20), default="pending")  # pending/completed/failed
+    created_strategy_id = Column(Integer, ForeignKey("strategy_definitions.id"), nullable=True)
+
+    created_strategy = relationship("StrategyDefinition")
 
 
 class User(Base):

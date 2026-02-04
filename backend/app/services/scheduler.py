@@ -212,6 +212,22 @@ class SchedulerService:
             replace_existing=True
         )
 
+        # Strategy auto-analysis every other Friday at 6 PM ET
+        # Runs biweekly strategy analysis and potential auto-switch
+        self.scheduler.add_job(
+            self._strategy_auto_analysis,
+            CronTrigger(
+                day_of_week='fri',
+                hour=18,
+                minute=30,
+                week='*/2',  # Every 2 weeks
+                timezone=ET
+            ),
+            id='strategy_auto_analysis',
+            name='Strategy Auto-Analysis',
+            replace_existing=True
+        )
+
         self.scheduler.start()
         self.is_running = True
 
@@ -459,6 +475,27 @@ class SchedulerService:
         """Manually trigger the daily update (for testing)"""
         logger.info("🚀 Manual trigger: running daily update now")
         await self.daily_update()
+
+    async def _strategy_auto_analysis(self):
+        """
+        Biweekly strategy analysis and potential auto-switch.
+
+        This job runs every other Friday to:
+        1. Analyze all strategies with 90-day rolling backtest
+        2. Check if a switch is recommended
+        3. Execute switch if safeguards pass and auto-switch is enabled
+        4. Send email notifications
+        """
+        logger.info("📊 Starting biweekly strategy auto-analysis...")
+
+        try:
+            from app.services.auto_switch_service import auto_switch_service
+            await auto_switch_service.scheduled_analysis_job()
+            logger.info("✅ Strategy auto-analysis complete")
+        except Exception as e:
+            logger.error(f"❌ Strategy auto-analysis failed: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 # Singleton instance

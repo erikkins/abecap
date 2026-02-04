@@ -8,13 +8,207 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, desc
 
-from app.core.database import get_db, User, Subscription, Signal, Position, StrategyDefinition, StrategyEvaluation
+from app.core.database import (
+    get_db, User, Subscription, Signal, Position, StrategyDefinition, StrategyEvaluation,
+    AutoSwitchConfig, StrategySwitchHistory, WalkForwardSimulation, StrategyGenerationRun,
+    engine
+)
 from app.core.security import get_admin_user
 from app.core.config import settings
 from app.services.scheduler import scheduler_service
 from app.services.strategy_analyzer import strategy_analyzer_service
+from sqlalchemy import text
 
 router = APIRouter()
+
+
+# ============================================================================
+# Database Migration
+# ============================================================================
+
+@router.get("/data-debug")
+async def get_data_debug():
+    """Debug endpoint to check data availability (no auth required for debugging)."""
+    from app.services.scanner import scanner_service
+
+    if not scanner_service.data_cache:
+        return {"error": "No data in cache", "cache_size": 0}
+
+    # Sample a few symbols
+    sample_symbols = list(scanner_service.data_cache.keys())[:5]
+    samples = {}
+    for sym in sample_symbols:
+        df = scanner_service.data_cache[sym]
+        samples[sym] = {
+            "rows": len(df),
+            "columns": list(df.columns),
+            "index_type": str(type(df.index)),
+            "date_range": f"{df.index[0]} to {df.index[-1]}" if len(df) > 0 else "empty"
+        }
+
+    # Count symbols with enough data for 90-day backtest
+    min_data_points = 290  # 90 + 200
+    enough_data_count = sum(1 for df in scanner_service.data_cache.values() if len(df) >= min_data_points)
+
+    return {
+        "cache_size": len(scanner_service.data_cache),
+        "symbols_with_290_plus_rows": enough_data_count,
+        "samples": samples
+    }
+
+
+@router.post("/migrate")
+async def run_database_migration(db: AsyncSession = Depends(get_db)):
+    """
+    Run database migrations to add new tables and columns.
+    Safe to run multiple times - uses IF NOT EXISTS.
+    """
+    migrations = []
+
+    async def run_migration(sql: str, description: str):
+        """Run a single migration with its own connection"""
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(text(sql))
+            migrations.append(description)
+        except Exception as e:
+            migrations.append(f"{description}: {str(e)}")
+
+    try:
+        # Add new columns to strategy_definitions if they don't exist
+        await run_migration("""
+            ALTER TABLE strategy_definitions
+            ADD COLUMN IF NOT EXISTS source VARCHAR(50) DEFAULT 'manual'
+        """, "Added 'source' column to strategy_definitions")
+
+        await run_migration("""
+            ALTER TABLE strategy_definitions
+            ADD COLUMN IF NOT EXISTS is_custom BOOLEAN DEFAULT FALSE
+        """, "Added 'is_custom' column to strategy_definitions")
+
+        # Create strategy_evaluations table
+        await run_migration("""
+            CREATE TABLE IF NOT EXISTS strategy_evaluations (
+                id SERIAL PRIMARY KEY,
+                strategy_id INTEGER REFERENCES strategy_definitions(id),
+                evaluation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                lookback_days INTEGER DEFAULT 90,
+                total_return_pct FLOAT,
+                sharpe_ratio FLOAT,
+                max_drawdown_pct FLOAT,
+                win_rate FLOAT,
+                total_trades INTEGER,
+                recommendation_score FLOAT,
+                recommendation_notes TEXT
+            )
+        """, "Created strategy_evaluations table")
+
+        # Create auto_switch_config table
+        await run_migration("""
+            CREATE TABLE IF NOT EXISTS auto_switch_config (
+                id SERIAL PRIMARY KEY,
+                is_enabled BOOLEAN DEFAULT FALSE,
+                analysis_frequency VARCHAR(20) DEFAULT 'biweekly',
+                min_score_diff_to_switch FLOAT DEFAULT 10.0,
+                min_days_since_last_switch INTEGER DEFAULT 14,
+                notify_on_analysis BOOLEAN DEFAULT TRUE,
+                notify_on_switch BOOLEAN DEFAULT TRUE,
+                admin_email VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """, "Created auto_switch_config table")
+
+        # Create strategy_switch_history table
+        await run_migration("""
+            CREATE TABLE IF NOT EXISTS strategy_switch_history (
+                id SERIAL PRIMARY KEY,
+                switch_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                from_strategy_id INTEGER REFERENCES strategy_definitions(id),
+                to_strategy_id INTEGER REFERENCES strategy_definitions(id),
+                trigger VARCHAR(50),
+                reason TEXT,
+                score_before FLOAT,
+                score_after FLOAT
+            )
+        """, "Created strategy_switch_history table")
+
+        # Create walk_forward_simulations table
+        await run_migration("""
+            CREATE TABLE IF NOT EXISTS walk_forward_simulations (
+                id SERIAL PRIMARY KEY,
+                simulation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                start_date TIMESTAMP,
+                end_date TIMESTAMP,
+                reoptimization_frequency VARCHAR(20),
+                total_return_pct FLOAT,
+                sharpe_ratio FLOAT,
+                max_drawdown_pct FLOAT,
+                num_strategy_switches INTEGER,
+                benchmark_return_pct FLOAT,
+                switch_history_json TEXT,
+                equity_curve_json TEXT,
+                status VARCHAR(20) DEFAULT 'completed'
+            )
+        """, "Created walk_forward_simulations table")
+
+        # Add status column if table already exists
+        await run_migration("""
+            ALTER TABLE walk_forward_simulations
+            ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'completed'
+        """, "Added 'status' column to walk_forward_simulations")
+
+        # Create strategy_generation_runs table
+        await run_migration("""
+            CREATE TABLE IF NOT EXISTS strategy_generation_runs (
+                id SERIAL PRIMARY KEY,
+                run_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                lookback_weeks INTEGER,
+                strategy_type VARCHAR(50),
+                optimization_metric VARCHAR(50),
+                market_regime_detected VARCHAR(50),
+                best_params_json TEXT,
+                expected_sharpe FLOAT,
+                expected_return_pct FLOAT,
+                expected_drawdown_pct FLOAT,
+                combinations_tested INTEGER,
+                status VARCHAR(20) DEFAULT 'completed',
+                created_strategy_id INTEGER REFERENCES strategy_definitions(id)
+            )
+        """, "Created strategy_generation_runs table")
+
+        # Add missing columns to strategy_generation_runs if table already exists
+        await run_migration("""
+            ALTER TABLE strategy_generation_runs
+            ADD COLUMN IF NOT EXISTS expected_drawdown_pct FLOAT
+        """, "Added 'expected_drawdown_pct' column to strategy_generation_runs")
+
+        await run_migration("""
+            ALTER TABLE strategy_generation_runs
+            ADD COLUMN IF NOT EXISTS created_strategy_id INTEGER REFERENCES strategy_definitions(id)
+        """, "Added 'created_strategy_id' column to strategy_generation_runs")
+
+    except Exception as e:
+        import traceback
+        return {
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+            "migrations": migrations
+        }
+
+    # Seed strategies if needed
+    try:
+        seeded = await seed_strategies(db)
+        if seeded > 0:
+            migrations.append(f"Seeded {seeded} initial strategies")
+    except Exception as e:
+        migrations.append(f"Seeding error: {str(e)}")
+
+    return {
+        "success": True,
+        "migrations": migrations
+    }
 
 
 # ============================================================================
@@ -506,6 +700,18 @@ async def get_service_status(
             "signals_today": signals_today,
             "cached_symbols": len(scanner_service.data_cache)
         }
+
+        # Add data history info for first few symbols
+        if scanner_service.data_cache:
+            sample_symbols = list(scanner_service.data_cache.keys())[:3]
+            data_samples = {}
+            for sym in sample_symbols:
+                df = scanner_service.data_cache[sym]
+                data_samples[sym] = {
+                    "rows": len(df),
+                    "date_range": f"{df.index[0]} to {df.index[-1]}" if len(df) > 0 else "empty"
+                }
+            services["scanner"]["data_samples"] = data_samples
     except Exception as e:
         services["scanner"] = {
             "status": "error",
@@ -841,7 +1047,7 @@ async def activate_strategy(
 
 @router.post("/strategies/analyze", response_model=StrategyAnalysisResponse)
 async def run_strategy_analysis(
-    lookback_days: int = Query(90, ge=30, le=365),
+    lookback_days: int = Query(30, ge=20, le=365),
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -889,9 +1095,12 @@ async def run_strategy_analysis(
             current_active_strategy_id=result['current_active_strategy_id']
         )
     except Exception as e:
+        import traceback
+        error_detail = str(e) if str(e) else type(e).__name__
+        print(f"Strategy analysis error: {error_detail}\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
-            detail=f"Analysis failed: {str(e)}"
+            detail=f"Analysis failed: {error_detail}"
         )
 
 
@@ -953,3 +1162,833 @@ async def seed_strategies_endpoint(
         "message": f"Seeded {count} strategies" if count > 0 else "Strategies already exist",
         "count": count
     }
+
+
+# ============================================================================
+# Strategy Generation Endpoints
+# ============================================================================
+
+@router.post("/strategies/generate")
+async def generate_strategy(
+    lookback_weeks: int = Query(6, ge=4, le=52),
+    strategy_type: str = Query("momentum"),
+    optimization_metric: str = Query("sharpe"),
+    auto_create: bool = Query(False),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    AI-powered strategy parameter optimization.
+
+    Runs grid search over parameter ranges adapted to current market conditions.
+
+    Args:
+        lookback_weeks: Weeks of data for optimization (4-52)
+        strategy_type: "momentum" or "dwap"
+        optimization_metric: "sharpe", "return", or "calmar"
+        auto_create: Whether to automatically create a strategy from results
+
+    Returns:
+        Best parameters found and expected metrics
+    """
+    from app.services.strategy_generator import strategy_generator_service
+
+    try:
+        result = await strategy_generator_service.generate_optimized_strategy(
+            db=db,
+            lookback_weeks=lookback_weeks,
+            strategy_type=strategy_type,
+            optimization_metric=optimization_metric,
+            auto_create=auto_create
+        )
+
+        return {
+            "success": True,
+            "best_params": result.best_params,
+            "expected_sharpe": result.expected_sharpe,
+            "expected_return_pct": result.expected_return_pct,
+            "expected_drawdown_pct": result.expected_drawdown_pct,
+            "combinations_tested": result.combinations_tested,
+            "market_regime": result.market_regime,
+            "top_5_results": result.top_5_results
+        }
+    except Exception as e:
+        import traceback
+        error_msg = str(e) if str(e) else type(e).__name__
+        print(f"Strategy generation error: {error_msg}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Generation failed: {error_msg}")
+
+
+@router.get("/strategies/generations")
+async def list_generation_runs(
+    limit: int = Query(10, ge=1, le=50),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """List recent AI strategy generation runs."""
+    from app.services.strategy_generator import strategy_generator_service
+
+    runs = await strategy_generator_service.get_generation_history(db, limit=limit)
+    return {"runs": runs, "total": len(runs)}
+
+
+# ============================================================================
+# Walk-Forward Simulation Endpoints
+# ============================================================================
+
+@router.post("/strategies/walk-forward/start")
+async def start_walk_forward_async(
+    start_date: str = Query(..., description="Start date (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="End date (YYYY-MM-DD)"),
+    frequency: str = Query("biweekly", description="Reoptimization frequency"),
+    min_score_diff: float = Query(10.0, ge=0, le=50),
+    enable_ai: bool = Query(True, description="Enable AI optimization at each period"),
+    max_symbols: int = Query(50, ge=10, le=500, description="Max symbols to use (50=fast, 500=full)"),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Run a walk-forward simulation.
+
+    Note: This runs synchronously in Lambda. For long simulations, reduce max_symbols
+    or disable AI optimization. Lambda has 15min timeout but API Gateway has 29s.
+    """
+    print(f"[WALK-FORWARD] Endpoint called: start={start_date}, end={end_date}, ai={enable_ai}, symbols={max_symbols}")
+
+    from datetime import datetime
+    from app.services.walk_forward_service import walk_forward_service
+
+    try:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    if end <= start:
+        raise HTTPException(status_code=400, detail="End date must be after start date")
+
+    # Run simulation synchronously (Lambda background tasks don't work reliably)
+    try:
+        print(f"[WALK-FORWARD] Starting simulation: {start_date} to {end_date}, freq={frequency}, ai={enable_ai}, symbols={max_symbols}")
+        result = await walk_forward_service.run_walk_forward_simulation(
+            db=db,
+            start_date=start,
+            end_date=end,
+            reoptimization_frequency=frequency,
+            min_score_diff=min_score_diff,
+            enable_ai_optimization=enable_ai,
+            max_symbols=max_symbols
+        )
+        print(f"[WALK-FORWARD] Simulation completed: return={result.total_return_pct}%, switches={result.num_strategy_switches}")
+
+        # Count AI-driven switches
+        ai_switches = sum(1 for s in result.switch_history if s.is_ai_generated)
+
+        response_data = {
+            "job_id": None,  # No async job, results returned directly
+            "status": "completed",
+            "start_date": result.start_date,
+            "end_date": result.end_date,
+            "reoptimization_frequency": result.reoptimization_frequency,
+            "total_return_pct": result.total_return_pct,
+            "sharpe_ratio": result.sharpe_ratio,
+            "max_drawdown_pct": result.max_drawdown_pct,
+            "num_strategy_switches": result.num_strategy_switches,
+            "benchmark_return_pct": result.benchmark_return_pct,
+            "ai_switches": ai_switches,
+            "switch_history": [
+                {
+                    "date": s.date,
+                    "from_id": s.from_strategy_id,
+                    "from_name": s.from_strategy_name,
+                    "to_id": s.to_strategy_id,
+                    "to_name": s.to_strategy_name,
+                    "reason": s.reason,
+                    "score_before": s.score_before,
+                    "score_after": s.score_after,
+                    "is_ai_generated": s.is_ai_generated,
+                    "ai_params": s.ai_params
+                }
+                for s in result.switch_history
+            ],
+            "equity_curve": result.equity_curve,
+            "ai_optimizations": [
+                {
+                    "date": a.date,
+                    "best_params": a.best_params,
+                    "expected_sharpe": a.expected_sharpe,
+                    "market_regime": a.market_regime,
+                    "was_adopted": a.was_adopted,
+                    "reason": a.reason
+                }
+                for a in result.ai_optimizations
+            ] if result.ai_optimizations else [],
+            "parameter_evolution": [
+                {
+                    "date": p.date,
+                    "strategy_name": p.strategy_name,
+                    "params": p.params,
+                    "source": p.source
+                }
+                for p in result.parameter_evolution
+            ] if result.parameter_evolution else []
+        }
+        print(f"[WALK-FORWARD] Returning response with {len(response_data.get('equity_curve', []))} equity points")
+        return response_data
+    except Exception as e:
+        import traceback
+        error_msg = f"Simulation failed: {str(e)}"
+        tb = traceback.format_exc()
+        print(f"[WALK-FORWARD] ERROR: {error_msg}")
+        print(f"[WALK-FORWARD] TRACEBACK: {tb}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"{error_msg}"
+        )
+
+
+@router.get("/strategies/walk-forward/status/{job_id}")
+async def get_walk_forward_status(
+    job_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Check status of a walk-forward simulation job.
+
+    Returns status and results when complete.
+    """
+    from app.services.walk_forward_service import walk_forward_service
+
+    result = await db.execute(
+        select(WalkForwardSimulation).where(WalkForwardSimulation.id == job_id)
+    )
+    job = result.scalar_one_or_none()
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    response = {
+        "job_id": job_id,
+        "status": job.status,
+        "started_at": job.simulation_date.isoformat() if job.simulation_date else None,
+    }
+
+    if job.status == "completed":
+        # Get full details
+        details = await walk_forward_service.get_simulation_details(db, job_id)
+        if details:
+            response.update(details)
+    elif job.status == "failed":
+        # Return error info
+        if job.switch_history_json:
+            error_info = json.loads(job.switch_history_json)
+            response["error"] = error_info.get("error", "Unknown error")
+
+    return response
+
+
+@router.post("/strategies/walk-forward")
+async def run_walk_forward(
+    start_date: str = Query(..., description="Start date (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="End date (YYYY-MM-DD)"),
+    frequency: str = Query("biweekly", description="Reoptimization frequency"),
+    min_score_diff: float = Query(10.0, ge=0, le=50),
+    enable_ai: bool = Query(True, description="Enable AI optimization at each period"),
+    max_symbols: int = Query(50, ge=10, le=500, description="Max symbols to use"),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Run walk-forward simulation with AI optimization over a historical period.
+
+    NOTE: When enable_ai=true, this endpoint automatically uses async processing
+    to avoid API Gateway timeout. Poll the returned job_id for results.
+
+    At each reoptimization period:
+    1. Evaluates existing strategies using data available at that point
+    2. Runs AI parameter optimization to detect emerging trends
+    3. Compares AI-optimized params against existing strategies
+    4. Switches to best option if it beats current by min_score_diff
+
+    Args:
+        start_date: Simulation start date (YYYY-MM-DD)
+        end_date: Simulation end date (YYYY-MM-DD)
+        frequency: "weekly", "biweekly", or "monthly"
+        min_score_diff: Minimum score difference to trigger switch
+        enable_ai: Whether to run AI param optimization each period
+        max_symbols: Max symbols to use in backtest
+
+    Returns:
+        If enable_ai=false: Complete simulation results
+        If enable_ai=true: Job ID to poll for results
+    """
+    from app.services.walk_forward_service import walk_forward_service
+    from datetime import datetime
+    import asyncio
+
+    try:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    if end <= start:
+        raise HTTPException(status_code=400, detail="End date must be after start date")
+
+    # If AI is enabled, use async processing to avoid timeout
+    if enable_ai:
+        # Create a pending simulation record
+        sim_record = WalkForwardSimulation(
+            simulation_date=datetime.utcnow(),
+            start_date=start,
+            end_date=end,
+            reoptimization_frequency=frequency,
+            status="pending"
+        )
+        db.add(sim_record)
+        await db.commit()
+        await db.refresh(sim_record)
+        job_id = sim_record.id
+
+        # Start background task
+        async def run_simulation_background():
+            from app.core.database import async_session
+
+            async with async_session() as bg_db:
+                try:
+                    # Update status to running
+                    result = await bg_db.execute(
+                        select(WalkForwardSimulation).where(WalkForwardSimulation.id == job_id)
+                    )
+                    job = result.scalar_one()
+                    job.status = "running"
+                    await bg_db.commit()
+
+                    # Run the actual simulation
+                    await walk_forward_service.run_walk_forward_simulation(
+                        db=bg_db,
+                        start_date=start,
+                        end_date=end,
+                        reoptimization_frequency=frequency,
+                        min_score_diff=min_score_diff,
+                        enable_ai_optimization=enable_ai,
+                        max_symbols=max_symbols,
+                        existing_job_id=job_id
+                    )
+
+                except Exception as e:
+                    import traceback
+                    try:
+                        result = await bg_db.execute(
+                            select(WalkForwardSimulation).where(WalkForwardSimulation.id == job_id)
+                        )
+                        job = result.scalar_one_or_none()
+                        if job:
+                            job.status = "failed"
+                            job.switch_history_json = json.dumps({"error": str(e), "traceback": traceback.format_exc()})
+                            await bg_db.commit()
+                    except Exception:
+                        pass
+
+        asyncio.create_task(run_simulation_background())
+
+        return {
+            "async": True,
+            "job_id": job_id,
+            "status": "pending",
+            "message": f"AI-enabled simulation runs async to avoid timeout. Poll /strategies/walk-forward/status/{job_id} for results.",
+            "poll_url": f"/api/admin/strategies/walk-forward/status/{job_id}",
+            "config": {
+                "start_date": start_date,
+                "end_date": end_date,
+                "frequency": frequency,
+                "max_symbols": max_symbols,
+                "enable_ai": enable_ai
+            }
+        }
+
+    # Non-AI simulation can run synchronously
+    try:
+        result = await walk_forward_service.run_walk_forward_simulation(
+            db=db,
+            start_date=start,
+            end_date=end,
+            reoptimization_frequency=frequency,
+            min_score_diff=min_score_diff,
+            enable_ai_optimization=enable_ai,
+            max_symbols=max_symbols
+        )
+
+        # Count AI-driven switches
+        ai_switches = sum(1 for s in result.switch_history if s.is_ai_generated)
+
+        return {
+            "success": True,
+            "start_date": result.start_date,
+            "end_date": result.end_date,
+            "reoptimization_frequency": result.reoptimization_frequency,
+            "total_return_pct": result.total_return_pct,
+            "sharpe_ratio": result.sharpe_ratio,
+            "max_drawdown_pct": result.max_drawdown_pct,
+            "num_strategy_switches": result.num_strategy_switches,
+            "num_ai_switches": ai_switches,
+            "benchmark_return_pct": result.benchmark_return_pct,
+            "switch_history": [
+                {
+                    "date": s.date,
+                    "from_strategy": s.from_strategy_name,
+                    "to_strategy": s.to_strategy_name,
+                    "reason": s.reason,
+                    "score_before": s.score_before,
+                    "score_after": s.score_after,
+                    "is_ai_generated": s.is_ai_generated,
+                    "ai_params": s.ai_params
+                }
+                for s in result.switch_history
+            ],
+            "equity_curve": result.equity_curve,
+            "ai_optimizations": [
+                {
+                    "date": ai.date,
+                    "best_params": ai.best_params,
+                    "expected_sharpe": ai.expected_sharpe,
+                    "expected_return_pct": ai.expected_return_pct,
+                    "strategy_type": ai.strategy_type,
+                    "market_regime": ai.market_regime,
+                    "was_adopted": ai.was_adopted,
+                    "reason": ai.reason
+                }
+                for ai in result.ai_optimizations
+            ],
+            "parameter_evolution": [
+                {
+                    "date": p.date,
+                    "strategy_name": p.strategy_name,
+                    "strategy_type": p.strategy_type,
+                    "params": p.params,
+                    "source": p.source
+                }
+                for p in result.parameter_evolution
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Simulation failed: {str(e)}")
+
+
+@router.get("/strategies/walk-forward/history")
+async def get_walk_forward_history(
+    limit: int = Query(10, ge=1, le=50),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get list of previous walk-forward simulations."""
+    from app.services.walk_forward_service import walk_forward_service
+
+    sims = await walk_forward_service.get_simulation_history(db, limit=limit)
+    return {"simulations": sims, "total": len(sims)}
+
+
+@router.get("/strategies/walk-forward/{simulation_id}")
+async def get_walk_forward_details(
+    simulation_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get detailed results for a specific walk-forward simulation."""
+    from app.services.walk_forward_service import walk_forward_service
+
+    details = await walk_forward_service.get_simulation_details(db, simulation_id)
+    if not details:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+    return details
+
+
+# ============================================================================
+# Auto-Switch Configuration Endpoints
+# ============================================================================
+
+@router.get("/strategies/auto-switch/config")
+async def get_auto_switch_config(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get current auto-switch configuration."""
+    from app.services.auto_switch_service import auto_switch_service
+
+    config = await auto_switch_service.get_config(db)
+    return {
+        "is_enabled": config.is_enabled,
+        "analysis_frequency": config.analysis_frequency,
+        "min_score_diff_to_switch": config.min_score_diff_to_switch,
+        "min_days_since_last_switch": config.min_days_since_last_switch,
+        "notify_on_analysis": config.notify_on_analysis,
+        "notify_on_switch": config.notify_on_switch,
+        "admin_email": config.admin_email
+    }
+
+
+@router.patch("/strategies/auto-switch/config")
+async def update_auto_switch_config(
+    is_enabled: bool = None,
+    analysis_frequency: str = None,
+    min_score_diff: float = None,
+    min_days_cooldown: int = None,
+    notify_on_analysis: bool = None,
+    notify_on_switch: bool = None,
+    admin_email: str = None,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update auto-switch configuration."""
+    from app.services.auto_switch_service import auto_switch_service
+
+    config = await auto_switch_service.update_config(
+        db=db,
+        is_enabled=is_enabled,
+        analysis_frequency=analysis_frequency,
+        min_score_diff=min_score_diff,
+        min_days_cooldown=min_days_cooldown,
+        notify_on_analysis=notify_on_analysis,
+        notify_on_switch=notify_on_switch,
+        admin_email=admin_email
+    )
+
+    return {
+        "success": True,
+        "config": {
+            "is_enabled": config.is_enabled,
+            "analysis_frequency": config.analysis_frequency,
+            "min_score_diff_to_switch": config.min_score_diff_to_switch,
+            "min_days_since_last_switch": config.min_days_since_last_switch,
+            "notify_on_analysis": config.notify_on_analysis,
+            "notify_on_switch": config.notify_on_switch,
+            "admin_email": config.admin_email
+        }
+    }
+
+
+@router.get("/strategies/switch-history")
+async def get_switch_history(
+    limit: int = Query(20, ge=1, le=100),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get audit log of strategy switches."""
+    from app.services.auto_switch_service import auto_switch_service
+
+    history = await auto_switch_service.get_switch_history(db, limit=limit)
+    return {"history": history, "total": len(history)}
+
+
+@router.post("/strategies/auto-switch/trigger")
+async def trigger_auto_analysis(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Manually trigger auto-switch analysis.
+
+    Returns recommendation without executing switch (for review).
+    """
+    from app.services.auto_switch_service import auto_switch_service
+
+    result = await auto_switch_service.manual_trigger_analysis(db)
+    return result
+
+
+# ============================================================================
+# Custom Strategy CRUD Endpoints
+# ============================================================================
+
+@router.post("/strategies")
+async def create_strategy(
+    name: str = Query(..., min_length=3, max_length=100),
+    strategy_type: str = Query(...),
+    parameters: str = Query(..., description="JSON string of parameters"),
+    description: str = Query(None),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new custom strategy.
+
+    Args:
+        name: Strategy name (unique)
+        strategy_type: "momentum" or "dwap"
+        parameters: JSON string of strategy parameters
+        description: Optional description
+    """
+    # Validate parameters JSON
+    try:
+        params_dict = json.loads(parameters)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON for parameters")
+
+    # Check for existing strategy with same name
+    result = await db.execute(
+        select(StrategyDefinition).where(StrategyDefinition.name == name)
+    )
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Strategy with this name already exists")
+
+    strategy = StrategyDefinition(
+        name=name,
+        description=description,
+        strategy_type=strategy_type,
+        parameters=parameters,
+        is_active=False,
+        source="manual",
+        is_custom=True
+    )
+    db.add(strategy)
+    await db.commit()
+    await db.refresh(strategy)
+
+    return {
+        "success": True,
+        "strategy": {
+            "id": strategy.id,
+            "name": strategy.name,
+            "description": strategy.description,
+            "strategy_type": strategy.strategy_type,
+            "parameters": params_dict,
+            "is_active": strategy.is_active,
+            "is_custom": strategy.is_custom
+        }
+    }
+
+
+@router.put("/strategies/{strategy_id}")
+async def update_strategy(
+    strategy_id: int,
+    name: str = None,
+    description: str = None,
+    parameters: str = None,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update a custom strategy's parameters."""
+    result = await db.execute(
+        select(StrategyDefinition).where(StrategyDefinition.id == strategy_id)
+    )
+    strategy = result.scalar_one_or_none()
+
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+
+    # Only allow updating custom strategies or AI-generated ones
+    if not strategy.is_custom and strategy.source != "ai_generated":
+        raise HTTPException(status_code=400, detail="Cannot modify built-in strategies")
+
+    if name:
+        # Check for name collision
+        name_check = await db.execute(
+            select(StrategyDefinition).where(
+                and_(StrategyDefinition.name == name, StrategyDefinition.id != strategy_id)
+            )
+        )
+        if name_check.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Strategy with this name already exists")
+        strategy.name = name
+
+    if description is not None:
+        strategy.description = description
+
+    if parameters:
+        try:
+            json.loads(parameters)  # Validate JSON
+            strategy.parameters = parameters
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON for parameters")
+
+    await db.commit()
+    await db.refresh(strategy)
+
+    return {
+        "success": True,
+        "strategy": {
+            "id": strategy.id,
+            "name": strategy.name,
+            "description": strategy.description,
+            "strategy_type": strategy.strategy_type,
+            "parameters": json.loads(strategy.parameters),
+            "is_active": strategy.is_active
+        }
+    }
+
+
+@router.delete("/strategies/{strategy_id}")
+async def delete_strategy(
+    strategy_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete a custom strategy (cannot delete built-in strategies)."""
+    result = await db.execute(
+        select(StrategyDefinition).where(StrategyDefinition.id == strategy_id)
+    )
+    strategy = result.scalar_one_or_none()
+
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+
+    if not strategy.is_custom and strategy.source != "ai_generated":
+        raise HTTPException(status_code=400, detail="Cannot delete built-in strategies")
+
+    if strategy.is_active:
+        raise HTTPException(status_code=400, detail="Cannot delete active strategy")
+
+    await db.delete(strategy)
+    await db.commit()
+
+    return {"success": True, "message": f"Strategy '{strategy.name}' deleted"}
+
+
+# ============================================================================
+# Flexible Backtesting Endpoint
+# ============================================================================
+
+class FlexibleBacktestRequest(BaseModel):
+    strategy_id: Optional[int] = None
+    strategy_type: str = "momentum"
+    custom_params: Optional[Dict[str, Any]] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    lookback_days: int = 60
+    ticker_list: Optional[List[str]] = None
+    ticker_universe: Optional[str] = None
+
+
+@router.post("/strategies/backtest")
+async def run_flexible_backtest(
+    request: FlexibleBacktestRequest,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Run backtest with custom date range and ticker list.
+
+    Accepts JSON body with:
+        strategy_id: Use existing strategy (optional)
+        strategy_type: "momentum" or "dwap" (if no strategy_id)
+        custom_params: Dict of custom parameters (if no strategy_id)
+        start_date: Start date YYYY-MM-DD (optional)
+        end_date: End date YYYY-MM-DD (default: today)
+        lookback_days: Days to backtest (default: 60)
+        ticker_list: List of tickers (optional)
+        ticker_universe: "nasdaq100" or "sp500" (optional)
+
+    Returns:
+        Backtest results with positions, trades, and metrics
+    """
+    from app.services.backtester import BacktesterService
+    from app.services.strategy_analyzer import CustomBacktester, StrategyParams
+    from datetime import datetime
+
+    # Parse dates
+    parsed_start = None
+    parsed_end = None
+
+    if request.start_date:
+        try:
+            parsed_start = datetime.strptime(request.start_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format")
+
+    if request.end_date:
+        try:
+            parsed_end = datetime.strptime(request.end_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format")
+
+    # Parse ticker list or use top liquid symbols for speed
+    from app.services.strategy_analyzer import get_top_liquid_symbols
+
+    tickers = None
+    if request.ticker_list:
+        tickers = [t.strip().upper() for t in request.ticker_list if t.strip()]
+    else:
+        # Use top 100 liquid symbols for speed when no tickers specified
+        tickers = get_top_liquid_symbols(max_symbols=100)
+
+    # Get or build strategy parameters
+    if request.strategy_id:
+        result = await db.execute(
+            select(StrategyDefinition).where(StrategyDefinition.id == request.strategy_id)
+        )
+        strategy = result.scalar_one_or_none()
+        if not strategy:
+            raise HTTPException(status_code=404, detail="Strategy not found")
+
+        params = StrategyParams.from_json(strategy.parameters)
+        use_momentum = strategy.strategy_type == "momentum"
+    elif request.custom_params:
+        try:
+            params = StrategyParams(**request.custom_params)
+        except TypeError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid custom_params: {e}")
+        use_momentum = request.strategy_type == "momentum"
+    else:
+        # Use defaults based on strategy_type
+        params = StrategyParams()
+        use_momentum = request.strategy_type == "momentum"
+
+    # Create and configure backtester
+    backtester = CustomBacktester()
+    backtester.configure(params)
+
+    try:
+        result = backtester.run_backtest(
+            lookback_days=request.lookback_days,
+            start_date=parsed_start,
+            end_date=parsed_end,
+            use_momentum_strategy=use_momentum,
+            ticker_list=tickers
+        )
+
+        # Transform trades to match frontend field names
+        # Backend has: symbol, pnl_pct | Frontend expects: ticker, return_pct
+        trades_list = []
+        for t in result.trades:
+            trade_dict = t.to_dict()
+            trade_dict['ticker'] = trade_dict.get('symbol')  # Add ticker alias
+            trade_dict['return_pct'] = trade_dict.get('pnl_pct')  # Add return_pct alias
+            trades_list.append(trade_dict)
+
+        # Calculate additional metrics from trades
+        closed_trades = [t for t in trades_list if t.get('return_pct') is not None]
+
+        winning_trades = [t for t in closed_trades if t.get('return_pct', 0) > 0]
+        losing_trades = [t for t in closed_trades if t.get('return_pct', 0) <= 0]
+
+        avg_win_pct = sum(t.get('return_pct', 0) for t in winning_trades) / len(winning_trades) if winning_trades else 0
+        avg_loss_pct = sum(t.get('return_pct', 0) for t in losing_trades) / len(losing_trades) if losing_trades else 0
+
+        total_wins = sum(t.get('return_pct', 0) for t in winning_trades) if winning_trades else 0
+        total_losses = abs(sum(t.get('return_pct', 0) for t in losing_trades)) if losing_trades else 1
+        profit_factor = total_wins / total_losses if total_losses > 0 else total_wins
+
+        # Return flat structure matching frontend expectations
+        return {
+            "success": True,
+            "strategy_type": "momentum" if use_momentum else "dwap",
+            "start_date": result.start_date,
+            "end_date": result.end_date,
+            "tickers_used": len(tickers) if tickers else "all",
+            # Metrics at top level for frontend
+            "total_return_pct": result.total_return_pct,
+            "sharpe_ratio": result.sharpe_ratio,
+            "max_drawdown_pct": result.max_drawdown_pct,
+            "win_rate_pct": result.win_rate * 100,  # Convert to percentage
+            "total_trades": result.total_trades,
+            "open_positions": result.open_positions,
+            "avg_win_pct": avg_win_pct,
+            "avg_loss_pct": avg_loss_pct,
+            "profit_factor": profit_factor,
+            # Lists
+            "positions": [p.to_dict() for p in result.positions],
+            "trades": trades_list[:50]  # Limit to 50 trades
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")

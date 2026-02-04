@@ -1,11 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw } from 'lucide-react';
+import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw, Beaker, Bot, Settings } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import StrategyGenerator from './StrategyGenerator';
+import WalkForwardSimulator from './WalkForwardSimulator';
+import AutoSwitchConfig from './AutoSwitchConfig';
+import StrategyEditor from './StrategyEditor';
+import FlexibleBacktest from './FlexibleBacktest';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+const TABS = [
+  { id: 'overview', label: 'Overview', icon: Activity },
+  { id: 'strategies', label: 'Strategies', icon: TrendingUp },
+  { id: 'lab', label: 'Strategy Lab', icon: Beaker },
+  { id: 'autopilot', label: 'Auto-Pilot', icon: Bot },
+  { id: 'users', label: 'Users', icon: Users },
+];
+
 export default function AdminDashboard() {
   const { fetchWithAuth, isAdmin } = useAuth();
+  const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState(null);
   const [serviceStatus, setServiceStatus] = useState(null);
   const [users, setUsers] = useState([]);
@@ -20,6 +34,10 @@ export default function AdminDashboard() {
   const [analysisResults, setAnalysisResults] = useState(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [strategiesLoading, setStrategiesLoading] = useState(false);
+
+  // Strategy Lab state
+  const [showStrategyEditor, setShowStrategyEditor] = useState(false);
+  const [editingStrategy, setEditingStrategy] = useState(null);
 
   // Fetch admin stats
   const fetchStats = async () => {
@@ -147,12 +165,17 @@ export default function AdminDashboard() {
         setAnalysisResults(data);
         await fetchStrategies(); // Refresh strategies to get updated evaluations
       } else {
-        const error = await response.json();
-        alert(`Analysis failed: ${error.detail || 'Unknown error'}`);
+        try {
+          const error = await response.json();
+          alert(`Analysis failed: ${error.detail || JSON.stringify(error)}`);
+        } catch {
+          const text = await response.text();
+          alert(`Analysis failed (${response.status}): ${text.slice(0, 200)}`);
+        }
       }
     } catch (err) {
       console.error('Failed to run analysis:', err);
-      alert('Failed to run analysis. Make sure market data is loaded.');
+      alert(`Failed to run analysis: ${err.message}`);
     } finally {
       setAnalysisLoading(false);
     }
@@ -206,6 +229,13 @@ export default function AdminDashboard() {
     fetchUsers(1, searchQuery);
   };
 
+  // Handle strategy created/updated
+  const handleStrategyChange = () => {
+    fetchStrategies();
+    setShowStrategyEditor(false);
+    setEditingStrategy(null);
+  };
+
   if (!isAdmin) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
@@ -229,13 +259,97 @@ export default function AdminDashboard() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Admin Dashboard</h2>
         <button
-          onClick={() => { fetchStats(); fetchServiceStatus(); fetchUsers(usersPagination.page, searchQuery); }}
+          onClick={() => { fetchStats(); fetchServiceStatus(); fetchUsers(usersPagination.page, searchQuery); fetchStrategies(); }}
           className="px-4 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
         >
           Refresh
         </button>
       </div>
 
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="flex gap-4 -mb-px">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Icon size={18} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <OverviewTab
+          stats={stats}
+          serviceStatus={serviceStatus}
+          activeStrategy={activeStrategy}
+        />
+      )}
+
+      {activeTab === 'strategies' && (
+        <StrategiesTab
+          strategies={strategies}
+          activeStrategy={activeStrategy}
+          analysisResults={analysisResults}
+          analysisLoading={analysisLoading}
+          runAnalysis={runAnalysis}
+          activateStrategy={activateStrategy}
+          onEditStrategy={(strategy) => {
+            setEditingStrategy(strategy);
+            setShowStrategyEditor(true);
+            setActiveTab('lab');
+          }}
+        />
+      )}
+
+      {activeTab === 'lab' && (
+        <StrategyLabTab
+          fetchWithAuth={fetchWithAuth}
+          strategies={strategies}
+          onStrategyCreated={handleStrategyChange}
+          showStrategyEditor={showStrategyEditor}
+          setShowStrategyEditor={setShowStrategyEditor}
+          editingStrategy={editingStrategy}
+          setEditingStrategy={setEditingStrategy}
+        />
+      )}
+
+      {activeTab === 'autopilot' && (
+        <AutoPilotTab fetchWithAuth={fetchWithAuth} />
+      )}
+
+      {activeTab === 'users' && (
+        <UsersTab
+          users={users}
+          usersPagination={usersPagination}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          handleSearch={handleSearch}
+          toggleUserStatus={toggleUserStatus}
+          extendTrial={extendTrial}
+          fetchUsers={fetchUsers}
+        />
+      )}
+    </div>
+  );
+}
+
+// Overview Tab Component
+function OverviewTab({ stats, serviceStatus, activeStrategy }) {
+  return (
+    <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -298,37 +412,16 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Strategy Management */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">Strategy Management</h3>
-          <button
-            onClick={() => runAnalysis(90)}
-            disabled={analysisLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {analysisLoading ? (
-              <>
-                <RefreshCw size={16} className="animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <PlayCircle size={16} />
-                Run Analysis
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Active Strategy Card */}
-        {activeStrategy && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl">
+      {/* Active Strategy Summary */}
+      {activeStrategy && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Active Strategy</h3>
+          <div className="p-4 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl">
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <Zap size={18} className="text-emerald-600" />
-                  <span className="text-sm font-medium text-emerald-700">Active Strategy</span>
+                  <span className="text-sm font-medium text-emerald-700">Currently Active</span>
                 </div>
                 <h4 className="text-xl font-bold text-gray-900">{activeStrategy.name}</h4>
                 <p className="text-sm text-gray-600 mt-1">{activeStrategy.description}</p>
@@ -340,32 +433,6 @@ export default function AdminDashboard() {
               }`}>
                 {activeStrategy.strategy_type.toUpperCase()}
               </span>
-            </div>
-            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div>
-                <p className="text-xs text-gray-500">Max Positions</p>
-                <p className="font-semibold">{activeStrategy.parameters?.max_positions || '-'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Position Size</p>
-                <p className="font-semibold">{activeStrategy.parameters?.position_size_pct || '-'}%</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Stop Type</p>
-                <p className="font-semibold">
-                  {activeStrategy.parameters?.trailing_stop_pct
-                    ? `${activeStrategy.parameters.trailing_stop_pct}% Trailing`
-                    : `${activeStrategy.parameters?.stop_loss_pct || '-'}% Fixed`}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Activated</p>
-                <p className="font-semibold">
-                  {activeStrategy.activated_at
-                    ? new Date(activeStrategy.activated_at).toLocaleDateString()
-                    : '-'}
-                </p>
-              </div>
             </div>
             {activeStrategy.latest_evaluation && (
               <div className="mt-4 pt-4 border-t border-emerald-200 grid grid-cols-4 gap-4">
@@ -390,9 +457,111 @@ export default function AdminDashboard() {
               </div>
             )}
           </div>
-        )}
+        </div>
+      )}
+    </div>
+  );
+}
 
-        {/* Strategy Library Table */}
+// Strategies Tab Component
+function StrategiesTab({ strategies, activeStrategy, analysisResults, analysisLoading, runAnalysis, activateStrategy, onEditStrategy }) {
+  return (
+    <div className="space-y-6">
+      {/* Header with Run Analysis button */}
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold text-gray-900">Strategy Library</h3>
+        <button
+          onClick={() => runAnalysis(90)}
+          disabled={analysisLoading}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          {analysisLoading ? (
+            <>
+              <RefreshCw size={16} className="animate-spin" />
+              Analyzing...
+            </>
+          ) : (
+            <>
+              <PlayCircle size={16} />
+              Run Analysis
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Active Strategy Card */}
+      {activeStrategy && (
+        <div className="p-4 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Zap size={18} className="text-emerald-600" />
+                <span className="text-sm font-medium text-emerald-700">Active Strategy</span>
+              </div>
+              <h4 className="text-xl font-bold text-gray-900">{activeStrategy.name}</h4>
+              <p className="text-sm text-gray-600 mt-1">{activeStrategy.description}</p>
+            </div>
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+              activeStrategy.strategy_type === 'momentum'
+                ? 'bg-purple-100 text-purple-800'
+                : 'bg-blue-100 text-blue-800'
+            }`}>
+              {activeStrategy.strategy_type.toUpperCase()}
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <p className="text-xs text-gray-500">Max Positions</p>
+              <p className="font-semibold">{activeStrategy.parameters?.max_positions || '-'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Position Size</p>
+              <p className="font-semibold">{activeStrategy.parameters?.position_size_pct || '-'}%</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Stop Type</p>
+              <p className="font-semibold">
+                {activeStrategy.parameters?.trailing_stop_pct
+                  ? `${activeStrategy.parameters.trailing_stop_pct}% Trailing`
+                  : `${activeStrategy.parameters?.stop_loss_pct || '-'}% Fixed`}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Activated</p>
+              <p className="font-semibold">
+                {activeStrategy.activated_at
+                  ? new Date(activeStrategy.activated_at).toLocaleDateString()
+                  : '-'}
+              </p>
+            </div>
+          </div>
+          {activeStrategy.latest_evaluation && (
+            <div className="mt-4 pt-4 border-t border-emerald-200 grid grid-cols-4 gap-4">
+              <div>
+                <p className="text-xs text-gray-500">Sharpe</p>
+                <p className="font-semibold text-emerald-700">{activeStrategy.latest_evaluation.sharpe_ratio?.toFixed(2) || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Return</p>
+                <p className={`font-semibold ${(activeStrategy.latest_evaluation.total_return_pct || 0) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                  {(activeStrategy.latest_evaluation.total_return_pct || 0) >= 0 ? '+' : ''}{activeStrategy.latest_evaluation.total_return_pct?.toFixed(1) || '-'}%
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Max DD</p>
+                <p className="font-semibold text-red-600">-{activeStrategy.latest_evaluation.max_drawdown_pct?.toFixed(1) || '-'}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Score</p>
+                <p className="font-semibold">{activeStrategy.latest_evaluation.recommendation_score?.toFixed(0) || '-'}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Strategy Library Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -422,6 +591,9 @@ export default function AdminDashboard() {
                     }`}>
                       {strategy.strategy_type}
                     </span>
+                    {strategy.source === 'ai_generated' && (
+                      <span className="ml-1 px-1.5 py-0.5 rounded text-xs bg-amber-100 text-amber-700">AI</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right font-medium">
                     {strategy.latest_evaluation?.sharpe_ratio?.toFixed(2) || '-'}
@@ -451,148 +623,21 @@ export default function AdminDashboard() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {!strategy.is_active && (
-                      <button
-                        onClick={() => activateStrategy(strategy.id)}
-                        className="px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
-                      >
-                        Activate
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Analysis Results Panel */}
-        {analysisResults && (
-          <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="font-semibold text-gray-900">Latest Analysis</h4>
-              <span className="text-xs text-gray-500">
-                {analysisResults.analysis_date
-                  ? new Date(analysisResults.analysis_date).toLocaleString()
-                  : '-'}
-                {' '}&bull;{' '}{analysisResults.lookback_days} day lookback
-              </span>
-            </div>
-            <div className="p-3 bg-white rounded-lg border border-gray-200">
-              <div className="flex items-start gap-3">
-                {analysisResults.recommended_strategy_id === analysisResults.current_active_strategy_id ? (
-                  <CheckCircle size={20} className="text-emerald-600 mt-0.5" />
-                ) : (
-                  <AlertCircle size={20} className="text-amber-500 mt-0.5" />
-                )}
-                <div>
-                  <p className="text-sm text-gray-700 whitespace-pre-line">
-                    {analysisResults.recommendation_notes}
-                  </p>
-                  {analysisResults.recommended_strategy_id !== analysisResults.current_active_strategy_id && (
-                    <button
-                      onClick={() => activateStrategy(analysisResults.recommended_strategy_id)}
-                      className="mt-3 px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors"
-                    >
-                      Accept Recommendation
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Users Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <h3 className="text-lg font-semibold text-gray-900">Users</h3>
-            <form onSubmit={handleSearch} className="flex gap-2">
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search users..."
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
-              >
-                Search
-              </button>
-            </form>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subscription</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{user.name || 'No name'}</div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {user.is_active ? 'Active' : 'Disabled'}
-                    </span>
-                    {user.role === 'admin' && (
-                      <span className="ml-2 px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                        Admin
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 capitalize">{user.subscription_status || 'None'}</div>
-                    {user.subscription_status === 'trial' && user.trial_days_remaining !== null && (
-                      <div className="text-xs text-gray-500">
-                        {user.trial_days_remaining} days left
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => toggleUserStatus(user.id, user.is_active)}
-                        className={`p-1 rounded ${user.is_active ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
-                        title={user.is_active ? 'Disable user' : 'Enable user'}
-                      >
-                        {user.is_active ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-                      </button>
-                      {user.subscription_status === 'trial' && (
+                    <div className="flex items-center justify-center gap-2">
+                      {strategy.is_custom && (
                         <button
-                          onClick={() => extendTrial(user.id)}
-                          className="p-1 rounded text-blue-600 hover:bg-blue-50"
-                          title="Extend trial by 7 days"
+                          onClick={() => onEditStrategy(strategy)}
+                          className="px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded"
                         >
-                          <Plus size={20} />
+                          Edit
+                        </button>
+                      )}
+                      {!strategy.is_active && (
+                        <button
+                          onClick={() => activateStrategy(strategy.id)}
+                          className="px-3 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                        >
+                          Activate
                         </button>
                       )}
                     </div>
@@ -602,30 +647,231 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         </div>
+      </div>
 
-        {/* Pagination */}
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
-          <p className="text-sm text-gray-500">
-            Showing {((usersPagination.page - 1) * usersPagination.per_page) + 1} to{' '}
-            {Math.min(usersPagination.page * usersPagination.per_page, usersPagination.total)} of{' '}
-            {usersPagination.total} users
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => fetchUsers(usersPagination.page - 1, searchQuery)}
-              disabled={usersPagination.page <= 1}
-              className="p-2 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              onClick={() => fetchUsers(usersPagination.page + 1, searchQuery)}
-              disabled={usersPagination.page * usersPagination.per_page >= usersPagination.total}
-              className="p-2 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronRight size={16} />
-            </button>
+      {/* Analysis Results Panel */}
+      {analysisResults && (
+        <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-semibold text-gray-900">Latest Analysis</h4>
+            <span className="text-xs text-gray-500">
+              {analysisResults.analysis_date
+                ? new Date(analysisResults.analysis_date).toLocaleString()
+                : '-'}
+              {' '}&bull;{' '}{analysisResults.lookback_days} day lookback
+            </span>
           </div>
+          <div className="p-3 bg-white rounded-lg border border-gray-200">
+            <div className="flex items-start gap-3">
+              {analysisResults.recommended_strategy_id === analysisResults.current_active_strategy_id ? (
+                <CheckCircle size={20} className="text-emerald-600 mt-0.5" />
+              ) : (
+                <AlertCircle size={20} className="text-amber-500 mt-0.5" />
+              )}
+              <div>
+                <p className="text-sm text-gray-700 whitespace-pre-line">
+                  {analysisResults.recommendation_notes}
+                </p>
+                {analysisResults.recommended_strategy_id !== analysisResults.current_active_strategy_id && (
+                  <button
+                    onClick={() => activateStrategy(analysisResults.recommended_strategy_id)}
+                    className="mt-3 px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors"
+                  >
+                    Accept Recommendation
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Strategy Lab Tab Component
+function StrategyLabTab({ fetchWithAuth, strategies, onStrategyCreated, showStrategyEditor, setShowStrategyEditor, editingStrategy, setEditingStrategy }) {
+  return (
+    <div className="space-y-6">
+      {/* Create Strategy Button */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => {
+            setEditingStrategy(null);
+            setShowStrategyEditor(true);
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+        >
+          <Plus size={16} />
+          Create Custom Strategy
+        </button>
+      </div>
+
+      {/* Strategy Editor */}
+      {showStrategyEditor && (
+        <StrategyEditor
+          fetchWithAuth={fetchWithAuth}
+          strategy={editingStrategy}
+          strategies={strategies}
+          onSave={onStrategyCreated}
+          onCancel={() => {
+            setShowStrategyEditor(false);
+            setEditingStrategy(null);
+          }}
+        />
+      )}
+
+      {/* AI Strategy Generator */}
+      <StrategyGenerator
+        fetchWithAuth={fetchWithAuth}
+        onStrategyCreated={onStrategyCreated}
+      />
+
+      {/* Flexible Backtest */}
+      <FlexibleBacktest
+        fetchWithAuth={fetchWithAuth}
+        strategies={strategies}
+      />
+    </div>
+  );
+}
+
+// Auto-Pilot Tab Component
+function AutoPilotTab({ fetchWithAuth }) {
+  return (
+    <div className="space-y-6">
+      {/* Walk-Forward Simulator */}
+      <WalkForwardSimulator fetchWithAuth={fetchWithAuth} />
+
+      {/* Auto-Switch Configuration */}
+      <AutoSwitchConfig fetchWithAuth={fetchWithAuth} />
+    </div>
+  );
+}
+
+// Users Tab Component
+function UsersTab({ users, usersPagination, searchQuery, setSearchQuery, handleSearch, toggleUserStatus, extendTrial, fetchUsers }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h3 className="text-lg font-semibold text-gray-900">Users</h3>
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search users..."
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+            >
+              Search
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subscription</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {users.map((user) => (
+              <tr key={user.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">{user.name || 'No name'}</div>
+                    <div className="text-sm text-gray-500">{user.email}</div>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {user.is_active ? 'Active' : 'Disabled'}
+                  </span>
+                  {user.role === 'admin' && (
+                    <span className="ml-2 px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                      Admin
+                    </span>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900 capitalize">{user.subscription_status || 'None'}</div>
+                  {user.subscription_status === 'trial' && user.trial_days_remaining !== null && (
+                    <div className="text-xs text-gray-500">
+                      {user.trial_days_remaining} days left
+                    </div>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => toggleUserStatus(user.id, user.is_active)}
+                      className={`p-1 rounded ${user.is_active ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
+                      title={user.is_active ? 'Disable user' : 'Enable user'}
+                    >
+                      {user.is_active ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                    </button>
+                    {user.subscription_status === 'trial' && (
+                      <button
+                        onClick={() => extendTrial(user.id)}
+                        className="p-1 rounded text-blue-600 hover:bg-blue-50"
+                        title="Extend trial by 7 days"
+                      >
+                        <Plus size={20} />
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+        <p className="text-sm text-gray-500">
+          Showing {((usersPagination.page - 1) * usersPagination.per_page) + 1} to{' '}
+          {Math.min(usersPagination.page * usersPagination.per_page, usersPagination.total)} of{' '}
+          {usersPagination.total} users
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => fetchUsers(usersPagination.page - 1, searchQuery)}
+            disabled={usersPagination.page <= 1}
+            className="p-2 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            onClick={() => fetchUsers(usersPagination.page + 1, searchQuery)}
+            disabled={usersPagination.page * usersPagination.per_page >= usersPagination.total}
+            className="p-2 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronRight size={16} />
+          </button>
         </div>
       </div>
     </div>

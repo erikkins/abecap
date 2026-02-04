@@ -52,6 +52,22 @@ class StrategyParams:
         return cls(**{k: v for k, v in data.items() if hasattr(cls, k)})
 
 
+def get_top_liquid_symbols(max_symbols: int = 100) -> list:
+    """Get the most liquid symbols by average volume for faster analysis"""
+    if not scanner_service.data_cache:
+        return []
+
+    symbol_volumes = []
+    for symbol, df in scanner_service.data_cache.items():
+        if len(df) >= 200:  # Need enough data
+            avg_vol = df['volume'].tail(60).mean() if 'volume' in df.columns else 0
+            symbol_volumes.append((symbol, avg_vol))
+
+    # Sort by volume descending and take top N
+    symbol_volumes.sort(key=lambda x: x[1], reverse=True)
+    return [s[0] for s in symbol_volumes[:max_symbols]]
+
+
 class CustomBacktester(BacktesterService):
     """Backtester with customizable parameters"""
 
@@ -188,9 +204,36 @@ class StrategyAnalyzerService:
 
         # Run backtest
         try:
+            # Debug: check data availability
+            from app.services.scanner import scanner_service
+            cache_size = len(scanner_service.data_cache)
+            if cache_size == 0:
+                raise RuntimeError(f"No data in scanner cache (cache_size={cache_size})")
+
+            # Get top liquid symbols for faster analysis (100 for speed)
+            top_symbols = get_top_liquid_symbols(max_symbols=100)
+
+            # Check how many symbols have enough data
+            min_data_points = lookback_days + 200
+            symbols_with_enough_data = sum(
+                1 for sym in top_symbols
+                if sym in scanner_service.data_cache and len(scanner_service.data_cache[sym]) >= min_data_points
+            )
+
+            if symbols_with_enough_data == 0:
+                # Get actual data lengths for debugging
+                sample_lengths = {
+                    sym: len(df) for sym, df in list(scanner_service.data_cache.items())[:5]
+                }
+                raise RuntimeError(
+                    f"No symbols have {min_data_points}+ data points. "
+                    f"Sample lengths: {sample_lengths}"
+                )
+
             result = backtester.run_backtest(
                 lookback_days=lookback_days,
-                use_momentum_strategy=use_momentum
+                use_momentum_strategy=use_momentum,
+                ticker_list=top_symbols if top_symbols else None
             )
 
             return {
@@ -202,9 +245,23 @@ class StrategyAnalyzerService:
                 'max_drawdown_pct': result.max_drawdown_pct,
                 'win_rate': result.win_rate,
                 'total_trades': result.total_trades,
-                'lookback_days': lookback_days
+                'lookback_days': lookback_days,
+                'symbols_evaluated': symbols_with_enough_data,
+                # Enhanced metrics
+                'sortino_ratio': result.sortino_ratio,
+                'calmar_ratio': result.calmar_ratio,
+                'profit_factor': result.profit_factor,
+                'avg_win_pct': result.avg_win_pct,
+                'avg_loss_pct': result.avg_loss_pct,
+                'win_loss_ratio': result.win_loss_ratio,
+                'recovery_factor': result.recovery_factor,
+                'max_consecutive_losses': result.max_consecutive_losses,
+                'ulcer_index': result.ulcer_index,
             }
         except Exception as e:
+            import traceback
+            error_details = f"{str(e)}\n{traceback.format_exc()}"
+            print(f"Strategy evaluation error for {strategy.name}: {error_details}")
             return {
                 'strategy_id': strategy.id,
                 'name': strategy.name,

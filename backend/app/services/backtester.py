@@ -72,6 +72,17 @@ class BacktestResult:
     start_date: str
     end_date: str
 
+    # Enhanced metrics
+    calmar_ratio: float = 0.0           # Return / Max Drawdown
+    sortino_ratio: float = 0.0          # Return / Downside Deviation
+    profit_factor: float = 0.0          # Gross Wins / Gross Losses
+    avg_win_pct: float = 0.0            # Average winning trade %
+    avg_loss_pct: float = 0.0           # Average losing trade %
+    win_loss_ratio: float = 0.0         # avg_win / avg_loss
+    recovery_factor: float = 0.0        # Net Profit / Max Drawdown
+    max_consecutive_losses: int = 0
+    ulcer_index: float = 0.0            # Measures depth/duration of drawdowns
+
     def to_dict(self):
         return {
             **asdict(self),
@@ -105,6 +116,102 @@ class BacktesterService:
         self.profit_target_pct = settings.PROFIT_TARGET_PCT / 100  # 20%
         self.dwap_threshold_pct = settings.DWAP_THRESHOLD_PCT / 100  # 5%
         self.volume_spike_mult = settings.VOLUME_SPIKE_MULT
+
+    def _calculate_enhanced_metrics(
+        self,
+        trades: List[SimulatedTrade],
+        equity_curve: List[Dict],
+        returns: List[float],
+        total_return_pct: float,
+        max_dd: float
+    ) -> Dict:
+        """
+        Calculate enhanced performance metrics.
+
+        Returns dict with:
+        - calmar_ratio: Return / Max Drawdown
+        - sortino_ratio: Return / Downside Deviation
+        - profit_factor: Gross Wins / Gross Losses
+        - avg_win_pct, avg_loss_pct, win_loss_ratio
+        - recovery_factor: Net Profit / Max Drawdown
+        - max_consecutive_losses
+        - ulcer_index
+        """
+        # Sortino Ratio
+        sortino_ratio = 0.0
+        if returns:
+            negative_returns = [r for r in returns if r < 0]
+            if negative_returns:
+                downside_std = np.std(negative_returns) * np.sqrt(252)
+                annualized_return = np.mean(returns) * 252
+                sortino_ratio = annualized_return / downside_std if downside_std > 0 else 0
+
+        # Calmar Ratio
+        calmar_ratio = 0.0
+        if max_dd > 0:
+            # Annualize return based on period length
+            num_days = len(equity_curve)
+            years = num_days / 252 if num_days > 0 else 1
+            annualized_return = (total_return_pct / years) if years > 0 else total_return_pct
+            calmar_ratio = annualized_return / max_dd if max_dd > 0 else 0
+
+        # Profit Factor
+        profit_factor = 0.0
+        gross_wins = sum(t.pnl for t in trades if t.pnl > 0)
+        gross_losses = abs(sum(t.pnl for t in trades if t.pnl < 0))
+        if gross_losses > 0:
+            profit_factor = gross_wins / gross_losses
+        elif gross_wins > 0:
+            profit_factor = 10.0  # Cap at 10 if no losses
+
+        # Win/Loss metrics
+        winning_trades = [t for t in trades if t.pnl > 0]
+        losing_trades = [t for t in trades if t.pnl < 0]
+
+        avg_win_pct = np.mean([t.pnl_pct for t in winning_trades]) if winning_trades else 0
+        avg_loss_pct = abs(np.mean([t.pnl_pct for t in losing_trades])) if losing_trades else 0
+        win_loss_ratio = avg_win_pct / avg_loss_pct if avg_loss_pct > 0 else (avg_win_pct if avg_win_pct > 0 else 0)
+
+        # Recovery Factor
+        recovery_factor = 0.0
+        total_pnl = sum(t.pnl for t in trades)
+        if max_dd > 0 and total_pnl > 0:
+            # Normalize by initial capital
+            recovery_factor = (total_pnl / self.initial_capital * 100) / max_dd
+
+        # Max Consecutive Losses
+        max_consecutive_losses = 0
+        current_streak = 0
+        for t in sorted(trades, key=lambda x: x.exit_date):
+            if t.pnl < 0:
+                current_streak += 1
+                max_consecutive_losses = max(max_consecutive_losses, current_streak)
+            else:
+                current_streak = 0
+
+        # Ulcer Index (measures depth and duration of drawdowns)
+        ulcer_index = 0.0
+        if equity_curve:
+            peak = equity_curve[0]['equity']
+            squared_drawdowns = []
+            for point in equity_curve:
+                equity = point['equity']
+                peak = max(peak, equity)
+                dd = (peak - equity) / peak * 100
+                squared_drawdowns.append(dd ** 2)
+            ulcer_index = np.sqrt(np.mean(squared_drawdowns))
+
+        return {
+            'calmar_ratio': round(calmar_ratio, 2),
+            'sortino_ratio': round(sortino_ratio, 2),
+            'profit_factor': round(profit_factor, 2),
+            'avg_win_pct': round(avg_win_pct, 2),
+            'avg_loss_pct': round(avg_loss_pct, 2),
+            'win_loss_ratio': round(win_loss_ratio, 2),
+            'recovery_factor': round(recovery_factor, 2),
+            'max_consecutive_losses': max_consecutive_losses,
+            'ulcer_index': round(ulcer_index, 2)
+        }
 
     def _should_rebalance(self, date: pd.Timestamp, last_rebalance: Optional[pd.Timestamp]) -> bool:
         """
@@ -219,15 +326,19 @@ class BacktesterService:
         self,
         lookback_days: int = 252,  # 1 year default
         end_date: Optional[datetime] = None,
-        use_momentum_strategy: bool = True
+        start_date: Optional[datetime] = None,
+        use_momentum_strategy: bool = True,
+        ticker_list: Optional[List[str]] = None
     ) -> BacktestResult:
         """
         Run backtest over historical data
 
         Args:
-            lookback_days: Number of trading days to simulate
+            lookback_days: Number of trading days to simulate (ignored if start_date provided)
             end_date: End date for backtest (default: today)
+            start_date: Start date for backtest (overrides lookback_days if provided)
             use_momentum_strategy: Use v2 momentum strategy (True) or legacy DWAP (False)
+            ticker_list: Optional list of tickers to limit backtest to
 
         Returns:
             BacktestResult with positions, trades, and metrics
@@ -237,10 +348,18 @@ class BacktesterService:
 
         end_date = end_date or datetime.now()
 
+        # Get symbols to use
+        available_symbols = list(scanner_service.data_cache.keys())
+        if ticker_list:
+            # Filter to only tickers in the provided list that we have data for
+            available_symbols = [s for s in ticker_list if s in scanner_service.data_cache]
+
         # Get all symbols with enough data
         symbols = []
-        for symbol, df in scanner_service.data_cache.items():
-            if len(df) >= lookback_days + 200:  # Need extra for indicator calculation
+        min_data_points = lookback_days + 200  # Need extra for indicator calculation
+        for symbol in available_symbols:
+            df = scanner_service.data_cache[symbol]
+            if len(df) >= min_data_points:
                 symbols.append(symbol)
 
         if not symbols:
@@ -258,7 +377,16 @@ class BacktesterService:
 
         # Get common date range
         sample_df = scanner_service.data_cache[symbols[0]]
-        dates = sample_df.index[-lookback_days:]
+
+        # Determine date range
+        if start_date:
+            # Use explicit start/end dates
+            start_ts = pd.Timestamp(start_date)
+            end_ts = pd.Timestamp(end_date)
+            dates = sample_df.index[(sample_df.index >= start_ts) & (sample_df.index <= end_ts)]
+        else:
+            # Use lookback_days from end
+            dates = sample_df.index[-lookback_days:]
 
         # Simulate each trading day
         for i, date in enumerate(dates):
@@ -572,8 +700,8 @@ class BacktesterService:
         total_return_pct = (final_equity - self.initial_capital) / self.initial_capital * 100
 
         # Sharpe ratio (simplified - daily returns)
+        returns = []
         if len(equity_curve) > 1:
-            returns = []
             for i in range(1, len(equity_curve)):
                 daily_ret = (equity_curve[i]['equity'] - equity_curve[i-1]['equity']) / equity_curve[i-1]['equity']
                 returns.append(daily_ret)
@@ -586,6 +714,15 @@ class BacktesterService:
         else:
             sharpe = 0
 
+        # Calculate enhanced metrics
+        enhanced_metrics = self._calculate_enhanced_metrics(
+            trades=trades,
+            equity_curve=equity_curve,
+            returns=returns,
+            total_return_pct=total_return_pct,
+            max_dd=max_dd * 100
+        )
+
         return BacktestResult(
             positions=final_positions,
             trades=sorted(trades, key=lambda t: t.exit_date, reverse=True),
@@ -597,7 +734,8 @@ class BacktesterService:
             max_drawdown_pct=round(max_dd * 100, 2),
             sharpe_ratio=round(sharpe, 2),
             start_date=dates[0].strftime('%Y-%m-%d'),
-            end_date=dates[-1].strftime('%Y-%m-%d')
+            end_date=dates[-1].strftime('%Y-%m-%d'),
+            **enhanced_metrics
         )
 
 

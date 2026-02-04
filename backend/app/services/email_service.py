@@ -903,5 +903,358 @@ Unsubscribe: https://rigacap.com/unsubscribe
         )
 
 
+    async def send_strategy_analysis_email(
+        self,
+        to_email: str,
+        analysis_results: dict,
+        recommendation: str,
+        switch_executed: bool = False,
+        switch_reason: str = ""
+    ) -> bool:
+        """
+        Send biweekly strategy analysis summary email.
+
+        Args:
+            to_email: Admin email
+            analysis_results: Dict with evaluations and recommendation
+            recommendation: Recommendation text
+            switch_executed: Whether a switch was executed
+            switch_reason: Reason for switch or why blocked
+        """
+        evaluations = analysis_results.get("evaluations", [])
+        analysis_date = analysis_results.get("analysis_date", datetime.now().isoformat())
+        lookback_days = analysis_results.get("lookback_days", 90)
+
+        # Sort by score
+        sorted_evals = sorted(evaluations, key=lambda x: x.get("recommendation_score", 0), reverse=True)
+
+        eval_rows = ""
+        for i, e in enumerate(sorted_evals[:5]):
+            rank_emoji = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"#{i+1}"
+            score_color = "#059669" if e.get("recommendation_score", 0) >= 60 else "#f59e0b" if e.get("recommendation_score", 0) >= 40 else "#6b7280"
+            return_color = "#059669" if e.get("total_return_pct", 0) >= 0 else "#dc2626"
+
+            eval_rows += f"""
+            <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+                    {rank_emoji} <strong>{e.get('name', 'Unknown')}</strong>
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">
+                    <span style="color: {score_color}; font-weight: 600;">{e.get('recommendation_score', 0):.0f}</span>
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">
+                    {e.get('sharpe_ratio', 0):.2f}
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: {return_color};">
+                    {'+' if e.get('total_return_pct', 0) >= 0 else ''}{e.get('total_return_pct', 0):.1f}%
+                </td>
+            </tr>
+            """
+
+        status_color = "#059669" if switch_executed else "#f59e0b"
+        status_text = "Switch Executed" if switch_executed else "No Switch"
+
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f3f4f6;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+            <td style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 32px 24px; text-align: center;">
+                <h1 style="margin: 0; color: #ffffff; font-size: 24px;">🔬 Strategy Analysis Report</h1>
+                <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
+                    {lookback_days}-day rolling backtest
+                </p>
+            </td>
+        </tr>
+
+        <!-- Status Banner -->
+        <tr>
+            <td style="padding: 24px;">
+                <div style="background-color: {'#ecfdf5' if switch_executed else '#fef3c7'}; border-radius: 12px; padding: 16px; border-left: 4px solid {status_color};">
+                    <div style="font-weight: 600; color: {status_color};">
+                        {status_text}
+                    </div>
+                    <div style="color: #374151; margin-top: 4px;">
+                        {switch_reason}
+                    </div>
+                </div>
+            </td>
+        </tr>
+
+        <!-- Strategy Rankings -->
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <h2 style="margin: 0 0 16px; font-size: 18px; color: #111827;">📊 Strategy Rankings</h2>
+                <table cellpadding="0" cellspacing="0" style="width: 100%; border: 1px solid #e5e7eb; border-radius: 8px;">
+                    <tr style="background-color: #f9fafb;">
+                        <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #6b7280;">Strategy</th>
+                        <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; color: #6b7280;">Score</th>
+                        <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; color: #6b7280;">Sharpe</th>
+                        <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; color: #6b7280;">Return</th>
+                    </tr>
+                    {eval_rows}
+                </table>
+            </td>
+        </tr>
+
+        <!-- Recommendation -->
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <div style="background-color: #f0f9ff; border-radius: 12px; padding: 16px;">
+                    <h3 style="margin: 0 0 8px; font-size: 14px; color: #0369a1;">💡 Recommendation</h3>
+                    <p style="margin: 0; color: #374151; white-space: pre-line;">{recommendation}</p>
+                </div>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                    Analysis completed at {analysis_date}<br>
+                    RigaCap Strategy Management
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+        return await self.send_email(
+            to_email=to_email,
+            subject=f"📊 Strategy Analysis: {status_text}",
+            html_content=html
+        )
+
+    async def send_switch_notification_email(
+        self,
+        to_email: str,
+        from_strategy: str,
+        to_strategy: str,
+        reason: str,
+        metrics: dict
+    ) -> bool:
+        """
+        Send notification when an automatic strategy switch occurs.
+
+        Args:
+            to_email: Admin email
+            from_strategy: Previous strategy name
+            to_strategy: New strategy name
+            reason: Reason for the switch
+            metrics: Dict with score_before, score_after, score_diff
+        """
+        score_before = metrics.get("score_before", 0)
+        score_after = metrics.get("score_after", 0)
+        score_diff = metrics.get("score_diff", 0)
+
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f3f4f6;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+            <td style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 32px 24px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 12px;">🔄</div>
+                <h1 style="margin: 0; color: #ffffff; font-size: 24px;">Strategy Switch Executed</h1>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="padding: 32px 24px;">
+                <!-- Switch Visual -->
+                <div style="display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 24px;">
+                    <div style="background-color: #fee2e2; padding: 16px 24px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 12px; color: #991b1b; text-transform: uppercase; margin-bottom: 4px;">From</div>
+                        <div style="font-size: 18px; font-weight: 600; color: #dc2626;">{from_strategy or 'None'}</div>
+                        <div style="font-size: 14px; color: #6b7280; margin-top: 4px;">Score: {score_before:.0f}</div>
+                    </div>
+                    <div style="font-size: 24px;">→</div>
+                    <div style="background-color: #d1fae5; padding: 16px 24px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 12px; color: #065f46; text-transform: uppercase; margin-bottom: 4px;">To</div>
+                        <div style="font-size: 18px; font-weight: 600; color: #059669;">{to_strategy}</div>
+                        <div style="font-size: 14px; color: #6b7280; margin-top: 4px;">Score: {score_after:.0f}</div>
+                    </div>
+                </div>
+
+                <!-- Score Improvement -->
+                <div style="background-color: #f0fdf4; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px;">
+                    <div style="font-size: 14px; color: #065f46; margin-bottom: 8px;">Score Improvement</div>
+                    <div style="font-size: 36px; font-weight: 700; color: #059669;">+{score_diff:.1f}</div>
+                </div>
+
+                <!-- Reason -->
+                <div style="background-color: #f3f4f6; border-radius: 8px; padding: 16px;">
+                    <div style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px;">Reason</div>
+                    <div style="color: #6b7280;">{reason}</div>
+                </div>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <p style="margin: 0; font-size: 14px; color: #6b7280;">
+                    The new strategy is now active and will be used for all trading signals.
+                    You can review and override this in the Admin Dashboard.
+                </p>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                    Switch executed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
+                    RigaCap Strategy Management
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+        return await self.send_email(
+            to_email=to_email,
+            subject=f"🔄 Strategy Switch: {from_strategy or 'None'} → {to_strategy}",
+            html_content=html
+        )
+
+    async def send_generation_complete_email(
+        self,
+        to_email: str,
+        best_params: dict,
+        expected_metrics: dict,
+        market_regime: str,
+        created_strategy_name: str = None
+    ) -> bool:
+        """
+        Send notification when AI strategy generation completes.
+
+        Args:
+            to_email: Admin email
+            best_params: Best parameters found
+            expected_metrics: Expected sharpe, return, drawdown
+            market_regime: Detected market regime
+            created_strategy_name: Name of created strategy (if auto_create was True)
+        """
+        params_html = ""
+        for key, value in best_params.items():
+            params_html += f"""
+            <tr>
+                <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; color: #6b7280;">{key.replace('_', ' ').title()}</td>
+                <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #111827;">{value}</td>
+            </tr>
+            """
+
+        regime_colors = {
+            "bull": ("#059669", "#d1fae5"),
+            "bear": ("#dc2626", "#fee2e2"),
+            "neutral": ("#6b7280", "#f3f4f6")
+        }
+        regime_color, regime_bg = regime_colors.get(market_regime, regime_colors["neutral"])
+
+        created_section = ""
+        if created_strategy_name:
+            created_section = f"""
+            <tr>
+                <td style="padding: 0 24px 24px;">
+                    <div style="background-color: #d1fae5; border-radius: 12px; padding: 16px; border-left: 4px solid #059669;">
+                        <div style="font-weight: 600; color: #065f46;">✅ Strategy Created</div>
+                        <div style="color: #374151; margin-top: 4px;">
+                            "{created_strategy_name}" has been added to your strategy library.
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            """
+
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f3f4f6;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+            <td style="background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); padding: 32px 24px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 12px;">🤖</div>
+                <h1 style="margin: 0; color: #ffffff; font-size: 24px;">AI Strategy Generation Complete</h1>
+            </td>
+        </tr>
+
+        <!-- Market Regime -->
+        <tr>
+            <td style="padding: 24px;">
+                <div style="background-color: {regime_bg}; border-radius: 12px; padding: 16px; text-align: center;">
+                    <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 4px;">Market Regime Detected</div>
+                    <div style="font-size: 24px; font-weight: 700; color: {regime_color};">{market_regime.upper()}</div>
+                </div>
+            </td>
+        </tr>
+
+        <!-- Expected Metrics -->
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <h2 style="margin: 0 0 16px; font-size: 18px; color: #111827;">📈 Expected Performance</h2>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                    <div style="background-color: #f0fdf4; border-radius: 8px; padding: 16px; text-align: center;">
+                        <div style="font-size: 12px; color: #065f46; margin-bottom: 4px;">Sharpe Ratio</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #059669;">{expected_metrics.get('sharpe', 0):.2f}</div>
+                    </div>
+                    <div style="background-color: #f0fdf4; border-radius: 8px; padding: 16px; text-align: center;">
+                        <div style="font-size: 12px; color: #065f46; margin-bottom: 4px;">Expected Return</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #059669;">+{expected_metrics.get('return', 0):.1f}%</div>
+                    </div>
+                    <div style="background-color: #fef2f2; border-radius: 8px; padding: 16px; text-align: center;">
+                        <div style="font-size: 12px; color: #991b1b; margin-bottom: 4px;">Max Drawdown</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #dc2626;">-{expected_metrics.get('drawdown', 0):.1f}%</div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+
+        <!-- Best Parameters -->
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <h2 style="margin: 0 0 16px; font-size: 18px; color: #111827;">⚙️ Optimal Parameters</h2>
+                <table cellpadding="0" cellspacing="0" style="width: 100%; border: 1px solid #e5e7eb; border-radius: 8px;">
+                    {params_html}
+                </table>
+            </td>
+        </tr>
+
+        {created_section}
+
+        <tr>
+            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                    Generation completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
+                    RigaCap AI Strategy Generator
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+        return await self.send_email(
+            to_email=to_email,
+            subject="🤖 AI Strategy Generation Complete",
+            html_content=html
+        )
+
+
 # Singleton instance
 email_service = EmailService()

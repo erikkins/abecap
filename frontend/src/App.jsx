@@ -94,13 +94,24 @@ const api = {
   }
 };
 
+// Normalize signal data types (S3 JSON may have strings instead of numbers/booleans)
+const normalizeSignal = (signal) => ({
+  ...signal,
+  signal_strength: typeof signal.signal_strength === 'string' ? parseFloat(signal.signal_strength) : (signal.signal_strength || 0),
+  is_strong: signal.is_strong === true || signal.is_strong === 'True' || signal.is_strong === 'true',
+  price: typeof signal.price === 'string' ? parseFloat(signal.price) : signal.price,
+  dwap: typeof signal.dwap === 'string' ? parseFloat(signal.dwap) : signal.dwap,
+  pct_above_dwap: typeof signal.pct_above_dwap === 'string' ? parseFloat(signal.pct_above_dwap) : signal.pct_above_dwap,
+  volume: typeof signal.volume === 'string' ? parseInt(signal.volume, 10) : signal.volume,
+});
+
 // Fetch signals from CDN (static JSON, instant load)
 const fetchSignalsFromCDN = async () => {
   try {
     const res = await fetch(SIGNALS_CDN_URL, { cache: 'default' });
     if (!res.ok) throw new Error(`CDN error: ${res.status}`);
     const data = await res.json();
-    return data.signals || [];
+    return (data.signals || []).map(normalizeSignal);
   } catch (e) {
     console.log('CDN signals fetch failed, falling back to API:', e);
     return null; // Will trigger API fallback
@@ -1012,13 +1023,14 @@ const MetricCard = ({ title, value, subtitle, trend, icon: Icon }) => (
 
 // Signal Strength indicator
 const SignalStrengthBar = ({ strength }) => {
-  const color = strength >= 70 ? 'bg-emerald-500' : strength >= 50 ? 'bg-blue-500' : strength >= 30 ? 'bg-yellow-500' : 'bg-gray-400';
+  const numStrength = typeof strength === 'string' ? parseFloat(strength) : (strength || 0);
+  const color = numStrength >= 70 ? 'bg-emerald-500' : numStrength >= 50 ? 'bg-blue-500' : numStrength >= 30 ? 'bg-yellow-500' : 'bg-gray-400';
   return (
     <div className="flex items-center gap-2">
       <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${strength}%` }} />
+        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${numStrength}%` }} />
       </div>
-      <span className="text-xs font-semibold text-gray-600">{strength?.toFixed(0)}</span>
+      <span className="text-xs font-semibold text-gray-600">{Math.round(numStrength)}</span>
     </div>
   );
 };
@@ -1213,7 +1225,7 @@ function Dashboard() {
       if (cachedSignals || cachedBacktest) {
         if (cachedSignals) setSignals(cachedSignals);
         if (cachedBacktest) {
-          setBacktest(cachedBacktest.backtest);
+          setBacktest({ ...cachedBacktest.backtest, strategy: cachedBacktest.strategy || 'momentum' });
           // Don't load positions/trades from backtest cache - only from user data
         }
         // Load user positions from cache (NOT backtest positions)
@@ -1272,7 +1284,7 @@ function Dashboard() {
           // Process backtest result (for stats display only, NOT for positions/trades)
           if (backtestResult.status === 'fulfilled' && backtestResult.value?.success) {
             const bt = backtestResult.value;
-            setBacktest(bt.backtest);
+            setBacktest({ ...bt.backtest, strategy: bt.strategy || 'momentum' });
             setCache(CACHE_KEYS.BACKTEST, bt);
           }
 
@@ -1345,7 +1357,7 @@ function Dashboard() {
       // Re-run backtest for stats only (NOT for positions/trades)
       try {
         const backtestResult = await api.get('/api/backtest/run?days=252');
-        setBacktest(backtestResult.backtest);
+        setBacktest({ ...backtestResult.backtest, strategy: backtestResult.strategy || 'momentum' });
         setCache(CACHE_KEYS.BACKTEST, backtestResult);
         // Don't set positions/trades from backtest - use real user data only
       } catch (btErr) {
@@ -1519,7 +1531,7 @@ function Dashboard() {
                   <div>
                     <h3 className="font-semibold text-gray-900">Simulated Portfolio (Backtest)</h3>
                     <p className="text-sm text-gray-500">
-                      Based on DWAP strategy from {backtest.start_date} to {backtest.end_date}
+                      Based on {backtest.strategy === 'momentum' ? 'Momentum' : 'DWAP'} strategy from {backtest.start_date} to {backtest.end_date}
                     </p>
                   </div>
                   <div className="flex gap-6 text-sm">

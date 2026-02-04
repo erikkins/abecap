@@ -1,0 +1,674 @@
+import React, { useState, useEffect } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from 'recharts';
+import { PlayCircle, RefreshCw, TrendingUp, Calendar, ArrowRight, AlertCircle, Zap, Brain, ChevronDown, ChevronUp } from 'lucide-react';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+export default function WalkForwardSimulator({ fetchWithAuth }) {
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 6); // Default 6 months for faster simulation
+    return d.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [frequency, setFrequency] = useState('biweekly');
+  const [minScoreDiff, setMinScoreDiff] = useState(10);
+  const [enableAI, setEnableAI] = useState(true);
+  const [maxSymbols, setMaxSymbols] = useState(50);
+  const [loading, setLoading] = useState(false);
+  const [jobId, setJobId] = useState(null);
+  const [jobStatus, setJobStatus] = useState(null);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [showAIDetails, setShowAIDetails] = useState(false);
+  const [showParamEvolution, setShowParamEvolution] = useState(false);
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const fetchHistory = async () => {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/strategies/walk-forward/history?limit=5`);
+      if (response.ok) {
+        const data = await response.json();
+        setHistory(data.simulations || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch history:', err);
+    }
+  };
+
+  // Poll for job status
+  const pollJobStatus = async (id) => {
+    try {
+      const response = await fetchWithAuth(
+        `${API_URL}/api/admin/strategies/walk-forward/status/${id}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setJobStatus(data.status);
+
+        if (data.status === 'completed') {
+          setResult(data);
+          setLoading(false);
+          setJobId(null);
+          fetchHistory();
+        } else if (data.status === 'failed') {
+          setError(data.error || 'Simulation failed');
+          setLoading(false);
+          setJobId(null);
+        } else {
+          // Still running, poll again in 3 seconds
+          setTimeout(() => pollJobStatus(id), 3000);
+        }
+      } else {
+        setError('Failed to check job status');
+        setLoading(false);
+      }
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  const runSimulation = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setJobId(null);
+    setJobStatus(null);
+
+    try {
+      const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+        frequency: frequency,
+        min_score_diff: minScoreDiff,
+        enable_ai: enableAI,
+        max_symbols: maxSymbols
+      });
+
+      // Use the /start endpoint which now returns results directly
+      const response = await fetchWithAuth(
+        `${API_URL}/api/admin/strategies/walk-forward/start?${params}`,
+        { method: 'POST' }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        // Check if results are returned directly or if we need to poll
+        if (data.status === 'completed') {
+          setResult(data);
+          fetchHistory();
+          setLoading(false);
+        } else if (data.job_id) {
+          // Legacy polling mode (shouldn't happen with new backend)
+          setJobId(data.job_id);
+          setJobStatus('pending');
+          setTimeout(() => pollJobStatus(data.job_id), 2000);
+        } else {
+          setResult(data);
+          fetchHistory();
+          setLoading(false);
+        }
+      } else {
+        try {
+          const err = await response.json();
+          setError(err.detail || 'Simulation failed');
+        } catch {
+          const text = await response.text();
+          setError(`Server error (${response.status}): ${text.slice(0, 200)}`);
+        }
+        setLoading(false);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to run simulation');
+      setLoading(false);
+    }
+  };
+
+  const loadSimulation = async (simId) => {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/strategies/walk-forward/${simId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setResult({
+          ...data,
+          switch_history: data.switch_history || []
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load simulation:', err);
+    }
+  };
+
+  // Prepare chart data
+  const chartData = result?.equity_curve?.map((point, i) => {
+    // Find if there was a switch on this date
+    const switchEvent = result.switch_history?.find(s => s.date === point.date);
+    return {
+      ...point,
+      equityValue: point.equity,
+      hasSwitch: !!switchEvent,
+      switchTo: switchEvent?.to_strategy,
+      isAISwitch: switchEvent?.is_ai_generated || false
+    };
+  }) || [];
+
+  // Count AI vs regular switches
+  const aiSwitches = result?.num_ai_switches || 0;
+  const regularSwitches = (result?.num_strategy_switches || 0) - aiSwitches;
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <TrendingUp className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900">Walk-Forward Simulation</h3>
+            <p className="text-sm text-gray-600">Test auto-switch logic over historical periods</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-6">
+        {/* Configuration */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Reoptimization</label>
+            <select
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="weekly">Weekly</option>
+              <option value="biweekly">Biweekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Min Score Diff</label>
+            <input
+              type="number"
+              value={minScoreDiff}
+              onChange={(e) => setMinScoreDiff(parseFloat(e.target.value))}
+              min="0"
+              max="50"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* Symbol Universe Selection */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Symbol Universe</label>
+          <div className="flex gap-2">
+            {[
+              { value: 50, label: 'Fast (50)', desc: 'Quick test' },
+              { value: 100, label: 'Medium (100)', desc: 'Good balance' },
+              { value: 250, label: 'Large (250)', desc: 'More coverage' },
+              { value: 500, label: 'Full (500)', desc: 'All liquid stocks' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setMaxSymbols(opt.value)}
+                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  maxSymbols === opt.value
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {maxSymbols > 100 && (
+            <p className="text-xs text-amber-600 mt-2">
+              Larger universes run as background jobs and may take several minutes.
+            </p>
+          )}
+        </div>
+
+        {/* AI Optimization Toggle */}
+        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <Brain className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="font-medium text-gray-900">AI Parameter Optimization</p>
+              <p className="text-sm text-gray-600">Detect emerging trends and adapt parameters at each period</p>
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={enableAI}
+              onChange={(e) => setEnableAI(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+          </label>
+        </div>
+
+        {/* Run Button */}
+        <button
+          onClick={runSimulation}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {loading ? (
+            <>
+              <RefreshCw className="w-5 h-5 animate-spin" />
+              {jobStatus === 'pending' ? 'Starting simulation...' :
+               jobStatus === 'running' ? `Running simulation (Job #${jobId})...` :
+               'Running Simulation...'}
+            </>
+          ) : (
+            <>
+              <PlayCircle className="w-5 h-5" />
+              Run Walk-Forward Simulation
+              {maxSymbols > 100 && <span className="text-xs opacity-75">(Background)</span>}
+            </>
+          )}
+        </button>
+
+        {/* Job Status */}
+        {loading && jobId && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
+              <div>
+                <p className="font-medium text-blue-900">Background Job #{jobId}</p>
+                <p className="text-sm text-blue-700">
+                  Status: <span className="font-medium">{jobStatus}</span>
+                  {jobStatus === 'running' && ' - Processing... This may take a few minutes for large universes.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error Display */}
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
+            <div>
+              <p className="font-medium text-red-800">Simulation Failed</p>
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Results */}
+        {result && (
+          <div className="space-y-6">
+            {/* Performance Summary */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="p-4 bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl text-center">
+                <p className="text-sm text-gray-600 mb-1">Total Return</p>
+                <p className={`text-2xl font-bold ${result.total_return_pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {result.total_return_pct >= 0 ? '+' : ''}{result.total_return_pct?.toFixed(1)}%
+                </p>
+              </div>
+              <div className="p-4 bg-gray-50 rounded-xl text-center">
+                <p className="text-sm text-gray-600 mb-1">Sharpe Ratio</p>
+                <p className="text-2xl font-bold text-gray-900">{result.sharpe_ratio?.toFixed(2)}</p>
+              </div>
+              <div className="p-4 bg-red-50 rounded-xl text-center">
+                <p className="text-sm text-gray-600 mb-1">Max Drawdown</p>
+                <p className="text-2xl font-bold text-red-600">-{result.max_drawdown_pct?.toFixed(1)}%</p>
+              </div>
+              <div className="p-4 bg-blue-50 rounded-xl text-center">
+                <p className="text-sm text-gray-600 mb-1">Total Switches</p>
+                <p className="text-2xl font-bold text-blue-600">{result.num_strategy_switches}</p>
+                {aiSwitches > 0 && (
+                  <p className="text-xs text-purple-600 mt-1">
+                    <Brain size={10} className="inline mr-1" />
+                    {aiSwitches} AI-driven
+                  </p>
+                )}
+              </div>
+              <div className="p-4 bg-amber-50 rounded-xl text-center">
+                <p className="text-sm text-gray-600 mb-1">SPY Benchmark</p>
+                <p className={`text-2xl font-bold ${result.benchmark_return_pct >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
+                  {result.benchmark_return_pct >= 0 ? '+' : ''}{result.benchmark_return_pct?.toFixed(1)}%
+                </p>
+              </div>
+            </div>
+
+            {/* Alpha vs Benchmark */}
+            <div className={`p-4 rounded-xl ${
+              result.total_return_pct > result.benchmark_return_pct
+                ? 'bg-emerald-50 border border-emerald-200'
+                : 'bg-red-50 border border-red-200'
+            }`}>
+              <p className="text-center">
+                <span className="font-medium">
+                  {result.total_return_pct > result.benchmark_return_pct ? 'Outperformed' : 'Underperformed'}
+                </span>
+                <span className="text-gray-600"> SPY by </span>
+                <span className={`font-bold ${
+                  result.total_return_pct > result.benchmark_return_pct ? 'text-emerald-700' : 'text-red-700'
+                }`}>
+                  {Math.abs(result.total_return_pct - result.benchmark_return_pct).toFixed(1)}%
+                </span>
+              </p>
+            </div>
+
+            {/* Equity Curve Chart */}
+            {chartData.length > 0 && (
+              <div className="p-4 border border-gray-200 rounded-xl">
+                <h4 className="font-medium text-gray-900 mb-4">Equity Curve</h4>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(val) => `$${(val / 1000).toFixed(0)}k`}
+                      domain={['auto', 'auto']}
+                    />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const data = payload[0]?.payload;
+                        return (
+                          <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 text-sm">
+                            <p className="font-medium">{new Date(label).toLocaleDateString()}</p>
+                            <p className="text-blue-600">Equity: ${data?.equity?.toLocaleString()}</p>
+                            <p className="text-gray-500">Strategy: {data?.strategy}</p>
+                            {data?.hasSwitch && (
+                              <p className="text-purple-600 font-medium">
+                                Switched to: {data?.switchTo}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      }}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="equityValue"
+                      stroke="#3B82F6"
+                      strokeWidth={2}
+                      dot={false}
+                      name="Portfolio"
+                    />
+                    {/* Switch markers - AI switches in purple, regular in green */}
+                    {chartData.filter(d => d.hasSwitch && d.isAISwitch).map((d, i) => (
+                      <ReferenceLine
+                        key={`ai-${i}`}
+                        x={d.date}
+                        stroke="#8B5CF6"
+                        strokeWidth={2}
+                        label={{ value: 'AI', position: 'top', fontSize: 10, fill: '#8B5CF6' }}
+                      />
+                    ))}
+                    {chartData.filter(d => d.hasSwitch && !d.isAISwitch).map((d, i) => (
+                      <ReferenceLine
+                        key={`reg-${i}`}
+                        x={d.date}
+                        stroke="#10B981"
+                        strokeDasharray="3 3"
+                        strokeWidth={2}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+                <div className="flex items-center justify-center gap-4 mt-2 text-xs text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <span className="w-4 h-0.5 bg-blue-500"></span> Portfolio
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-4 h-0.5 bg-purple-500"></span> AI Switch
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-4 h-0.5 bg-emerald-500"></span> Strategy Switch
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Switch Timeline */}
+            {result.switch_history && result.switch_history.length > 0 && (
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                  <h4 className="font-medium text-gray-900">Switch Timeline</h4>
+                </div>
+                <div className="divide-y divide-gray-200">
+                  {result.switch_history.map((s, i) => (
+                    <div key={i} className={`px-4 py-3 flex items-center gap-4 ${s.is_ai_generated ? 'bg-purple-50' : ''}`}>
+                      <div className="w-24 text-sm text-gray-500">
+                        {new Date(s.date).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center gap-2 flex-1">
+                        {s.from_strategy ? (
+                          <>
+                            <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm">
+                              {s.from_strategy}
+                            </span>
+                            <ArrowRight size={16} className="text-gray-400" />
+                          </>
+                        ) : null}
+                        <span className={`px-2 py-1 rounded text-sm font-medium ${
+                          s.is_ai_generated
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                          {s.is_ai_generated && <Brain size={12} className="inline mr-1" />}
+                          {s.to_strategy}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {s.score_before != null && s.score_after != null && (
+                          <span className={s.score_after > s.score_before ? 'text-emerald-600' : 'text-gray-600'}>
+                            +{(s.score_after - (s.score_before || 0)).toFixed(0)} pts
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* AI Optimizations Details */}
+            {result.ai_optimizations && result.ai_optimizations.length > 0 && (
+              <div className="border border-purple-200 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setShowAIDetails(!showAIDetails)}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-200 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-purple-600" />
+                    <h4 className="font-medium text-gray-900">AI Optimization History</h4>
+                    <span className="text-sm text-purple-600">({result.ai_optimizations.length} periods)</span>
+                  </div>
+                  {showAIDetails ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </button>
+                {showAIDetails && (
+                  <div className="divide-y divide-purple-100 max-h-96 overflow-y-auto">
+                    {result.ai_optimizations.map((ai, i) => (
+                      <div key={i} className="px-4 py-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700">
+                            {new Date(ai.date).toLocaleDateString()}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {/* Regime Badge with risk level */}
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              ai.market_regime?.includes('bull') ? 'bg-emerald-100 text-emerald-700' :
+                              ai.market_regime?.includes('bear') || ai.market_regime === 'panic_crash' ? 'bg-red-100 text-red-700' :
+                              ai.market_regime === 'recovery' ? 'bg-blue-100 text-blue-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {ai.market_regime?.replace('_', ' ').toUpperCase()}
+                            </span>
+                            {/* Risk Level */}
+                            {ai.regime_risk_level && (
+                              <span className={`text-xs px-2 py-1 rounded ${
+                                ai.regime_risk_level === 'low' ? 'bg-green-50 text-green-600' :
+                                ai.regime_risk_level === 'extreme' ? 'bg-red-50 text-red-600' :
+                                ai.regime_risk_level === 'high' ? 'bg-orange-50 text-orange-600' :
+                                'bg-yellow-50 text-yellow-600'
+                              }`}>
+                                {ai.regime_risk_level} risk
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {/* Enhanced Metrics Grid */}
+                        <div className="grid grid-cols-4 gap-2 text-sm mb-2">
+                          <div>
+                            <span className="text-gray-500">Sharpe:</span>{' '}
+                            <span className="font-medium">{ai.expected_sharpe?.toFixed(2)}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Sortino:</span>{' '}
+                            <span className="font-medium">{ai.expected_sortino?.toFixed(2) || '-'}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Calmar:</span>{' '}
+                            <span className="font-medium">{ai.expected_calmar?.toFixed(2) || '-'}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">PF:</span>{' '}
+                            <span className="font-medium">{ai.expected_profit_factor?.toFixed(2) || '-'}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 text-sm">
+                            <span className={`font-medium ${ai.expected_return_pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {ai.expected_return_pct >= 0 ? '+' : ''}{ai.expected_return_pct?.toFixed(1)}% return
+                            </span>
+                            {ai.combinations_tested > 0 && (
+                              <span className="text-gray-400 text-xs">
+                                {ai.combinations_tested} combos tested
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {ai.adaptive_score > 0 && (
+                              <span className="text-xs text-purple-600 font-medium">
+                                Score: {ai.adaptive_score?.toFixed(1)}
+                              </span>
+                            )}
+                            <span className={`text-xs px-2 py-0.5 rounded ${
+                              ai.was_adopted ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {ai.was_adopted ? 'Adopted' : 'Not adopted'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Parameter Evolution */}
+            {result.parameter_evolution && result.parameter_evolution.length > 0 && (
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setShowParamEvolution(!showParamEvolution)}
+                  className="w-full px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-blue-600" />
+                    <h4 className="font-medium text-gray-900">Parameter Evolution</h4>
+                  </div>
+                  {showParamEvolution ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </button>
+                {showParamEvolution && (
+                  <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                    {result.parameter_evolution.slice(-10).reverse().map((p, i) => (
+                      <div key={i} className="px-4 py-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700">
+                            {new Date(p.date).toLocaleDateString()} - {p.strategy_name}
+                          </span>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            p.source === 'ai_generated' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'
+                          }`}>
+                            {p.source === 'ai_generated' ? 'AI' : 'Library'}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(p.params || {}).slice(0, 6).map(([key, value]) => (
+                            <span key={key} className="text-xs bg-gray-100 px-2 py-1 rounded">
+                              {key.replace(/_/g, ' ')}: <span className="font-medium">{value}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Previous Simulations */}
+        {history.length > 0 && (
+          <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+              <h4 className="font-medium text-gray-900">Previous Simulations</h4>
+            </div>
+            <div className="divide-y divide-gray-200">
+              {history.map((sim) => (
+                <button
+                  key={sim.id}
+                  onClick={() => loadSimulation(sim.id)}
+                  className="w-full px-4 py-3 flex items-center gap-4 hover:bg-gray-50 text-left"
+                >
+                  <Calendar size={16} className="text-gray-400" />
+                  <span className="text-sm">
+                    {new Date(sim.start_date).toLocaleDateString()} - {new Date(sim.end_date).toLocaleDateString()}
+                  </span>
+                  <span className={`text-sm font-medium ${sim.total_return_pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {sim.total_return_pct >= 0 ? '+' : ''}{sim.total_return_pct?.toFixed(1)}%
+                  </span>
+                  <span className="text-xs text-gray-500 ml-auto">
+                    {sim.num_strategy_switches} switches
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

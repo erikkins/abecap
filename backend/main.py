@@ -228,6 +228,34 @@ app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 # Lambda handler (for AWS Lambda deployment)
 # lifespan="off" avoids issues with event loop reuse on warm Lambdas
 _mangum_handler = None
+_lambda_data_loaded = False
+
+
+def _ensure_lambda_data_loaded():
+    """Load data from S3 on Lambda cold start (runs once per container)."""
+    global _lambda_data_loaded
+    if _lambda_data_loaded:
+        return
+
+    import os
+    if os.environ.get("ENVIRONMENT") != "prod":
+        _lambda_data_loaded = True
+        return
+
+    # Only load if cache is empty
+    if not scanner_service.data_cache:
+        print("📦 Lambda cold start: Loading data from S3...")
+        try:
+            cached_data = data_export_service.import_all()
+            if cached_data:
+                scanner_service.data_cache = cached_data
+                print(f"✅ Loaded {len(cached_data)} symbols from S3")
+            else:
+                print("⚠️ No cached data found in S3")
+        except Exception as e:
+            print(f"⚠️ Failed to load data from S3: {e}")
+
+    _lambda_data_loaded = True
 
 
 def handler(event, context):
@@ -238,12 +266,15 @@ def handler(event, context):
     """
     import asyncio
 
+    # Ensure data is loaded on cold start
+    _ensure_lambda_data_loaded()
+
     # Handle warmer events - just return success to keep Lambda warm
     if event.get("warmer"):
-        print("🔥 Warmer ping received - Lambda is warm")
+        print(f"🔥 Warmer ping - {len(scanner_service.data_cache)} symbols in cache")
         return {
             "statusCode": 200,
-            "body": '{"status": "warm"}'
+            "body": f'{{"status": "warm", "symbols_loaded": {len(scanner_service.data_cache)}}}'
         }
 
     # For API Gateway events, use Mangum
@@ -716,15 +747,18 @@ async def trigger_manual_update():
 # ============================================================================
 
 @app.get("/api/backtest/run")
-async def run_backtest(days: int = 252):
+async def run_backtest(days: int = 252, strategy: str = "momentum", max_symbols: int = 200):
     """
     Run backtest over historical data
 
-    Returns simulated positions and trades based on the DWAP strategy.
-    These represent what we would currently hold if we had been trading.
+    Returns simulated positions and trades based on the selected strategy.
+    Default is momentum strategy (v2). Use strategy="dwap" for legacy.
 
     Args:
         days: Number of trading days to simulate (default 252 = 1 year)
+        strategy: "momentum" (default) or "dwap" for legacy
+        max_symbols: Limit symbols for faster response (default 200)
+
     """
     if not scanner_service.data_cache:
         raise HTTPException(
@@ -732,10 +766,21 @@ async def run_backtest(days: int = 252):
             detail="No market data loaded. Please wait for data to load or trigger a scan."
         )
 
+    use_momentum = strategy.lower() != "dwap"
+
+    # Use top liquid symbols for faster response
+    from app.services.strategy_analyzer import get_top_liquid_symbols
+    top_symbols = get_top_liquid_symbols(max_symbols=max_symbols)
+
     try:
-        result = backtester_service.run_backtest(lookback_days=days)
+        result = backtester_service.run_backtest(
+            lookback_days=days,
+            use_momentum_strategy=use_momentum,
+            ticker_list=top_symbols
+        )
         return {
             "success": True,
+            "strategy": "momentum" if use_momentum else "dwap",
             "backtest": {
                 "start_date": result.start_date,
                 "end_date": result.end_date,

@@ -72,7 +72,7 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db)
 ):
     """Get the current authenticated user from JWT token."""
-    from app.models.user import User
+    from app.core.database import User
 
     if credentials is None:
         raise HTTPException(
