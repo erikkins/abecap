@@ -680,10 +680,35 @@ class WalkForwardService:
         ai_optimizations: List[AIOptimizationResult] = []
         parameter_evolution: List[ParameterSnapshot] = []
 
+        # Get SPY starting price for benchmark line
+        spy_start_price = None
+        if 'SPY' in scanner_service.data_cache:
+            spy_df = scanner_service.data_cache['SPY']
+            start_ts = pd.Timestamp(start_date)
+            spy_at_start = spy_df[spy_df.index >= start_ts]
+            if len(spy_at_start) > 0:
+                spy_start_price = spy_at_start.iloc[0]['close']
+                print(f"[WF-SERVICE] SPY start price: ${spy_start_price:.2f}")
+
+        def get_spy_equity(date_str: str) -> float:
+            """Get SPY equity normalized to initial capital"""
+            if spy_start_price is None:
+                return None
+            try:
+                date_ts = pd.Timestamp(date_str)
+                spy_at_date = spy_df[spy_df.index <= date_ts]
+                if len(spy_at_date) > 0:
+                    spy_price = spy_at_date.iloc[-1]['close']
+                    return self.initial_capital * (spy_price / spy_start_price)
+            except:
+                pass
+            return None
+
         # Add initial point
         equity_curve.append({
             "date": start_date.strftime('%Y-%m-%d'),
             "equity": capital,
+            "spy_equity": self.initial_capital,
             "strategy": "Initial",
             "is_switch": False
         })
@@ -859,10 +884,12 @@ class WalkForwardService:
             # Determine if this is a switch point for the chart
             is_switch = len(switch_history) > 0 and switch_history[-1].date == period_start.strftime('%Y-%m-%d')
 
-            # Add to equity curve with strategy info
+            # Add to equity curve with strategy info and SPY benchmark
+            date_str = period_end.strftime('%Y-%m-%d')
             equity_curve.append({
-                "date": period_end.strftime('%Y-%m-%d'),
+                "date": date_str,
                 "equity": new_capital,
+                "spy_equity": get_spy_equity(date_str),
                 "strategy": strategy_name,
                 "is_switch": is_switch,
                 "is_ai": using_ai_params

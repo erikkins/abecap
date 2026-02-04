@@ -5,15 +5,80 @@ Runs the DWAP strategy over historical data to generate:
 - Simulated open positions (what we would currently hold)
 - Trade history (closed trades)
 - Performance metrics
+
+Supports multiple exit strategies:
+- trailing_stop: Sell when price drops X% from high water mark
+- fixed_target: Sell when price reaches X% profit
+- hybrid: After reaching initial target, switch to trailing stop
+- time_based: Sell after max holding period
 """
 
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
+from enum import Enum
 from app.core.config import settings
 from app.services.scanner import scanner_service
+
+
+class ExitStrategyType(str, Enum):
+    """Types of exit strategies"""
+    TRAILING_STOP = "trailing_stop"       # Current momentum strategy
+    FIXED_TARGET = "fixed_target"         # Sell at X% profit
+    HYBRID = "hybrid"                     # Target + trailing after
+    TIME_BASED = "time_based"             # Max hold period
+    STOP_LOSS_TARGET = "stop_loss_target" # Legacy DWAP: stop loss + profit target
+
+
+@dataclass
+class ExitStrategyConfig:
+    """Configuration for exit strategy"""
+    strategy_type: ExitStrategyType = ExitStrategyType.TRAILING_STOP
+
+    # Trailing stop parameters
+    trailing_stop_pct: float = 15.0  # % drop from high to trigger exit
+
+    # Fixed target parameters
+    profit_target_pct: float = 20.0  # % gain to trigger exit
+
+    # Hybrid parameters (target first, then trail)
+    hybrid_initial_target_pct: float = 15.0  # First target to hit
+    hybrid_trailing_pct: float = 8.0  # Trailing % after hitting target
+
+    # Time-based parameters
+    max_hold_days: int = 60  # Max days to hold
+
+    # Stop loss (can be combined with any strategy)
+    stop_loss_pct: float = 0.0  # 0 = no stop loss, >0 = fixed stop loss
+
+    def to_dict(self):
+        return {
+            "strategy_type": self.strategy_type.value,
+            "trailing_stop_pct": self.trailing_stop_pct,
+            "profit_target_pct": self.profit_target_pct,
+            "hybrid_initial_target_pct": self.hybrid_initial_target_pct,
+            "hybrid_trailing_pct": self.hybrid_trailing_pct,
+            "max_hold_days": self.max_hold_days,
+            "stop_loss_pct": self.stop_loss_pct,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ExitStrategyConfig":
+        """Create from dictionary"""
+        strategy_type = data.get("strategy_type", "trailing_stop")
+        if isinstance(strategy_type, str):
+            strategy_type = ExitStrategyType(strategy_type)
+        return cls(
+            strategy_type=strategy_type,
+            trailing_stop_pct=data.get("trailing_stop_pct", 15.0),
+            profit_target_pct=data.get("profit_target_pct", 20.0),
+            hybrid_initial_target_pct=data.get("hybrid_initial_target_pct", 15.0),
+            hybrid_trailing_pct=data.get("hybrid_trailing_pct", 8.0),
+            max_hold_days=data.get("max_hold_days", 60),
+            stop_loss_pct=data.get("stop_loss_pct", 0.0),
+        )
 
 
 @dataclass
@@ -253,6 +318,85 @@ class BacktesterService:
 
         return spy_price > spy_ma200
 
+    def _check_exit_condition(
+        self,
+        pos: dict,
+        current_price: float,
+        current_date: pd.Timestamp,
+        exit_strategy: ExitStrategyConfig
+    ) -> Optional[str]:
+        """
+        Check if position should be exited based on exit strategy.
+
+        Args:
+            pos: Position dictionary with entry info
+            current_price: Current price
+            current_date: Current date
+            exit_strategy: Exit strategy configuration
+
+        Returns:
+            Exit reason string if should exit, None otherwise
+        """
+        entry_price = pos['entry_price']
+        pnl_pct = (current_price - entry_price) / entry_price * 100
+        days_held = (current_date - pd.Timestamp(pos['entry_date'])).days
+
+        # Check stop loss first (applies to all strategies)
+        if exit_strategy.stop_loss_pct > 0:
+            if pnl_pct <= -exit_strategy.stop_loss_pct:
+                return 'stop_loss'
+
+        strategy_type = exit_strategy.strategy_type
+
+        if strategy_type == ExitStrategyType.TRAILING_STOP:
+            # Update high water mark
+            high_water = pos.get('high_water_mark', entry_price)
+            if current_price > high_water:
+                pos['high_water_mark'] = current_price
+                high_water = current_price
+            # Check trailing stop from high
+            drop_from_high = (high_water - current_price) / high_water * 100
+            if drop_from_high >= exit_strategy.trailing_stop_pct:
+                return 'trailing_stop'
+
+        elif strategy_type == ExitStrategyType.FIXED_TARGET:
+            # Exit when profit target is reached
+            if pnl_pct >= exit_strategy.profit_target_pct:
+                return 'profit_target'
+
+        elif strategy_type == ExitStrategyType.HYBRID:
+            # After hitting initial target, switch to trailing stop
+            if pos.get('hybrid_target_hit'):
+                # Already hit target, use trailing stop
+                high_water = pos.get('high_water_mark', entry_price)
+                if current_price > high_water:
+                    pos['high_water_mark'] = current_price
+                    high_water = current_price
+                drop_from_high = (high_water - current_price) / high_water * 100
+                if drop_from_high >= exit_strategy.hybrid_trailing_pct:
+                    return 'hybrid_trailing'
+            else:
+                # Check if we hit initial target
+                if pnl_pct >= exit_strategy.hybrid_initial_target_pct:
+                    pos['hybrid_target_hit'] = True
+                    pos['high_water_mark'] = current_price
+
+        elif strategy_type == ExitStrategyType.TIME_BASED:
+            # Exit after max hold days
+            if days_held >= exit_strategy.max_hold_days:
+                return 'time_exit'
+
+        elif strategy_type == ExitStrategyType.STOP_LOSS_TARGET:
+            # Legacy: fixed stop loss and profit target
+            stop_loss = pos.get('stop_loss', entry_price * (1 - self.stop_loss_pct))
+            profit_target = pos.get('profit_target', entry_price * (1 + self.profit_target_pct))
+            if current_price <= stop_loss:
+                return 'stop_loss'
+            if current_price >= profit_target:
+                return 'profit_target'
+
+        return None
+
     def _calculate_momentum_score(self, symbol: str, date: pd.Timestamp) -> Optional[dict]:
         """
         Calculate momentum score for a symbol on a given date
@@ -328,7 +472,8 @@ class BacktesterService:
         end_date: Optional[datetime] = None,
         start_date: Optional[datetime] = None,
         use_momentum_strategy: bool = True,
-        ticker_list: Optional[List[str]] = None
+        ticker_list: Optional[List[str]] = None,
+        exit_strategy: Optional[ExitStrategyConfig] = None
     ) -> BacktestResult:
         """
         Run backtest over historical data
@@ -339,6 +484,7 @@ class BacktesterService:
             start_date: Start date for backtest (overrides lookback_days if provided)
             use_momentum_strategy: Use v2 momentum strategy (True) or legacy DWAP (False)
             ticker_list: Optional list of tickers to limit backtest to
+            exit_strategy: Optional exit strategy configuration (overrides use_momentum_strategy)
 
         Returns:
             BacktestResult with positions, trades, and metrics
@@ -347,6 +493,21 @@ class BacktesterService:
             raise RuntimeError("No data loaded. Run a scan first.")
 
         end_date = end_date or datetime.now()
+
+        # Set up exit strategy
+        if exit_strategy is None:
+            # Default based on use_momentum_strategy flag
+            if use_momentum_strategy:
+                exit_strategy = ExitStrategyConfig(
+                    strategy_type=ExitStrategyType.TRAILING_STOP,
+                    trailing_stop_pct=self.trailing_stop_pct * 100
+                )
+            else:
+                exit_strategy = ExitStrategyConfig(
+                    strategy_type=ExitStrategyType.STOP_LOSS_TARGET,
+                    stop_loss_pct=self.stop_loss_pct * 100,
+                    profit_target_pct=self.profit_target_pct * 100
+                )
 
         # Get symbols to use
         available_symbols = list(scanner_service.data_cache.keys())
@@ -441,70 +602,27 @@ class BacktesterService:
                 current_price = df.loc[date, 'close']
                 pnl_pct = (current_price - pos['entry_price']) / pos['entry_price']
 
-                if use_momentum_strategy:
-                    # Update high water mark and trailing stop
-                    if current_price > pos.get('high_water_mark', pos['entry_price']):
-                        pos['high_water_mark'] = current_price
-                        pos['trailing_stop'] = current_price * (1 - self.trailing_stop_pct)
+                # Check exit condition using configured strategy
+                exit_reason = self._check_exit_condition(pos, current_price, date, exit_strategy)
 
-                    # Check trailing stop
-                    if current_price <= pos.get('trailing_stop', 0):
-                        trade_id += 1
-                        trades.append(SimulatedTrade(
-                            id=trade_id,
-                            symbol=symbol,
-                            entry_date=pos['entry_date'],
-                            exit_date=date_str,
-                            entry_price=pos['entry_price'],
-                            exit_price=current_price,
-                            shares=pos['shares'],
-                            pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
-                            pnl_pct=round(pnl_pct * 100, 2),
-                            exit_reason='trailing_stop',
-                            days_held=(date - pd.Timestamp(pos['entry_date'])).days,
-                            dwap_at_entry=pos.get('dwap_at_entry', 0)
-                        ))
-                        capital += pos['shares'] * current_price
-                        symbols_to_close.append(symbol)
-                else:
-                    # Legacy DWAP strategy: fixed stop loss and profit target
-                    if current_price <= pos['stop_loss']:
-                        trade_id += 1
-                        trades.append(SimulatedTrade(
-                            id=trade_id,
-                            symbol=symbol,
-                            entry_date=pos['entry_date'],
-                            exit_date=date_str,
-                            entry_price=pos['entry_price'],
-                            exit_price=current_price,
-                            shares=pos['shares'],
-                            pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
-                            pnl_pct=round(pnl_pct * 100, 2),
-                            exit_reason='stop_loss',
-                            days_held=(date - pd.Timestamp(pos['entry_date'])).days,
-                            dwap_at_entry=pos['dwap_at_entry']
-                        ))
-                        capital += pos['shares'] * current_price
-                        symbols_to_close.append(symbol)
-
-                    elif current_price >= pos['profit_target']:
-                        trade_id += 1
-                        trades.append(SimulatedTrade(
-                            id=trade_id,
-                            symbol=symbol,
-                            entry_date=pos['entry_date'],
-                            exit_date=date_str,
-                            entry_price=pos['entry_price'],
-                            exit_price=current_price,
-                            shares=pos['shares'],
-                            pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
-                            pnl_pct=round(pnl_pct * 100, 2),
-                            exit_reason='profit_target',
-                            days_held=(date - pd.Timestamp(pos['entry_date'])).days,
-                            dwap_at_entry=pos['dwap_at_entry']
-                        ))
-                        capital += pos['shares'] * current_price
-                        symbols_to_close.append(symbol)
+                if exit_reason:
+                    trade_id += 1
+                    trades.append(SimulatedTrade(
+                        id=trade_id,
+                        symbol=symbol,
+                        entry_date=pos['entry_date'],
+                        exit_date=date_str,
+                        entry_price=pos['entry_price'],
+                        exit_price=current_price,
+                        shares=pos['shares'],
+                        pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
+                        pnl_pct=round(pnl_pct * 100, 2),
+                        exit_reason=exit_reason,
+                        days_held=(date - pd.Timestamp(pos['entry_date'])).days,
+                        dwap_at_entry=pos.get('dwap_at_entry', 0)
+                    ))
+                    capital += pos['shares'] * current_price
+                    symbols_to_close.append(symbol)
 
             # Remove closed positions
             for symbol in symbols_to_close:

@@ -1565,28 +1565,53 @@ function Dashboard() {
             {marketRegime && (
               <div className={`mb-4 p-3 rounded-lg flex items-center justify-between ${
                 marketRegime.regime === 'strong_bull' ? 'bg-emerald-50 border border-emerald-200' :
-                marketRegime.regime === 'bull' ? 'bg-green-50 border border-green-200' :
-                marketRegime.regime === 'neutral' ? 'bg-yellow-50 border border-yellow-200' :
-                marketRegime.regime === 'bear' ? 'bg-orange-50 border border-orange-200' :
-                'bg-red-50 border border-red-200'
+                marketRegime.regime === 'weak_bull' ? 'bg-green-50 border border-green-200' :
+                marketRegime.regime === 'rotating_bull' ? 'bg-violet-50 border border-violet-200' :
+                marketRegime.regime === 'range_bound' ? 'bg-amber-50 border border-amber-200' :
+                marketRegime.regime === 'recovery' ? 'bg-cyan-50 border border-cyan-200' :
+                marketRegime.regime === 'weak_bear' ? 'bg-orange-50 border border-orange-200' :
+                marketRegime.regime === 'panic_crash' ? 'bg-red-50 border border-red-200' :
+                'bg-gray-50 border border-gray-200'
               }`}>
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-full ${
-                    marketRegime.regime?.includes('bull') ? 'bg-emerald-100' :
-                    marketRegime.regime === 'neutral' ? 'bg-yellow-100' : 'bg-red-100'
+                    marketRegime.regime === 'strong_bull' ? 'bg-emerald-100' :
+                    marketRegime.regime === 'weak_bull' ? 'bg-green-100' :
+                    marketRegime.regime === 'rotating_bull' ? 'bg-violet-100' :
+                    marketRegime.regime === 'range_bound' ? 'bg-amber-100' :
+                    marketRegime.regime === 'recovery' ? 'bg-cyan-100' :
+                    marketRegime.regime === 'weak_bear' ? 'bg-orange-100' :
+                    'bg-red-100'
                   }`}>
-                    {marketRegime.regime?.includes('bull') ? <TrendingUp className="w-5 h-5 text-emerald-600" /> :
-                     marketRegime.regime === 'neutral' ? <Activity className="w-5 h-5 text-yellow-600" /> :
+                    {marketRegime.regime === 'strong_bull' ? <TrendingUp className="w-5 h-5 text-emerald-600" /> :
+                     marketRegime.regime === 'weak_bull' ? <TrendingUp className="w-5 h-5 text-green-600" /> :
+                     marketRegime.regime === 'rotating_bull' ? <RefreshCw className="w-5 h-5 text-violet-600" /> :
+                     marketRegime.regime === 'range_bound' ? <Activity className="w-5 h-5 text-amber-600" /> :
+                     marketRegime.regime === 'recovery' ? <TrendingUp className="w-5 h-5 text-cyan-600" /> :
+                     marketRegime.regime === 'weak_bear' ? <TrendingDown className="w-5 h-5 text-orange-600" /> :
                      <TrendingDown className="w-5 h-5 text-red-600" />}
                   </div>
                   <div>
                     <span className="font-semibold text-gray-900 capitalize">
-                      {marketRegime.regime?.replace('_', ' ')} Market
+                      {marketRegime.regime_name || marketRegime.regime?.replace('_', ' ')} Market
                     </span>
                     <span className="mx-2 text-gray-400">|</span>
-                    <span className="text-gray-600">SPY ${marketRegime.spy_price}</span>
+                    <span className="text-gray-600">SPY ${marketRegime.spy_price?.toFixed(2)}</span>
                     <span className="mx-2 text-gray-400">|</span>
-                    <span className="text-gray-600">VIX {marketRegime.vix_level}</span>
+                    <span className="text-gray-600">VIX {marketRegime.vix_level?.toFixed(1)}</span>
+                    {marketRegime.risk_level && (
+                      <>
+                        <span className="mx-2 text-gray-400">|</span>
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          marketRegime.risk_level === 'low' ? 'bg-green-100 text-green-700' :
+                          marketRegime.risk_level === 'extreme' ? 'bg-red-100 text-red-700' :
+                          marketRegime.risk_level === 'high' ? 'bg-orange-100 text-orange-700' :
+                          'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {marketRegime.risk_level} risk
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="text-sm text-gray-600 max-w-md truncate">

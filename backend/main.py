@@ -731,13 +731,60 @@ async def import_data():
 @app.get("/api/market/regime")
 async def get_market_regime():
     """
-    Get current market regime (bull/bear) and trading recommendation
+    Get current market regime and trading recommendation.
 
-    Uses SPY and VIX to determine market conditions.
+    Uses multi-factor analysis: SPY trend, VIX, breadth, momentum.
+    Returns one of 6 regimes: strong_bull, weak_bull, range_bound, weak_bear, panic_crash, recovery.
     """
+    from app.services.market_regime import market_regime_service
+
     try:
-        state = await market_analysis_service.update_market_state()
-        return state.to_dict()
+        # Ensure data is loaded
+        if not scanner_service.data_cache:
+            await scanner_service.ensure_data_loaded()
+
+        spy_df = scanner_service.data_cache.get('SPY')
+        if spy_df is None or len(spy_df) < 200:
+            raise HTTPException(status_code=503, detail="Insufficient SPY data")
+
+        vix_df = scanner_service.data_cache.get('^VIX')
+
+        # Use the 6-regime multi-factor detection
+        regime = market_regime_service.detect_regime(
+            spy_df=spy_df,
+            universe_dfs=scanner_service.data_cache,
+            vix_df=vix_df
+        )
+
+        regime_dict = regime.to_dict()
+
+        # Map to format expected by frontend (backward compatibility)
+        spy_price = spy_df.iloc[-1]['close'] if len(spy_df) > 0 else 0
+        vix_level = vix_df.iloc[-1]['close'] if vix_df is not None and len(vix_df) > 0 else 20
+
+        conditions = regime_dict.get('conditions', {})
+        return {
+            "regime": regime_dict.get('regime_type', regime_dict.get('name', 'neutral')),
+            "regime_name": regime_dict.get('regime_name', regime_dict.get('name', 'Neutral').replace('_', ' ').title()),
+            "spy_price": round(spy_price, 2),
+            "spy_ma_200": round(conditions.get('spy_ma_200', 0), 2),
+            "spy_ma_50": round(conditions.get('spy_ma_50', 0), 2),
+            "spy_vs_200ma_pct": round(conditions.get('spy_vs_200ma_pct', 0), 2),
+            "spy_pct_from_high": round(conditions.get('spy_pct_from_high', 0), 2),
+            "vix_level": round(vix_level, 2),
+            "vix_percentile": round(conditions.get('vix_percentile', 50), 1),
+            "trend_strength": round(conditions.get('trend_strength', 0), 2),
+            "long_term_trend": round(conditions.get('long_term_trend', 0), 2),
+            "breadth_pct": round(conditions.get('breadth_pct', 50), 1),
+            "new_highs_pct": round(conditions.get('new_highs_pct', 0), 1),
+            "recommendation": regime_dict.get('description', ''),
+            "risk_level": regime_dict.get('risk_level', 'medium'),
+            "confidence": regime_dict.get('confidence', 0),
+            "color": regime_dict.get('color', '#6B7280'),
+            "updated": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

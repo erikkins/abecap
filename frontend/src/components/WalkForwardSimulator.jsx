@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from 'recharts';
-import { PlayCircle, RefreshCw, TrendingUp, Calendar, ArrowRight, AlertCircle, Zap, Brain, ChevronDown, ChevronUp } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend, ReferenceArea } from 'recharts';
+import { PlayCircle, RefreshCw, TrendingUp, Calendar, ArrowRight, AlertCircle, Zap, Brain, ChevronDown, ChevronUp, Eye, EyeOff, BarChart2 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -23,9 +23,14 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
   const [history, setHistory] = useState([]);
   const [showAIDetails, setShowAIDetails] = useState(false);
   const [showParamEvolution, setShowParamEvolution] = useState(false);
+  const [regimePeriods, setRegimePeriods] = useState([]);
+  const [showRegimes, setShowRegimes] = useState(true);
+  const [currentRegime, setCurrentRegime] = useState(null);
+  const [loadingRegimes, setLoadingRegimes] = useState(false);
 
   useEffect(() => {
     fetchHistory();
+    fetchCurrentRegime();
   }, []);
 
   const fetchHistory = async () => {
@@ -37,6 +42,39 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
       }
     } catch (err) {
       console.error('Failed to fetch history:', err);
+    }
+  };
+
+  // Fetch current market regime
+  const fetchCurrentRegime = async () => {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/market-regime/current`);
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentRegime(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch current regime:', err);
+    }
+  };
+
+  // Fetch regime periods for chart visualization
+  const fetchRegimePeriods = async (start, end) => {
+    setLoadingRegimes(true);
+    try {
+      const params = new URLSearchParams();
+      if (start) params.append('start_date', start);
+      if (end) params.append('end_date', end);
+
+      const response = await fetchWithAuth(`${API_URL}/api/admin/market-regime/periods?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        setRegimePeriods(data.periods || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch regime periods:', err);
+    } finally {
+      setLoadingRegimes(false);
     }
   };
 
@@ -56,6 +94,10 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
           setLoading(false);
           setJobId(null);
           fetchHistory();
+          // Fetch regime periods for the simulation date range
+          if (data.start_date && data.end_date) {
+            fetchRegimePeriods(data.start_date.split('T')[0], data.end_date.split('T')[0]);
+          }
         } else if (data.status === 'failed') {
           setError(data.error || 'Simulation failed');
           setLoading(false);
@@ -103,6 +145,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
         if (data.status === 'completed') {
           setResult(data);
           fetchHistory();
+          fetchRegimePeriods(startDate, endDate);
           setLoading(false);
         } else if (data.job_id) {
           // Legacy polling mode (shouldn't happen with new backend)
@@ -112,14 +155,16 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
         } else {
           setResult(data);
           fetchHistory();
+          fetchRegimePeriods(startDate, endDate);
           setLoading(false);
         }
       } else {
+        // Read body as text first to avoid "Body is disturbed" error
+        const text = await response.text();
         try {
-          const err = await response.json();
+          const err = JSON.parse(text);
           setError(err.detail || 'Simulation failed');
         } catch {
-          const text = await response.text();
           setError(`Server error (${response.status}): ${text.slice(0, 200)}`);
         }
         setLoading(false);
@@ -152,6 +197,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
     return {
       ...point,
       equityValue: point.equity,
+      spyEquity: point.spy_equity,
       hasSwitch: !!switchEvent,
       switchTo: switchEvent?.to_strategy,
       isAISwitch: switchEvent?.is_ai_generated || false
@@ -275,6 +321,63 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
           </label>
         </div>
 
+        {/* Current Market Regime Display */}
+        {currentRegime && (
+          <div className="p-4 rounded-xl border" style={{
+            background: currentRegime.conditions ? `linear-gradient(to right, ${currentRegime.conditions.bg_color || 'rgba(209, 213, 219, 0.1)'}, white)` : 'white',
+            borderColor: currentRegime.color || '#D1D5DB'
+          }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg" style={{ backgroundColor: `${currentRegime.color}20` }}>
+                  <BarChart2 className="w-5 h-5" style={{ color: currentRegime.color }} />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">
+                    Current Regime: <span style={{ color: currentRegime.color }}>{currentRegime.regime_name}</span>
+                  </p>
+                  <p className="text-sm text-gray-600">{currentRegime.description}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs px-2 py-1 rounded-full ${
+                  currentRegime.risk_level === 'low' ? 'bg-green-100 text-green-700' :
+                  currentRegime.risk_level === 'extreme' ? 'bg-red-100 text-red-700' :
+                  currentRegime.risk_level === 'high' ? 'bg-orange-100 text-orange-700' :
+                  'bg-yellow-100 text-yellow-700'
+                }`}>
+                  {currentRegime.risk_level?.toUpperCase()} risk
+                </span>
+                <span className="text-xs text-gray-500">
+                  {currentRegime.confidence?.toFixed(0)}% confidence
+                </span>
+              </div>
+            </div>
+            {/* Market Conditions Summary */}
+            {currentRegime.conditions && (
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <span className="px-2 py-1 bg-white/80 rounded border border-gray-200">
+                  SPY vs 200MA: <span className={currentRegime.conditions.spy_vs_200ma_pct >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    {currentRegime.conditions.spy_vs_200ma_pct >= 0 ? '+' : ''}{currentRegime.conditions.spy_vs_200ma_pct?.toFixed(1)}%
+                  </span>
+                </span>
+                <span className="px-2 py-1 bg-white/80 rounded border border-gray-200">
+                  VIX: <span className="font-medium">{currentRegime.conditions.vix_level?.toFixed(1)}</span>
+                  <span className="text-gray-400 ml-1">({currentRegime.conditions.vix_percentile?.toFixed(0)}%ile)</span>
+                </span>
+                <span className="px-2 py-1 bg-white/80 rounded border border-gray-200">
+                  Breadth: <span className="font-medium">{currentRegime.conditions.breadth_pct?.toFixed(0)}%</span> above 50MA
+                </span>
+                <span className="px-2 py-1 bg-white/80 rounded border border-gray-200">
+                  Trend: <span className={currentRegime.conditions.trend_strength >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    {currentRegime.conditions.trend_strength >= 0 ? '+' : ''}{currentRegime.conditions.trend_strength?.toFixed(1)}
+                  </span>
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Run Button */}
         <button
           onClick={runSimulation}
@@ -383,10 +486,35 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
             {/* Equity Curve Chart */}
             {chartData.length > 0 && (
               <div className="p-4 border border-gray-200 rounded-xl">
-                <h4 className="font-medium text-gray-900 mb-4">Equity Curve</h4>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-medium text-gray-900">Equity Curve</h4>
+                  <button
+                    onClick={() => setShowRegimes(!showRegimes)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      showRegimes
+                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                        : 'bg-gray-100 text-gray-600 border border-gray-200'
+                    }`}
+                  >
+                    {showRegimes ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    {showRegimes ? 'Regimes On' : 'Regimes Off'}
+                  </button>
+                </div>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    {/* Market Regime Background Areas */}
+                    {showRegimes && regimePeriods.map((period, i) => (
+                      <ReferenceArea
+                        key={`regime-${i}`}
+                        x1={period.start_date}
+                        x2={period.end_date}
+                        fill={period.bg_color || 'rgba(200, 200, 200, 0.1)'}
+                        stroke={period.color}
+                        strokeOpacity={0.3}
+                        fillOpacity={0.6}
+                      />
+                    ))}
                     <XAxis
                       dataKey="date"
                       tick={{ fontSize: 11 }}
@@ -401,11 +529,23 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                       content={({ active, payload, label }) => {
                         if (!active || !payload?.length) return null;
                         const data = payload[0]?.payload;
+                        // Find regime for this date
+                        const regime = regimePeriods.find(p =>
+                          label >= p.start_date && label <= p.end_date
+                        );
                         return (
                           <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 text-sm">
                             <p className="font-medium">{new Date(label).toLocaleDateString()}</p>
-                            <p className="text-blue-600">Equity: ${data?.equity?.toLocaleString()}</p>
+                            <p className="text-blue-600">Portfolio: ${data?.equity?.toLocaleString()}</p>
+                            {data?.spyEquity && (
+                              <p className="text-amber-600">SPY: ${Math.round(data.spyEquity).toLocaleString()}</p>
+                            )}
                             <p className="text-gray-500">Strategy: {data?.strategy}</p>
+                            {regime && (
+                              <p className="font-medium" style={{ color: regime.color }}>
+                                Regime: {regime.regime_name}
+                              </p>
+                            )}
                             {data?.hasSwitch && (
                               <p className="text-purple-600 font-medium">
                                 Switched to: {data?.switchTo}
@@ -423,6 +563,15 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                       strokeWidth={2}
                       dot={false}
                       name="Portfolio"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="spyEquity"
+                      stroke="#F59E0B"
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={false}
+                      name="SPY Benchmark"
                     />
                     {/* Switch markers - AI switches in purple, regular in green */}
                     {chartData.filter(d => d.hasSwitch && d.isAISwitch).map((d, i) => (
@@ -450,12 +599,33 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                     <span className="w-4 h-0.5 bg-blue-500"></span> Portfolio
                   </span>
                   <span className="flex items-center gap-1">
+                    <span className="w-4 h-0.5 bg-amber-500" style={{borderTop: '2px dashed #F59E0B'}}></span> SPY
+                  </span>
+                  <span className="flex items-center gap-1">
                     <span className="w-4 h-0.5 bg-purple-500"></span> AI Switch
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="w-4 h-0.5 bg-emerald-500"></span> Strategy Switch
                   </span>
                 </div>
+                {/* Regime Legend */}
+                {showRegimes && regimePeriods.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <p className="text-xs text-gray-500 mb-2 text-center">Market Regimes:</p>
+                    <div className="flex flex-wrap items-center justify-center gap-3 text-xs">
+                      {/* Get unique regimes */}
+                      {[...new Map(regimePeriods.map(p => [p.regime_type, p])).values()].map((period, i) => (
+                        <span key={i} className="flex items-center gap-1.5">
+                          <span
+                            className="w-3 h-3 rounded-sm"
+                            style={{ backgroundColor: period.bg_color, border: `1px solid ${period.color}` }}
+                          ></span>
+                          <span style={{ color: period.color }}>{period.regime_name}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -527,6 +697,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                           <div className="flex items-center gap-2">
                             {/* Regime Badge with risk level */}
                             <span className={`text-xs px-2 py-1 rounded-full ${
+                              ai.market_regime === 'rotating_bull' ? 'bg-violet-100 text-violet-700' :
                               ai.market_regime?.includes('bull') ? 'bg-emerald-100 text-emerald-700' :
                               ai.market_regime?.includes('bear') || ai.market_regime === 'panic_crash' ? 'bg-red-100 text-red-700' :
                               ai.market_regime === 'recovery' ? 'bg-blue-100 text-blue-700' :

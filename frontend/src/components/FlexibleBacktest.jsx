@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { PlayCircle, RefreshCw, TrendingUp, Calendar, List, Settings, AlertCircle } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, Cell } from 'recharts';
+import { PlayCircle, RefreshCw, TrendingUp, Calendar, List, Settings, AlertCircle, GitCompare, Trophy } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -8,6 +8,14 @@ const PRESET_UNIVERSES = {
   'nasdaq100': 'NASDAQ-100',
   'sp500': 'S&P 500',
   'custom': 'Custom Tickers'
+};
+
+const EXIT_STRATEGIES = {
+  trailing_stop: { label: 'Trailing Stop', description: 'Exit when price drops X% from high water mark' },
+  fixed_target: { label: 'Fixed Target', description: 'Exit at X% profit target' },
+  hybrid: { label: 'Hybrid', description: 'Hit initial target, then switch to trailing stop' },
+  time_based: { label: 'Time-Based', description: 'Exit after max holding period' },
+  stop_loss_target: { label: 'Stop + Target', description: 'Fixed stop loss and profit target (legacy)' }
 };
 
 export default function FlexibleBacktest({ fetchWithAuth, strategies = [] }) {
@@ -32,6 +40,21 @@ export default function FlexibleBacktest({ fetchWithAuth, strategies = [] }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  // Exit strategy state
+  const [exitStrategy, setExitStrategy] = useState('trailing_stop');
+  const [exitParams, setExitParams] = useState({
+    trailing_stop_pct: 15,
+    profit_target_pct: 20,
+    stop_loss_pct: 8,
+    hybrid_initial_target_pct: 15,
+    hybrid_trailing_pct: 8,
+    max_hold_days: 60
+  });
+
+  // Comparison mode
+  const [compareMode, setCompareMode] = useState(false);
+  const [comparisonResult, setComparisonResult] = useState(null);
 
   const PARAM_CONFIG = {
     momentum: {
@@ -73,6 +96,7 @@ export default function FlexibleBacktest({ fetchWithAuth, strategies = [] }) {
     setLoading(true);
     setError(null);
     setResult(null);
+    setComparisonResult(null);
 
     try {
       const body = {
@@ -96,6 +120,15 @@ export default function FlexibleBacktest({ fetchWithAuth, strategies = [] }) {
         body.ticker_universe = tickerUniverse;
       }
 
+      // Add exit strategy parameters
+      body.exit_strategy_type = exitStrategy;
+      body.trailing_stop_pct = exitParams.trailing_stop_pct;
+      body.profit_target_pct = exitParams.profit_target_pct;
+      body.stop_loss_pct = exitParams.stop_loss_pct;
+      body.hybrid_initial_target_pct = exitParams.hybrid_initial_target_pct;
+      body.hybrid_trailing_pct = exitParams.hybrid_trailing_pct;
+      body.max_hold_days = exitParams.max_hold_days;
+
       const response = await fetchWithAuth(
         `${API_URL}/api/admin/strategies/backtest`,
         {
@@ -108,6 +141,54 @@ export default function FlexibleBacktest({ fetchWithAuth, strategies = [] }) {
       if (response.ok) {
         const data = await response.json();
         setResult(data);
+      } else {
+        try {
+          const err = await response.json();
+          setError(err.detail || JSON.stringify(err));
+        } catch {
+          const text = await response.text();
+          setError(`Server error (${response.status}): ${text.slice(0, 200)}`);
+        }
+      }
+    } catch (err) {
+      setError(`Request failed: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runExitComparison = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setComparisonResult(null);
+
+    try {
+      const body = {
+        start_date: startDate,
+        end_date: endDate,
+        lookback_days: Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24))
+      };
+
+      if (tickerUniverse === 'custom') {
+        body.ticker_list = customTickers
+          .split(/[,\s]+/)
+          .map(t => t.trim().toUpperCase())
+          .filter(t => t.length > 0);
+      }
+
+      const response = await fetchWithAuth(
+        `${API_URL}/api/admin/strategies/backtest/compare-exits`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setComparisonResult(data);
       } else {
         try {
           const err = await response.json();
@@ -305,21 +386,154 @@ export default function FlexibleBacktest({ fetchWithAuth, strategies = [] }) {
           )}
         </div>
 
+        {/* Exit Strategy Selection */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              <Settings size={14} className="inline mr-1" />
+              Exit Strategy
+            </label>
+            <button
+              onClick={() => setCompareMode(!compareMode)}
+              className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                compareMode
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+              }`}
+            >
+              <GitCompare size={12} />
+              {compareMode ? 'Compare Mode ON' : 'Compare All'}
+            </button>
+          </div>
+
+          {!compareMode ? (
+            <>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {Object.entries(EXIT_STRATEGIES).map(([key, { label }]) => (
+                  <button
+                    key={key}
+                    onClick={() => setExitStrategy(key)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      exitStrategy === key
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-xs text-gray-500 mb-3">{EXIT_STRATEGIES[exitStrategy]?.description}</p>
+
+              {/* Exit Strategy Parameters */}
+              <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+                {(exitStrategy === 'trailing_stop' || exitStrategy === 'hybrid') && (
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm text-gray-700 w-40">
+                      {exitStrategy === 'hybrid' ? 'Trailing %' : 'Trailing Stop %'}
+                    </label>
+                    <input
+                      type="range"
+                      min="5"
+                      max="25"
+                      step="1"
+                      value={exitStrategy === 'hybrid' ? exitParams.hybrid_trailing_pct : exitParams.trailing_stop_pct}
+                      onChange={(e) => setExitParams(prev => ({
+                        ...prev,
+                        [exitStrategy === 'hybrid' ? 'hybrid_trailing_pct' : 'trailing_stop_pct']: parseInt(e.target.value)
+                      }))}
+                      className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+                    />
+                    <span className="text-sm font-medium w-10 text-right">
+                      {exitStrategy === 'hybrid' ? exitParams.hybrid_trailing_pct : exitParams.trailing_stop_pct}%
+                    </span>
+                  </div>
+                )}
+
+                {(exitStrategy === 'fixed_target' || exitStrategy === 'stop_loss_target' || exitStrategy === 'hybrid') && (
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm text-gray-700 w-40">
+                      {exitStrategy === 'hybrid' ? 'Initial Target %' : 'Profit Target %'}
+                    </label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="50"
+                      step="5"
+                      value={exitStrategy === 'hybrid' ? exitParams.hybrid_initial_target_pct : exitParams.profit_target_pct}
+                      onChange={(e) => setExitParams(prev => ({
+                        ...prev,
+                        [exitStrategy === 'hybrid' ? 'hybrid_initial_target_pct' : 'profit_target_pct']: parseInt(e.target.value)
+                      }))}
+                      className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+                    />
+                    <span className="text-sm font-medium w-10 text-right">
+                      {exitStrategy === 'hybrid' ? exitParams.hybrid_initial_target_pct : exitParams.profit_target_pct}%
+                    </span>
+                  </div>
+                )}
+
+                {exitStrategy === 'stop_loss_target' && (
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm text-gray-700 w-40">Stop Loss %</label>
+                    <input
+                      type="range"
+                      min="5"
+                      max="15"
+                      step="1"
+                      value={exitParams.stop_loss_pct}
+                      onChange={(e) => setExitParams(prev => ({ ...prev, stop_loss_pct: parseInt(e.target.value) }))}
+                      className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-red-600"
+                    />
+                    <span className="text-sm font-medium w-10 text-right">{exitParams.stop_loss_pct}%</span>
+                  </div>
+                )}
+
+                {exitStrategy === 'time_based' && (
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm text-gray-700 w-40">Max Hold Days</label>
+                    <input
+                      type="range"
+                      min="20"
+                      max="120"
+                      step="10"
+                      value={exitParams.max_hold_days}
+                      onChange={(e) => setExitParams(prev => ({ ...prev, max_hold_days: parseInt(e.target.value) }))}
+                      className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+                    />
+                    <span className="text-sm font-medium w-10 text-right">{exitParams.max_hold_days}d</span>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <p className="text-sm text-purple-800">
+                <strong>Compare Mode:</strong> Test all exit strategies head-to-head to find the best one for your selected date range.
+              </p>
+              <p className="text-xs text-purple-600 mt-2">
+                Strategies compared: Trailing 10/15/20%, Fixed Target 20/30%, Hybrid, Stop+Target, Time-Based
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Run Button */}
         <button
-          onClick={runBacktest}
-          disabled={loading || (!useCustomParams && !selectedStrategy)}
+          onClick={compareMode ? runExitComparison : runBacktest}
+          disabled={loading || (!compareMode && !useCustomParams && !selectedStrategy)}
           className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {loading ? (
             <>
               <RefreshCw className="w-5 h-5 animate-spin" />
-              Running Backtest...
+              {compareMode ? 'Comparing Exit Strategies...' : 'Running Backtest...'}
             </>
           ) : (
             <>
-              <PlayCircle className="w-5 h-5" />
-              Run Backtest
+              {compareMode ? <GitCompare className="w-5 h-5" /> : <PlayCircle className="w-5 h-5" />}
+              {compareMode ? 'Compare All Exit Strategies' : 'Run Backtest'}
             </>
           )}
         </button>
@@ -331,6 +545,143 @@ export default function FlexibleBacktest({ fetchWithAuth, strategies = [] }) {
             <div>
               <p className="font-medium text-red-800">Backtest Failed</p>
               <p className="text-sm text-red-600">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Comparison Results */}
+        {comparisonResult && (
+          <div className="space-y-6">
+            {/* Winner Banner */}
+            {comparisonResult.best_strategy && (
+              <div className="p-4 bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-xl flex items-center gap-4">
+                <div className="p-3 bg-yellow-100 rounded-full">
+                  <Trophy className="w-6 h-6 text-yellow-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-yellow-800">Best Exit Strategy</p>
+                  <p className="text-xl font-bold text-yellow-900">{comparisonResult.best_strategy}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Ranking Table */}
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                <h4 className="font-medium text-gray-900">Exit Strategy Comparison</h4>
+                <p className="text-xs text-gray-500 mt-1">
+                  {comparisonResult.start_date} to {comparisonResult.end_date} • {comparisonResult.tickers_used} tickers
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rank</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Strategy</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Return</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Sharpe</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Drawdown</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Win Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {comparisonResult.ranking?.map((r, i) => (
+                      <tr key={i} className={i === 0 ? 'bg-yellow-50' : 'hover:bg-gray-50'}>
+                        <td className="px-4 py-3 text-sm">
+                          {i === 0 ? (
+                            <span className="inline-flex items-center justify-center w-6 h-6 bg-yellow-400 text-yellow-900 rounded-full font-bold text-xs">1</span>
+                          ) : (
+                            <span className="text-gray-500">{r.rank}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{r.name}</td>
+                        <td className={`px-4 py-3 text-sm font-medium text-right ${r.return >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                          {r.return >= 0 ? '+' : ''}{r.return?.toFixed(1)}%
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900">{r.sharpe?.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm text-right text-red-600">-{r.drawdown?.toFixed(1)}%</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900">{r.win_rate?.toFixed(0)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Visual Comparison Chart */}
+            {comparisonResult.ranking?.length > 0 && (
+              <div className="p-4 border border-gray-200 rounded-xl">
+                <h4 className="font-medium text-gray-900 mb-4">Return vs Sharpe Ratio</h4>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={comparisonResult.ranking} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis type="number" tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={120} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const data = payload[0]?.payload;
+                        return (
+                          <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 text-sm">
+                            <p className="font-medium">{data?.name}</p>
+                            <p className={data?.return >= 0 ? 'text-emerald-600' : 'text-red-600'}>
+                              Return: {data?.return >= 0 ? '+' : ''}{data?.return?.toFixed(1)}%
+                            </p>
+                            <p className="text-blue-600">Sharpe: {data?.sharpe?.toFixed(2)}</p>
+                            <p className="text-red-600">Max DD: -{data?.drawdown?.toFixed(1)}%</p>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar dataKey="return" name="Return %">
+                      {comparisonResult.ranking?.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={index === 0 ? '#F59E0B' : entry.return >= 0 ? '#10B981' : '#EF4444'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Detailed Metrics */}
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                <h4 className="font-medium text-gray-900">Detailed Metrics</h4>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 text-xs">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Strategy</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Trades</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Avg Win</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Avg Loss</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Profit Factor</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Avg Days</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Sortino</th>
+                      <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase">Calmar</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {comparisonResult.results?.filter(r => r.metrics).map((r, i) => (
+                      <tr key={i} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 font-medium text-gray-900">{r.name}</td>
+                        <td className="px-3 py-2 text-right text-gray-600">{r.metrics?.total_trades}</td>
+                        <td className="px-3 py-2 text-right text-emerald-600">+{r.metrics?.avg_win_pct?.toFixed(1)}%</td>
+                        <td className="px-3 py-2 text-right text-red-600">-{r.metrics?.avg_loss_pct?.toFixed(1)}%</td>
+                        <td className="px-3 py-2 text-right text-gray-900">{r.metrics?.profit_factor?.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right text-gray-600">{r.metrics?.avg_days_held?.toFixed(0)}</td>
+                        <td className="px-3 py-2 text-right text-gray-900">{r.metrics?.sortino_ratio?.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right text-gray-900">{r.metrics?.calmar_ratio?.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

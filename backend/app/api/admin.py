@@ -1843,6 +1843,210 @@ async def delete_strategy(
 
 
 # ============================================================================
+# Market Regime Endpoints
+# ============================================================================
+
+@router.get("/market-regime/current")
+async def get_current_regime(
+    admin: User = Depends(get_admin_user)
+):
+    """
+    Get the current market regime classification.
+
+    Returns:
+        Current regime with conditions, risk level, and recommendations.
+    """
+    from app.services.market_regime import market_regime_service
+    from app.services.scanner import scanner_service
+
+    if not scanner_service.data_cache:
+        raise HTTPException(status_code=503, detail="Price data not loaded")
+
+    spy_df = scanner_service.data_cache.get('SPY')
+    if spy_df is None or len(spy_df) < 200:
+        raise HTTPException(status_code=503, detail="Insufficient SPY data")
+
+    vix_df = scanner_service.data_cache.get('^VIX')
+
+    try:
+        regime = market_regime_service.detect_regime(
+            spy_df=spy_df,
+            universe_dfs=scanner_service.data_cache,
+            vix_df=vix_df
+        )
+        return regime.to_dict()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Regime detection failed: {str(e)}")
+
+
+@router.get("/market-regime/history")
+async def get_regime_history(
+    start_date: str = Query(None, description="Start date YYYY-MM-DD"),
+    end_date: str = Query(None, description="End date YYYY-MM-DD"),
+    frequency: str = Query("weekly", description="Sample frequency: daily, weekly, monthly"),
+    admin: User = Depends(get_admin_user)
+):
+    """
+    Get market regime history over a date range.
+
+    Returns:
+        List of regime classifications with dates and conditions.
+    """
+    from app.services.market_regime import market_regime_service
+    from app.services.scanner import scanner_service
+    from datetime import datetime
+
+    if not scanner_service.data_cache:
+        raise HTTPException(status_code=503, detail="Price data not loaded")
+
+    spy_df = scanner_service.data_cache.get('SPY')
+    if spy_df is None or len(spy_df) < 200:
+        raise HTTPException(status_code=503, detail="Insufficient SPY data")
+
+    vix_df = scanner_service.data_cache.get('^VIX')
+
+    parsed_start = None
+    parsed_end = None
+
+    if start_date:
+        try:
+            parsed_start = datetime.strptime(start_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format")
+
+    if end_date:
+        try:
+            parsed_end = datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format")
+
+    if frequency not in ["daily", "weekly", "monthly"]:
+        raise HTTPException(status_code=400, detail="Invalid frequency. Use: daily, weekly, monthly")
+
+    try:
+        history = market_regime_service.get_regime_history(
+            spy_df=spy_df,
+            universe_dfs=scanner_service.data_cache,
+            vix_df=vix_df,
+            start_date=parsed_start,
+            end_date=parsed_end,
+            sample_frequency=frequency
+        )
+
+        return {
+            "start_date": start_date or spy_df.index[0].strftime("%Y-%m-%d"),
+            "end_date": end_date or spy_df.index[-1].strftime("%Y-%m-%d"),
+            "frequency": frequency,
+            "total_samples": len(history),
+            "regimes": [r.to_dict() for r in history]
+        }
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=500, detail=f"Regime history failed: {str(e)}")
+
+
+@router.get("/market-regime/periods")
+async def get_regime_periods(
+    start_date: str = Query(None, description="Start date YYYY-MM-DD"),
+    end_date: str = Query(None, description="End date YYYY-MM-DD"),
+    admin: User = Depends(get_admin_user)
+):
+    """
+    Get regime periods for chart background visualization.
+
+    Returns list of periods with:
+    - start_date, end_date
+    - regime_type, regime_name
+    - color, bg_color for chart rendering
+    """
+    from app.services.market_regime import market_regime_service
+    from app.services.scanner import scanner_service
+    from datetime import datetime
+
+    if not scanner_service.data_cache:
+        raise HTTPException(status_code=503, detail="Price data not loaded")
+
+    spy_df = scanner_service.data_cache.get('SPY')
+    if spy_df is None or len(spy_df) < 200:
+        raise HTTPException(status_code=503, detail="Insufficient SPY data")
+
+    vix_df = scanner_service.data_cache.get('^VIX')
+
+    parsed_start = None
+    parsed_end = None
+
+    if start_date:
+        try:
+            parsed_start = datetime.strptime(start_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format")
+
+    if end_date:
+        try:
+            parsed_end = datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format")
+
+    try:
+        # Get weekly history (good balance of detail and performance)
+        history = market_regime_service.get_regime_history(
+            spy_df=spy_df,
+            universe_dfs=scanner_service.data_cache,
+            vix_df=vix_df,
+            start_date=parsed_start,
+            end_date=parsed_end,
+            sample_frequency='weekly'
+        )
+
+        periods = market_regime_service.get_regime_periods(history)
+        changes = market_regime_service.get_regime_changes(history)
+
+        return {
+            "start_date": start_date or spy_df.index[0].strftime("%Y-%m-%d"),
+            "end_date": end_date or spy_df.index[-1].strftime("%Y-%m-%d"),
+            "periods": periods,
+            "regime_changes": changes,
+            "total_changes": len(changes)
+        }
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=500, detail=f"Regime periods failed: {str(e)}")
+
+
+@router.get("/market-regime/conditions")
+async def get_current_conditions(
+    admin: User = Depends(get_admin_user)
+):
+    """
+    Get detailed current market conditions without regime classification.
+
+    Returns raw indicator values for debugging and display.
+    """
+    from app.services.market_regime import market_regime_service
+    from app.services.scanner import scanner_service
+    from dataclasses import asdict
+
+    if not scanner_service.data_cache:
+        raise HTTPException(status_code=503, detail="Price data not loaded")
+
+    spy_df = scanner_service.data_cache.get('SPY')
+    if spy_df is None or len(spy_df) < 200:
+        raise HTTPException(status_code=503, detail="Insufficient SPY data")
+
+    vix_df = scanner_service.data_cache.get('^VIX')
+
+    try:
+        conditions = market_regime_service.calculate_conditions(
+            spy_df=spy_df,
+            universe_dfs=scanner_service.data_cache,
+            vix_df=vix_df
+        )
+        return asdict(conditions)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Condition calculation failed: {str(e)}")
+
+
+# ============================================================================
 # Flexible Backtesting Endpoint
 # ============================================================================
 
@@ -1855,6 +2059,24 @@ class FlexibleBacktestRequest(BaseModel):
     lookback_days: int = 60
     ticker_list: Optional[List[str]] = None
     ticker_universe: Optional[str] = None
+    # Exit strategy parameters
+    exit_strategy_type: Optional[str] = None  # trailing_stop, fixed_target, hybrid, time_based, stop_loss_target
+    trailing_stop_pct: Optional[float] = None
+    profit_target_pct: Optional[float] = None
+    stop_loss_pct: Optional[float] = None
+    hybrid_initial_target_pct: Optional[float] = None
+    hybrid_trailing_pct: Optional[float] = None
+    max_hold_days: Optional[int] = None
+
+
+class ExitStrategyComparisonRequest(BaseModel):
+    """Request model for exit strategy comparison"""
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    lookback_days: int = 252  # 1 year default
+    ticker_list: Optional[List[str]] = None
+    # List of exit strategies to compare
+    strategies: Optional[List[Dict[str, Any]]] = None
 
 
 @router.post("/strategies/backtest")
@@ -1931,6 +2153,28 @@ async def run_flexible_backtest(
         params = StrategyParams()
         use_momentum = request.strategy_type == "momentum"
 
+    # Build exit strategy config if parameters provided
+    from app.services.backtester import ExitStrategyConfig, ExitStrategyType
+
+    exit_strategy = None
+    if request.exit_strategy_type:
+        try:
+            exit_type = ExitStrategyType(request.exit_strategy_type)
+            exit_strategy = ExitStrategyConfig(
+                strategy_type=exit_type,
+                trailing_stop_pct=request.trailing_stop_pct or 15.0,
+                profit_target_pct=request.profit_target_pct or 20.0,
+                stop_loss_pct=request.stop_loss_pct or 0.0,
+                hybrid_initial_target_pct=request.hybrid_initial_target_pct or 15.0,
+                hybrid_trailing_pct=request.hybrid_trailing_pct or 8.0,
+                max_hold_days=request.max_hold_days or 60
+            )
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid exit_strategy_type. Must be one of: trailing_stop, fixed_target, hybrid, time_based, stop_loss_target"
+            )
+
     # Create and configure backtester
     backtester = CustomBacktester()
     backtester.configure(params)
@@ -1941,7 +2185,8 @@ async def run_flexible_backtest(
             start_date=parsed_start,
             end_date=parsed_end,
             use_momentum_strategy=use_momentum,
-            ticker_list=tickers
+            ticker_list=tickers,
+            exit_strategy=exit_strategy
         )
 
         # Transform trades to match frontend field names
@@ -1989,3 +2234,215 @@ async def run_flexible_backtest(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
+
+
+@router.post("/strategies/backtest/compare-exits")
+async def compare_exit_strategies(
+    request: ExitStrategyComparisonRequest,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Compare different exit strategies head-to-head.
+
+    Runs the same backtest with different exit strategies to compare performance.
+    This helps determine the optimal exit strategy for the momentum strategy.
+
+    Default strategies compared:
+    - Trailing Stop 15% (current default)
+    - Trailing Stop 10%
+    - Trailing Stop 20%
+    - Fixed Target 20%
+    - Fixed Target 30%
+    - Hybrid 15%/8% (hit 15% target, then 8% trailing)
+    - Stop Loss 8% + Target 20% (legacy DWAP)
+
+    Returns:
+        Comparison of all exit strategies with performance metrics
+    """
+    from app.services.backtester import backtester_service, ExitStrategyConfig, ExitStrategyType
+    from app.services.strategy_analyzer import get_top_liquid_symbols
+    from datetime import datetime
+
+    # Parse dates
+    parsed_start = None
+    parsed_end = None
+
+    if request.start_date:
+        try:
+            parsed_start = datetime.strptime(request.start_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format")
+
+    if request.end_date:
+        try:
+            parsed_end = datetime.strptime(request.end_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format")
+
+    # Get tickers
+    tickers = None
+    if request.ticker_list:
+        tickers = [t.strip().upper() for t in request.ticker_list if t.strip()]
+    else:
+        tickers = get_top_liquid_symbols(max_symbols=100)
+
+    # Define exit strategies to compare
+    if request.strategies:
+        # Use custom strategies from request
+        exit_configs = []
+        for s in request.strategies:
+            try:
+                config = ExitStrategyConfig.from_dict(s)
+                exit_configs.append({
+                    "name": s.get("name", s.get("strategy_type", "Custom")),
+                    "config": config
+                })
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Invalid strategy config: {e}")
+    else:
+        # Default comparison set
+        exit_configs = [
+            {
+                "name": "Trailing 15% (Current)",
+                "config": ExitStrategyConfig(
+                    strategy_type=ExitStrategyType.TRAILING_STOP,
+                    trailing_stop_pct=15.0
+                )
+            },
+            {
+                "name": "Trailing 10%",
+                "config": ExitStrategyConfig(
+                    strategy_type=ExitStrategyType.TRAILING_STOP,
+                    trailing_stop_pct=10.0
+                )
+            },
+            {
+                "name": "Trailing 20%",
+                "config": ExitStrategyConfig(
+                    strategy_type=ExitStrategyType.TRAILING_STOP,
+                    trailing_stop_pct=20.0
+                )
+            },
+            {
+                "name": "Fixed Target 20%",
+                "config": ExitStrategyConfig(
+                    strategy_type=ExitStrategyType.FIXED_TARGET,
+                    profit_target_pct=20.0
+                )
+            },
+            {
+                "name": "Fixed Target 30%",
+                "config": ExitStrategyConfig(
+                    strategy_type=ExitStrategyType.FIXED_TARGET,
+                    profit_target_pct=30.0
+                )
+            },
+            {
+                "name": "Hybrid 15%→8%",
+                "config": ExitStrategyConfig(
+                    strategy_type=ExitStrategyType.HYBRID,
+                    hybrid_initial_target_pct=15.0,
+                    hybrid_trailing_pct=8.0
+                )
+            },
+            {
+                "name": "Hybrid 20%→10%",
+                "config": ExitStrategyConfig(
+                    strategy_type=ExitStrategyType.HYBRID,
+                    hybrid_initial_target_pct=20.0,
+                    hybrid_trailing_pct=10.0
+                )
+            },
+            {
+                "name": "Stop 8% + Target 20% (Legacy)",
+                "config": ExitStrategyConfig(
+                    strategy_type=ExitStrategyType.STOP_LOSS_TARGET,
+                    stop_loss_pct=8.0,
+                    profit_target_pct=20.0
+                )
+            },
+            {
+                "name": "Time-Based 60 Days",
+                "config": ExitStrategyConfig(
+                    strategy_type=ExitStrategyType.TIME_BASED,
+                    max_hold_days=60
+                )
+            },
+        ]
+
+    # Run backtest for each exit strategy
+    results = []
+    for exit_config in exit_configs:
+        try:
+            result = backtester_service.run_backtest(
+                lookback_days=request.lookback_days,
+                start_date=parsed_start,
+                end_date=parsed_end,
+                use_momentum_strategy=True,
+                ticker_list=tickers,
+                exit_strategy=exit_config["config"]
+            )
+
+            # Calculate additional metrics
+            winning_trades = [t for t in result.trades if t.pnl > 0]
+            losing_trades = [t for t in result.trades if t.pnl <= 0]
+
+            avg_days_held = sum(t.days_held for t in result.trades) / len(result.trades) if result.trades else 0
+
+            results.append({
+                "name": exit_config["name"],
+                "exit_type": exit_config["config"].strategy_type.value,
+                "config": exit_config["config"].to_dict(),
+                "metrics": {
+                    "total_return_pct": result.total_return_pct,
+                    "sharpe_ratio": result.sharpe_ratio,
+                    "max_drawdown_pct": result.max_drawdown_pct,
+                    "win_rate": result.win_rate,
+                    "total_trades": result.total_trades,
+                    "avg_win_pct": result.avg_win_pct,
+                    "avg_loss_pct": result.avg_loss_pct,
+                    "profit_factor": result.profit_factor,
+                    "calmar_ratio": result.calmar_ratio,
+                    "sortino_ratio": result.sortino_ratio,
+                    "avg_days_held": round(avg_days_held, 1),
+                    "winning_trades": len(winning_trades),
+                    "losing_trades": len(losing_trades),
+                }
+            })
+        except Exception as e:
+            results.append({
+                "name": exit_config["name"],
+                "exit_type": exit_config["config"].strategy_type.value,
+                "error": str(e)
+            })
+
+    # Sort by Sharpe ratio (best first)
+    successful_results = [r for r in results if "metrics" in r]
+    failed_results = [r for r in results if "error" in r]
+    successful_results.sort(key=lambda x: x["metrics"]["sharpe_ratio"], reverse=True)
+
+    # Determine best strategy
+    best_strategy = successful_results[0] if successful_results else None
+
+    return {
+        "success": True,
+        "start_date": request.start_date or (parsed_start.strftime("%Y-%m-%d") if parsed_start else None),
+        "end_date": request.end_date or (parsed_end.strftime("%Y-%m-%d") if parsed_end else datetime.now().strftime("%Y-%m-%d")),
+        "lookback_days": request.lookback_days,
+        "tickers_used": len(tickers) if tickers else "all",
+        "strategies_compared": len(exit_configs),
+        "best_strategy": best_strategy["name"] if best_strategy else None,
+        "results": successful_results + failed_results,
+        "ranking": [
+            {
+                "rank": i + 1,
+                "name": r["name"],
+                "sharpe": r["metrics"]["sharpe_ratio"],
+                "return": r["metrics"]["total_return_pct"],
+                "drawdown": r["metrics"]["max_drawdown_pct"],
+                "win_rate": r["metrics"]["win_rate"]
+            }
+            for i, r in enumerate(successful_results)
+        ]
+    }
