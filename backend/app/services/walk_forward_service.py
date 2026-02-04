@@ -176,7 +176,7 @@ class WalkForwardService:
         periods = []
         current_start = start_date
 
-        if frequency == "weekly":
+        if frequency in ("weekly", "fast"):
             delta = timedelta(days=7)
         elif frequency == "biweekly":
             delta = timedelta(days=14)
@@ -881,7 +881,7 @@ class WalkForwardService:
                 returns.append(ret)
             if returns:
                 # Annualize based on frequency
-                periods_per_year = {"weekly": 52, "biweekly": 26, "monthly": 12}[reoptimization_frequency]
+                periods_per_year = {"weekly": 52, "fast": 52, "biweekly": 26, "monthly": 12}.get(reoptimization_frequency, 26)
                 avg_return = np.mean(returns) * periods_per_year
                 std_return = np.std(returns) * np.sqrt(periods_per_year)
                 sharpe_ratio = avg_return / std_return if std_return > 0 else 0
