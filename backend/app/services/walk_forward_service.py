@@ -23,7 +23,8 @@ from app.core.database import StrategyDefinition, WalkForwardSimulation
 from app.services.backtester import BacktesterService
 from app.services.strategy_analyzer import StrategyAnalyzerService, CustomBacktester, StrategyParams, get_top_liquid_symbols
 from app.services.scanner import scanner_service
-from app.services.market_regime import market_regime_detector, MarketRegime, MARKET_REGIMES, DEFAULT_SCORING_WEIGHTS
+from app.services.market_regime import market_regime_service, MarketRegime, REGIME_DEFINITIONS
+from app.services.scanner import scanner_service as regime_scanner_service
 
 
 @dataclass
@@ -275,12 +276,35 @@ class WalkForwardService:
         Detect market regime using multi-factor analysis.
 
         Uses SPY trend, VIX, trend strength, and breadth to classify
-        into one of six regimes: strong_bull, weak_bull, range_bound,
-        weak_bear, panic_crash, recovery.
+        into one of seven regimes: strong_bull, weak_bull, rotating_bull,
+        range_bound, weak_bear, panic_crash, recovery.
 
         Returns: MarketRegime object with name, risk level, and recommendations
         """
-        return market_regime_detector.detect_regime(as_of_date)
+        spy_df = scanner_service.data_cache.get('SPY')
+        vix_df = scanner_service.data_cache.get('^VIX')
+
+        if spy_df is None or len(spy_df) < 200:
+            # Return a default regime if no data
+            from app.services.market_regime import RegimeType, MarketConditions
+            return MarketRegime(
+                date=as_of_date.strftime('%Y-%m-%d'),
+                regime_type=RegimeType.RANGE_BOUND,
+                regime_name="Range-Bound",
+                risk_level="medium",
+                confidence=50.0,
+                conditions=None,
+                param_adjustments={},
+                scoring_weights=REGIME_DEFINITIONS[RegimeType.RANGE_BOUND]["scoring_weights"],
+                description="Insufficient data for regime detection"
+            )
+
+        return market_regime_service.detect_regime(
+            spy_df=spy_df,
+            universe_dfs=scanner_service.data_cache,
+            vix_df=vix_df,
+            as_of_date=as_of_date
+        )
 
     def _run_ai_optimization_at_date(
         self,
@@ -380,7 +404,7 @@ class WalkForwardService:
                 expected_sharpe=best_result["sharpe_ratio"],
                 expected_return_pct=best_result["total_return_pct"],
                 strategy_type=strategy_type,
-                market_regime=regime.name,
+                market_regime=regime.regime_type.value,
                 was_adopted=False,
                 reason="",
                 expected_sortino=best_result.get("sortino_ratio", 0),
