@@ -1317,7 +1317,16 @@ async def start_walk_forward_async(
                     "date": a.date,
                     "best_params": a.best_params,
                     "expected_sharpe": a.expected_sharpe,
+                    "expected_return_pct": a.expected_return_pct,
+                    "expected_sortino": a.expected_sortino,
+                    "expected_calmar": a.expected_calmar,
+                    "expected_profit_factor": a.expected_profit_factor,
+                    "expected_max_dd": a.expected_max_dd,
                     "market_regime": a.market_regime,
+                    "regime_risk_level": a.regime_risk_level,
+                    "regime_confidence": a.regime_confidence,
+                    "combinations_tested": a.combinations_tested,
+                    "adaptive_score": a.adaptive_score,
                     "was_adopted": a.was_adopted,
                     "reason": a.reason
                 }
