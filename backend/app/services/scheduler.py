@@ -125,6 +125,15 @@ class SchedulerService:
                 except Exception as e:
                     logger.error(f"Callback error: {e}")
 
+            # Run daily walk-forward simulation for dashboard stats
+            try:
+                logger.info("📊 Running daily walk-forward simulation...")
+                await self._run_daily_walk_forward()
+                logger.info("✅ Walk-forward simulation complete")
+            except Exception as wf_err:
+                logger.error(f"⚠️ Walk-forward simulation failed: {wf_err}")
+                # Don't fail the whole update if walk-forward fails
+
             # Update status
             self.last_run = datetime.now(ET)
             self.last_run_status = "success"
@@ -137,6 +146,79 @@ class SchedulerService:
             logger.error(f"❌ Daily update failed: {e}")
             self.last_run_status = f"error: {str(e)}"
             raise
+
+    async def _run_daily_walk_forward(self):
+        """
+        Run a 1-year walk-forward simulation and cache results for dashboard.
+
+        Uses biweekly reoptimization without AI to keep it fast (~30 seconds).
+        Results are stored in WalkForwardSimulation table with is_daily_cache=True.
+        """
+        from datetime import timedelta
+        from app.core.database import async_session, WalkForwardSimulation
+        from app.services.walk_forward_service import walk_forward_service
+        from sqlalchemy import select, delete
+
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=365)  # 1 year lookback
+
+        async with async_session() as db:
+            try:
+                # Delete old daily cache entries (keep only last one)
+                await db.execute(
+                    delete(WalkForwardSimulation).where(
+                        WalkForwardSimulation.is_daily_cache == True
+                    )
+                )
+
+                # Create new job record
+                job = WalkForwardSimulation(
+                    simulation_date=datetime.utcnow(),
+                    start_date=start_date,
+                    end_date=end_date,
+                    reoptimization_frequency="biweekly",
+                    status="running",
+                    is_daily_cache=True,  # Mark as dashboard cache
+                    total_return_pct=0,
+                    sharpe_ratio=0,
+                    max_drawdown_pct=0,
+                    num_strategy_switches=0,
+                    benchmark_return_pct=0,
+                )
+                db.add(job)
+                await db.commit()
+                await db.refresh(job)
+                job_id = job.id
+
+                logger.info(f"[DAILY-WF] Starting 1-year walk-forward (job {job_id})")
+
+                # Run walk-forward without AI optimization (faster)
+                result = await walk_forward_service.run_walk_forward_simulation(
+                    db=db,
+                    start_date=start_date,
+                    end_date=end_date,
+                    reoptimization_frequency="biweekly",
+                    min_score_diff=10.0,
+                    enable_ai_optimization=False,  # No AI for speed
+                    max_symbols=100,  # Smaller universe for speed
+                    existing_job_id=job_id
+                )
+
+                logger.info(f"[DAILY-WF] Complete: {result.total_return_pct:.1f}% return, "
+                           f"{result.num_strategy_switches} switches, "
+                           f"benchmark {result.benchmark_return_pct:.1f}%")
+
+            except Exception as e:
+                logger.error(f"[DAILY-WF] Failed: {e}")
+                # Update job status to failed
+                result = await db.execute(
+                    select(WalkForwardSimulation).where(WalkForwardSimulation.id == job_id)
+                )
+                job = result.scalar_one_or_none()
+                if job:
+                    job.status = "failed"
+                    await db.commit()
+                raise
 
     def _is_trading_day(self, dt: datetime) -> bool:
         """

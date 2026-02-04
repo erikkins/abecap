@@ -962,6 +962,61 @@ async def get_backtest_trades(days: int = 252, limit: int = 50):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/backtest/walk-forward-cached")
+async def get_cached_walk_forward(db: AsyncSession = Depends(get_db)):
+    """
+    Get the latest cached daily walk-forward simulation results.
+
+    This runs automatically once per day and provides more accurate simulated
+    portfolio stats than a simple backtest (accounts for strategy switches).
+    """
+    from app.core.database import WalkForwardSimulation
+    import json
+
+    # Get the latest cached walk-forward result
+    result = await db.execute(
+        select(WalkForwardSimulation)
+        .where(WalkForwardSimulation.is_daily_cache == True)
+        .where(WalkForwardSimulation.status == "completed")
+        .order_by(desc(WalkForwardSimulation.simulation_date))
+        .limit(1)
+    )
+    cached = result.scalar_one_or_none()
+
+    if not cached:
+        # No cached result, return None so frontend can fall back to simple backtest
+        return {
+            "available": False,
+            "message": "No cached walk-forward results available yet"
+        }
+
+    # Parse equity curve and switch history from JSON
+    equity_curve = []
+    switch_history = []
+    try:
+        if cached.equity_curve_json:
+            equity_curve = json.loads(cached.equity_curve_json)
+        if cached.switch_history_json:
+            switch_history = json.loads(cached.switch_history_json)
+    except json.JSONDecodeError:
+        pass
+
+    return {
+        "available": True,
+        "simulation_date": cached.simulation_date.isoformat(),
+        "start_date": cached.start_date.isoformat(),
+        "end_date": cached.end_date.isoformat(),
+        "total_return_pct": cached.total_return_pct,
+        "sharpe_ratio": cached.sharpe_ratio,
+        "max_drawdown_pct": cached.max_drawdown_pct,
+        "benchmark_return_pct": cached.benchmark_return_pct,
+        "num_strategy_switches": cached.num_strategy_switches,
+        "switch_history": switch_history,
+        "equity_curve": equity_curve,
+        "reoptimization_frequency": cached.reoptimization_frequency,
+    }
+
+
 # ============================================================================
 # Portfolio Endpoints (with Database)
 # ============================================================================

@@ -1225,7 +1225,26 @@ function Dashboard() {
       if (cachedSignals || cachedBacktest) {
         if (cachedSignals) setSignals(cachedSignals);
         if (cachedBacktest) {
-          setBacktest({ ...cachedBacktest.backtest, strategy: cachedBacktest.strategy || 'momentum' });
+          // Check if cached data is walk-forward format or simple backtest
+          if (cachedBacktest.available !== undefined) {
+            // Walk-forward cached format
+            const wf = cachedBacktest;
+            setBacktest({
+              total_return_pct: wf.total_return_pct?.toFixed(1) || '0.0',
+              sharpe_ratio: wf.sharpe_ratio?.toFixed(2) || '0.00',
+              max_drawdown_pct: Math.abs(wf.max_drawdown_pct || 0).toFixed(1),
+              win_rate: '--',
+              start_date: wf.start_date?.split('T')[0],
+              end_date: wf.end_date?.split('T')[0],
+              strategy: 'momentum',
+              benchmark_return_pct: wf.benchmark_return_pct?.toFixed(1) || '0.0',
+              num_strategy_switches: wf.num_strategy_switches || 0,
+              is_walk_forward: true
+            });
+          } else if (cachedBacktest.backtest) {
+            // Simple backtest format
+            setBacktest({ ...cachedBacktest.backtest, strategy: cachedBacktest.strategy || 'momentum', is_walk_forward: false });
+          }
           // Don't load positions/trades from backtest cache - only from user data
         }
         // Load user positions from cache (NOT backtest positions)
@@ -1271,9 +1290,9 @@ function Dashboard() {
       // Step 4: Background refresh - load fresh data from API (don't block UI)
       const refreshData = async () => {
         try {
-          // Load all data in parallel
-          const [backtestResult, signalsResult, marketResult, userPositionsResult, userTradesResult, missedResult] = await Promise.allSettled([
-            api.get('/api/backtest/run?days=252').catch(() => null),
+          // Load all data in parallel - try cached walk-forward first, fallback to simple backtest
+          const [walkForwardResult, signalsResult, marketResult, userPositionsResult, userTradesResult, missedResult] = await Promise.allSettled([
+            api.get('/api/backtest/walk-forward-cached').catch(() => null),
             // Only fetch from API if CDN failed
             signals.length === 0 ? api.get('/api/signals/memory-scan?refresh=false&apply_market_filter=true').catch(() => null) : Promise.resolve(null),
             api.get('/api/market/regime').catch(() => null),
@@ -1282,11 +1301,34 @@ function Dashboard() {
             api.get('/api/signals/missed?days=90&limit=5').catch(() => null)
           ]);
 
-          // Process backtest result (for stats display only, NOT for positions/trades)
-          if (backtestResult.status === 'fulfilled' && backtestResult.value?.success) {
-            const bt = backtestResult.value;
-            setBacktest({ ...bt.backtest, strategy: bt.strategy || 'momentum' });
-            setCache(CACHE_KEYS.BACKTEST, bt);
+          // Process walk-forward or fallback to simple backtest (for stats display only, NOT for positions/trades)
+          if (walkForwardResult.status === 'fulfilled' && walkForwardResult.value?.available) {
+            // Use cached walk-forward results (more accurate)
+            const wf = walkForwardResult.value;
+            setBacktest({
+              total_return_pct: wf.total_return_pct?.toFixed(1) || '0.0',
+              sharpe_ratio: wf.sharpe_ratio?.toFixed(2) || '0.00',
+              max_drawdown_pct: Math.abs(wf.max_drawdown_pct || 0).toFixed(1),
+              win_rate: '--',  // Walk-forward doesn't track win rate
+              start_date: wf.start_date?.split('T')[0],
+              end_date: wf.end_date?.split('T')[0],
+              strategy: 'momentum',
+              benchmark_return_pct: wf.benchmark_return_pct?.toFixed(1) || '0.0',
+              num_strategy_switches: wf.num_strategy_switches || 0,
+              is_walk_forward: true
+            });
+            setCache(CACHE_KEYS.BACKTEST, walkForwardResult.value);
+          } else {
+            // Fallback to simple backtest
+            try {
+              const simpleBacktest = await api.get('/api/backtest/run?days=252');
+              if (simpleBacktest?.success) {
+                setBacktest({ ...simpleBacktest.backtest, strategy: simpleBacktest.strategy || 'momentum', is_walk_forward: false });
+                setCache(CACHE_KEYS.BACKTEST, simpleBacktest);
+              }
+            } catch (e) {
+              console.log('Simple backtest fallback failed:', e);
+            }
           }
 
           // Process user positions ONLY - no backtest fallback
@@ -1358,9 +1400,10 @@ function Dashboard() {
       setMarketRegime(marketResult);
 
       // Re-run backtest for stats only (NOT for positions/trades)
+      // Note: We use simple backtest here for speed; daily walk-forward runs in background
       try {
         const backtestResult = await api.get('/api/backtest/run?days=252');
-        setBacktest({ ...backtestResult.backtest, strategy: backtestResult.strategy || 'momentum' });
+        setBacktest({ ...backtestResult.backtest, strategy: backtestResult.strategy || 'momentum', is_walk_forward: false });
         setCache(CACHE_KEYS.BACKTEST, backtestResult);
         // Don't set positions/trades from backtest - use real user data only
       } catch (btErr) {
@@ -1527,27 +1570,41 @@ function Dashboard() {
 
         {activeTab === 'dashboard' ? (
           <>
-            {/* Backtest summary banner */}
+            {/* Backtest/Walk-Forward summary banner */}
             {backtest && (
-              <div className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+              <div className={`mb-4 bg-gradient-to-r ${backtest.is_walk_forward ? 'from-purple-50 to-indigo-50 border-purple-200' : 'from-blue-50 to-indigo-50 border-blue-200'} border rounded-xl p-4`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold text-gray-900">Simulated Portfolio (Backtest)</h3>
+                    <h3 className="font-semibold text-gray-900">
+                      Simulated Portfolio {backtest.is_walk_forward ? '(Walk-Forward)' : '(Backtest)'}
+                    </h3>
                     <p className="text-sm text-gray-500">
-                      Based on {backtest.strategy === 'momentum' ? 'Momentum' : 'DWAP'} strategy from {backtest.start_date} to {backtest.end_date}
+                      {backtest.is_walk_forward
+                        ? `Adaptive strategy with ${backtest.num_strategy_switches || 0} switches • ${backtest.start_date} to ${backtest.end_date}`
+                        : `Based on ${backtest.strategy === 'momentum' ? 'Momentum' : 'DWAP'} strategy from ${backtest.start_date} to ${backtest.end_date}`
+                      }
                     </p>
                   </div>
                   <div className="flex gap-6 text-sm">
                     <div className="text-center">
                       <p className="text-gray-500">Return</p>
-                      <p className={`font-bold ${backtest.total_return_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                        {backtest.total_return_pct >= 0 ? '+' : ''}{backtest.total_return_pct}%
+                      <p className={`font-bold ${parseFloat(backtest.total_return_pct) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {parseFloat(backtest.total_return_pct) >= 0 ? '+' : ''}{backtest.total_return_pct}%
                       </p>
                     </div>
-                    <div className="text-center">
-                      <p className="text-gray-500">Win Rate</p>
-                      <p className="font-bold text-gray-900">{backtest.win_rate}%</p>
-                    </div>
+                    {backtest.is_walk_forward ? (
+                      <div className="text-center">
+                        <p className="text-gray-500">vs SPY</p>
+                        <p className={`font-bold ${parseFloat(backtest.total_return_pct) > parseFloat(backtest.benchmark_return_pct) ? 'text-emerald-600' : 'text-gray-900'}`}>
+                          {parseFloat(backtest.total_return_pct) > parseFloat(backtest.benchmark_return_pct) ? '+' : ''}{(parseFloat(backtest.total_return_pct) - parseFloat(backtest.benchmark_return_pct)).toFixed(1)}%
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <p className="text-gray-500">Win Rate</p>
+                        <p className="font-bold text-gray-900">{backtest.win_rate}%</p>
+                      </div>
+                    )}
                     <div className="text-center">
                       <p className="text-gray-500">Sharpe</p>
                       <p className="font-bold text-gray-900">{backtest.sharpe_ratio}</p>

@@ -226,6 +226,7 @@ class WalkForwardSimulation(Base):
     switch_history_json = Column(Text)  # JSON array of switch events
     equity_curve_json = Column(Text)  # JSON array of equity points
     status = Column(String(20), default="completed")  # pending/completed/failed
+    is_daily_cache = Column(Boolean, default=False, index=True)  # For dashboard cached results
 
 
 class StrategyGenerationRun(Base):
