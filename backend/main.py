@@ -343,6 +343,12 @@ def handler(event, context):
     if event.get("walk_forward_job"):
         print(f"📊 Walk-forward async job received - {len(scanner_service.data_cache)} symbols in cache")
         print(f"📊 SPY in cache: {'SPY' in scanner_service.data_cache}")
+        # Debug: show sample keys
+        sample_keys = list(scanner_service.data_cache.keys())[:10]
+        print(f"📊 Sample cache keys: {sample_keys}")
+        # Check for case variations
+        spy_variants = [k for k in scanner_service.data_cache.keys() if 'spy' in k.lower()]
+        print(f"📊 SPY variants in cache: {spy_variants}")
         job_config = event["walk_forward_job"]
         loop = asyncio.get_event_loop()
         if loop.is_closed():
