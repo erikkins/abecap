@@ -341,7 +341,8 @@ def handler(event, context):
 
     # Handle async walk-forward jobs
     if event.get("walk_forward_job"):
-        print("📊 Walk-forward async job received")
+        print(f"📊 Walk-forward async job received - {len(scanner_service.data_cache)} symbols in cache")
+        print(f"📊 SPY in cache: {'SPY' in scanner_service.data_cache}")
         job_config = event["walk_forward_job"]
         loop = asyncio.get_event_loop()
         if loop.is_closed():
