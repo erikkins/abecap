@@ -573,8 +573,12 @@ class WalkForwardService:
             )
 
             ending_capital = starting_capital * (1 + result.total_return_pct / 100)
+            print(f"[WF-SIM] Period {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}: {result.total_return_pct:.2f}% return, {result.total_trades} trades")
             return ending_capital, result.total_return_pct
-        except Exception:
+        except Exception as e:
+            print(f"[WF-SIM] ERROR in period {start_date.strftime('%Y-%m-%d')}: {e}")
+            import traceback
+            traceback.print_exc()
             return starting_capital, 0.0
 
     def _simulate_period_trading(
@@ -606,6 +610,7 @@ class WalkForwardService:
             )
 
             ending_capital = starting_capital * (1 + result.total_return_pct / 100)
+            print(f"[WF-SIM] Period {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}: {result.total_return_pct:.2f}% return, {result.total_trades} trades (strategy: {strategy.name})")
 
             # Build equity curve points for this period
             # We don't have detailed daily data, so approximate
@@ -626,6 +631,9 @@ class WalkForwardService:
 
         except Exception as e:
             # If backtest fails, assume flat return
+            print(f"[WF-SIM] ERROR in period {start_date.strftime('%Y-%m-%d')}: {e}")
+            import traceback
+            traceback.print_exc()
             return starting_capital, [], 0.0
 
     async def run_walk_forward_simulation(

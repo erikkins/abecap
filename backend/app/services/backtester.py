@@ -549,9 +549,15 @@ class BacktesterService:
                 start_ts = start_ts.tz_localize(sample_df.index.tz) if start_ts.tz is None else start_ts.tz_convert(sample_df.index.tz)
                 end_ts = end_ts.tz_localize(sample_df.index.tz) if end_ts.tz is None else end_ts.tz_convert(sample_df.index.tz)
             dates = sample_df.index[(sample_df.index >= start_ts) & (sample_df.index <= end_ts)]
+            print(f"[BACKTEST] Date range: {start_ts} to {end_ts}, found {len(dates)} trading days, {len(symbols)} symbols")
         else:
             # Use lookback_days from end
             dates = sample_df.index[-lookback_days:]
+            print(f"[BACKTEST] Using last {lookback_days} days, {len(symbols)} symbols")
+
+        if len(dates) == 0:
+            print(f"[BACKTEST] WARNING: No trading days found! Sample index range: {sample_df.index[0]} to {sample_df.index[-1]}")
+            raise RuntimeError("No trading days in date range")
 
         # Simulate each trading day
         for i, date in enumerate(dates):
