@@ -575,11 +575,9 @@ class WalkForwardService:
 
             ending_capital = starting_capital * (1 + result.total_return_pct / 100)
             print(f"[WF-SIM] Period {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}: {result.total_return_pct:.2f}% return, {result.total_trades} trades")
-            # Return warning if no trades occurred
-            warning = None
-            if result.total_trades == 0:
-                warning = f"Period {start_date.strftime('%Y-%m-%d')}: 0 trades executed"
-            return ending_capital, result.total_return_pct, warning
+            # Always return info about the period for debugging
+            info = f"Period {start_date.strftime('%Y-%m-%d')}: {result.total_trades} trades, {result.total_return_pct:.1f}%"
+            return ending_capital, result.total_return_pct, info
         except Exception as e:
             error_msg = f"Period {start_date.strftime('%Y-%m-%d')}: {str(e)}"
             print(f"[WF-SIM] ERROR: {error_msg}")
@@ -617,10 +615,8 @@ class WalkForwardService:
 
             ending_capital = starting_capital * (1 + result.total_return_pct / 100)
             print(f"[WF-SIM] Period {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}: {result.total_return_pct:.2f}% return, {result.total_trades} trades (strategy: {strategy.name})")
-            # Return warning if no trades occurred
-            warning = None
-            if result.total_trades == 0:
-                warning = f"Period {start_date.strftime('%Y-%m-%d')}: 0 trades ({strategy.name})"
+            # Always return info about the period for debugging
+            info = f"Period {start_date.strftime('%Y-%m-%d')}: {result.total_trades} trades, {result.total_return_pct:.1f}% ({strategy.name})"
 
             # Build equity curve points for this period
             # We don't have detailed daily data, so approximate
@@ -637,7 +633,7 @@ class WalkForwardService:
                 }
             ]
 
-            return ending_capital, equity_points, result.total_return_pct, warning
+            return ending_capital, equity_points, result.total_return_pct, info
 
         except Exception as e:
             # If backtest fails, assume flat return

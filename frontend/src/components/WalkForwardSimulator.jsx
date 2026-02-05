@@ -483,13 +483,13 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
               </p>
             </div>
 
-            {/* Simulation Errors (if any) */}
+            {/* Period Debug Info */}
             {result.errors && result.errors.length > 0 && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                <p className="font-medium text-amber-800 mb-2">Simulation Issues ({result.errors.length})</p>
-                <ul className="text-sm text-amber-700 space-y-1 max-h-32 overflow-y-auto">
-                  {result.errors.map((err, i) => (
-                    <li key={i} className="font-mono text-xs">{err}</li>
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <p className="font-medium text-blue-800 mb-2">Period Details ({result.errors.length} periods)</p>
+                <ul className="text-sm text-blue-700 space-y-1 max-h-40 overflow-y-auto">
+                  {result.errors.map((info, i) => (
+                    <li key={i} className="font-mono text-xs">{info}</li>
                   ))}
                 </ul>
               </div>
