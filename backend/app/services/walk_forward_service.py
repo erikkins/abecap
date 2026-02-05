@@ -939,6 +939,11 @@ class WalkForwardService:
             capital = new_capital
 
         # Calculate final metrics
+        print(f"[WF-SERVICE] Simulation complete: final capital=${capital:,.2f}, initial=${self.initial_capital:,.2f}")
+        print(f"[WF-SERVICE] Equity curve has {len(equity_curve)} points")
+        if len(equity_curve) > 0:
+            equities = [p['equity'] for p in equity_curve]
+            print(f"[WF-SERVICE] Equity range: ${min(equities):,.2f} to ${max(equities):,.2f}")
         total_return_pct = (capital - self.initial_capital) / self.initial_capital * 100
 
         # Calculate Sharpe ratio from equity curve
