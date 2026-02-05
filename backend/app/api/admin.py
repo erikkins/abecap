@@ -1330,6 +1330,21 @@ async def start_walk_forward_async(
                 "sharpe_ratio": result.sharpe_ratio,
                 "max_drawdown_pct": result.max_drawdown_pct,
                 "num_strategy_switches": result.num_strategy_switches,
+                "benchmark_return_pct": result.benchmark_return_pct,
+                "equity_curve": result.equity_curve,
+                "switch_history": [
+                    {
+                        "date": s.date,
+                        "from_strategy": s.from_strategy_name,
+                        "to_strategy": s.to_strategy_name,
+                        "reason": s.reason,
+                        "score_before": s.score_before,
+                        "score_after": s.score_after,
+                        "is_ai_generated": s.is_ai_generated,
+                    }
+                    for s in result.switch_history
+                ],
+                "errors": result.errors if hasattr(result, 'errors') else [],
             }
         except Exception as sync_err:
             job.status = "failed"
