@@ -1567,7 +1567,8 @@ async def run_walk_forward(
                     "source": p.source
                 }
                 for p in result.parameter_evolution
-            ]
+            ],
+            "errors": result.errors if hasattr(result, 'errors') else []
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Simulation failed: {str(e)}")

@@ -102,6 +102,7 @@ class WalkForwardResult:
     period_details: List[SimulationPeriod]
     ai_optimizations: List[AIOptimizationResult] = field(default_factory=list)
     parameter_evolution: List[ParameterSnapshot] = field(default_factory=list)
+    errors: List[str] = field(default_factory=list)  # Simulation errors for debugging
 
 
 class WalkForwardService:
@@ -574,12 +575,13 @@ class WalkForwardService:
 
             ending_capital = starting_capital * (1 + result.total_return_pct / 100)
             print(f"[WF-SIM] Period {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}: {result.total_return_pct:.2f}% return, {result.total_trades} trades")
-            return ending_capital, result.total_return_pct
+            return ending_capital, result.total_return_pct, None
         except Exception as e:
-            print(f"[WF-SIM] ERROR in period {start_date.strftime('%Y-%m-%d')}: {e}")
+            error_msg = f"Period {start_date.strftime('%Y-%m-%d')}: {str(e)}"
+            print(f"[WF-SIM] ERROR: {error_msg}")
             import traceback
             traceback.print_exc()
-            return starting_capital, 0.0
+            return starting_capital, 0.0, error_msg
 
     def _simulate_period_trading(
         self,
@@ -627,14 +629,15 @@ class WalkForwardService:
                 }
             ]
 
-            return ending_capital, equity_points, result.total_return_pct
+            return ending_capital, equity_points, result.total_return_pct, None
 
         except Exception as e:
             # If backtest fails, assume flat return
-            print(f"[WF-SIM] ERROR in period {start_date.strftime('%Y-%m-%d')}: {e}")
+            error_msg = f"Period {start_date.strftime('%Y-%m-%d')}: {str(e)}"
+            print(f"[WF-SIM] ERROR: {error_msg}")
             import traceback
             traceback.print_exc()
-            return starting_capital, [], 0.0
+            return starting_capital, [], 0.0, error_msg
 
     async def run_walk_forward_simulation(
         self,
@@ -711,6 +714,7 @@ class WalkForwardService:
         period_details: List[SimulationPeriod] = []
         ai_optimizations: List[AIOptimizationResult] = []
         parameter_evolution: List[ParameterSnapshot] = []
+        simulation_errors: List[str] = []  # Track errors for debugging
 
         # Get SPY starting price for benchmark line
         spy_start_price = None
@@ -901,16 +905,20 @@ class WalkForwardService:
 
             # Simulate trading for this period
             if using_ai_params and active_params:
-                new_capital, period_return = self._simulate_period_with_params(
+                new_capital, period_return, error = self._simulate_period_with_params(
                     active_params, active_strategy_type, period_start, period_end,
                     capital, ticker_list=top_symbols
                 )
                 strategy_name = "AI-Optimized"
+                if error:
+                    simulation_errors.append(error)
             else:
-                new_capital, period_equity, period_return = self._simulate_period_trading(
+                new_capital, period_equity, period_return, error = self._simulate_period_trading(
                     active_strategy, period_start, period_end, capital, ticker_list=top_symbols
                 )
                 strategy_name = active_strategy.name
+                if error:
+                    simulation_errors.append(error)
 
             period_details.append(SimulationPeriod(
                 start_date=period_start,
@@ -1051,6 +1059,12 @@ class WalkForwardService:
 
         await db.commit()
 
+        # Log error summary
+        if simulation_errors:
+            print(f"[WF-SERVICE] {len(simulation_errors)} errors during simulation")
+            for err in simulation_errors[:5]:  # Log first 5 errors
+                print(f"  - {err}")
+
         return WalkForwardResult(
             start_date=start_date.strftime('%Y-%m-%d'),
             end_date=end_date.strftime('%Y-%m-%d'),
@@ -1064,7 +1078,8 @@ class WalkForwardService:
             equity_curve=equity_curve,
             period_details=period_details,
             ai_optimizations=ai_optimizations,
-            parameter_evolution=parameter_evolution
+            parameter_evolution=parameter_evolution,
+            errors=simulation_errors[:10]  # Include up to 10 errors
         )
 
     async def get_simulation_history(
