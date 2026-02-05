@@ -225,6 +225,7 @@ class WalkForwardSimulation(Base):
     benchmark_return_pct = Column(Float)
     switch_history_json = Column(Text)  # JSON array of switch events
     equity_curve_json = Column(Text)  # JSON array of equity points
+    errors_json = Column(Text)  # JSON array of period debug info
     status = Column(String(20), default="completed")  # pending/completed/failed
     is_daily_cache = Column(Boolean, default=False, index=True)  # For dashboard cached results
 
@@ -400,6 +401,16 @@ async def _run_schema_migrations(conn):
         print("✅ Schema migration: is_daily_cache column ready")
     except Exception as e:
         # Column might already exist or table doesn't exist yet
+        print(f"⚠️ Schema migration skipped: {e}")
+
+    # Migration: Add errors_json column to walk_forward_simulations
+    try:
+        await conn.execute(text("""
+            ALTER TABLE walk_forward_simulations
+            ADD COLUMN IF NOT EXISTS errors_json TEXT
+        """))
+        print("✅ Schema migration: errors_json column ready")
+    except Exception as e:
         print(f"⚠️ Schema migration skipped: {e}")
 
 

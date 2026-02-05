@@ -148,6 +148,9 @@ class BacktestResult:
     max_consecutive_losses: int = 0
     ulcer_index: float = 0.0            # Measures depth/duration of drawdowns
 
+    # Debug info
+    debug_info: str = ""                # Diagnostic information for troubleshooting
+
     def to_dict(self):
         return {
             **asdict(self),
@@ -561,6 +564,11 @@ class BacktesterService:
         last_rebalance: Optional[pd.Timestamp] = None
         in_cash_mode = False  # True when market is unfavorable
 
+        # Debug tracking
+        debug_rebalance_days = 0
+        debug_cash_mode_days = 0
+        debug_first_rebalance_info = ""
+
         # Get common date range
         sample_df = scanner_service.data_cache[symbols[0]]
 
@@ -670,6 +678,7 @@ class BacktesterService:
 
             # Skip new entries if in cash mode (unfavorable market)
             if in_cash_mode:
+                debug_cash_mode_days += 1
                 position_value = 0.0
                 for sym, pos in positions.items():
                     if sym in scanner_service.data_cache:
@@ -710,9 +719,10 @@ class BacktesterService:
 
                     # Log on first rebalance day
                     if last_rebalance is None:
-                        print(f"[BACKTEST] First rebalance {date_str}: {len(symbols)} symbols, "
-                              f"{skipped_in_pos} in positions, {skipped_no_score} no score, "
-                              f"{skipped_quality} failed quality, {len(candidates)} candidates")
+                        debug_first_rebalance_info = (f"First rebalance {date_str}: {len(symbols)} sym, "
+                              f"{skipped_no_score} no_score, {skipped_quality} failed_quality, {len(candidates)} candidates")
+                        print(f"[BACKTEST] {debug_first_rebalance_info}")
+                    debug_rebalance_days += 1
 
                     # Sort by composite score (highest first)
                     candidates.sort(key=lambda x: -x['composite_score'])
@@ -898,8 +908,10 @@ class BacktesterService:
             max_dd=max_dd * 100
         )
 
-        # Summary logging for debugging
-        debug_info = f"{len(trades)} trades, {len(dates)} days, {total_return_pct:.2f}% return"
+        # Build debug info string
+        debug_info = (f"{len(trades)} trades, {len(dates)} days, {debug_rebalance_days} rebal_days, "
+                      f"{debug_cash_mode_days} cash_days, {total_return_pct:.2f}% return. "
+                      f"{debug_first_rebalance_info or 'No rebalance'}")
         print(f"[BACKTEST] Summary: {debug_info}")
         print(f"[BACKTEST] Date range: {dates[0].strftime('%Y-%m-%d')} to {dates[-1].strftime('%Y-%m-%d')}")
         if len(trades) == 0:
@@ -917,6 +929,7 @@ class BacktesterService:
             sharpe_ratio=round(sharpe, 2),
             start_date=dates[0].strftime('%Y-%m-%d'),
             end_date=dates[-1].strftime('%Y-%m-%d'),
+            debug_info=debug_info,
             **enhanced_metrics
         )
 

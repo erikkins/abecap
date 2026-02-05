@@ -558,7 +558,7 @@ class WalkForwardService:
         Simulate trading for a period using custom parameters (for AI-generated strategies).
 
         Returns:
-            Tuple of (ending_capital, period_return_pct)
+            Tuple of (ending_capital, period_return_pct, info_string)
         """
         try:
             strategy_params = StrategyParams(**params)
@@ -574,12 +574,18 @@ class WalkForwardService:
             )
 
             ending_capital = starting_capital * (1 + result.total_return_pct / 100)
-            print(f"[WF-SIM] Period {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}: {result.total_return_pct:.2f}% return, {result.total_trades} trades")
+
+            # Use debug_info from BacktestResult if available
+            backtest_debug = getattr(result, 'debug_info', '') or ''
+
+            print(f"[WF-SIM] Period {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}: "
+                  f"{result.total_return_pct:.2f}% return, {result.total_trades} trades. {backtest_debug}")
+
             # Always return info about the period for debugging
-            info = f"Period {start_date.strftime('%Y-%m-%d')}: {result.total_trades} trades, {result.total_return_pct:.1f}%"
+            info = (f"Period {start_date.strftime('%Y-%m-%d')}: {backtest_debug}")
             return ending_capital, result.total_return_pct, info
         except Exception as e:
-            error_msg = f"Period {start_date.strftime('%Y-%m-%d')}: {str(e)}"
+            error_msg = f"Period {start_date.strftime('%Y-%m-%d')}: ERROR {str(e)}"
             print(f"[WF-SIM] ERROR: {error_msg}")
             import traceback
             traceback.print_exc()
@@ -1026,6 +1032,7 @@ class WalkForwardService:
             for s in switch_history
         ])
         equity_curve_data = json.dumps(equity_curve)
+        errors_data = json.dumps(simulation_errors[:20])  # Store up to 20 period info strings
 
         # Save or update simulation in database
         if existing_job_id:
@@ -1042,6 +1049,7 @@ class WalkForwardService:
                 sim_record.benchmark_return_pct = benchmark_return_pct
                 sim_record.switch_history_json = switch_history_data
                 sim_record.equity_curve_json = equity_curve_data
+                sim_record.errors_json = errors_data
                 sim_record.status = "completed"
         else:
             # Create new record (sync flow)
@@ -1057,6 +1065,7 @@ class WalkForwardService:
                 benchmark_return_pct=benchmark_return_pct,
                 switch_history_json=switch_history_data,
                 equity_curve_json=equity_curve_data,
+                errors_json=errors_data,
                 status="completed"
             )
             db.add(sim_record)
@@ -1145,6 +1154,7 @@ class WalkForwardService:
             "benchmark_return_pct": sim.benchmark_return_pct,
             "switch_history": json.loads(sim.switch_history_json) if sim.switch_history_json else [],
             "equity_curve": json.loads(sim.equity_curve_json) if sim.equity_curve_json else [],
+            "errors": json.loads(sim.errors_json) if sim.errors_json else [],
             "status": sim.status
         }
 
