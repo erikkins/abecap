@@ -1328,6 +1328,25 @@ async def start_walk_forward_async(
 
     print(f"[WALK-FORWARD] Created job {job_id}, invoking Lambda async...")
 
+    # Check pre-requisites before running
+    from app.services.scanner import scanner_service
+    if not scanner_service.data_cache:
+        job.status = "failed"
+        job.switch_history_json = json.dumps({"error": "No market data loaded. Please wait for data to load or trigger /warmup."})
+        await db.commit()
+        raise HTTPException(
+            status_code=400,
+            detail="No market data loaded. Please wait for data to load or run /api/warmup first."
+        )
+
+    # Check if strategies exist
+    strat_count = await db.execute(select(func.count(StrategyDefinition.id)))
+    if strat_count.scalar() == 0:
+        await seed_strategies(db)  # Auto-seed if none exist
+        print("[WALK-FORWARD] Auto-seeded strategies")
+
+    print(f"[WALK-FORWARD] Pre-checks passed: {len(scanner_service.data_cache)} symbols loaded, SPY={'SPY' in scanner_service.data_cache}")
+
     # Invoke Lambda asynchronously
     try:
         lambda_client = boto3.client('lambda', region_name='us-east-1')
@@ -1380,16 +1399,21 @@ async def start_walk_forward_async(
                         "score_before": s.score_before,
                         "score_after": s.score_after,
                         "is_ai_generated": s.is_ai_generated,
+                        "ai_params": s.ai_params if s.is_ai_generated else None,
                     }
                     for s in result.switch_history
                 ],
                 "errors": result.errors if hasattr(result, 'errors') else [],
             }
         except Exception as sync_err:
+            import traceback
+            error_detail = f"{str(sync_err)}"
+            print(f"[WALK-FORWARD] Sync execution failed: {error_detail}")
+            print(f"[WALK-FORWARD] Traceback: {traceback.format_exc()}")
             job.status = "failed"
-            job.switch_history_json = json.dumps({"error": str(sync_err)})
+            job.switch_history_json = json.dumps({"error": error_detail})
             await db.commit()
-            raise HTTPException(status_code=500, detail=str(sync_err))
+            raise HTTPException(status_code=500, detail=f"Simulation failed: {error_detail}")
 
     return {
         "job_id": job_id,

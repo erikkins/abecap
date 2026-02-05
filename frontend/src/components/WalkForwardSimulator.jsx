@@ -70,8 +70,19 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
       const response = await fetchWithAuth(`${API_URL}/api/admin/market-regime/periods?${params}`);
       if (response.ok) {
         const data = await response.json();
-        console.log('[RegimePeriods] Received', data.periods?.length || 0, 'periods:', data.periods);
+        console.log('[RegimePeriods] Received', data.periods?.length || 0, 'periods');
+        if (data.periods?.length > 0) {
+          console.log('[RegimePeriods] First period:', data.periods[0]);
+          console.log('[RegimePeriods] Last period:', data.periods[data.periods.length - 1]);
+          console.log('[RegimePeriods] Regime changes:', data.regime_changes?.length || 0);
+        }
         setRegimePeriods(data.periods || []);
+        // Log regime changes for debugging
+        if (data.regime_changes?.length > 0) {
+          console.log('[RegimePeriods] Regime changes detected:', data.regime_changes);
+        } else {
+          console.log('[RegimePeriods] No regime changes - market stayed in same regime');
+        }
       } else {
         const text = await response.text();
         console.error('[RegimePeriods] API error:', response.status, text);
@@ -181,6 +192,8 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
   };
 
   const loadSimulation = async (simId) => {
+    setError(null);
+    setLoading(true);
     try {
       const response = await fetchWithAuth(`${API_URL}/api/admin/strategies/walk-forward/${simId}`);
       if (response.ok) {
@@ -195,9 +208,20 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
           const endStr = data.end_date.split('T')[0];
           fetchRegimePeriods(startStr, endStr);
         }
+      } else {
+        const text = await response.text();
+        try {
+          const err = JSON.parse(text);
+          setError(`Failed to load simulation: ${err.detail || 'Unknown error'}`);
+        } catch {
+          setError(`Failed to load simulation (${response.status})`);
+        }
       }
     } catch (err) {
       console.error('Failed to load simulation:', err);
+      setError(`Failed to load simulation: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -218,6 +242,49 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
       isAISwitch: point.is_ai || switchEvent?.is_ai_generated || false
     };
   }) || [];
+
+  // Map regime periods to actual chart data points for proper ReferenceArea rendering
+  // Recharts categorical x-axis requires x1/x2 to be actual data values
+  const mappedRegimePeriods = React.useMemo(() => {
+    if (!chartData.length || !regimePeriods.length) return [];
+
+    const chartDates = chartData.map(d => d.date);
+
+    return regimePeriods.map(period => {
+      // Find the first chart date >= period start
+      let startIdx = chartDates.findIndex(d => d >= period.start_date);
+      if (startIdx === -1) startIdx = 0;
+
+      // Find the last chart date <= period end
+      let endIdx = chartDates.length - 1;
+      for (let i = chartDates.length - 1; i >= 0; i--) {
+        if (chartDates[i] <= period.end_date) {
+          endIdx = i;
+          break;
+        }
+      }
+
+      // Only include if we have valid range
+      if (startIdx <= endIdx) {
+        return {
+          ...period,
+          x1: chartDates[startIdx],
+          x2: chartDates[endIdx]
+        };
+      }
+      return null;
+    }).filter(Boolean);
+  }, [chartData, regimePeriods]);
+
+  // Debug: log when mapped periods change
+  React.useEffect(() => {
+    if (mappedRegimePeriods.length > 0) {
+      console.log('[MappedRegimes] Total periods:', mappedRegimePeriods.length);
+      mappedRegimePeriods.forEach((p, i) => {
+        console.log(`[MappedRegimes] ${i}: ${p.regime_name} (${p.x1} to ${p.x2})`);
+      });
+    }
+  }, [mappedRegimePeriods]);
 
   // Count AI vs regular switches
   const aiSwitches = result?.num_ai_switches || 0;
@@ -415,6 +482,12 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
           )}
         </button>
 
+        {/* Info Note */}
+        <p className="text-xs text-gray-500 text-center">
+          Evaluates all strategies (Momentum, DWAP Classic, DWAP Hybrid) at each period and picks the best performer.
+          {enableAI && ' AI optimization finds best parameters for current market conditions.'}
+        </p>
+
         {/* Job Status */}
         {loading && jobId && (
           <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -529,27 +602,43 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
               <div className="p-4 border border-gray-200 rounded-xl">
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="font-medium text-gray-900">Equity Curve</h4>
-                  <button
-                    onClick={() => setShowRegimes(!showRegimes)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      showRegimes
-                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                        : 'bg-gray-100 text-gray-600 border border-gray-200'
-                    }`}
-                  >
-                    {showRegimes ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                    {showRegimes ? 'Regimes On' : 'Regimes Off'}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {loadingRegimes && (
+                      <span className="text-xs text-gray-400">Loading regimes...</span>
+                    )}
+                    {!loadingRegimes && mappedRegimePeriods.length > 0 && (
+                      <span className="text-xs text-purple-600">
+                        {mappedRegimePeriods.length} regime period{mappedRegimePeriods.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {!loadingRegimes && regimePeriods.length > 0 && mappedRegimePeriods.length === 0 && showRegimes && (
+                      <span className="text-xs text-amber-600">Regime dates don't match chart</span>
+                    )}
+                    {!loadingRegimes && regimePeriods.length === 0 && showRegimes && (
+                      <span className="text-xs text-amber-600">No regime data</span>
+                    )}
+                    <button
+                      onClick={() => setShowRegimes(!showRegimes)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        showRegimes
+                          ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                          : 'bg-gray-100 text-gray-600 border border-gray-200'
+                      }`}
+                    >
+                      {showRegimes ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                      {showRegimes ? 'Regimes On' : 'Regimes Off'}
+                    </button>
+                  </div>
                 </div>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                     {/* Market Regime Background Areas */}
-                    {showRegimes && regimePeriods.map((period, i) => (
+                    {showRegimes && mappedRegimePeriods.map((period, i) => (
                       <ReferenceArea
                         key={`regime-${i}`}
-                        x1={period.start_date}
-                        x2={period.end_date}
+                        x1={period.x1}
+                        x2={period.x2}
                         fill={period.bg_color || 'rgba(200, 200, 200, 0.1)'}
                         stroke={period.color}
                         strokeOpacity={0.3}
@@ -678,35 +767,81 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                 </div>
                 <div className="divide-y divide-gray-200">
                   {result.switch_history.map((s, i) => (
-                    <div key={i} className={`px-4 py-3 flex items-center gap-4 ${s.is_ai_generated ? 'bg-purple-50' : ''}`}>
-                      <div className="w-24 text-sm text-gray-500">
-                        {new Date(s.date).toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center gap-2 flex-1">
-                        {s.from_strategy ? (
-                          <>
-                            <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm">
-                              {s.from_strategy}
-                            </span>
-                            <ArrowRight size={16} className="text-gray-400" />
-                          </>
-                        ) : null}
-                        <span className={`px-2 py-1 rounded text-sm font-medium ${
-                          s.is_ai_generated
-                            ? 'bg-purple-100 text-purple-700'
-                            : 'bg-emerald-100 text-emerald-700'
-                        }`}>
-                          {s.is_ai_generated && <Brain size={12} className="inline mr-1" />}
-                          {s.to_strategy}
-                        </span>
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {s.score_before != null && s.score_after != null && (
-                          <span className={s.score_after > s.score_before ? 'text-emerald-600' : 'text-gray-600'}>
-                            +{(s.score_after - (s.score_before || 0)).toFixed(0)} pts
+                    <div key={i} className={`px-4 py-3 ${s.is_ai_generated ? 'bg-purple-50' : ''}`}>
+                      <div className="flex items-center gap-4">
+                        <div className="w-24 text-sm text-gray-500">
+                          {new Date(s.date).toLocaleDateString()}
+                        </div>
+                        <div className="flex items-center gap-2 flex-1">
+                          {s.from_strategy ? (
+                            <>
+                              <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm">
+                                {s.from_strategy}
+                              </span>
+                              <ArrowRight size={16} className="text-gray-400" />
+                            </>
+                          ) : null}
+                          <span className={`px-2 py-1 rounded text-sm font-medium ${
+                            s.is_ai_generated
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            {s.is_ai_generated && <Brain size={12} className="inline mr-1" />}
+                            {s.to_strategy}
                           </span>
-                        )}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {s.score_before != null && s.score_after != null && (
+                            <span className={s.score_after > s.score_before ? 'text-emerald-600' : 'text-gray-600'}>
+                              +{(s.score_after - (s.score_before || 0)).toFixed(0)} pts
+                            </span>
+                          )}
+                        </div>
                       </div>
+                      {/* AI Parameters Display */}
+                      {s.is_ai_generated && s.ai_params && (
+                        <div className="mt-2 ml-24 p-2 bg-purple-100/50 rounded-lg">
+                          <div className="text-xs font-medium text-purple-700 mb-1">AI-Optimized Parameters:</div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                            {s.ai_params.trailing_stop_pct && (
+                              <div className="bg-white/60 px-2 py-1 rounded">
+                                <span className="text-gray-500">Trail Stop:</span>{' '}
+                                <span className="font-medium text-purple-800">{s.ai_params.trailing_stop_pct}%</span>
+                              </div>
+                            )}
+                            {s.ai_params.max_positions && (
+                              <div className="bg-white/60 px-2 py-1 rounded">
+                                <span className="text-gray-500">Max Pos:</span>{' '}
+                                <span className="font-medium text-purple-800">{s.ai_params.max_positions}</span>
+                              </div>
+                            )}
+                            {s.ai_params.position_size_pct && (
+                              <div className="bg-white/60 px-2 py-1 rounded">
+                                <span className="text-gray-500">Pos Size:</span>{' '}
+                                <span className="font-medium text-purple-800">{s.ai_params.position_size_pct}%</span>
+                              </div>
+                            )}
+                            {s.ai_params.short_momentum_days && (
+                              <div className="bg-white/60 px-2 py-1 rounded">
+                                <span className="text-gray-500">Short Mom:</span>{' '}
+                                <span className="font-medium text-purple-800">{s.ai_params.short_momentum_days}d</span>
+                              </div>
+                            )}
+                            {s.ai_params.near_50d_high_pct && (
+                              <div className="bg-white/60 px-2 py-1 rounded">
+                                <span className="text-gray-500">Near High:</span>{' '}
+                                <span className="font-medium text-purple-800">{s.ai_params.near_50d_high_pct}%</span>
+                              </div>
+                            )}
+                            {s.ai_params.stop_loss_pct > 0 && (
+                              <div className="bg-white/60 px-2 py-1 rounded">
+                                <span className="text-gray-500">Stop Loss:</span>{' '}
+                                <span className="font-medium text-purple-800">{s.ai_params.stop_loss_pct}%</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
