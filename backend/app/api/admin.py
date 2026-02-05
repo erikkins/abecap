@@ -1404,6 +1404,23 @@ async def start_walk_forward_async(
                     for s in result.switch_history
                 ],
                 "errors": result.errors if hasattr(result, 'errors') else [],
+                "trades": [
+                    {
+                        "period_start": t.period_start,
+                        "period_end": t.period_end,
+                        "strategy_name": t.strategy_name,
+                        "symbol": t.symbol,
+                        "entry_date": t.entry_date,
+                        "exit_date": t.exit_date,
+                        "entry_price": t.entry_price,
+                        "exit_price": t.exit_price,
+                        "shares": t.shares,
+                        "pnl_pct": t.pnl_pct,
+                        "pnl_dollars": t.pnl_dollars,
+                        "exit_reason": t.exit_reason
+                    }
+                    for t in (result.trades if hasattr(result, 'trades') else [])
+                ],
             }
         except Exception as sync_err:
             import traceback

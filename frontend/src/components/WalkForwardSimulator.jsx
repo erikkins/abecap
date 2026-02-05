@@ -23,6 +23,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
   const [history, setHistory] = useState([]);
   const [showAIDetails, setShowAIDetails] = useState(false);
   const [showParamEvolution, setShowParamEvolution] = useState(false);
+  const [showTrades, setShowTrades] = useState(false);
   const [regimePeriods, setRegimePeriods] = useState([]);
   const [showRegimes, setShowRegimes] = useState(true);
   const [currentRegime, setCurrentRegime] = useState(null);
@@ -980,6 +981,61 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Trades Executed */}
+            {result.trades && result.trades.length > 0 && (
+              <div className="border border-emerald-200 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setShowTrades(!showTrades)}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-emerald-50 to-green-50 border-b border-emerald-200 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <BarChart2 className="w-5 h-5 text-emerald-600" />
+                    <h4 className="font-medium text-gray-900">Trades Executed</h4>
+                    <span className="text-sm text-emerald-600">({result.trades.length} trades)</span>
+                  </div>
+                  {showTrades ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </button>
+                {showTrades && (
+                  <div className="max-h-96 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Symbol</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Strategy</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Entry</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Exit</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Entry $</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Exit $</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">P&L %</th>
+                          <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">P&L $</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {result.trades.map((trade, i) => (
+                          <tr key={i} className={trade.pnl_pct >= 0 ? 'bg-emerald-50/30' : 'bg-red-50/30'}>
+                            <td className="px-3 py-2 font-medium text-gray-900">{trade.symbol}</td>
+                            <td className="px-3 py-2 text-gray-600 text-xs">{trade.strategy_name?.replace('AI-', '')}</td>
+                            <td className="px-3 py-2 text-gray-600">{new Date(trade.entry_date).toLocaleDateString()}</td>
+                            <td className="px-3 py-2 text-gray-600">{new Date(trade.exit_date).toLocaleDateString()}</td>
+                            <td className="px-3 py-2 text-right text-gray-600">${trade.entry_price?.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right text-gray-600">${trade.exit_price?.toFixed(2)}</td>
+                            <td className={`px-3 py-2 text-right font-medium ${trade.pnl_pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {trade.pnl_pct >= 0 ? '+' : ''}{trade.pnl_pct?.toFixed(1)}%
+                            </td>
+                            <td className={`px-3 py-2 text-right font-medium ${trade.pnl_dollars >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {trade.pnl_dollars >= 0 ? '+' : ''}${trade.pnl_dollars?.toFixed(0)}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-500">{trade.exit_reason?.replace('_', ' ')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>

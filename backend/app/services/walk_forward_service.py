@@ -87,6 +87,23 @@ class SwitchEvent:
 
 
 @dataclass
+class PeriodTrade:
+    """A trade executed during walk-forward simulation"""
+    period_start: str
+    period_end: str
+    strategy_name: str
+    symbol: str
+    entry_date: str
+    exit_date: str
+    entry_price: float
+    exit_price: float
+    shares: float
+    pnl_pct: float
+    pnl_dollars: float
+    exit_reason: str
+
+
+@dataclass
 class WalkForwardResult:
     """Complete walk-forward simulation result"""
     start_date: str
@@ -103,6 +120,7 @@ class WalkForwardResult:
     ai_optimizations: List[AIOptimizationResult] = field(default_factory=list)
     parameter_evolution: List[ParameterSnapshot] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)  # Simulation errors for debugging
+    trades: List[PeriodTrade] = field(default_factory=list)  # All trades across all periods
 
 
 class WalkForwardService:
@@ -552,13 +570,14 @@ class WalkForwardService:
         start_date: datetime,
         end_date: datetime,
         starting_capital: float,
-        ticker_list: List[str] = None
-    ) -> Tuple[float, float]:
+        ticker_list: List[str] = None,
+        strategy_name: str = "AI-Optimized"
+    ) -> Tuple[float, float, str, List[PeriodTrade]]:
         """
         Simulate trading for a period using custom parameters (for AI-generated strategies).
 
         Returns:
-            Tuple of (ending_capital, period_return_pct, info_string)
+            Tuple of (ending_capital, period_return_pct, info_string, trades)
         """
         try:
             strategy_params = StrategyParams(**params)
@@ -581,15 +600,34 @@ class WalkForwardService:
             print(f"[WF-SIM] Period {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}: "
                   f"{result.total_return_pct:.2f}% return, {result.total_trades} trades. {backtest_debug}")
 
+            # Convert trades to PeriodTrade objects
+            period_trades = [
+                PeriodTrade(
+                    period_start=start_date.strftime('%Y-%m-%d'),
+                    period_end=end_date.strftime('%Y-%m-%d'),
+                    strategy_name=strategy_name,
+                    symbol=t.symbol,
+                    entry_date=t.entry_date,
+                    exit_date=t.exit_date,
+                    entry_price=round(t.entry_price, 2),
+                    exit_price=round(t.exit_price, 2),
+                    shares=round(t.shares, 2),
+                    pnl_pct=round(t.pnl_pct, 2),
+                    pnl_dollars=round(t.pnl, 2),
+                    exit_reason=t.exit_reason
+                )
+                for t in result.trades
+            ]
+
             # Always return info about the period for debugging
             info = (f"Period {start_date.strftime('%Y-%m-%d')}: {backtest_debug}")
-            return ending_capital, result.total_return_pct, info
+            return ending_capital, result.total_return_pct, info, period_trades
         except Exception as e:
             error_msg = f"Period {start_date.strftime('%Y-%m-%d')}: ERROR {str(e)}"
             print(f"[WF-SIM] ERROR: {error_msg}")
             import traceback
             traceback.print_exc()
-            return starting_capital, 0.0, error_msg
+            return starting_capital, 0.0, error_msg, []
 
     def _simulate_period_trading(
         self,
@@ -598,12 +636,12 @@ class WalkForwardService:
         end_date: datetime,
         starting_capital: float,
         ticker_list: List[str] = None
-    ) -> Tuple[float, List[Dict]]:
+    ) -> Tuple[float, List[Dict], float, str, List[PeriodTrade]]:
         """
         Simulate trading for a single period using a specific strategy.
 
         Returns:
-            Tuple of (ending_capital, equity_points)
+            Tuple of (ending_capital, equity_points, period_return_pct, info, trades)
         """
         params = StrategyParams.from_json(strategy.parameters)
 
@@ -639,7 +677,26 @@ class WalkForwardService:
                 }
             ]
 
-            return ending_capital, equity_points, result.total_return_pct, info
+            # Convert trades to PeriodTrade objects
+            period_trades = [
+                PeriodTrade(
+                    period_start=start_date.strftime('%Y-%m-%d'),
+                    period_end=end_date.strftime('%Y-%m-%d'),
+                    strategy_name=strategy.name,
+                    symbol=t.symbol,
+                    entry_date=t.entry_date,
+                    exit_date=t.exit_date,
+                    entry_price=round(t.entry_price, 2),
+                    exit_price=round(t.exit_price, 2),
+                    shares=round(t.shares, 2),
+                    pnl_pct=round(t.pnl_pct, 2),
+                    pnl_dollars=round(t.pnl, 2),
+                    exit_reason=t.exit_reason
+                )
+                for t in result.trades
+            ]
+
+            return ending_capital, equity_points, result.total_return_pct, info, period_trades
 
         except Exception as e:
             # If backtest fails, assume flat return
@@ -647,7 +704,7 @@ class WalkForwardService:
             print(f"[WF-SIM] ERROR: {error_msg}")
             import traceback
             traceback.print_exc()
-            return starting_capital, [], 0.0, error_msg
+            return starting_capital, [], 0.0, error_msg, []
 
     async def run_walk_forward_simulation(
         self,
@@ -725,6 +782,7 @@ class WalkForwardService:
         ai_optimizations: List[AIOptimizationResult] = []
         parameter_evolution: List[ParameterSnapshot] = []
         simulation_errors: List[str] = []  # Track errors for debugging
+        all_trades: List[PeriodTrade] = []  # All trades across all periods
 
         # Get SPY starting price for benchmark line
         spy_start_price = None
@@ -915,20 +973,22 @@ class WalkForwardService:
 
             # Simulate trading for this period
             if using_ai_params and active_params:
-                new_capital, period_return, error = self._simulate_period_with_params(
+                new_capital, period_return, error, period_trades = self._simulate_period_with_params(
                     active_params, active_strategy_type, period_start, period_end,
-                    capital, ticker_list=top_symbols
+                    capital, ticker_list=top_symbols, strategy_name="AI-Optimized"
                 )
                 strategy_name = "AI-Optimized"
                 if error:
                     simulation_errors.append(error)
+                all_trades.extend(period_trades)
             else:
-                new_capital, period_equity, period_return, error = self._simulate_period_trading(
+                new_capital, period_equity, period_return, error, period_trades = self._simulate_period_trading(
                     active_strategy, period_start, period_end, capital, ticker_list=top_symbols
                 )
                 strategy_name = active_strategy.name
                 if error:
                     simulation_errors.append(error)
+                all_trades.extend(period_trades)
 
             period_details.append(SimulationPeriod(
                 start_date=period_start,
@@ -1033,6 +1093,23 @@ class WalkForwardService:
         ])
         equity_curve_data = json.dumps(equity_curve)
         errors_data = json.dumps(simulation_errors[:20])  # Store up to 20 period info strings
+        trades_data = json.dumps([
+            {
+                "period_start": t.period_start,
+                "period_end": t.period_end,
+                "strategy_name": t.strategy_name,
+                "symbol": t.symbol,
+                "entry_date": t.entry_date,
+                "exit_date": t.exit_date,
+                "entry_price": t.entry_price,
+                "exit_price": t.exit_price,
+                "shares": t.shares,
+                "pnl_pct": t.pnl_pct,
+                "pnl_dollars": t.pnl_dollars,
+                "exit_reason": t.exit_reason
+            }
+            for t in all_trades
+        ])
 
         # Save or update simulation in database
         if existing_job_id:
@@ -1050,6 +1127,7 @@ class WalkForwardService:
                 sim_record.switch_history_json = switch_history_data
                 sim_record.equity_curve_json = equity_curve_data
                 sim_record.errors_json = errors_data
+                sim_record.trades_json = trades_data
                 sim_record.status = "completed"
         else:
             # Create new record (sync flow)
@@ -1066,6 +1144,7 @@ class WalkForwardService:
                 switch_history_json=switch_history_data,
                 equity_curve_json=equity_curve_data,
                 errors_json=errors_data,
+                trades_json=trades_data,
                 status="completed"
             )
             db.add(sim_record)
@@ -1092,7 +1171,8 @@ class WalkForwardService:
             period_details=period_details,
             ai_optimizations=ai_optimizations,
             parameter_evolution=parameter_evolution,
-            errors=simulation_errors[:10]  # Include up to 10 errors
+            errors=simulation_errors[:10],  # Include up to 10 errors
+            trades=all_trades  # All trades across all periods
         )
 
     async def get_simulation_history(
@@ -1155,6 +1235,7 @@ class WalkForwardService:
             "switch_history": json.loads(sim.switch_history_json) if sim.switch_history_json else [],
             "equity_curve": json.loads(sim.equity_curve_json) if sim.equity_curve_json else [],
             "errors": json.loads(sim.errors_json) if sim.errors_json else [],
+            "trades": json.loads(sim.trades_json) if sim.trades_json else [],
             "status": sim.status
         }
 
