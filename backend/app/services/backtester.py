@@ -854,6 +854,12 @@ class BacktesterService:
             max_dd=max_dd * 100
         )
 
+        # Summary logging for debugging
+        print(f"[BACKTEST] Summary: {len(trades)} trades, {total_return_pct:.2f}% return")
+        print(f"[BACKTEST] Date range: {dates[0].strftime('%Y-%m-%d')} to {dates[-1].strftime('%Y-%m-%d')} ({len(dates)} days)")
+        if len(trades) == 0:
+            print(f"[BACKTEST] WARNING: No trades executed! Check: market filter, rebalancing, signal generation")
+
         return BacktestResult(
             positions=final_positions,
             trades=sorted(trades, key=lambda t: t.exit_date, reverse=True),
