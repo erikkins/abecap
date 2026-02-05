@@ -323,10 +323,9 @@ class BacktesterService:
             return True  # Default to favorable if no SPY data
 
         spy_df = scanner_service.data_cache['SPY']
-        if date not in spy_df.index:
+        row = self._get_row_for_date(spy_df, date)
+        if row is None:
             return True
-
-        row = spy_df.loc[date]
         spy_price = row['close']
         spy_ma200 = row.get('ma_200', np.nan)
 
@@ -442,7 +441,7 @@ class BacktesterService:
         if loc < max(self.short_mom_days, self.long_mom_days, 50):
             return None
 
-        row = df.loc[date]
+        row = df.iloc[loc]  # Use iloc since we already have the integer location
         price = row['close']
         volume = row['volume']
 
@@ -671,11 +670,12 @@ class BacktesterService:
 
             # Skip new entries if in cash mode (unfavorable market)
             if in_cash_mode:
-                position_value = sum(
-                    pos['shares'] * scanner_service.data_cache[sym].loc[date, 'close']
-                    for sym, pos in positions.items()
-                    if sym in scanner_service.data_cache and date in scanner_service.data_cache[sym].index
-                )
+                position_value = 0.0
+                for sym, pos in positions.items():
+                    if sym in scanner_service.data_cache:
+                        sym_row = self._get_row_for_date(scanner_service.data_cache[sym], date)
+                        if sym_row is not None:
+                            position_value += pos['shares'] * sym_row['close']
                 equity_curve.append({'date': date_str, 'equity': capital + position_value})
                 continue
 
@@ -815,11 +815,12 @@ class BacktesterService:
                         }
 
             # Calculate daily equity
-            position_value = sum(
-                pos['shares'] * scanner_service.data_cache[sym].loc[date, 'close']
-                for sym, pos in positions.items()
-                if sym in scanner_service.data_cache and date in scanner_service.data_cache[sym].index
-            )
+            position_value = 0.0
+            for sym, pos in positions.items():
+                if sym in scanner_service.data_cache:
+                    sym_row = self._get_row_for_date(scanner_service.data_cache[sym], date)
+                    if sym_row is not None:
+                        position_value += pos['shares'] * sym_row['close']
             equity_curve.append({
                 'date': date_str,
                 'equity': capital + position_value
