@@ -278,6 +278,23 @@ class BacktesterService:
             'ulcer_index': round(ulcer_index, 2)
         }
 
+    def _get_row_for_date(self, df: pd.DataFrame, date: pd.Timestamp) -> Optional[pd.Series]:
+        """
+        Get the row for a given date, handling timezone mismatches.
+        Returns None if date not found.
+        """
+        try:
+            if date in df.index:
+                return df.loc[date]
+            # Fallback: match by date string
+            date_str = date.strftime('%Y-%m-%d')
+            matches = df.index[df.index.strftime('%Y-%m-%d') == date_str]
+            if len(matches) > 0:
+                return df.loc[matches[0]]
+        except (KeyError, IndexError):
+            pass
+        return None
+
     def _should_rebalance(self, date: pd.Timestamp, last_rebalance: Optional[pd.Timestamp]) -> bool:
         """
         Check if we should rebalance on this date (weekly on Fridays)
@@ -408,11 +425,20 @@ class BacktesterService:
             return None
 
         df = scanner_service.data_cache[symbol]
-        if date not in df.index:
-            return None
 
-        # Get location of date and ensure we have enough history
-        loc = df.index.get_loc(date)
+        # Handle timezone-aware date matching
+        try:
+            if date in df.index:
+                loc = df.index.get_loc(date)
+            else:
+                # Try to find nearest date (handles timezone mismatches)
+                date_only = date.strftime('%Y-%m-%d')
+                matches = df.index[df.index.strftime('%Y-%m-%d') == date_only]
+                if len(matches) == 0:
+                    return None
+                loc = df.index.get_loc(matches[0])
+        except (KeyError, IndexError):
+            return None
         if loc < max(self.short_mom_days, self.long_mom_days, 50):
             return None
 
@@ -576,9 +602,10 @@ class BacktesterService:
                     for symbol in list(positions.keys()):
                         pos = positions[symbol]
                         df = scanner_service.data_cache[symbol]
-                        if date not in df.index:
+                        row = self._get_row_for_date(df, date)
+                        if row is None:
                             continue
-                        current_price = df.loc[date, 'close']
+                        current_price = row['close']
                         pnl_pct = (current_price - pos['entry_price']) / pos['entry_price']
 
                         trade_id += 1
@@ -609,10 +636,11 @@ class BacktesterService:
                     continue
 
                 df = scanner_service.data_cache[symbol]
-                if date not in df.index:
+                row = self._get_row_for_date(df, date)
+                if row is None:
                     continue
 
-                current_price = df.loc[date, 'close']
+                current_price = row['close']
                 pnl_pct = (current_price - pos['entry_price']) / pos['entry_price']
 
                 # Check exit condition using configured strategy
@@ -725,10 +753,10 @@ class BacktesterService:
                             continue
 
                         df = scanner_service.data_cache[symbol]
-                        if date not in df.index:
+                        row = self._get_row_for_date(df, date)
+                        if row is None:
                             continue
 
-                        row = df.loc[date]
                         price = row['close']
                         volume = row['volume']
                         dwap = row.get('dwap', np.nan)
@@ -870,8 +898,9 @@ class BacktesterService:
         )
 
         # Summary logging for debugging
-        print(f"[BACKTEST] Summary: {len(trades)} trades, {total_return_pct:.2f}% return")
-        print(f"[BACKTEST] Date range: {dates[0].strftime('%Y-%m-%d')} to {dates[-1].strftime('%Y-%m-%d')} ({len(dates)} days)")
+        debug_info = f"{len(trades)} trades, {len(dates)} days, {total_return_pct:.2f}% return"
+        print(f"[BACKTEST] Summary: {debug_info}")
+        print(f"[BACKTEST] Date range: {dates[0].strftime('%Y-%m-%d')} to {dates[-1].strftime('%Y-%m-%d')}")
         if len(trades) == 0:
             print(f"[BACKTEST] WARNING: No trades executed! Check: market filter, rebalancing, signal generation")
 
