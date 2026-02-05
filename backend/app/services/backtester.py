@@ -556,7 +556,10 @@ class BacktesterService:
             print(f"[BACKTEST] Using last {lookback_days} days, {len(symbols)} symbols")
 
         if len(dates) == 0:
-            print(f"[BACKTEST] WARNING: No trading days found! Sample index range: {sample_df.index[0]} to {sample_df.index[-1]}")
+            print(f"[BACKTEST] WARNING: No trading days found!")
+            print(f"[BACKTEST] Sample index range: {sample_df.index[0]} to {sample_df.index[-1]}")
+            print(f"[BACKTEST] Sample index tz: {sample_df.index.tz}")
+            print(f"[BACKTEST] Requested: start_ts={start_ts} (tz={start_ts.tz}), end_ts={end_ts} (tz={end_ts.tz})")
             raise RuntimeError("No trading days in date range")
 
         # Simulate each trading day

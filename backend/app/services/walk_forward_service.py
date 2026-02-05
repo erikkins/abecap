@@ -753,7 +753,9 @@ class WalkForwardService:
         })
 
         # Process each period
+        print(f"[WF-SERVICE] Starting simulation loop: {len(periods)} periods, initial capital=${capital:,.2f}")
         for i, (period_start, period_end) in enumerate(periods):
+            print(f"[WF-SERVICE] Period {i+1}/{len(periods)}: {period_start.strftime('%Y-%m-%d')} to {period_end.strftime('%Y-%m-%d')}")
             period_ai_opt = None
 
             # Step 1: Evaluate all existing strategies
