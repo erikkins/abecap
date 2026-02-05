@@ -1671,7 +1671,7 @@ function Dashboard() {
                     )}
                   </div>
                 </div>
-                <div className="text-sm text-gray-600 max-w-md truncate">
+                <div className="text-sm text-gray-600 max-w-sm text-right leading-tight">
                   {marketRegime.recommendation}
                 </div>
               </div>
