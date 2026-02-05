@@ -192,15 +192,19 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
 
   // Prepare chart data
   const chartData = result?.equity_curve?.map((point, i) => {
-    // Find if there was a switch on this date
-    const switchEvent = result.switch_history?.find(s => s.date === point.date);
+    // Use is_switch from point (already computed server-side)
+    // Also check switch_history for additional info about the switch
+    const switchEvent = point.is_switch ? result.switch_history?.find(s =>
+      // Match by strategy name or check if this is near a switch date
+      s.to_strategy === point.strategy || s.to_strategy_name === point.strategy
+    ) : null;
     return {
       ...point,
       equityValue: point.equity,
       spyEquity: point.spy_equity,
-      hasSwitch: !!switchEvent,
-      switchTo: switchEvent?.to_strategy,
-      isAISwitch: switchEvent?.is_ai_generated || false
+      hasSwitch: point.is_switch || false,
+      switchTo: switchEvent?.to_strategy || switchEvent?.to_strategy_name || point.strategy,
+      isAISwitch: point.is_ai || switchEvent?.is_ai_generated || false
     };
   }) || [];
 
