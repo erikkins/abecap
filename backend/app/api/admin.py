@@ -252,6 +252,23 @@ INITIAL_STRATEGIES = [
             "min_price": 20.0
         },
         "is_active": True
+    },
+    {
+        "name": "DWAP Hybrid (Rocket Catcher)",
+        "description": "DWAP entry (+5% cross) with trailing stop exit. Catches breakouts early, lets winners run.",
+        "strategy_type": "dwap_hybrid",
+        "parameters": {
+            "dwap_threshold_pct": 5.0,      # Entry: 5% above DWAP
+            "trailing_stop_pct": 10.0,      # Exit: 10% trailing stop (no profit cap)
+            "stop_loss_pct": 0.0,           # No fixed stop loss (trailing handles it)
+            "max_positions": 8,             # More positions since daily scanning
+            "position_size_pct": 12.0,      # Smaller positions, more diversification
+            "min_volume": 500000,
+            "min_price": 10.0,              # Lower min price to catch more rockets
+            "volume_spike_mult": 1.5,
+            "market_filter_enabled": True   # Use SPY > 200MA filter
+        },
+        "is_active": False
     }
 ]
 
@@ -262,7 +279,29 @@ async def seed_strategies(db: AsyncSession) -> int:
     count = result.scalar()
 
     if count > 0:
-        return 0  # Already seeded
+        # Check if DWAP Hybrid exists, add if not (migration for existing DBs)
+        hybrid_check = await db.execute(
+            select(StrategyDefinition).where(StrategyDefinition.strategy_type == "dwap_hybrid")
+        )
+        if hybrid_check.scalar_one_or_none() is None:
+            # Add the DWAP Hybrid strategy
+            hybrid_data = next(
+                (s for s in INITIAL_STRATEGIES if s["strategy_type"] == "dwap_hybrid"),
+                None
+            )
+            if hybrid_data:
+                strategy = StrategyDefinition(
+                    name=hybrid_data["name"],
+                    description=hybrid_data["description"],
+                    strategy_type=hybrid_data["strategy_type"],
+                    parameters=json.dumps(hybrid_data["parameters"]),
+                    is_active=hybrid_data["is_active"],
+                    activated_at=datetime.utcnow() if hybrid_data["is_active"] else None
+                )
+                db.add(strategy)
+                await db.commit()
+                return 1  # Added the hybrid strategy
+        return 0  # Already seeded, hybrid exists
 
     created = 0
     for strat_data in INITIAL_STRATEGIES:

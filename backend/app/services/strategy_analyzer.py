@@ -28,7 +28,7 @@ class StrategyParams:
     min_volume: int = 500_000
     min_price: float = 20.0
 
-    # DWAP-specific
+    # DWAP-specific (used by dwap and dwap_hybrid)
     dwap_threshold_pct: float = 5.0
     stop_loss_pct: float = 8.0
     profit_target_pct: float = 20.0
@@ -44,6 +44,9 @@ class StrategyParams:
     long_mom_weight: float = 0.3
     volatility_penalty: float = 0.2
     near_50d_high_pct: float = 5.0
+
+    # DWAP Hybrid uses: dwap_threshold_pct (entry), trailing_stop_pct (exit)
+    # It combines DWAP entry signals with momentum-style trailing stops
 
     @classmethod
     def from_json(cls, json_str: str) -> "StrategyParams":
@@ -199,9 +202,6 @@ class StrategyAnalyzerService:
         backtester = CustomBacktester()
         backtester.configure(params)
 
-        # Determine if using momentum or DWAP
-        use_momentum = strategy.strategy_type == "momentum"
-
         # Run backtest
         try:
             # Debug: check data availability
@@ -232,7 +232,7 @@ class StrategyAnalyzerService:
 
             result = backtester.run_backtest(
                 lookback_days=lookback_days,
-                use_momentum_strategy=use_momentum,
+                strategy_type=strategy.strategy_type,
                 ticker_list=top_symbols if top_symbols else None
             )
 

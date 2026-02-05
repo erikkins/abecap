@@ -191,7 +191,7 @@ class AutoSwitchService:
 
                 result = backtester.run_backtest(
                     lookback_days=lookback_days,
-                    use_momentum_strategy=(strategy_type == "momentum"),
+                    strategy_type=strategy_type,
                     ticker_list=top_symbols
                 )
                 combinations_tested += 1

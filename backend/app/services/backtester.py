@@ -522,9 +522,10 @@ class BacktesterService:
         lookback_days: int = 252,  # 1 year default
         end_date: Optional[datetime] = None,
         start_date: Optional[datetime] = None,
-        use_momentum_strategy: bool = True,
+        use_momentum_strategy: bool = True,  # Deprecated, use strategy_type
         ticker_list: Optional[List[str]] = None,
-        exit_strategy: Optional[ExitStrategyConfig] = None
+        exit_strategy: Optional[ExitStrategyConfig] = None,
+        strategy_type: Optional[str] = None  # "momentum", "dwap", "dwap_hybrid"
     ) -> BacktestResult:
         """
         Run backtest over historical data
@@ -533,9 +534,11 @@ class BacktesterService:
             lookback_days: Number of trading days to simulate (ignored if start_date provided)
             end_date: End date for backtest (default: today)
             start_date: Start date for backtest (overrides lookback_days if provided)
-            use_momentum_strategy: Use v2 momentum strategy (True) or legacy DWAP (False)
+            use_momentum_strategy: DEPRECATED - use strategy_type instead
             ticker_list: Optional list of tickers to limit backtest to
-            exit_strategy: Optional exit strategy configuration (overrides use_momentum_strategy)
+            exit_strategy: Optional exit strategy configuration
+            strategy_type: Strategy to use - "momentum", "dwap", or "dwap_hybrid"
+                          If None, falls back to use_momentum_strategy for compatibility
 
         Returns:
             BacktestResult with positions, trades, and metrics
@@ -545,15 +548,26 @@ class BacktesterService:
 
         end_date = end_date or datetime.now()
 
-        # Set up exit strategy
+        # Resolve strategy_type from parameters
+        if strategy_type is None:
+            # Backward compatibility: use use_momentum_strategy flag
+            strategy_type = "momentum" if use_momentum_strategy else "dwap"
+
+        # Set up exit strategy based on strategy type
         if exit_strategy is None:
-            # Default based on use_momentum_strategy flag
-            if use_momentum_strategy:
+            if strategy_type == "momentum":
                 exit_strategy = ExitStrategyConfig(
                     strategy_type=ExitStrategyType.TRAILING_STOP,
                     trailing_stop_pct=self.trailing_stop_pct * 100
                 )
-            else:
+            elif strategy_type == "dwap_hybrid":
+                # DWAP entry + trailing stop exit (the rocket catcher)
+                exit_strategy = ExitStrategyConfig(
+                    strategy_type=ExitStrategyType.TRAILING_STOP,
+                    trailing_stop_pct=self.trailing_stop_pct * 100,
+                    stop_loss_pct=self.stop_loss_pct * 100 if self.stop_loss_pct > 0 else 0
+                )
+            else:  # "dwap" - legacy
                 exit_strategy = ExitStrategyConfig(
                     strategy_type=ExitStrategyType.STOP_LOSS_TARGET,
                     stop_loss_pct=self.stop_loss_pct * 100,
@@ -622,8 +636,8 @@ class BacktesterService:
         for i, date in enumerate(dates):
             date_str = date.strftime('%Y-%m-%d')
 
-            # Check market regime (v2 strategy)
-            if use_momentum_strategy and settings.MARKET_FILTER_ENABLED:
+            # Check market regime (momentum and hybrid strategies respect market filter)
+            if strategy_type in ("momentum", "dwap_hybrid") and settings.MARKET_FILTER_ENABLED:
                 market_favorable = self._check_market_regime(date)
 
                 # If market turns unfavorable, close all positions
@@ -711,18 +725,18 @@ class BacktesterService:
                 equity_curve.append({'date': date_str, 'equity': capital + position_value})
                 continue
 
-            # Rebalancing logic (v2: weekly; legacy: daily)
+            # Rebalancing logic: momentum=weekly on Fridays, dwap/dwap_hybrid=daily
             should_rebalance = (
                 self._should_rebalance(date, last_rebalance)
-                if use_momentum_strategy
-                else True
+                if strategy_type == "momentum"
+                else True  # DWAP and hybrid check signals daily
             )
 
             # Look for new entries if we have room and it's rebalance time
             if len(positions) < self.max_positions and should_rebalance:
                 candidates = []
 
-                if use_momentum_strategy:
+                if strategy_type == "momentum":
                     # Momentum-based ranking
                     skipped_in_pos = 0
                     skipped_no_score = 0
@@ -779,8 +793,96 @@ class BacktesterService:
                     if candidates:
                         last_rebalance = date
 
+                elif strategy_type == "dwap_hybrid":
+                    # DWAP Hybrid: DWAP entry + trailing stop exit (the "rocket catcher")
+                    # Scans daily for DWAP crosses, but uses trailing stops to let winners run
+                    skipped_no_dwap = 0
+                    skipped_filters = 0
+                    for symbol in symbols:
+                        if symbol in positions:
+                            continue
+
+                        df = scanner_service.data_cache[symbol]
+                        row = self._get_row_for_date(df, date)
+                        if row is None:
+                            continue
+
+                        price = row['close']
+                        volume = row['volume']
+                        dwap = row.get('dwap', np.nan)
+                        vol_avg = row.get('vol_avg', np.nan)
+                        ma_50 = row.get('ma_50', np.nan)
+                        ma_200 = row.get('ma_200', np.nan)
+
+                        if pd.isna(dwap) or dwap <= 0:
+                            skipped_no_dwap += 1
+                            continue
+
+                        pct_above_dwap = (price / dwap - 1)
+
+                        if (pct_above_dwap >= self.dwap_threshold_pct and
+                            volume >= self.min_volume and
+                            price >= self.min_price):
+
+                            vol_ratio = volume / vol_avg if vol_avg > 0 else 0
+                            is_strong = (
+                                vol_ratio >= self.volume_spike_mult and
+                                not pd.isna(ma_50) and not pd.isna(ma_200) and
+                                price > ma_50 > ma_200
+                            )
+
+                            candidates.append({
+                                'symbol': symbol,
+                                'price': price,
+                                'dwap': dwap,
+                                'pct_above_dwap': pct_above_dwap,
+                                'is_strong': is_strong,
+                                'vol_ratio': vol_ratio
+                            })
+                        else:
+                            skipped_filters += 1
+
+                    # Log first entry day for debugging
+                    if last_rebalance is None and (candidates or skipped_filters > 0):
+                        debug_first_rebalance_info = (f"First scan {date_str}: {len(symbols)} sym, "
+                              f"{skipped_no_dwap} no_dwap, {skipped_filters} failed_filters, {len(candidates)} candidates")
+                        print(f"[BACKTEST] {debug_first_rebalance_info}")
+                    if candidates:
+                        debug_rebalance_days += 1
+
+                    # Sort: strong signals first, then by % above DWAP
+                    candidates.sort(key=lambda x: (not x['is_strong'], -x['pct_above_dwap']))
+
+                    for cand in candidates:
+                        if len(positions) >= self.max_positions:
+                            break
+
+                        position_value = self.initial_capital * self.position_size_pct
+                        if position_value > capital:
+                            continue
+
+                        shares = position_value / cand['price']
+                        capital -= shares * cand['price']
+
+                        position_id += 1
+                        entry_price = cand['price']
+                        # Hybrid uses trailing stop fields (like momentum) but tracks DWAP entry
+                        positions[cand['symbol']] = {
+                            'id': position_id,
+                            'entry_price': entry_price,
+                            'entry_date': date_str,
+                            'shares': round(shares, 2),
+                            'high_water_mark': entry_price,  # For trailing stop
+                            'trailing_stop': round(entry_price * (1 - self.trailing_stop_pct), 2),
+                            'dwap_at_entry': round(cand['dwap'], 2),
+                            'pct_above_dwap_at_entry': round(cand['pct_above_dwap'] * 100, 1)
+                        }
+
+                    if candidates:
+                        last_rebalance = date
+
                 else:
-                    # Legacy DWAP strategy
+                    # Legacy DWAP strategy (fixed stop loss + profit target)
                     for symbol in symbols:
                         if symbol in positions:
                             continue

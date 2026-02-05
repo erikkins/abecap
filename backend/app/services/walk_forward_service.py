@@ -214,7 +214,7 @@ class WalkForwardService:
             result = backtester.run_backtest(
                 lookback_days=lookback_days,
                 end_date=as_of_date,
-                use_momentum_strategy=(strategy.strategy_type == "momentum"),
+                strategy_type=strategy.strategy_type,
                 ticker_list=ticker_list
             )
 
@@ -516,7 +516,7 @@ class WalkForwardService:
             result = backtester.run_backtest(
                 lookback_days=lookback_days,
                 end_date=as_of_date,
-                use_momentum_strategy=(strategy_type == "momentum"),
+                strategy_type=strategy_type,
                 ticker_list=ticker_list
             )
 
@@ -569,7 +569,7 @@ class WalkForwardService:
             result = backtester.run_backtest(
                 start_date=start_date,
                 end_date=end_date,
-                use_momentum_strategy=(strategy_type == "momentum"),
+                strategy_type=strategy_type,
                 ticker_list=ticker_list
             )
 
@@ -615,7 +615,7 @@ class WalkForwardService:
             result = backtester.run_backtest(
                 start_date=start_date,
                 end_date=end_date,
-                use_momentum_strategy=(strategy.strategy_type == "momentum"),
+                strategy_type=strategy.strategy_type,
                 ticker_list=ticker_list
             )
 
