@@ -495,6 +495,20 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
               </div>
             )}
 
+            {/* Debug: Show equity curve data points */}
+            {result.equity_curve && (
+              <details className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs">
+                <summary className="cursor-pointer font-medium text-gray-700">
+                  Debug: {result.equity_curve.length} equity points
+                  (first: ${result.equity_curve[0]?.equity?.toLocaleString()},
+                   last: ${result.equity_curve[result.equity_curve.length-1]?.equity?.toLocaleString()})
+                </summary>
+                <pre className="mt-2 text-xs overflow-auto max-h-32">
+                  {JSON.stringify(result.equity_curve?.slice(0, 5), null, 2)}
+                </pre>
+              </details>
+            )}
+
             {/* Equity Curve Chart */}
             {chartData.length > 0 && (
               <div className="p-4 border border-gray-200 rounded-xl">
