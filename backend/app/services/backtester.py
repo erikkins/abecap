@@ -298,6 +298,29 @@ class BacktesterService:
             pass
         return None
 
+    def _days_between(self, date1: pd.Timestamp, date2) -> int:
+        """
+        Calculate days between two dates, handling timezone mismatches.
+        Converts both to timezone-naive for comparison.
+        """
+        # Convert date1 to naive if it has timezone
+        if hasattr(date1, 'tz') and date1.tz is not None:
+            d1 = date1.tz_localize(None)
+        else:
+            d1 = date1
+
+        # Convert date2 to Timestamp if it's a string
+        if isinstance(date2, str):
+            d2 = pd.Timestamp(date2)
+        else:
+            d2 = date2
+
+        # Convert d2 to naive if it has timezone
+        if hasattr(d2, 'tz') and d2.tz is not None:
+            d2 = d2.tz_localize(None)
+
+        return (d1 - d2).days
+
     def _should_rebalance(self, date: pd.Timestamp, last_rebalance: Optional[pd.Timestamp]) -> bool:
         """
         Check if we should rebalance on this date (weekly on Fridays)
@@ -312,7 +335,7 @@ class BacktesterService:
         is_friday = date.weekday() == 4
         if last_rebalance is None:
             return True
-        days_since = (date - last_rebalance).days
+        days_since = self._days_between(date, last_rebalance)
         return is_friday and days_since >= 5
 
     def _check_market_regime(self, date: pd.Timestamp) -> bool:
@@ -358,7 +381,7 @@ class BacktesterService:
         """
         entry_price = pos['entry_price']
         pnl_pct = (current_price - entry_price) / entry_price * 100
-        days_held = (current_date - pd.Timestamp(pos['entry_date'])).days
+        days_held = self._days_between(current_date, pos['entry_date'])
 
         # Check stop loss first (applies to all strategies)
         if exit_strategy.stop_loss_pct > 0:
@@ -627,7 +650,7 @@ class BacktesterService:
                             pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
                             pnl_pct=round(pnl_pct * 100, 2),
                             exit_reason='market_regime',
-                            days_held=(date - pd.Timestamp(pos['entry_date'])).days,
+                            days_held=self._days_between(date, pos['entry_date']),
                             dwap_at_entry=pos.get('dwap_at_entry', 0)
                         ))
                         capital += pos['shares'] * current_price
@@ -666,7 +689,7 @@ class BacktesterService:
                         pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
                         pnl_pct=round(pnl_pct * 100, 2),
                         exit_reason=exit_reason,
-                        days_held=(date - pd.Timestamp(pos['entry_date'])).days,
+                        days_held=self._days_between(date, pos['entry_date']),
                         dwap_at_entry=pos.get('dwap_at_entry', 0)
                     ))
                     capital += pos['shares'] * current_price
@@ -860,7 +883,7 @@ class BacktesterService:
                 profit_target=profit_target,
                 pnl_pct=round(pnl_pct * 100, 2),
                 pnl_dollars=round((current_price - pos['entry_price']) * pos['shares'], 2),
-                days_held=(today - pd.Timestamp(pos['entry_date'])).days,
+                days_held=self._days_between(pd.Timestamp(today), pos['entry_date']),
                 dwap_at_entry=pos.get('dwap_at_entry', 0),
                 pct_above_dwap_at_entry=pos.get('pct_above_dwap_at_entry', 0)
             ))
