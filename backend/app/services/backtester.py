@@ -544,6 +544,10 @@ class BacktesterService:
             # Use explicit start/end dates
             start_ts = pd.Timestamp(start_date)
             end_ts = pd.Timestamp(end_date)
+            # Handle timezone-aware index
+            if sample_df.index.tz is not None:
+                start_ts = start_ts.tz_localize(sample_df.index.tz) if start_ts.tz is None else start_ts.tz_convert(sample_df.index.tz)
+                end_ts = end_ts.tz_localize(sample_df.index.tz) if end_ts.tz is None else end_ts.tz_convert(sample_df.index.tz)
             dates = sample_df.index[(sample_df.index >= start_ts) & (sample_df.index <= end_ts)]
         else:
             # Use lookback_days from end
