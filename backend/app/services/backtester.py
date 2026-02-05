@@ -664,12 +664,27 @@ class BacktesterService:
 
                 if use_momentum_strategy:
                     # Momentum-based ranking
+                    skipped_in_pos = 0
+                    skipped_no_score = 0
+                    skipped_quality = 0
                     for symbol in symbols:
                         if symbol in positions:
+                            skipped_in_pos += 1
                             continue
                         score_data = self._calculate_momentum_score(symbol, date)
-                        if score_data and score_data['passes_quality']:
-                            candidates.append(score_data)
+                        if not score_data:
+                            skipped_no_score += 1
+                            continue
+                        if not score_data['passes_quality']:
+                            skipped_quality += 1
+                            continue
+                        candidates.append(score_data)
+
+                    # Log on first rebalance day
+                    if last_rebalance is None:
+                        print(f"[BACKTEST] First rebalance {date_str}: {len(symbols)} symbols, "
+                              f"{skipped_in_pos} in positions, {skipped_no_score} no score, "
+                              f"{skipped_quality} failed quality, {len(candidates)} candidates")
 
                     # Sort by composite score (highest first)
                     candidates.sort(key=lambda x: -x['composite_score'])
