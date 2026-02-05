@@ -61,6 +61,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
   // Fetch regime periods for chart visualization
   const fetchRegimePeriods = async (start, end) => {
     setLoadingRegimes(true);
+    console.log('[RegimePeriods] Fetching for range:', start, 'to', end);
     try {
       const params = new URLSearchParams();
       if (start) params.append('start_date', start);
@@ -69,10 +70,14 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
       const response = await fetchWithAuth(`${API_URL}/api/admin/market-regime/periods?${params}`);
       if (response.ok) {
         const data = await response.json();
+        console.log('[RegimePeriods] Received', data.periods?.length || 0, 'periods:', data.periods);
         setRegimePeriods(data.periods || []);
+      } else {
+        const text = await response.text();
+        console.error('[RegimePeriods] API error:', response.status, text);
       }
     } catch (err) {
-      console.error('Failed to fetch regime periods:', err);
+      console.error('[RegimePeriods] Failed to fetch:', err);
     } finally {
       setLoadingRegimes(false);
     }
@@ -184,6 +189,12 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
           ...data,
           switch_history: data.switch_history || []
         });
+        // Fetch regime periods for the loaded simulation
+        if (data.start_date && data.end_date) {
+          const startStr = data.start_date.split('T')[0];
+          const endStr = data.end_date.split('T')[0];
+          fetchRegimePeriods(startStr, endStr);
+        }
       }
     } catch (err) {
       console.error('Failed to load simulation:', err);
