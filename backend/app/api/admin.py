@@ -2228,6 +2228,208 @@ async def get_current_conditions(
 
 
 # ============================================================================
+# Double Signal Analysis
+# ============================================================================
+
+@router.get("/signals/double-signal-analysis")
+async def analyze_double_signals(
+    lookback_days: int = Query(252, ge=60, le=504, description="Days of history to analyze"),
+    sample_every_n: int = Query(5, ge=1, le=10, description="Sample every N trading days"),
+    admin: User = Depends(get_admin_user)
+):
+    """
+    Analyze performance of Double Signals (DWAP + Momentum) vs single signals.
+
+    Compares:
+    - Double: Stocks with BOTH DWAP trigger AND top-20 momentum
+    - DWAP-only: DWAP trigger but NOT in momentum top 20
+    - Momentum-only: Top-20 momentum but NO DWAP trigger
+
+    Returns average returns at 5/10/20 day horizons and win rates.
+    """
+    import numpy as np
+    from collections import defaultdict
+    from app.services.scanner import scanner_service
+
+    if not scanner_service.data_cache:
+        raise HTTPException(status_code=503, detail="Price data not loaded")
+
+    spy_df = scanner_service.data_cache.get('SPY')
+    if spy_df is None:
+        raise HTTPException(status_code=503, detail="SPY data not available")
+
+    # Helper: get momentum rankings for a date
+    def get_momentum_rankings(date, top_n=20):
+        candidates = []
+        for symbol, df in scanner_service.data_cache.items():
+            df_to_date = df[df.index <= date]
+            if len(df_to_date) < 60:
+                continue
+            try:
+                row = df_to_date.iloc[-1]
+                price = row['close']
+                ma_20 = df_to_date['close'].tail(20).mean()
+                ma_50 = df_to_date['close'].tail(50).mean()
+                high_50d = df_to_date['close'].tail(50).max()
+                volume = row['volume']
+
+                if price < 20 or volume < 500000:
+                    continue
+                if price < ma_20 or price < ma_50:
+                    continue
+                dist_from_high = (high_50d - price) / high_50d * 100
+                if dist_from_high > 5:
+                    continue
+
+                price_10d_ago = df_to_date.iloc[-10]['close'] if len(df_to_date) >= 10 else price
+                price_60d_ago = df_to_date.iloc[-60]['close'] if len(df_to_date) >= 60 else price
+                short_mom = (price / price_10d_ago - 1) * 100
+                long_mom = (price / price_60d_ago - 1) * 100
+                returns = df_to_date['close'].pct_change().tail(20)
+                volatility = returns.std() * np.sqrt(252) * 100
+                score = short_mom * 0.5 + long_mom * 0.3 - volatility * 0.2
+
+                candidates.append({'symbol': symbol, 'score': score})
+            except Exception:
+                continue
+
+        candidates.sort(key=lambda x: x['score'], reverse=True)
+        return {c['symbol']: {'rank': i + 1, 'score': c['score']} for i, c in enumerate(candidates[:top_n])}
+
+    # Helper: get DWAP signals for a date
+    def get_dwap_signals(date, threshold_pct=5.0):
+        signals = {}
+        for symbol, df in scanner_service.data_cache.items():
+            df_to_date = df[df.index <= date]
+            if len(df_to_date) < 200:
+                continue
+            try:
+                row = df_to_date.iloc[-1]
+                if pd.Timestamp(row.name).date() != date.date():
+                    continue
+                price = row['close']
+                volume = row['volume']
+                dwap = row.get('dwap', np.nan)
+                if pd.isna(dwap) or dwap <= 0 or price < 20 or volume < 500000:
+                    continue
+                pct_above = (price / dwap - 1) * 100
+                if pct_above >= threshold_pct:
+                    signals[symbol] = {'pct_above_dwap': pct_above, 'price': price}
+            except Exception:
+                continue
+        return signals
+
+    # Helper: calculate forward returns
+    def calc_returns(symbol, entry_date, entry_price):
+        df = scanner_service.data_cache.get(symbol)
+        if df is None:
+            return {}
+        df_after = df[df.index > entry_date]
+        if len(df_after) < 20:
+            return {}
+        results = {}
+        if len(df_after) >= 5:
+            results['r5'] = (df_after.iloc[4]['close'] / entry_price - 1) * 100
+        if len(df_after) >= 10:
+            results['r10'] = (df_after.iloc[9]['close'] / entry_price - 1) * 100
+        if len(df_after) >= 20:
+            results['r20'] = (df_after.iloc[19]['close'] / entry_price - 1) * 100
+        return results
+
+    # Get trading days
+    end_date = spy_df.index[-21]
+    start_date = end_date - timedelta(days=int(lookback_days * 1.5))
+    trading_days = [d for d in spy_df.index if start_date <= d <= end_date]
+    trading_days = trading_days[::sample_every_n]
+
+    # Collect signals
+    results_by_type = defaultdict(list)
+
+    for date in trading_days:
+        momentum_top20 = get_momentum_rankings(date)
+        dwap_signals = get_dwap_signals(date)
+
+        momentum_symbols = set(momentum_top20.keys())
+        dwap_symbols = set(dwap_signals.keys())
+
+        double_symbols = momentum_symbols & dwap_symbols
+        dwap_only_symbols = dwap_symbols - momentum_symbols
+        momentum_only_symbols = momentum_symbols - dwap_symbols
+
+        for symbol in double_symbols:
+            entry_price = dwap_signals[symbol]['price']
+            rets = calc_returns(symbol, date, entry_price)
+            if rets:
+                results_by_type['double'].append(rets)
+
+        for symbol in dwap_only_symbols:
+            entry_price = dwap_signals[symbol]['price']
+            rets = calc_returns(symbol, date, entry_price)
+            if rets:
+                results_by_type['dwap_only'].append(rets)
+
+        for symbol in momentum_only_symbols:
+            df = scanner_service.data_cache.get(symbol)
+            if df is None:
+                continue
+            df_to_date = df[df.index <= date]
+            if len(df_to_date) == 0:
+                continue
+            entry_price = df_to_date.iloc[-1]['close']
+            rets = calc_returns(symbol, date, entry_price)
+            if rets:
+                results_by_type['momentum_only'].append(rets)
+
+    # Calculate stats
+    def calc_stats(signals_list):
+        if not signals_list:
+            return None
+        r5 = [s['r5'] for s in signals_list if 'r5' in s]
+        r10 = [s['r10'] for s in signals_list if 'r10' in s]
+        r20 = [s['r20'] for s in signals_list if 'r20' in s]
+        return {
+            'count': len(signals_list),
+            'avg_5d': round(np.mean(r5), 2) if r5 else None,
+            'avg_10d': round(np.mean(r10), 2) if r10 else None,
+            'avg_20d': round(np.mean(r20), 2) if r20 else None,
+            'win_rate_5d': round(len([x for x in r5 if x > 0]) / len(r5) * 100, 1) if r5 else None,
+            'win_rate_10d': round(len([x for x in r10 if x > 0]) / len(r10) * 100, 1) if r10 else None,
+            'win_rate_20d': round(len([x for x in r20 if x > 0]) / len(r20) * 100, 1) if r20 else None,
+            'std_20d': round(np.std(r20), 2) if r20 else None,
+        }
+
+    analysis = {
+        'double': calc_stats(results_by_type['double']),
+        'dwap_only': calc_stats(results_by_type['dwap_only']),
+        'momentum_only': calc_stats(results_by_type['momentum_only']),
+    }
+
+    # Conclusion
+    double_avg = analysis['double']['avg_20d'] if analysis['double'] else 0
+    dwap_avg = analysis['dwap_only']['avg_20d'] if analysis['dwap_only'] else 0
+    mom_avg = analysis['momentum_only']['avg_20d'] if analysis['momentum_only'] else 0
+
+    conclusion = "inconclusive"
+    if double_avg and double_avg > dwap_avg and double_avg > mom_avg:
+        conclusion = "double_outperforms"
+    elif dwap_avg and dwap_avg > double_avg and dwap_avg > mom_avg:
+        conclusion = "dwap_only_outperforms"
+    elif mom_avg and mom_avg > double_avg and mom_avg > dwap_avg:
+        conclusion = "momentum_only_outperforms"
+
+    return {
+        'lookback_days': lookback_days,
+        'trading_days_analyzed': len(trading_days),
+        'analysis': analysis,
+        'conclusion': conclusion,
+        'recommendation': (
+            "Consolidate to single Ensemble Signals view" if conclusion == "double_outperforms"
+            else "Keep separate views or investigate further"
+        )
+    }
+
+
+# ============================================================================
 # Strategy Comparison Endpoint
 # ============================================================================
 
