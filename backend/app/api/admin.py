@@ -2234,7 +2234,7 @@ async def get_current_conditions(
 @router.get("/signals/double-signal-analysis")
 async def analyze_double_signals(
     lookback_days: int = Query(252, ge=60, le=504, description="Days of history to analyze"),
-    sample_every_n: int = Query(5, ge=1, le=10, description="Sample every N trading days"),
+    sample_every_n: int = Query(5, ge=1, le=50, description="Sample every N trading days"),
     # NOTE: Auth temporarily disabled for one-off analysis
     # admin: User = Depends(get_admin_user)
 ):
