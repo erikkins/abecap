@@ -2260,21 +2260,37 @@ async def analyze_double_signals(
     if spy_df is None:
         raise HTTPException(status_code=503, detail="SPY data not available")
 
-    # Helper: normalize date to tz-naive for consistent comparisons
-    def to_naive(dt):
-        """Convert any timestamp to tz-naive for comparisons."""
-        if hasattr(dt, 'tz') and dt.tz is not None:
-            return dt.tz_localize(None)
-        if hasattr(dt, 'tzinfo') and dt.tzinfo is not None:
-            return dt.replace(tzinfo=None)
-        return dt
+    # Helper: filter dataframe to dates <= given date, handling timezone mismatches
+    def filter_to_date(df, date):
+        """Filter dataframe to rows where index <= date, handling tz differences."""
+        date_ts = pd.Timestamp(date)
+        idx = df.index
+        # If df index is tz-aware and date is naive, localize date to index's tz
+        if hasattr(idx, 'tz') and idx.tz is not None:
+            if date_ts.tz is None:
+                date_ts = date_ts.tz_localize(idx.tz)
+        # If df index is tz-naive and date is tz-aware, convert date to naive
+        elif date_ts.tz is not None:
+            date_ts = date_ts.tz_localize(None)
+        return df[idx <= date_ts]
+
+    # Helper: filter dataframe to dates > given date, handling timezone mismatches
+    def filter_after_date(df, date):
+        """Filter dataframe to rows where index > date, handling tz differences."""
+        date_ts = pd.Timestamp(date)
+        idx = df.index
+        if hasattr(idx, 'tz') and idx.tz is not None:
+            if date_ts.tz is None:
+                date_ts = date_ts.tz_localize(idx.tz)
+        elif date_ts.tz is not None:
+            date_ts = date_ts.tz_localize(None)
+        return df[idx > date_ts]
 
     # Helper: get momentum rankings for a date
     def get_momentum_rankings(date, top_n=20):
-        date = to_naive(pd.Timestamp(date))
         candidates = []
         for symbol, df in scanner_service.data_cache.items():
-            df_to_date = df[df.index <= date]
+            df_to_date = filter_to_date(df, date)
             if len(df_to_date) < 60:
                 continue
             try:
@@ -2310,15 +2326,21 @@ async def analyze_double_signals(
 
     # Helper: get DWAP signals for a date
     def get_dwap_signals(date, threshold_pct=5.0):
-        date = to_naive(pd.Timestamp(date))
+        date_ts = pd.Timestamp(date)
         signals = {}
         for symbol, df in scanner_service.data_cache.items():
-            df_to_date = df[df.index <= date]
+            df_to_date = filter_to_date(df, date)
             if len(df_to_date) < 200:
                 continue
             try:
                 row = df_to_date.iloc[-1]
-                if pd.Timestamp(row.name).date() != date.date():
+                row_date = pd.Timestamp(row.name)
+                if row_date.tz is not None:
+                    row_date = row_date.tz_localize(None)
+                date_check = pd.Timestamp(date)
+                if date_check.tz is not None:
+                    date_check = date_check.tz_localize(None)
+                if row_date.date() != date_check.date():
                     continue
                 price = row['close']
                 volume = row['volume']
@@ -2334,11 +2356,10 @@ async def analyze_double_signals(
 
     # Helper: calculate forward returns
     def calc_returns(symbol, entry_date, entry_price):
-        entry_date = to_naive(pd.Timestamp(entry_date))
         df = scanner_service.data_cache.get(symbol)
         if df is None:
             return {}
-        df_after = df[df.index > entry_date]
+        df_after = filter_after_date(df, entry_date)
         if len(df_after) < 20:
             return {}
         results = {}
@@ -2386,8 +2407,7 @@ async def analyze_double_signals(
             df = scanner_service.data_cache.get(symbol)
             if df is None:
                 continue
-            date_naive = to_naive(pd.Timestamp(date))
-            df_to_date = df[df.index <= date_naive]
+            df_to_date = filter_to_date(df, date)
             if len(df_to_date) == 0:
                 continue
             entry_price = df_to_date.iloc[-1]['close']
