@@ -15,6 +15,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginModal from './components/LoginModal';
 import AdminDashboard from './components/AdminDashboard';
 import SubscriptionBanner from './components/SubscriptionBanner';
+import MomentumRankings from './components/MomentumRankings';
 
 // ============================================================================
 // API Configuration
@@ -1503,6 +1504,9 @@ function Dashboard() {
             <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'dashboard' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
               <BarChart3 size={16} className="inline mr-2" />Dashboard
             </button>
+            <button onClick={() => setActiveTab('momentum')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'momentum' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
+              <TrendingUp size={16} className="inline mr-2" />Momentum
+            </button>
             <button onClick={() => setActiveTab('history')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
               <History size={16} className="inline mr-2" />Trade History
             </button>
@@ -1800,6 +1804,40 @@ function Dashboard() {
               </div>
             )}
           </>
+        ) : activeTab === 'momentum' ? (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <MomentumRankings onSymbolClick={(symbol) => setChartModal({ type: 'signal', data: { symbol }, symbol })} />
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-blue-600" />
+                  How Momentum Ranking Works
+                </h3>
+                <div className="space-y-3 text-sm text-gray-600">
+                  <p>
+                    <strong>Score Formula:</strong> short_momentum × 0.5 + long_momentum × 0.3 - volatility × 0.2
+                  </p>
+                  <p>
+                    <strong>Quality Filters:</strong>
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Price above 20-day and 50-day moving averages</li>
+                    <li>Within 5% of 50-day high (breakout potential)</li>
+                    <li>Volume {">"} 500,000</li>
+                    <li>Price {">"} $20</li>
+                  </ul>
+                  <p>
+                    <strong>Trading Strategy:</strong> The momentum strategy buys the top-ranked stocks each week (Friday rebalance).
+                    Higher scores indicate stronger momentum with controlled volatility.
+                  </p>
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg text-blue-800">
+                    <strong>Tip:</strong> Stocks appearing in both the Momentum Rankings AND showing a DWAP signal
+                    are high-conviction candidates - the Ensemble strategy targets these.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="space-y-6">
             <div className="grid grid-cols-4 gap-4">

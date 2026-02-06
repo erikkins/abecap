@@ -490,3 +490,72 @@ async def get_stock_info(symbol: str):
         "employees": info.get("employees"),
         **current_data
     }
+
+
+class MomentumRankingItem(BaseModel):
+    rank: int
+    symbol: str
+    price: float
+    momentum_score: float
+    short_momentum: float
+    long_momentum: float
+    volatility: float
+    near_50d_high: float
+    passes_quality: bool
+
+
+class MomentumRankingsResponse(BaseModel):
+    rankings: List[MomentumRankingItem]
+    market_filter_active: bool
+    generated_at: str
+
+
+@router.get("/momentum-rankings", response_model=MomentumRankingsResponse)
+async def get_momentum_rankings(top_n: int = 20):
+    """
+    Get current top stocks by momentum score.
+
+    Returns the top N stocks ranked by the momentum scoring formula:
+    score = short_momentum * 0.5 + long_momentum * 0.3 - volatility * 0.2
+
+    Stocks must pass quality filters:
+    - Price > MA20 and MA50 (uptrend)
+    - Within 5% of 50-day high (breakout potential)
+    - Volume > 500,000
+    - Price > $20
+
+    These are the same stocks that the momentum strategy would consider buying.
+    """
+    from app.core.config import settings
+
+    if not scanner_service.data_cache:
+        raise HTTPException(status_code=503, detail="Price data not loaded")
+
+    rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True)
+
+    if not rankings:
+        # Market filter might have blocked all signals
+        return MomentumRankingsResponse(
+            rankings=[],
+            market_filter_active=settings.MARKET_FILTER_ENABLED,
+            generated_at=datetime.now().isoformat()
+        )
+
+    return MomentumRankingsResponse(
+        rankings=[
+            MomentumRankingItem(
+                rank=i + 1,
+                symbol=r.symbol,
+                price=r.price,
+                momentum_score=round(r.momentum_score, 2),
+                short_momentum=round(r.short_momentum, 2),
+                long_momentum=round(r.long_momentum, 2),
+                volatility=round(r.volatility, 2),
+                near_50d_high=round(r.near_50d_high, 2),
+                passes_quality=True
+            )
+            for i, r in enumerate(rankings[:top_n])
+        ],
+        market_filter_active=settings.MARKET_FILTER_ENABLED,
+        generated_at=datetime.now().isoformat()
+    )

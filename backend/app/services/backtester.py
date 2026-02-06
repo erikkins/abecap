@@ -567,6 +567,12 @@ class BacktesterService:
                     trailing_stop_pct=self.trailing_stop_pct * 100,
                     stop_loss_pct=self.stop_loss_pct * 100 if self.stop_loss_pct > 0 else 0
                 )
+            elif strategy_type == "ensemble":
+                # ENSEMBLE: DWAP entry timing + momentum quality filter + trailing stop exit
+                exit_strategy = ExitStrategyConfig(
+                    strategy_type=ExitStrategyType.TRAILING_STOP,
+                    trailing_stop_pct=self.trailing_stop_pct * 100
+                )
             else:  # "dwap" - legacy
                 exit_strategy = ExitStrategyConfig(
                     strategy_type=ExitStrategyType.STOP_LOSS_TARGET,
@@ -636,8 +642,8 @@ class BacktesterService:
         for i, date in enumerate(dates):
             date_str = date.strftime('%Y-%m-%d')
 
-            # Check market regime (momentum and hybrid strategies respect market filter)
-            if strategy_type in ("momentum", "dwap_hybrid") and settings.MARKET_FILTER_ENABLED:
+            # Check market regime (momentum, hybrid, and ensemble strategies respect market filter)
+            if strategy_type in ("momentum", "dwap_hybrid", "ensemble") and settings.MARKET_FILTER_ENABLED:
                 market_favorable = self._check_market_regime(date)
 
                 # If market turns unfavorable, close all positions
@@ -876,6 +882,97 @@ class BacktesterService:
                             'trailing_stop': round(entry_price * (1 - self.trailing_stop_pct), 2),
                             'dwap_at_entry': round(cand['dwap'], 2),
                             'pct_above_dwap_at_entry': round(cand['pct_above_dwap'] * 100, 1)
+                        }
+
+                    if candidates:
+                        last_rebalance = date
+
+                elif strategy_type == "ensemble":
+                    # ENSEMBLE: DWAP entry timing + Momentum quality filter + Trailing stop exit
+                    # Scans daily for DWAP signals but only accepts stocks passing momentum quality filter
+                    skipped_no_dwap = 0
+                    skipped_filters = 0
+                    skipped_quality = 0
+                    for symbol in symbols:
+                        if symbol in positions:
+                            continue
+
+                        df = scanner_service.data_cache[symbol]
+                        row = self._get_row_for_date(df, date)
+                        if row is None:
+                            continue
+
+                        price = row['close']
+                        volume = row['volume']
+                        dwap = row.get('dwap', np.nan)
+                        vol_avg = row.get('vol_avg', np.nan)
+
+                        # DWAP entry check (same as dwap_hybrid)
+                        if pd.isna(dwap) or dwap <= 0:
+                            skipped_no_dwap += 1
+                            continue
+
+                        pct_above_dwap = (price / dwap - 1)
+
+                        if not (pct_above_dwap >= self.dwap_threshold_pct and
+                                volume >= self.min_volume and
+                                price >= self.min_price):
+                            skipped_filters += 1
+                            continue
+
+                        # Momentum quality filter - calculate score and check quality
+                        score_data = self._calculate_momentum_score(symbol, date)
+                        if not score_data or not score_data['passes_quality']:
+                            skipped_quality += 1
+                            continue
+
+                        vol_ratio = volume / vol_avg if vol_avg > 0 else 0
+
+                        candidates.append({
+                            'symbol': symbol,
+                            'price': price,
+                            'dwap': dwap,
+                            'pct_above_dwap': pct_above_dwap,
+                            'momentum_score': score_data['composite_score'],
+                            'vol_ratio': vol_ratio
+                        })
+
+                    # Log first entry day for debugging
+                    if last_rebalance is None and (candidates or skipped_filters > 0):
+                        debug_first_rebalance_info = (f"First scan {date_str}: {len(symbols)} sym, "
+                              f"{skipped_no_dwap} no_dwap, {skipped_filters} failed_filters, "
+                              f"{skipped_quality} failed_momentum_quality, {len(candidates)} candidates")
+                        print(f"[BACKTEST] {debug_first_rebalance_info}")
+                    if candidates:
+                        debug_rebalance_days += 1
+
+                    # Sort by momentum score (best first), then DWAP strength
+                    candidates.sort(key=lambda x: (-x['momentum_score'], -x['pct_above_dwap']))
+
+                    for cand in candidates:
+                        if len(positions) >= self.max_positions:
+                            break
+
+                        position_value = self.initial_capital * self.position_size_pct
+                        if position_value > capital:
+                            continue
+
+                        shares = position_value / cand['price']
+                        capital -= shares * cand['price']
+
+                        position_id += 1
+                        entry_price = cand['price']
+                        # Ensemble uses trailing stop fields (like momentum)
+                        positions[cand['symbol']] = {
+                            'id': position_id,
+                            'entry_price': entry_price,
+                            'entry_date': date_str,
+                            'shares': round(shares, 2),
+                            'high_water_mark': entry_price,  # For trailing stop
+                            'trailing_stop': round(entry_price * (1 - self.trailing_stop_pct), 2),
+                            'dwap_at_entry': round(cand['dwap'], 2),
+                            'pct_above_dwap_at_entry': round(cand['pct_above_dwap'] * 100, 1),
+                            'momentum_score': cand['momentum_score']
                         }
 
                     if candidates:

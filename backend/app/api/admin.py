@@ -290,6 +290,25 @@ INITIAL_STRATEGIES = [
             "min_price": 20.0
         },
         "is_active": False
+    },
+    {
+        "name": "DWAP+Momentum Ensemble",
+        "description": "DWAP timing entry (catches early breakouts) + momentum quality filter (only top-ranked stocks) + trailing stop exit (lets winners run).",
+        "strategy_type": "ensemble",
+        "parameters": {
+            "dwap_threshold_pct": 5.0,      # Entry: 5% above DWAP
+            "volume_spike_mult": 1.3,
+            "short_momentum_days": 10,
+            "long_momentum_days": 60,
+            "near_50d_high_pct": 5.0,
+            "max_positions": 6,
+            "position_size_pct": 15.0,
+            "trailing_stop_pct": 12.0,
+            "market_filter_enabled": True,
+            "min_volume": 500000,
+            "min_price": 15.0
+        },
+        "is_active": False
     }
 ]
 
@@ -340,6 +359,27 @@ async def seed_strategies(db: AsyncSession) -> int:
                     parameters=json.dumps(concentrated_data["parameters"]),
                     is_active=concentrated_data["is_active"],
                     activated_at=datetime.utcnow() if concentrated_data["is_active"] else None
+                )
+                db.add(strategy)
+                added += 1
+
+        # Check if DWAP+Momentum Ensemble exists, add if not
+        ensemble_check = await db.execute(
+            select(StrategyDefinition).where(StrategyDefinition.strategy_type == "ensemble")
+        )
+        if ensemble_check.scalar_one_or_none() is None:
+            ensemble_data = next(
+                (s for s in INITIAL_STRATEGIES if s["strategy_type"] == "ensemble"),
+                None
+            )
+            if ensemble_data:
+                strategy = StrategyDefinition(
+                    name=ensemble_data["name"],
+                    description=ensemble_data["description"],
+                    strategy_type=ensemble_data["strategy_type"],
+                    parameters=json.dumps(ensemble_data["parameters"]),
+                    is_active=ensemble_data["is_active"],
+                    activated_at=datetime.utcnow() if ensemble_data["is_active"] else None
                 )
                 db.add(strategy)
                 added += 1
@@ -2185,6 +2225,117 @@ async def get_current_conditions(
         return asdict(conditions)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Condition calculation failed: {str(e)}")
+
+
+# ============================================================================
+# Strategy Comparison Endpoint
+# ============================================================================
+
+@router.get("/strategies/compare")
+async def compare_strategies(
+    lookback_years: int = Query(5, ge=1, le=15, description="Years of history to compare"),
+    strategies: str = Query("all", description="Comma-separated strategy IDs or 'all'"),
+    include_spy: bool = Query(True, description="Include SPY benchmark"),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Compare multiple strategies over a historical period.
+
+    Returns performance metrics for each strategy and SPY benchmark.
+    Useful for evaluating which strategy performs best over long periods.
+    """
+    from app.services.backtester import BacktesterService
+    from app.services.strategy_analyzer import CustomBacktester, StrategyParams
+    from app.services.scanner import scanner_service
+
+    if not scanner_service.data_cache:
+        raise HTTPException(status_code=503, detail="Price data not loaded")
+
+    lookback_days = lookback_years * 252
+
+    results = {}
+
+    # Get SPY benchmark
+    if include_spy:
+        spy_df = scanner_service.data_cache.get('SPY')
+        if spy_df is not None and len(spy_df) >= lookback_days:
+            spy_start_price = spy_df.iloc[-lookback_days]['close']
+            spy_end_price = spy_df.iloc[-1]['close']
+            spy_return = (spy_end_price / spy_start_price - 1) * 100
+
+            # Calculate SPY max drawdown
+            spy_equity = spy_df['close'].iloc[-lookback_days:]
+            spy_peak = spy_equity.cummax()
+            spy_drawdown = ((spy_peak - spy_equity) / spy_peak * 100)
+            spy_max_dd = spy_drawdown.max()
+
+            results['SPY'] = {
+                'total_return_pct': round(spy_return, 2),
+                'sharpe_ratio': None,
+                'max_drawdown_pct': round(spy_max_dd, 2),
+                'win_rate': None,
+                'total_trades': None,
+                'type': 'benchmark'
+            }
+
+    # Load strategies
+    query = select(StrategyDefinition)
+    if strategies != "all":
+        try:
+            ids = [int(x.strip()) for x in strategies.split(',')]
+            query = query.where(StrategyDefinition.id.in_(ids))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid strategy IDs")
+    result = await db.execute(query)
+    strats = result.scalars().all()
+
+    if not strats:
+        raise HTTPException(status_code=404, detail="No strategies found")
+
+    # Get top liquid symbols for consistent comparison
+    from app.services.strategy_analyzer import get_top_liquid_symbols
+    top_symbols = get_top_liquid_symbols(max_symbols=100)
+
+    # Run backtest for each strategy
+    for strat in strats:
+        try:
+            params = StrategyParams.from_json(strat.parameters)
+            backtester = CustomBacktester()
+            backtester.configure(params)
+
+            bt_result = backtester.run_backtest(
+                lookback_days=lookback_days,
+                strategy_type=strat.strategy_type,
+                ticker_list=top_symbols
+            )
+
+            results[strat.name] = {
+                'strategy_id': strat.id,
+                'strategy_type': strat.strategy_type,
+                'total_return_pct': bt_result.total_return_pct,
+                'sharpe_ratio': bt_result.sharpe_ratio,
+                'max_drawdown_pct': bt_result.max_drawdown_pct,
+                'win_rate': bt_result.win_rate,
+                'total_trades': bt_result.total_trades,
+                'calmar_ratio': bt_result.calmar_ratio,
+                'sortino_ratio': bt_result.sortino_ratio,
+                'type': 'strategy'
+            }
+        except Exception as e:
+            results[strat.name] = {
+                'strategy_id': strat.id,
+                'strategy_type': strat.strategy_type,
+                'error': str(e),
+                'type': 'strategy'
+            }
+
+    return {
+        'lookback_years': lookback_years,
+        'lookback_days': lookback_days,
+        'symbols_tested': len(top_symbols),
+        'results': results
+    }
 
 
 # ============================================================================
