@@ -2260,8 +2260,18 @@ async def analyze_double_signals(
     if spy_df is None:
         raise HTTPException(status_code=503, detail="SPY data not available")
 
+    # Helper: normalize date to tz-naive for consistent comparisons
+    def to_naive(dt):
+        """Convert any timestamp to tz-naive for comparisons."""
+        if hasattr(dt, 'tz') and dt.tz is not None:
+            return dt.tz_localize(None)
+        if hasattr(dt, 'tzinfo') and dt.tzinfo is not None:
+            return dt.replace(tzinfo=None)
+        return dt
+
     # Helper: get momentum rankings for a date
     def get_momentum_rankings(date, top_n=20):
+        date = to_naive(pd.Timestamp(date))
         candidates = []
         for symbol, df in scanner_service.data_cache.items():
             df_to_date = df[df.index <= date]
@@ -2300,6 +2310,7 @@ async def analyze_double_signals(
 
     # Helper: get DWAP signals for a date
     def get_dwap_signals(date, threshold_pct=5.0):
+        date = to_naive(pd.Timestamp(date))
         signals = {}
         for symbol, df in scanner_service.data_cache.items():
             df_to_date = df[df.index <= date]
@@ -2323,6 +2334,7 @@ async def analyze_double_signals(
 
     # Helper: calculate forward returns
     def calc_returns(symbol, entry_date, entry_price):
+        entry_date = to_naive(pd.Timestamp(entry_date))
         df = scanner_service.data_cache.get(symbol)
         if df is None:
             return {}
@@ -2374,7 +2386,8 @@ async def analyze_double_signals(
             df = scanner_service.data_cache.get(symbol)
             if df is None:
                 continue
-            df_to_date = df[df.index <= date]
+            date_naive = to_naive(pd.Timestamp(date))
+            df_to_date = df[df.index <= date_naive]
             if len(df_to_date) == 0:
                 continue
             entry_price = df_to_date.iloc[-1]['close']
