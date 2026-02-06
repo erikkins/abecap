@@ -2248,19 +2248,17 @@ async def analyze_double_signals(
 
     Returns average returns at 5/10/20 day horizons and win rates.
     """
-    import traceback
     import numpy as np
     import pandas as pd
     from collections import defaultdict
     from app.services.scanner import scanner_service
 
-    try:
-        if not scanner_service.data_cache:
-            raise HTTPException(status_code=503, detail="Price data not loaded")
+    if not scanner_service.data_cache:
+        raise HTTPException(status_code=503, detail="Price data not loaded")
 
-        spy_df = scanner_service.data_cache.get('SPY')
-        if spy_df is None:
-            raise HTTPException(status_code=503, detail="SPY data not available")
+    spy_df = scanner_service.data_cache.get('SPY')
+    if spy_df is None:
+        raise HTTPException(status_code=503, detail="SPY data not available")
 
     # Helper: get momentum rankings for a date
     def get_momentum_rankings(date, top_n=20):
@@ -2413,31 +2411,24 @@ async def analyze_double_signals(
     dwap_avg = analysis['dwap_only']['avg_20d'] if analysis['dwap_only'] else 0
     mom_avg = analysis['momentum_only']['avg_20d'] if analysis['momentum_only'] else 0
 
-        conclusion = "inconclusive"
-        if double_avg and double_avg > dwap_avg and double_avg > mom_avg:
-            conclusion = "double_outperforms"
-        elif dwap_avg and dwap_avg > double_avg and dwap_avg > mom_avg:
-            conclusion = "dwap_only_outperforms"
-        elif mom_avg and mom_avg > double_avg and mom_avg > dwap_avg:
-            conclusion = "momentum_only_outperforms"
+    conclusion = "inconclusive"
+    if double_avg and double_avg > dwap_avg and double_avg > mom_avg:
+        conclusion = "double_outperforms"
+    elif dwap_avg and dwap_avg > double_avg and dwap_avg > mom_avg:
+        conclusion = "dwap_only_outperforms"
+    elif mom_avg and mom_avg > double_avg and mom_avg > dwap_avg:
+        conclusion = "momentum_only_outperforms"
 
-        return {
-            'lookback_days': lookback_days,
-            'trading_days_analyzed': len(trading_days),
-            'analysis': analysis,
-            'conclusion': conclusion,
-            'recommendation': (
-                "Consolidate to single Ensemble Signals view" if conclusion == "double_outperforms"
-                else "Keep separate views or investigate further"
-            )
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        return {
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        }
+    return {
+        'lookback_days': lookback_days,
+        'trading_days_analyzed': len(trading_days),
+        'analysis': analysis,
+        'conclusion': conclusion,
+        'recommendation': (
+            "Consolidate to single Ensemble Signals view" if conclusion == "double_outperforms"
+            else "Keep separate views or investigate further"
+        )
+    }
 
 
 # ============================================================================
