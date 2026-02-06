@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, RefreshCw, AlertCircle } from 'lucide-react';
+import { TrendingUp, RefreshCw, AlertCircle, Zap } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const MomentumRankings = ({ onSymbolClick }) => {
   const [rankings, setRankings] = useState([]);
+  const [doubleSignals, setDoubleSignals] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -14,13 +15,27 @@ const MomentumRankings = ({ onSymbolClick }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/signals/momentum-rankings?top_n=20`);
-      if (!res.ok) {
-        throw new Error(`API error: ${res.status}`);
+      // Fetch both momentum rankings and double signals in parallel
+      const [rankingsRes, doubleRes] = await Promise.all([
+        fetch(`${API_BASE}/api/signals/momentum-rankings?top_n=20`),
+        fetch(`${API_BASE}/api/signals/double-signals?momentum_top_n=20`)
+      ]);
+
+      if (!rankingsRes.ok) {
+        throw new Error(`API error: ${rankingsRes.status}`);
       }
-      const data = await res.json();
-      setRankings(data.rankings || []);
-      setMarketFilterActive(data.market_filter_active);
+
+      const rankingsData = await rankingsRes.json();
+      setRankings(rankingsData.rankings || []);
+      setMarketFilterActive(rankingsData.market_filter_active);
+
+      // Extract double signal symbols
+      if (doubleRes.ok) {
+        const doubleData = await doubleRes.json();
+        const doubleSymbols = new Set((doubleData.signals || []).map(s => s.symbol));
+        setDoubleSignals(doubleSymbols);
+      }
+
       setLastUpdated(new Date().toLocaleTimeString());
     } catch (err) {
       console.error('Failed to fetch momentum rankings:', err);
@@ -77,6 +92,14 @@ const MomentumRankings = ({ onSymbolClick }) => {
         </button>
       </div>
 
+      {/* Double signal legend */}
+      {doubleSignals.size > 0 && (
+        <div className="px-4 py-2 bg-yellow-50 border-b text-xs text-yellow-800 flex items-center gap-1">
+          <Zap className="w-3 h-3" />
+          <span>{doubleSignals.size} stocks also have DWAP +5% trigger (double signal)</span>
+        </div>
+      )}
+
       {/* Market filter warning */}
       {marketFilterActive && rankings.length === 0 && !loading && (
         <div className="px-4 py-3 bg-yellow-50 border-b text-sm text-yellow-800">
@@ -108,38 +131,48 @@ const MomentumRankings = ({ onSymbolClick }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {rankings.map((r) => (
-                <tr
-                  key={r.symbol}
-                  className="hover:bg-blue-50 cursor-pointer transition-colors"
-                  onClick={() => onSymbolClick?.(r.symbol)}
-                >
-                  <td className="px-3 py-2.5 text-gray-400 font-medium">{r.rank}</td>
-                  <td className="px-3 py-2.5 font-semibold text-gray-900">{r.symbol}</td>
-                  <td className="px-3 py-2.5 text-right">${r.price?.toFixed(2)}</td>
-                  <td className={`px-3 py-2.5 text-right font-semibold ${
-                    r.momentum_score > 25 ? 'text-green-600' :
-                    r.momentum_score > 15 ? 'text-green-500' :
-                    r.momentum_score > 5 ? 'text-gray-700' :
-                    'text-gray-500'
-                  }`}>
-                    {r.momentum_score?.toFixed(1)}
-                  </td>
-                  <td className={`px-3 py-2.5 text-right ${
-                    r.short_momentum > 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {r.short_momentum > 0 ? '+' : ''}{r.short_momentum?.toFixed(1)}%
-                  </td>
-                  <td className={`px-3 py-2.5 text-right ${
-                    r.long_momentum > 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {r.long_momentum > 0 ? '+' : ''}{r.long_momentum?.toFixed(1)}%
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-gray-500 hidden sm:table-cell">
-                    {r.volatility?.toFixed(0)}%
-                  </td>
-                </tr>
-              ))}
+              {rankings.map((r) => {
+                const isDouble = doubleSignals.has(r.symbol);
+                return (
+                  <tr
+                    key={r.symbol}
+                    className={`hover:bg-blue-50 cursor-pointer transition-colors ${isDouble ? 'bg-yellow-50' : ''}`}
+                    onClick={() => onSymbolClick?.(r.symbol)}
+                  >
+                    <td className="px-3 py-2.5 text-gray-400 font-medium">{r.rank}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-1">
+                        <span className="font-semibold text-gray-900">{r.symbol}</span>
+                        {isDouble && (
+                          <Zap className="w-4 h-4 text-yellow-500" title="Double signal: DWAP +5% trigger active" />
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-right">${r.price?.toFixed(2)}</td>
+                    <td className={`px-3 py-2.5 text-right font-semibold ${
+                      r.momentum_score > 25 ? 'text-green-600' :
+                      r.momentum_score > 15 ? 'text-green-500' :
+                      r.momentum_score > 5 ? 'text-gray-700' :
+                      'text-gray-500'
+                    }`}>
+                      {r.momentum_score?.toFixed(1)}
+                    </td>
+                    <td className={`px-3 py-2.5 text-right ${
+                      r.short_momentum > 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {r.short_momentum > 0 ? '+' : ''}{r.short_momentum?.toFixed(1)}%
+                    </td>
+                    <td className={`px-3 py-2.5 text-right ${
+                      r.long_momentum > 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {r.long_momentum > 0 ? '+' : ''}{r.long_momentum?.toFixed(1)}%
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-gray-500 hidden sm:table-cell">
+                      {r.volatility?.toFixed(0)}%
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

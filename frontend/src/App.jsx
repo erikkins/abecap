@@ -667,7 +667,12 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote }) =
                         {isSellDay && data?.sell_price && (
                           <p className="text-amber-600 font-medium">Exit: ${data.sell_price.toFixed(2)}</p>
                         )}
-                        {d?.dwap && <p className="text-purple-600">DWAP: ${d.dwap.toFixed(2)}</p>}
+                        {d?.dwap && (
+                          <>
+                            <p className="text-purple-600">DWAP: ${d.dwap.toFixed(2)}</p>
+                            <p className="text-yellow-600">Buy Trigger (+5%): ${(d.dwap * 1.05).toFixed(2)}</p>
+                          </>
+                        )}
                         {d?.ma_50 && <p className="text-orange-500">MA50: ${d.ma_50.toFixed(2)}</p>}
                         {d?.volume > 0 && <p className="text-gray-400">Vol: {(d.volume / 1000000).toFixed(1)}M</p>}
                         {d?.isLive && <p className="text-blue-500 font-medium">Live Price</p>}
@@ -677,7 +682,21 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote }) =
                 />
                 <Bar yAxisId="volume" dataKey="volume" fill="#E5E7EB" opacity={0.5} />
                 {chartDataWithLive.some(d => d.dwap) && (
-                  <Line yAxisId="price" type="monotone" dataKey="dwap" stroke="#8B5CF6" strokeWidth={2} dot={false} name="DWAP" />
+                  <>
+                    <Line yAxisId="price" type="monotone" dataKey="dwap" stroke="#8B5CF6" strokeWidth={2} dot={false} name="DWAP" />
+                    {/* DWAP +5% buy trigger line */}
+                    <Line
+                      yAxisId="price"
+                      type="monotone"
+                      dataKey={(d) => d.dwap ? d.dwap * 1.05 : null}
+                      stroke="#FBBF24"
+                      strokeWidth={2}
+                      strokeDasharray="6 3"
+                      dot={false}
+                      name="DWAP +5%"
+                      connectNulls={false}
+                    />
+                  </>
                 )}
                 {chartDataWithLive.some(d => d.ma_50) && (
                   <Line yAxisId="price" type="monotone" dataKey="ma_50" stroke="#F97316" strokeWidth={1.5} dot={false} strokeDasharray="5 5" name="MA50" />
