@@ -269,6 +269,27 @@ INITIAL_STRATEGIES = [
             "market_filter_enabled": True   # Use SPY > 200MA filter
         },
         "is_active": False
+    },
+    {
+        "name": "Concentrated Momentum",
+        "description": "Fewer positions, larger bets. AI-discovered parameters optimized for high-conviction plays.",
+        "strategy_type": "momentum",
+        "parameters": {
+            "max_positions": 4,             # Concentrated: fewer positions
+            "position_size_pct": 20.0,      # Larger position sizes
+            "short_momentum_days": 10,
+            "long_momentum_days": 60,
+            "trailing_stop_pct": 15.0,
+            "market_filter_enabled": True,
+            "rebalance_frequency": "weekly",
+            "short_mom_weight": 0.5,
+            "long_mom_weight": 0.3,
+            "volatility_penalty": 0.2,
+            "near_50d_high_pct": 5.0,
+            "min_volume": 500000,
+            "min_price": 20.0
+        },
+        "is_active": False
     }
 ]
 
@@ -279,12 +300,13 @@ async def seed_strategies(db: AsyncSession) -> int:
     count = result.scalar()
 
     if count > 0:
+        added = 0
+
         # Check if DWAP Hybrid exists, add if not (migration for existing DBs)
         hybrid_check = await db.execute(
             select(StrategyDefinition).where(StrategyDefinition.strategy_type == "dwap_hybrid")
         )
         if hybrid_check.scalar_one_or_none() is None:
-            # Add the DWAP Hybrid strategy
             hybrid_data = next(
                 (s for s in INITIAL_STRATEGIES if s["strategy_type"] == "dwap_hybrid"),
                 None
@@ -299,9 +321,32 @@ async def seed_strategies(db: AsyncSession) -> int:
                     activated_at=datetime.utcnow() if hybrid_data["is_active"] else None
                 )
                 db.add(strategy)
-                await db.commit()
-                return 1  # Added the hybrid strategy
-        return 0  # Already seeded, hybrid exists
+                added += 1
+
+        # Check if Concentrated Momentum exists, add if not
+        concentrated_check = await db.execute(
+            select(StrategyDefinition).where(StrategyDefinition.name == "Concentrated Momentum")
+        )
+        if concentrated_check.scalar_one_or_none() is None:
+            concentrated_data = next(
+                (s for s in INITIAL_STRATEGIES if s["name"] == "Concentrated Momentum"),
+                None
+            )
+            if concentrated_data:
+                strategy = StrategyDefinition(
+                    name=concentrated_data["name"],
+                    description=concentrated_data["description"],
+                    strategy_type=concentrated_data["strategy_type"],
+                    parameters=json.dumps(concentrated_data["parameters"]),
+                    is_active=concentrated_data["is_active"],
+                    activated_at=datetime.utcnow() if concentrated_data["is_active"] else None
+                )
+                db.add(strategy)
+                added += 1
+
+        if added > 0:
+            await db.commit()
+        return added
 
     created = 0
     for strat_data in INITIAL_STRATEGIES:
