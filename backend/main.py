@@ -272,19 +272,42 @@ async def _run_walk_forward_job(job_config: dict):
     from sqlalchemy import select
     from app.core.database import WalkForwardSimulation
 
-    job_id = job_config["job_id"]
-    print(f"[ASYNC-WF] Starting walk-forward job {job_id}")
+    job_id = job_config.get("job_id")
 
     async with async_session() as db:
         try:
-            # Update status to running
-            result = await db.execute(
-                select(WalkForwardSimulation).where(WalkForwardSimulation.id == job_id)
-            )
-            job = result.scalar_one_or_none()
-            if job:
-                job.status = "running"
+            # If no job_id provided, create a new job record
+            if not job_id:
+                start = datetime.strptime(job_config["start_date"], "%Y-%m-%d")
+                end = datetime.strptime(job_config["end_date"], "%Y-%m-%d")
+                new_job = WalkForwardSimulation(
+                    simulation_date=datetime.utcnow(),
+                    start_date=start,
+                    end_date=end,
+                    reoptimization_frequency=job_config.get("frequency", "biweekly"),
+                    status="running",
+                    total_return_pct=0,
+                    sharpe_ratio=0,
+                    max_drawdown_pct=0,
+                    num_strategy_switches=0,
+                    benchmark_return_pct=0,
+                )
+                db.add(new_job)
                 await db.commit()
+                await db.refresh(new_job)
+                job_id = new_job.id
+                print(f"[ASYNC-WF] Created new job {job_id}")
+            else:
+                # Update existing job status to running
+                result = await db.execute(
+                    select(WalkForwardSimulation).where(WalkForwardSimulation.id == job_id)
+                )
+                job = result.scalar_one_or_none()
+                if job:
+                    job.status = "running"
+                    await db.commit()
+
+            print(f"[ASYNC-WF] Starting walk-forward job {job_id}")
 
             # Run the simulation
             start = datetime.strptime(job_config["start_date"], "%Y-%m-%d")

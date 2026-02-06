@@ -208,6 +208,47 @@ docker buildx build --platform linux/amd64 --provenance=false --sbom=false -f Do
 
 **Note:** The Lambda init phase has a 10-second timeout. Database connections are initialized lazily on first request to avoid this timeout.
 
+### Invoking Lambda Directly (IMPORTANT)
+
+**API Gateway has a 29-second timeout.** For long-running operations (walk-forward simulations, backtests, AI optimization), you MUST invoke Lambda directly:
+
+```bash
+# Create payload file
+cat > /tmp/payload.json << 'EOF'
+{
+  "walk_forward_job": {
+    "start_date": "2024-02-06",
+    "end_date": "2026-02-06",
+    "frequency": "biweekly",
+    "min_score_diff": 10.0,
+    "enable_ai": false,
+    "max_symbols": 100
+  }
+}
+EOF
+
+# Invoke Lambda directly (bypasses API Gateway timeout)
+aws lambda invoke \
+  --function-name rigacap-prod-api \
+  --region us-east-1 \
+  --invocation-type RequestResponse \
+  --payload fileb:///tmp/payload.json \
+  --cli-read-timeout 600 \
+  /tmp/result.json
+
+# Check results
+cat /tmp/result.json | python3 -m json.tool
+```
+
+**DO NOT:**
+- Call API Gateway endpoints for long operations (will timeout at 29s)
+- Try to run simulations locally (no database/data available)
+
+**Lambda payload types:**
+- `walk_forward_job`: Walk-forward simulation
+- `backtest_job`: Single backtest run
+- `ai_optimization_job`: AI parameter optimization
+
 ### Deployment
 ```bash
 cd infrastructure/terraform
