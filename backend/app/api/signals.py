@@ -578,6 +578,9 @@ class DoubleSignalItem(BaseModel):
     long_momentum: float
     # Combined score (higher = better)
     ensemble_score: float
+    # Crossover tracking
+    dwap_crossover_date: Optional[str] = None  # When stock first crossed DWAP +5%
+    days_since_crossover: Optional[int] = None  # Days since the crossover
 
 
 class DoubleSignalsResponse(BaseModel):
@@ -586,6 +589,69 @@ class DoubleSignalsResponse(BaseModel):
     momentum_only_count: int
     market_filter_active: bool
     generated_at: str
+
+
+def find_dwap_crossover_date(symbol: str, threshold_pct: float = 5.0, lookback_days: int = 60) -> tuple:
+    """
+    Find when a stock first crossed above DWAP threshold in recent history.
+    Returns (crossover_date, days_since) or (None, None) if not found.
+    """
+    import pandas as pd
+
+    df = scanner_service.data_cache.get(symbol)
+    if df is None or len(df) < 200:
+        return None, None
+
+    # Look at recent history (last N trading days)
+    recent = df.tail(lookback_days)
+    if len(recent) < 2:
+        return None, None
+
+    crossover_date = None
+
+    # Scan from oldest to newest to find first crossover
+    for i in range(1, len(recent)):
+        prev_row = recent.iloc[i - 1]
+        curr_row = recent.iloc[i]
+
+        prev_dwap = prev_row.get('dwap')
+        curr_dwap = curr_row.get('dwap')
+        prev_close = prev_row['close']
+        curr_close = curr_row['close']
+
+        if pd.isna(prev_dwap) or pd.isna(curr_dwap) or prev_dwap <= 0 or curr_dwap <= 0:
+            continue
+
+        prev_pct = (prev_close / prev_dwap - 1) * 100
+        curr_pct = (curr_close / curr_dwap - 1) * 100
+
+        # Check for crossover: was below threshold, now above
+        if prev_pct < threshold_pct and curr_pct >= threshold_pct:
+            crossover_date = curr_row.name
+            break
+
+    if crossover_date is None:
+        # Stock may have been above threshold for the entire lookback period
+        # Check if first day was already above threshold
+        first_row = recent.iloc[0]
+        first_dwap = first_row.get('dwap')
+        if first_dwap and first_dwap > 0:
+            first_pct = (first_row['close'] / first_dwap - 1) * 100
+            if first_pct >= threshold_pct:
+                crossover_date = first_row.name
+
+    if crossover_date is not None:
+        # Calculate days since crossover
+        today = df.index[-1]
+        if hasattr(crossover_date, 'tz') and crossover_date.tz is not None:
+            crossover_date = crossover_date.tz_localize(None)
+        if hasattr(today, 'tz') and today.tz is not None:
+            today = today.tz_localize(None)
+        days_since = (today - crossover_date).days
+        date_str = crossover_date.strftime('%Y-%m-%d')
+        return date_str, days_since
+
+    return None, None
 
 
 @router.get("/double-signals", response_model=DoubleSignalsResponse)
@@ -597,6 +663,7 @@ async def get_double_signals(momentum_top_n: int = 20):
     DWAP-only signals (2.91% vs 1.16% at 20 days).
 
     The ensemble_score combines DWAP strength and momentum rank for sorting.
+    Includes dwap_crossover_date showing when the stock first crossed +5%.
     """
     from app.core.config import settings
 
@@ -628,6 +695,9 @@ async def get_double_signals(momentum_top_n: int = 20):
             rank_score = (momentum_top_n - mom_rank + 1) * 2.5  # Max 50 points from rank
             ensemble_score = dwap_score + rank_score
 
+            # Find when the DWAP crossover occurred
+            crossover_date, days_since = find_dwap_crossover_date(symbol)
+
             double_signals.append(DoubleSignalItem(
                 symbol=symbol,
                 price=dwap.price,
@@ -640,7 +710,9 @@ async def get_double_signals(momentum_top_n: int = 20):
                 momentum_score=round(mom_data.composite_score, 2),
                 short_momentum=round(mom_data.short_momentum, 2),
                 long_momentum=round(mom_data.long_momentum, 2),
-                ensemble_score=round(ensemble_score, 1)
+                ensemble_score=round(ensemble_score, 1),
+                dwap_crossover_date=crossover_date,
+                days_since_crossover=days_since
             ))
 
     # Sort by ensemble score (best first)

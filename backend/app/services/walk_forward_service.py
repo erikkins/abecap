@@ -156,6 +156,16 @@ class WalkForwardService:
             "profit_target_pct": [15, 20, 25, 30],
             "max_positions": [10, 15, 20],
             "position_size_pct": [5, 6, 7],
+        },
+        "ensemble": {
+            # DWAP entry parameters
+            "dwap_threshold_pct": [4, 5, 6, 7],
+            # Risk Management (uses trailing stops like momentum)
+            "trailing_stop_pct": [10, 12, 15, 18],
+            "max_positions": [4, 5, 6, 7],
+            "position_size_pct": [12, 15, 18],
+            # Momentum quality filter
+            "near_50d_high_pct": [3, 5, 7],
         }
     }
 
@@ -169,6 +179,11 @@ class WalkForwardService:
         "dwap": {
             "stop_loss_pct": [7, 8, 9],
             "profit_target_pct": [18, 20, 22],
+        },
+        "ensemble": {
+            "dwap_threshold_pct": [4, 5, 6],
+            "trailing_stop_pct": [12, 15],
+            "max_positions": [5, 6],
         }
     }
 

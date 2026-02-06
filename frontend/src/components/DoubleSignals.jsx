@@ -125,10 +125,10 @@ const DoubleSignals = ({ onSymbolClick }) => {
                 <th className="px-3 py-2 text-left font-medium">Symbol</th>
                 <th className="px-3 py-2 text-right font-medium">Price</th>
                 <th className="px-3 py-2 text-right font-medium">DWAP%</th>
+                <th className="px-3 py-2 text-center font-medium">Trigger</th>
                 <th className="px-3 py-2 text-right font-medium">Mom#</th>
-                <th className="px-3 py-2 text-right font-medium">10d</th>
-                <th className="px-3 py-2 text-right font-medium">60d</th>
-                <th className="px-3 py-2 text-right font-medium hidden sm:table-cell">Score</th>
+                <th className="px-3 py-2 text-right font-medium hidden sm:table-cell">10d</th>
+                <th className="px-3 py-2 text-right font-medium hidden sm:table-cell">60d</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -154,6 +154,19 @@ const DoubleSignals = ({ onSymbolClick }) => {
                   }`}>
                     +{s.pct_above_dwap?.toFixed(1)}%
                   </td>
+                  <td className="px-3 py-2.5 text-center">
+                    {s.dwap_crossover_date ? (
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        s.days_since_crossover <= 5 ? 'bg-green-100 text-green-700 font-medium' :
+                        s.days_since_crossover <= 14 ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`} title={`Crossed DWAP +5% on ${s.dwap_crossover_date}`}>
+                        {s.days_since_crossover}d ago
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">60d+</span>
+                    )}
+                  </td>
                   <td className={`px-3 py-2.5 text-right font-medium ${
                     s.momentum_rank <= 5 ? 'text-green-600' :
                     s.momentum_rank <= 10 ? 'text-green-500' :
@@ -161,18 +174,15 @@ const DoubleSignals = ({ onSymbolClick }) => {
                   }`}>
                     #{s.momentum_rank}
                   </td>
-                  <td className={`px-3 py-2.5 text-right ${
+                  <td className={`px-3 py-2.5 text-right hidden sm:table-cell ${
                     s.short_momentum > 0 ? 'text-green-600' : 'text-red-600'
                   }`}>
                     {s.short_momentum > 0 ? '+' : ''}{s.short_momentum?.toFixed(1)}%
                   </td>
-                  <td className={`px-3 py-2.5 text-right ${
+                  <td className={`px-3 py-2.5 text-right hidden sm:table-cell ${
                     s.long_momentum > 0 ? 'text-green-600' : 'text-red-600'
                   }`}>
                     {s.long_momentum > 0 ? '+' : ''}{s.long_momentum?.toFixed(1)}%
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-gray-500 hidden sm:table-cell">
-                    {s.ensemble_score?.toFixed(0)}
                   </td>
                 </tr>
               ))}
