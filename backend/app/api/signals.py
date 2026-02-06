@@ -604,7 +604,7 @@ async def get_double_signals(momentum_top_n: int = 20):
         raise HTTPException(status_code=503, detail="Price data not loaded")
 
     # Get current DWAP signals
-    dwap_signals = scanner_service.scan_all(apply_market_filter=True)
+    dwap_signals = await scanner_service.scan(refresh_data=False, apply_market_filter=True)
     dwap_by_symbol = {s.symbol: s for s in dwap_signals}
 
     # Get momentum rankings
