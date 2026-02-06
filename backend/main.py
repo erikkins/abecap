@@ -379,6 +379,45 @@ def handler(event, context):
         result = loop.run_until_complete(_run_walk_forward_job(job_config))
         return result
 
+    # Handle backtest requests (direct Lambda invocation)
+    if event.get("backtest_request"):
+        print(f"📊 Backtest request received")
+        req = event["backtest_request"]
+        days = req.get("days", 252)
+        strategy_type = req.get("strategy_type", "momentum")
+        include_trades = req.get("include_trades", True)
+
+        try:
+            from app.services.backtester import backtester_service
+            result = backtester_service.run_backtest(
+                lookback_days=days,
+                strategy_type=strategy_type
+            )
+
+            response = {
+                "status": "success",
+                "total_return_pct": result.total_return_pct,
+                "sharpe_ratio": result.sharpe_ratio,
+                "max_drawdown_pct": result.max_drawdown_pct,
+                "win_rate": result.win_rate,
+                "total_trades": result.total_trades,
+                "total_pnl": result.total_pnl,
+                "start_date": result.start_date,
+                "end_date": result.end_date,
+            }
+
+            if include_trades:
+                response["trades"] = [t.to_dict() for t in result.trades]
+
+            print(f"📊 Backtest complete: {result.total_return_pct:.1f}% return, {result.total_trades} trades")
+            return response
+
+        except Exception as e:
+            import traceback
+            print(f"❌ Backtest failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
     # For API Gateway events, use Mangum
     # Create a fresh Mangum handler to avoid event loop issues on warm Lambdas
     global _mangum_handler
