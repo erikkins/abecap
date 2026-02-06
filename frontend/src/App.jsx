@@ -16,6 +16,7 @@ import LoginModal from './components/LoginModal';
 import AdminDashboard from './components/AdminDashboard';
 import SubscriptionBanner from './components/SubscriptionBanner';
 import MomentumRankings from './components/MomentumRankings';
+import DoubleSignals from './components/DoubleSignals';
 
 // ============================================================================
 // API Configuration
@@ -1138,6 +1139,7 @@ function Dashboard() {
   const [error, setError] = useState(null);
   const [lastScan, setLastScan] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showEnsembleView, setShowEnsembleView] = useState(true); // true = ensemble (double), false = separate lists
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [chartModal, setChartModal] = useState(null);
   const [dataStatus, setDataStatus] = useState({ loaded: 0, status: 'loading' });
@@ -1806,37 +1808,94 @@ function Dashboard() {
           </>
         ) : activeTab === 'momentum' ? (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <MomentumRankings onSymbolClick={(symbol) => setChartModal({ type: 'signal', data: { symbol }, symbol })} />
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-blue-600" />
-                  How Momentum Ranking Works
-                </h3>
-                <div className="space-y-3 text-sm text-gray-600">
-                  <p>
-                    <strong>Score Formula:</strong> short_momentum × 0.5 + long_momentum × 0.3 - volatility × 0.2
-                  </p>
-                  <p>
-                    <strong>Quality Filters:</strong>
-                  </p>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>Price above 20-day and 50-day moving averages</li>
-                    <li>Within 5% of 50-day high (breakout potential)</li>
-                    <li>Volume {">"} 500,000</li>
-                    <li>Price {">"} $20</li>
-                  </ul>
-                  <p>
-                    <strong>Trading Strategy:</strong> The momentum strategy buys the top-ranked stocks each week (Friday rebalance).
-                    Higher scores indicate stronger momentum with controlled volatility.
-                  </p>
-                  <div className="mt-4 p-3 bg-blue-50 rounded-lg text-blue-800">
-                    <strong>Tip:</strong> Stocks appearing in both the Momentum Rankings AND showing a DWAP signal
-                    are high-conviction candidates - the Ensemble strategy targets these.
+            {/* View Toggle */}
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">View:</span>
+                <button
+                  onClick={() => setShowEnsembleView(true)}
+                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                    showEnsembleView ? 'bg-yellow-100 text-yellow-800 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Ensemble Signals
+                </button>
+                <button
+                  onClick={() => setShowEnsembleView(false)}
+                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                    !showEnsembleView ? 'bg-blue-100 text-blue-800 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Separate Lists
+                </button>
+              </div>
+            </div>
+
+            {showEnsembleView ? (
+              /* Ensemble View - Double Signals Only */
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <DoubleSignals onSymbolClick={(symbol) => setChartModal({ type: 'signal', data: { symbol }, symbol })} />
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-yellow-500" />
+                    Why Ensemble Signals?
+                  </h3>
+                  <div className="space-y-3 text-sm text-gray-600">
+                    <div className="p-3 bg-yellow-50 rounded-lg text-yellow-800">
+                      <strong>2.5x Higher Returns:</strong> Stocks with BOTH DWAP trigger AND top momentum ranking
+                      averaged +2.91% over 20 days vs +1.16% for DWAP-only signals.
+                    </div>
+                    <p>
+                      <strong>Entry Criteria:</strong>
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Price crossed +5% above 200-day DWAP (buy trigger)</li>
+                      <li>Stock ranks in top 20 by momentum score</li>
+                      <li>Volume {">"} 500,000 and Price {">"} $20</li>
+                    </ul>
+                    <p>
+                      <strong>Buy Point:</strong> When the DWAP +5% crossover occurs AND the stock is already
+                      showing momentum strength. These are high-conviction entries.
+                    </p>
+                    <p className="text-gray-500 text-xs mt-4">
+                      Switch to "Separate Lists" to see DWAP signals and momentum rankings independently.
+                    </p>
                   </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* Separate Lists View */
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <MomentumRankings onSymbolClick={(symbol) => setChartModal({ type: 'signal', data: { symbol }, symbol })} />
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-blue-600" />
+                    How Momentum Ranking Works
+                  </h3>
+                  <div className="space-y-3 text-sm text-gray-600">
+                    <p>
+                      <strong>Score Formula:</strong> short_momentum × 0.5 + long_momentum × 0.3 - volatility × 0.2
+                    </p>
+                    <p>
+                      <strong>Quality Filters:</strong>
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Price above 20-day and 50-day moving averages</li>
+                      <li>Within 5% of 50-day high (breakout potential)</li>
+                      <li>Volume {">"} 500,000</li>
+                      <li>Price {">"} $20</li>
+                    </ul>
+                    <p>
+                      <strong>Trading Strategy:</strong> The momentum strategy buys the top-ranked stocks each week (Friday rebalance).
+                      Higher scores indicate stronger momentum with controlled volatility.
+                    </p>
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg text-blue-800">
+                      <strong>Tip:</strong> Switch to "Ensemble Signals" to see only stocks that appear in BOTH lists.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-6">

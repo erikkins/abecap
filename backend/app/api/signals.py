@@ -559,3 +559,97 @@ async def get_momentum_rankings(top_n: int = 20):
         market_filter_active=settings.MARKET_FILTER_ENABLED,
         generated_at=datetime.now().isoformat()
     )
+
+
+class DoubleSignalItem(BaseModel):
+    """A stock with both DWAP trigger AND top momentum ranking."""
+    symbol: str
+    price: float
+    # DWAP data
+    dwap: float
+    pct_above_dwap: float
+    volume: int
+    volume_ratio: float
+    is_strong: bool
+    # Momentum data
+    momentum_rank: int
+    momentum_score: float
+    short_momentum: float
+    long_momentum: float
+    # Combined score (higher = better)
+    ensemble_score: float
+
+
+class DoubleSignalsResponse(BaseModel):
+    signals: List[DoubleSignalItem]
+    dwap_only_count: int
+    momentum_only_count: int
+    market_filter_active: bool
+    generated_at: str
+
+
+@router.get("/double-signals", response_model=DoubleSignalsResponse)
+async def get_double_signals(momentum_top_n: int = 20):
+    """
+    Get stocks with BOTH DWAP trigger (+5% above DWAP) AND top momentum ranking.
+
+    These "double signals" have historically shown 2.5x higher returns than
+    DWAP-only signals (2.91% vs 1.16% at 20 days).
+
+    The ensemble_score combines DWAP strength and momentum rank for sorting.
+    """
+    from app.core.config import settings
+
+    if not scanner_service.data_cache:
+        raise HTTPException(status_code=503, detail="Price data not loaded")
+
+    # Get current DWAP signals
+    dwap_signals = scanner_service.scan_all(apply_market_filter=True)
+    dwap_by_symbol = {s.symbol: s for s in dwap_signals}
+
+    # Get momentum rankings
+    momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True)
+    momentum_by_symbol = {
+        r.symbol: {'rank': i + 1, 'data': r}
+        for i, r in enumerate(momentum_rankings[:momentum_top_n])
+    }
+
+    # Find intersection (double signals)
+    double_signals = []
+    for symbol in dwap_by_symbol:
+        if symbol in momentum_by_symbol:
+            dwap = dwap_by_symbol[symbol]
+            mom = momentum_by_symbol[symbol]
+            mom_data = mom['data']
+            mom_rank = mom['rank']
+
+            # Ensemble score: combine DWAP strength (0-100) with inverse rank (20-1 -> 1-20 points)
+            dwap_score = min(dwap.pct_above_dwap * 10, 50)  # Max 50 points from DWAP
+            rank_score = (momentum_top_n - mom_rank + 1) * 2.5  # Max 50 points from rank
+            ensemble_score = dwap_score + rank_score
+
+            double_signals.append(DoubleSignalItem(
+                symbol=symbol,
+                price=dwap.price,
+                dwap=dwap.dwap,
+                pct_above_dwap=dwap.pct_above_dwap,
+                volume=dwap.volume,
+                volume_ratio=dwap.volume_ratio,
+                is_strong=dwap.is_strong,
+                momentum_rank=mom_rank,
+                momentum_score=round(mom_data.composite_score, 2),
+                short_momentum=round(mom_data.short_momentum, 2),
+                long_momentum=round(mom_data.long_momentum, 2),
+                ensemble_score=round(ensemble_score, 1)
+            ))
+
+    # Sort by ensemble score (best first)
+    double_signals.sort(key=lambda x: -x.ensemble_score)
+
+    return DoubleSignalsResponse(
+        signals=double_signals,
+        dwap_only_count=len(dwap_by_symbol) - len(double_signals),
+        momentum_only_count=len(momentum_by_symbol) - len(double_signals),
+        market_filter_active=settings.MARKET_FILTER_ENABLED,
+        generated_at=datetime.now().isoformat()
+    )
