@@ -547,12 +547,12 @@ async def get_momentum_rankings(top_n: int = 20):
                 rank=i + 1,
                 symbol=r.symbol,
                 price=r.price,
-                momentum_score=round(r.momentum_score, 2),
+                momentum_score=round(r.composite_score, 2),
                 short_momentum=round(r.short_momentum, 2),
                 long_momentum=round(r.long_momentum, 2),
                 volatility=round(r.volatility, 2),
-                near_50d_high=round(r.near_50d_high, 2),
-                passes_quality=True
+                near_50d_high=round(r.dist_from_50d_high, 2),
+                passes_quality=r.passes_quality_filter
             )
             for i, r in enumerate(rankings[:top_n])
         ],
