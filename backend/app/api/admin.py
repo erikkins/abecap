@@ -2249,6 +2249,7 @@ async def analyze_double_signals(
     Returns average returns at 5/10/20 day horizons and win rates.
     """
     import numpy as np
+    import pandas as pd
     from collections import defaultdict
     from app.services.scanner import scanner_service
 
