@@ -2248,15 +2248,17 @@ async def analyze_double_signals(
 
     Returns average returns at 5/10/20 day horizons and win rates.
     """
+    import traceback
     import numpy as np
     import pandas as pd
     from collections import defaultdict
     from app.services.scanner import scanner_service
 
-    if not scanner_service.data_cache:
-        raise HTTPException(status_code=503, detail="Price data not loaded")
+    try:
+        if not scanner_service.data_cache:
+            raise HTTPException(status_code=503, detail="Price data not loaded")
 
-    spy_df = scanner_service.data_cache.get('SPY')
+        spy_df = scanner_service.data_cache.get('SPY')
     if spy_df is None:
         raise HTTPException(status_code=503, detail="SPY data not available")
 
@@ -2419,16 +2421,23 @@ async def analyze_double_signals(
     elif mom_avg and mom_avg > double_avg and mom_avg > dwap_avg:
         conclusion = "momentum_only_outperforms"
 
-    return {
-        'lookback_days': lookback_days,
-        'trading_days_analyzed': len(trading_days),
-        'analysis': analysis,
-        'conclusion': conclusion,
-        'recommendation': (
-            "Consolidate to single Ensemble Signals view" if conclusion == "double_outperforms"
-            else "Keep separate views or investigate further"
-        )
-    }
+        return {
+            'lookback_days': lookback_days,
+            'trading_days_analyzed': len(trading_days),
+            'analysis': analysis,
+            'conclusion': conclusion,
+            'recommendation': (
+                "Consolidate to single Ensemble Signals view" if conclusion == "double_outperforms"
+                else "Keep separate views or investigate further"
+            )
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }
 
 
 # ============================================================================
