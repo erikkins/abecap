@@ -2340,8 +2340,8 @@ async def analyze_double_signals(
 
     # Get trading days
     end_date = spy_df.index[-21]
-    start_date = end_date - timedelta(days=int(lookback_days * 1.5))
-    trading_days = [d for d in spy_df.index if start_date <= d <= end_date]
+    start_date = pd.Timestamp(end_date) - pd.Timedelta(days=int(lookback_days * 1.5))
+    trading_days = [d for d in spy_df.index if start_date <= pd.Timestamp(d) <= end_date]
     trading_days = trading_days[::sample_every_n]
 
     # Collect signals
