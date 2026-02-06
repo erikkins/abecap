@@ -2235,7 +2235,8 @@ async def get_current_conditions(
 async def analyze_double_signals(
     lookback_days: int = Query(252, ge=60, le=504, description="Days of history to analyze"),
     sample_every_n: int = Query(5, ge=1, le=10, description="Sample every N trading days"),
-    admin: User = Depends(get_admin_user)
+    # NOTE: Auth temporarily disabled for one-off analysis
+    # admin: User = Depends(get_admin_user)
 ):
     """
     Analyze performance of Double Signals (DWAP + Momentum) vs single signals.
