@@ -101,6 +101,12 @@ class PositionResponse(BaseModel):
     profit_target: float
     pnl_pct: float
     days_held: int
+    # Trailing stop fields
+    high_water_mark: float = 0.0  # Highest price since entry
+    trailing_stop_price: float = 0.0  # Current trailing stop level
+    trailing_stop_pct: float = 12.0  # Trailing stop percentage
+    distance_to_stop_pct: float = 0.0  # How far price is from trailing stop (negative = below stop)
+    sell_signal: str = "hold"  # hold, warning, sell
 
 
 class PositionsListResponse(BaseModel):
@@ -1034,6 +1040,9 @@ async def get_positions(db: AsyncSession = Depends(get_db)):
     total_value = 0.0
     total_cost = 0.0
 
+    # Trailing stop configuration (ensemble strategy uses 12%)
+    TRAILING_STOP_PCT = 12.0
+
     for pos in db_positions:
         # Get split-adjusted entry price from historical data
         # This handles stock splits automatically - yfinance adjusts all historical prices
@@ -1046,7 +1055,37 @@ async def get_positions(db: AsyncSession = Depends(get_db)):
             if len(df) > 0:
                 current_price = float(df.iloc[-1]['close'])
 
-        # Calculate stop/target based on adjusted entry (not stored values which may be pre-split)
+        # Calculate high water mark from historical data since entry
+        high_water_mark = adjusted_entry
+        if pos.symbol in scanner_service.data_cache:
+            df = scanner_service.data_cache[pos.symbol]
+            # Filter to dates after entry
+            entry_ts = pd.Timestamp(pos.entry_date)
+            if hasattr(df.index, 'tz') and df.index.tz is not None:
+                entry_ts = entry_ts.tz_localize(df.index.tz)
+            mask = df.index >= entry_ts
+            if mask.any():
+                high_water_mark = max(adjusted_entry, float(df.loc[mask, 'close'].max()))
+
+        # Update database with high water mark if it's higher
+        if pos.highest_price is None or high_water_mark > pos.highest_price:
+            pos.highest_price = high_water_mark
+
+        # Calculate trailing stop from high water mark
+        trailing_stop_price = round(high_water_mark * (1 - TRAILING_STOP_PCT / 100), 2)
+
+        # Calculate distance to trailing stop (positive = above stop, negative = below)
+        distance_to_stop_pct = ((current_price - trailing_stop_price) / trailing_stop_price) * 100
+
+        # Determine sell signal
+        if current_price <= trailing_stop_price:
+            sell_signal = "sell"  # Already hit trailing stop
+        elif distance_to_stop_pct <= 3.0:
+            sell_signal = "warning"  # Within 3% of trailing stop
+        else:
+            sell_signal = "hold"
+
+        # Calculate legacy stop/target for backwards compatibility
         stop_loss = round(adjusted_entry * (1 - settings.STOP_LOSS_PCT / 100), 2)
         profit_target = round(adjusted_entry * (1 + settings.PROFIT_TARGET_PCT / 100), 2)
 
@@ -1067,8 +1106,16 @@ async def get_positions(db: AsyncSession = Depends(get_db)):
             stop_loss=stop_loss,
             profit_target=profit_target,
             pnl_pct=round(pnl_pct, 2),
-            days_held=days_held
+            days_held=days_held,
+            high_water_mark=round(high_water_mark, 2),
+            trailing_stop_price=trailing_stop_price,
+            trailing_stop_pct=TRAILING_STOP_PCT,
+            distance_to_stop_pct=round(distance_to_stop_pct, 1),
+            sell_signal=sell_signal
         ))
+
+    # Commit any high water mark updates
+    await db.commit()
 
     total_pnl_pct = ((total_value - total_cost) / total_cost * 100) if total_cost > 0 else 0
 

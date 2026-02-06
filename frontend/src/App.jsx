@@ -1116,6 +1116,41 @@ const PositionRow = ({ position, onClick }) => {
   const hasLiveData = position.live_change !== undefined;
   const dayChangeColor = (position.live_change_pct || 0) >= 0 ? 'text-emerald-600' : 'text-red-500';
 
+  // Sell signal indicator
+  const sellSignal = position.sell_signal || 'hold';
+  const trailingStopPrice = position.trailing_stop_price;
+  const distanceToStop = position.distance_to_stop_pct || 0;
+
+  const getSellIndicator = () => {
+    if (sellSignal === 'sell') {
+      return {
+        color: 'text-red-600',
+        bg: 'bg-red-100',
+        icon: <TrendingDown size={14} className="text-red-600" />,
+        label: 'SELL',
+        sublabel: `Stop: $${trailingStopPrice?.toFixed(2)}`
+      };
+    } else if (sellSignal === 'warning') {
+      return {
+        color: 'text-amber-600',
+        bg: 'bg-amber-100',
+        icon: <AlertCircle size={14} className="text-amber-600" />,
+        label: `${distanceToStop?.toFixed(0)}%`,
+        sublabel: `Stop: $${trailingStopPrice?.toFixed(2)}`
+      };
+    } else {
+      return {
+        color: 'text-emerald-600',
+        bg: 'bg-emerald-50',
+        icon: <Shield size={14} className="text-emerald-500" />,
+        label: `${distanceToStop?.toFixed(0)}%`,
+        sublabel: `Stop: $${trailingStopPrice?.toFixed(2)}`
+      };
+    }
+  };
+
+  const indicator = getSellIndicator();
+
   return (
     <tr onClick={() => onClick(position)} className="hover:bg-blue-50 transition-colors cursor-pointer group">
       <td className="py-3 px-4">
@@ -1138,6 +1173,15 @@ const PositionRow = ({ position, onClick }) => {
         </div>
       </td>
       <td className="py-3 px-4"><span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold text-sm ${pnlBg} ${pnlColor}`}>{position.pnl_pct >= 0 ? '+' : ''}{position.pnl_pct?.toFixed(1)}%</span></td>
+      <td className="py-3 px-4">
+        <div className="flex flex-col items-center">
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${indicator.bg} ${indicator.color}`}>
+            {indicator.icon}
+            {indicator.label}
+          </span>
+          <span className="text-xs text-gray-400 mt-0.5">{indicator.sublabel}</span>
+        </div>
+      </td>
       <td className="py-3 px-4 text-gray-500"><Clock size={14} className="inline mr-1" />{position.days_held}d</td>
     </tr>
   );
@@ -1746,7 +1790,7 @@ function Dashboard() {
                   {positions.length > 0 ? (
                     <table className="w-full">
                       <thead className="bg-gray-50 border-b border-gray-100">
-                        <tr>{['Symbol', 'Shares', 'Entry', 'Current', 'P&L', 'Days'].map(h => <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr>
+                        <tr>{['Symbol', 'Shares', 'Entry', 'Current', 'P&L', 'Trail Stop', 'Days'].map(h => <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr>
                       </thead>
                       <tbody>
                         {positionsWithLiveQuotes.map(p => <PositionRow key={p.id} position={p} onClick={(pos) => setChartModal({ type: 'position', data: pos, symbol: pos.symbol })} />)}
