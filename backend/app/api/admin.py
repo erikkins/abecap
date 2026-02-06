@@ -2452,7 +2452,9 @@ async def analyze_double_signals(
     elif mom_avg and mom_avg > double_avg and mom_avg > dwap_avg:
         conclusion = "momentum_only_outperforms"
 
-    return {
+    # Log result for CloudWatch (in case API Gateway times out)
+    import json
+    result = {
         'lookback_days': lookback_days,
         'trading_days_analyzed': len(trading_days),
         'analysis': analysis,
@@ -2462,6 +2464,8 @@ async def analyze_double_signals(
             else "Keep separate views or investigate further"
         )
     }
+    print(f"[DOUBLE-SIGNAL-ANALYSIS] {json.dumps(result)}")
+    return result
 
 
 # ============================================================================
