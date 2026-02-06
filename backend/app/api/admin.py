@@ -2259,8 +2259,8 @@ async def analyze_double_signals(
             raise HTTPException(status_code=503, detail="Price data not loaded")
 
         spy_df = scanner_service.data_cache.get('SPY')
-    if spy_df is None:
-        raise HTTPException(status_code=503, detail="SPY data not available")
+        if spy_df is None:
+            raise HTTPException(status_code=503, detail="SPY data not available")
 
     # Helper: get momentum rankings for a date
     def get_momentum_rankings(date, top_n=20):
@@ -2413,13 +2413,13 @@ async def analyze_double_signals(
     dwap_avg = analysis['dwap_only']['avg_20d'] if analysis['dwap_only'] else 0
     mom_avg = analysis['momentum_only']['avg_20d'] if analysis['momentum_only'] else 0
 
-    conclusion = "inconclusive"
-    if double_avg and double_avg > dwap_avg and double_avg > mom_avg:
-        conclusion = "double_outperforms"
-    elif dwap_avg and dwap_avg > double_avg and dwap_avg > mom_avg:
-        conclusion = "dwap_only_outperforms"
-    elif mom_avg and mom_avg > double_avg and mom_avg > dwap_avg:
-        conclusion = "momentum_only_outperforms"
+        conclusion = "inconclusive"
+        if double_avg and double_avg > dwap_avg and double_avg > mom_avg:
+            conclusion = "double_outperforms"
+        elif dwap_avg and dwap_avg > double_avg and dwap_avg > mom_avg:
+            conclusion = "dwap_only_outperforms"
+        elif mom_avg and mom_avg > double_avg and mom_avg > dwap_avg:
+            conclusion = "momentum_only_outperforms"
 
         return {
             'lookback_days': lookback_days,
