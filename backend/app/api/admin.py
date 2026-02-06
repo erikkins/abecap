@@ -1782,6 +1782,83 @@ async def get_walk_forward_details(
     return details
 
 
+@router.get("/strategies/walk-forward/{simulation_id}/trades")
+async def get_walk_forward_trades(
+    simulation_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get just the trades from a walk-forward simulation.
+
+    Returns a detailed trade report with:
+    - Symbol, entry/exit dates and prices
+    - P&L (dollars and percentage)
+    - Exit reason (trailing_stop, profit_target, etc.)
+    - Period info (which optimization period the trade occurred in)
+
+    Use this endpoint instead of the full details endpoint when you only need trades.
+    """
+    result = await db.execute(
+        select(WalkForwardSimulation).where(WalkForwardSimulation.id == simulation_id)
+    )
+    sim = result.scalars().first()
+
+    if not sim:
+        raise HTTPException(status_code=404, detail="Simulation not found")
+
+    trades = json.loads(sim.trades_json) if sim.trades_json else []
+
+    # Calculate summary statistics
+    total_trades = len(trades)
+    winning_trades = [t for t in trades if t.get('pnl_pct', 0) > 0]
+    losing_trades = [t for t in trades if t.get('pnl_pct', 0) <= 0]
+
+    win_rate = len(winning_trades) / total_trades * 100 if total_trades > 0 else 0
+    avg_win = sum(t.get('pnl_pct', 0) for t in winning_trades) / len(winning_trades) if winning_trades else 0
+    avg_loss = sum(t.get('pnl_pct', 0) for t in losing_trades) / len(losing_trades) if losing_trades else 0
+    total_pnl = sum(t.get('pnl_dollars', 0) for t in trades)
+
+    # Group by exit reason
+    exit_reasons = {}
+    for t in trades:
+        reason = t.get('exit_reason', 'unknown')
+        if reason not in exit_reasons:
+            exit_reasons[reason] = 0
+        exit_reasons[reason] += 1
+
+    # Get strategy name from switch history
+    strategy_name = None
+    if sim.switch_history_json:
+        try:
+            switch_history = json.loads(sim.switch_history_json)
+            if switch_history and len(switch_history) > 0:
+                strategy_name = switch_history[0].get("strategy_name")
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    return {
+        "simulation_id": simulation_id,
+        "strategy_name": strategy_name,
+        "simulation_date": sim.simulation_date.isoformat() if sim.simulation_date else None,
+        "start_date": sim.start_date.isoformat() if sim.start_date else None,
+        "end_date": sim.end_date.isoformat() if sim.end_date else None,
+        "total_return_pct": sim.total_return_pct,
+        "benchmark_return_pct": sim.benchmark_return_pct,
+        "trades": trades,
+        "summary": {
+            "total_trades": total_trades,
+            "winning_trades": len(winning_trades),
+            "losing_trades": len(losing_trades),
+            "win_rate_pct": round(win_rate, 1),
+            "avg_win_pct": round(avg_win, 2),
+            "avg_loss_pct": round(avg_loss, 2),
+            "total_pnl_dollars": round(total_pnl, 2),
+            "exit_reasons": exit_reasons
+        }
+    }
+
+
 # ============================================================================
 # Auto-Switch Configuration Endpoints
 # ============================================================================

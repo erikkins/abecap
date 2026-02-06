@@ -348,6 +348,122 @@ async def _run_walk_forward_job(job_config: dict):
             return {"status": "failed", "job_id": job_id, "error": str(e)}
 
 
+async def _get_walk_forward_history(limit: int = 10):
+    """Get list of recent walk-forward simulations."""
+    import json
+    from sqlalchemy import select, desc
+    from app.core.database import WalkForwardSimulation
+
+    async with async_session() as db:
+        result = await db.execute(
+            select(WalkForwardSimulation)
+            .order_by(desc(WalkForwardSimulation.simulation_date))
+            .limit(limit)
+        )
+        sims = result.scalars().all()
+
+        simulations = []
+        for s in sims:
+            # Try to get the initial strategy from switch_history
+            strategy_name = None
+            if s.switch_history_json:
+                try:
+                    switch_history = json.loads(s.switch_history_json)
+                    if switch_history and len(switch_history) > 0:
+                        strategy_name = switch_history[0].get("strategy_name")
+                except (json.JSONDecodeError, KeyError):
+                    pass
+
+            simulations.append({
+                "id": s.id,
+                "simulation_date": s.simulation_date.isoformat() if s.simulation_date else None,
+                "start_date": s.start_date.isoformat() if s.start_date else None,
+                "end_date": s.end_date.isoformat() if s.end_date else None,
+                "strategy_name": strategy_name,
+                "reoptimization_frequency": s.reoptimization_frequency,
+                "total_return_pct": s.total_return_pct,
+                "sharpe_ratio": s.sharpe_ratio,
+                "max_drawdown_pct": s.max_drawdown_pct,
+                "benchmark_return_pct": s.benchmark_return_pct,
+                "num_strategy_switches": s.num_strategy_switches,
+                "status": s.status,
+                "has_trades": bool(s.trades_json),
+            })
+
+        return {
+            "status": "success",
+            "simulations": simulations
+        }
+
+
+async def _get_walk_forward_trades(simulation_id: int):
+    """Get detailed trades from a walk-forward simulation."""
+    import json
+    from sqlalchemy import select
+    from app.core.database import WalkForwardSimulation
+
+    async with async_session() as db:
+        result = await db.execute(
+            select(WalkForwardSimulation).where(WalkForwardSimulation.id == simulation_id)
+        )
+        sim = result.scalars().first()
+
+        if not sim:
+            return {"status": "error", "error": f"Simulation {simulation_id} not found"}
+
+        trades = json.loads(sim.trades_json) if sim.trades_json else []
+
+        # Calculate summary statistics
+        total_trades = len(trades)
+        winning_trades = [t for t in trades if t.get('pnl_pct', 0) > 0]
+        losing_trades = [t for t in trades if t.get('pnl_pct', 0) <= 0]
+
+        win_rate = len(winning_trades) / total_trades * 100 if total_trades > 0 else 0
+        avg_win = sum(t.get('pnl_pct', 0) for t in winning_trades) / len(winning_trades) if winning_trades else 0
+        avg_loss = sum(t.get('pnl_pct', 0) for t in losing_trades) / len(losing_trades) if losing_trades else 0
+        total_pnl = sum(t.get('pnl_dollars', 0) for t in trades)
+
+        # Group by exit reason
+        exit_reasons = {}
+        for t in trades:
+            reason = t.get('exit_reason', 'unknown')
+            if reason not in exit_reasons:
+                exit_reasons[reason] = 0
+            exit_reasons[reason] += 1
+
+        # Get strategy name from switch history
+        strategy_name = None
+        if sim.switch_history_json:
+            try:
+                switch_history = json.loads(sim.switch_history_json)
+                if switch_history and len(switch_history) > 0:
+                    strategy_name = switch_history[0].get("strategy_name")
+            except (json.JSONDecodeError, KeyError):
+                pass
+
+        return {
+            "status": "success",
+            "simulation_id": simulation_id,
+            "strategy_name": strategy_name,
+            "simulation_date": sim.simulation_date.isoformat() if sim.simulation_date else None,
+            "start_date": sim.start_date.isoformat() if sim.start_date else None,
+            "end_date": sim.end_date.isoformat() if sim.end_date else None,
+            "total_return_pct": sim.total_return_pct,
+            "benchmark_return_pct": sim.benchmark_return_pct,
+            "trades": trades,
+            "summary": {
+                "total_trades": total_trades,
+                "winning_trades": len(winning_trades),
+                "losing_trades": len(losing_trades),
+                "win_rate_pct": round(win_rate, 1),
+                "avg_win_pct": round(avg_win, 2),
+                "avg_loss_pct": round(avg_loss, 2),
+                "total_pnl_dollars": round(total_pnl, 2),
+                "exit_reasons": exit_reasons
+            }
+        }
+
+
 def handler(event, context):
     """
     Lambda handler that supports:
@@ -415,6 +531,39 @@ def handler(event, context):
         except Exception as e:
             import traceback
             print(f"❌ Backtest failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Handle walk-forward history lookup (direct Lambda invocation)
+    if event.get("walk_forward_history"):
+        print("📊 Walk-forward history request received")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_get_walk_forward_history(event.get("limit", 10)))
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Walk-forward history failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Handle walk-forward trades lookup (direct Lambda invocation)
+    if event.get("walk_forward_trades"):
+        print("📊 Walk-forward trades request received")
+        simulation_id = event.get("walk_forward_trades")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_get_walk_forward_trades(simulation_id))
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Walk-forward trades failed: {e}")
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
