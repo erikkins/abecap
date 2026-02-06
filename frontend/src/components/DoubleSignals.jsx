@@ -135,11 +135,12 @@ const DoubleSignals = ({ onSymbolClick }) => {
               {signals.map((s) => (
                 <tr
                   key={s.symbol}
-                  className="hover:bg-yellow-50 cursor-pointer transition-colors"
+                  className="bg-yellow-50/50 hover:bg-yellow-100 cursor-pointer transition-colors"
                   onClick={() => onSymbolClick?.(s.symbol)}
                 >
                   <td className="px-3 py-2.5">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
+                      <Zap className="w-4 h-4 text-yellow-500" title="Double signal: DWAP +5% AND momentum top 20" />
                       <span className="font-semibold text-gray-900">{s.symbol}</span>
                       {s.is_strong && (
                         <ArrowUpRight className="w-3 h-3 text-green-500" title="Strong signal" />
