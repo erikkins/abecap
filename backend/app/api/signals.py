@@ -581,12 +581,17 @@ class DoubleSignalItem(BaseModel):
     # Crossover tracking
     dwap_crossover_date: Optional[str] = None  # When stock first crossed DWAP +5%
     days_since_crossover: Optional[int] = None  # Days since the crossover
+    is_fresh: bool = False  # True if crossover was recent (actionable buy signal)
 
 
 class DoubleSignalsResponse(BaseModel):
     signals: List[DoubleSignalItem]
+    fresh_signals: List[DoubleSignalItem]  # Only fresh (recent crossover) signals
     dwap_only_count: int
     momentum_only_count: int
+    fresh_count: int  # Number of actionable fresh signals
+    stale_count: int  # Number of stale (old crossover) signals
+    fresh_threshold_days: int  # Days threshold for "fresh" (e.g., 5)
     market_filter_active: bool
     generated_at: str
 
@@ -751,15 +756,25 @@ async def get_approaching_trigger(
 
 
 @router.get("/double-signals", response_model=DoubleSignalsResponse)
-async def get_double_signals(momentum_top_n: int = 20):
+async def get_double_signals(
+    momentum_top_n: int = 20,
+    fresh_days: int = 5
+):
     """
     Get stocks with BOTH DWAP trigger (+5% above DWAP) AND top momentum ranking.
 
     These "double signals" have historically shown 2.5x higher returns than
     DWAP-only signals (2.91% vs 1.16% at 20 days).
 
-    The ensemble_score combines DWAP strength and momentum rank for sorting.
-    Includes dwap_crossover_date showing when the stock first crossed +5%.
+    **Fresh vs Stale Signals:**
+    - **Fresh**: Crossed DWAP +5% within the last `fresh_days` (default 5) - actionable BUY
+    - **Stale**: Crossed longer ago - may have missed the optimal entry
+
+    DWAP typically crosses before momentum picks up, so fresh crossovers are
+    the ideal entry points for the ensemble strategy.
+
+    - **momentum_top_n**: Consider top N momentum stocks (default 20)
+    - **fresh_days**: Days threshold for "fresh" signals (default 5)
     """
     from app.core.config import settings
 
@@ -779,6 +794,8 @@ async def get_double_signals(momentum_top_n: int = 20):
 
     # Find intersection (double signals)
     double_signals = []
+    fresh_signals = []
+
     for symbol in dwap_by_symbol:
         if symbol in momentum_by_symbol:
             dwap = dwap_by_symbol[symbol]
@@ -794,7 +811,10 @@ async def get_double_signals(momentum_top_n: int = 20):
             # Find when the DWAP crossover occurred
             crossover_date, days_since = find_dwap_crossover_date(symbol)
 
-            double_signals.append(DoubleSignalItem(
+            # Determine if this is a fresh signal (actionable buy)
+            is_fresh = days_since is not None and days_since <= fresh_days
+
+            signal = DoubleSignalItem(
                 symbol=symbol,
                 price=dwap.price,
                 dwap=dwap.dwap,
@@ -808,16 +828,35 @@ async def get_double_signals(momentum_top_n: int = 20):
                 long_momentum=round(mom_data.long_momentum, 2),
                 ensemble_score=round(ensemble_score, 1),
                 dwap_crossover_date=crossover_date,
-                days_since_crossover=days_since
-            ))
+                days_since_crossover=days_since,
+                is_fresh=is_fresh
+            )
 
-    # Sort by ensemble score (best first)
-    double_signals.sort(key=lambda x: -x.ensemble_score)
+            double_signals.append(signal)
+            if is_fresh:
+                fresh_signals.append(signal)
+
+    # Sort: fresh signals first (by recency), then stale by ensemble score
+    double_signals.sort(key=lambda x: (
+        0 if x.is_fresh else 1,  # Fresh first
+        x.days_since_crossover if x.days_since_crossover else 999,  # Then by recency
+        -x.ensemble_score  # Then by score
+    ))
+
+    # Sort fresh signals by recency then score
+    fresh_signals.sort(key=lambda x: (
+        x.days_since_crossover if x.days_since_crossover else 0,
+        -x.ensemble_score
+    ))
 
     return DoubleSignalsResponse(
         signals=double_signals,
+        fresh_signals=fresh_signals,
         dwap_only_count=len(dwap_by_symbol) - len(double_signals),
         momentum_only_count=len(momentum_by_symbol) - len(double_signals),
+        fresh_count=len(fresh_signals),
+        stale_count=len(double_signals) - len(fresh_signals),
+        fresh_threshold_days=fresh_days,
         market_filter_active=settings.MARKET_FILTER_ENABLED,
         generated_at=datetime.now().isoformat()
     )

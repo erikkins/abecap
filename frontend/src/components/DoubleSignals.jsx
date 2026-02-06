@@ -1,29 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, RefreshCw, AlertCircle, TrendingUp, ArrowUpRight } from 'lucide-react';
+import { Zap, RefreshCw, AlertCircle, TrendingUp, ArrowUpRight, Sparkles } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const DoubleSignals = ({ onSymbolClick }) => {
   const [signals, setSignals] = useState([]);
+  const [freshSignals, setFreshSignals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [stats, setStats] = useState({ dwapOnly: 0, momentumOnly: 0 });
+  const [stats, setStats] = useState({ dwapOnly: 0, momentumOnly: 0, freshCount: 0, staleCount: 0 });
   const [marketFilterActive, setMarketFilterActive] = useState(false);
 
   const fetchSignals = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/signals/double-signals?momentum_top_n=20`);
+      const res = await fetch(`${API_BASE}/api/signals/double-signals?momentum_top_n=20&fresh_days=5`);
       if (!res.ok) {
         throw new Error(`API error: ${res.status}`);
       }
       const data = await res.json();
       setSignals(data.signals || []);
+      setFreshSignals(data.fresh_signals || []);
       setStats({
         dwapOnly: data.dwap_only_count || 0,
-        momentumOnly: data.momentum_only_count || 0
+        momentumOnly: data.momentum_only_count || 0,
+        freshCount: data.fresh_count || 0,
+        staleCount: data.stale_count || 0
       });
       setMarketFilterActive(data.market_filter_active);
       setLastUpdated(new Date().toLocaleTimeString());
@@ -87,13 +91,34 @@ const DoubleSignals = ({ onSymbolClick }) => {
         </button>
       </div>
 
+      {/* Fresh signals banner */}
+      {stats.freshCount > 0 && !loading && (
+        <div className="px-4 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-green-600" />
+            <span className="text-sm font-medium text-green-800">
+              {stats.freshCount} Fresh Signal{stats.freshCount > 1 ? 's' : ''} - BUY
+            </span>
+            <span className="text-xs text-green-600">
+              (crossed DWAP +5% in last 5 days)
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Stats bar */}
       {!loading && (
-        <div className="px-4 py-2 bg-gray-50 border-b text-xs text-gray-600 flex gap-4">
-          <span className="flex items-center gap-1">
-            <Zap className="w-3 h-3 text-yellow-500" />
-            {signals.length} double signals
-          </span>
+        <div className="px-4 py-2 bg-gray-50 border-b text-xs text-gray-600 flex flex-wrap gap-3">
+          {stats.freshCount > 0 && (
+            <>
+              <span className="flex items-center gap-1 text-green-700 font-medium">
+                <Sparkles className="w-3 h-3" />
+                {stats.freshCount} fresh
+              </span>
+              <span className="text-gray-400">|</span>
+            </>
+          )}
+          <span className="text-gray-500">{stats.staleCount} stale</span>
           <span className="text-gray-400">|</span>
           <span>{stats.dwapOnly} DWAP-only</span>
           <span className="text-gray-400">|</span>
@@ -135,13 +160,28 @@ const DoubleSignals = ({ onSymbolClick }) => {
               {signals.map((s) => (
                 <tr
                   key={s.symbol}
-                  className="bg-yellow-50/50 hover:bg-yellow-100 cursor-pointer transition-colors"
+                  className={`cursor-pointer transition-colors ${
+                    s.is_fresh
+                      ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500'
+                      : 'bg-yellow-50/30 hover:bg-yellow-50'
+                  }`}
                   onClick={() => onSymbolClick?.(s.symbol)}
                 >
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-1.5">
-                      <Zap className="w-4 h-4 text-yellow-500" title="Double signal: DWAP +5% AND momentum top 20" />
-                      <span className="font-semibold text-gray-900">{s.symbol}</span>
+                      {s.is_fresh ? (
+                        <Sparkles className="w-4 h-4 text-green-600" title="Fresh signal - BUY" />
+                      ) : (
+                        <Zap className="w-4 h-4 text-yellow-500" title="Double signal (stale)" />
+                      )}
+                      <span className={`font-semibold ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>
+                        {s.symbol}
+                      </span>
+                      {s.is_fresh && (
+                        <span className="text-xs bg-green-600 text-white px-1.5 py-0.5 rounded font-medium">
+                          BUY
+                        </span>
+                      )}
                       {s.is_strong && (
                         <ArrowUpRight className="w-3 h-3 text-green-500" title="Strong signal" />
                       )}
@@ -158,9 +198,9 @@ const DoubleSignals = ({ onSymbolClick }) => {
                   <td className="px-3 py-2.5 text-center">
                     {s.dwap_crossover_date ? (
                       <span className={`text-xs px-1.5 py-0.5 rounded ${
-                        s.days_since_crossover <= 5 ? 'bg-green-100 text-green-700 font-medium' :
+                        s.is_fresh ? 'bg-green-200 text-green-800 font-semibold' :
                         s.days_since_crossover <= 14 ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-gray-100 text-gray-600'
+                        'bg-gray-100 text-gray-500'
                       }`} title={`Crossed DWAP +5% on ${s.dwap_crossover_date}`}>
                         {s.days_since_crossover}d ago
                       </span>
@@ -203,7 +243,7 @@ const DoubleSignals = ({ onSymbolClick }) => {
       {/* Footer */}
       <div className="px-4 py-2 text-xs text-gray-500 border-t flex justify-between items-center">
         <span>
-          Double = DWAP +5% AND momentum top 20
+          Fresh = crossed +5% in last 5 days (actionable BUY)
         </span>
         {lastUpdated && (
           <span>Updated: {lastUpdated}</span>
