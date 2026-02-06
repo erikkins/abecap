@@ -654,6 +654,102 @@ def find_dwap_crossover_date(symbol: str, threshold_pct: float = 5.0, lookback_d
     return None, None
 
 
+class ApproachingTriggerItem(BaseModel):
+    """A momentum stock approaching the DWAP +5% trigger."""
+    symbol: str
+    price: float
+    dwap: float
+    pct_above_dwap: float
+    distance_to_trigger: float  # How far from +5% (e.g., 1.5 means +1.5% to go)
+    momentum_rank: int
+    momentum_score: float
+    short_momentum: float
+    long_momentum: float
+
+
+class ApproachingTriggerResponse(BaseModel):
+    approaching: List[ApproachingTriggerItem]
+    market_filter_active: bool
+    trigger_threshold: float  # The threshold they're approaching (e.g., 5.0)
+    generated_at: str
+
+
+@router.get("/approaching-trigger", response_model=ApproachingTriggerResponse)
+async def get_approaching_trigger(
+    momentum_top_n: int = 20,
+    min_pct: float = 3.0,
+    max_pct: float = 5.0
+):
+    """
+    Get momentum stocks approaching the DWAP +5% trigger.
+
+    Shows stocks in the top momentum rankings that are at +3-4% above DWAP,
+    meaning they're close to triggering a double signal but haven't yet.
+
+    These are "watch list" stocks - if they push up another 1-2%, they'll
+    become actionable double signals.
+
+    - **momentum_top_n**: Consider top N momentum stocks (default 20)
+    - **min_pct**: Minimum % above DWAP to include (default 3.0)
+    - **max_pct**: Maximum % above DWAP (default 5.0 - the trigger threshold)
+    """
+    from app.core.config import settings
+    import pandas as pd
+
+    if not scanner_service.data_cache:
+        raise HTTPException(status_code=503, detail="Price data not loaded")
+
+    # Get momentum rankings
+    momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True)
+    top_momentum = {
+        r.symbol: {'rank': i + 1, 'data': r}
+        for i, r in enumerate(momentum_rankings[:momentum_top_n])
+    }
+
+    approaching = []
+
+    for symbol, mom in top_momentum.items():
+        df = scanner_service.data_cache.get(symbol)
+        if df is None or len(df) < 1:
+            continue
+
+        row = df.iloc[-1]
+        price = row['close']
+        dwap = row.get('dwap')
+
+        if pd.isna(dwap) or dwap <= 0:
+            continue
+
+        pct_above = (price / dwap - 1) * 100  # Convert to percentage
+
+        # Check if in the "approaching" range (3-5%)
+        if min_pct <= pct_above < max_pct:
+            distance_to_trigger = max_pct - pct_above
+            mom_data = mom['data']
+
+            approaching.append(ApproachingTriggerItem(
+                symbol=symbol,
+                price=round(float(price), 2),
+                dwap=round(float(dwap), 2),
+                pct_above_dwap=round(pct_above, 2),
+                distance_to_trigger=round(distance_to_trigger, 2),
+                momentum_rank=mom['rank'],
+                momentum_score=round(mom_data.composite_score, 2),
+                short_momentum=round(mom_data.short_momentum, 2),
+                long_momentum=round(mom_data.long_momentum, 2)
+            ))
+
+    # Sort by closest to trigger (smallest distance first)
+    approaching.sort(key=lambda x: x.distance_to_trigger)
+
+    return ApproachingTriggerResponse(
+        approaching=approaching,
+        market_filter_active=settings.MARKET_FILTER_ENABLED,
+        trigger_threshold=max_pct,
+        generated_at=datetime.now().isoformat()
+    )
+
+
 @router.get("/double-signals", response_model=DoubleSignalsResponse)
 async def get_double_signals(momentum_top_n: int = 20):
     """

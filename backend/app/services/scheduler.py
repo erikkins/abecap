@@ -44,6 +44,8 @@ class SchedulerService:
         self.last_run_status: Optional[str] = None
         self.run_count = 0
         self.callbacks: List[Callable] = []
+        # Track alerted double signals to avoid duplicate alerts
+        self._alerted_double_signals: set = set()
 
     def add_callback(self, callback: Callable):
         """Add a callback to be called after each scheduled run"""
@@ -279,6 +281,21 @@ class SchedulerService:
             replace_existing=True
         )
 
+        # Check for new double signals at 5:00 PM ET (after daily update)
+        # Sends alert email when momentum stocks cross DWAP +5%
+        self.scheduler.add_job(
+            self.check_double_signal_alerts,
+            CronTrigger(
+                day_of_week='mon-fri',
+                hour=17,
+                minute=0,
+                timezone=ET
+            ),
+            id='double_signal_alert',
+            name='Double Signal Alert Check',
+            replace_existing=True
+        )
+
         # Ticker health check at 7:00 AM ET (before market open)
         # Checks open positions and must-include symbols for data issues
         self.scheduler.add_job(
@@ -476,6 +493,119 @@ class SchedulerService:
                 'last_price': 'N/A',
                 'last_date': 'N/A'
             }
+
+    async def check_double_signal_alerts(self):
+        """
+        Check for new double signals and send email alerts.
+
+        Runs at 5:00 PM ET to detect momentum stocks that just crossed DWAP +5%.
+        Only alerts on NEW crossovers (not previously alerted).
+        """
+        logger.info("⚡ Checking for new double signal alerts...")
+
+        try:
+            # Check if this is a trading day
+            now = datetime.now(ET)
+            if not self._is_trading_day(now):
+                logger.info("📅 Not a trading day, skipping double signal check")
+                return
+
+            import pandas as pd
+            from app.api.signals import find_dwap_crossover_date
+
+            # Get momentum rankings (top 20)
+            momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True)
+            top_momentum = {
+                r.symbol: {'rank': i + 1, 'data': r}
+                for i, r in enumerate(momentum_rankings[:20])
+            }
+
+            # Find stocks that crossed DWAP +5% recently (within last 3 trading days)
+            new_signals = []
+            approaching = []
+            today_str = now.strftime('%Y-%m-%d')
+
+            for symbol, mom in top_momentum.items():
+                df = scanner_service.data_cache.get(symbol)
+                if df is None or len(df) < 1:
+                    continue
+
+                row = df.iloc[-1]
+                price = row['close']
+                dwap = row.get('dwap')
+
+                if pd.isna(dwap) or dwap <= 0:
+                    continue
+
+                pct_above = (price / dwap - 1) * 100
+
+                # Check for approaching trigger (3-5%)
+                if 3.0 <= pct_above < 5.0:
+                    distance = 5.0 - pct_above
+                    approaching.append({
+                        'symbol': symbol,
+                        'price': float(price),
+                        'pct_above_dwap': pct_above,
+                        'distance_to_trigger': distance,
+                        'momentum_rank': mom['rank'],
+                    })
+
+                # Check for double signals (>= 5% above DWAP)
+                elif pct_above >= 5.0:
+                    # Find crossover date
+                    crossover_date, days_since = find_dwap_crossover_date(symbol, threshold_pct=5.0, lookback_days=5)
+
+                    # Only alert if crossover was recent (within last 3 days) and not already alerted
+                    alert_key = f"{symbol}_{crossover_date or today_str}"
+
+                    if days_since is not None and days_since <= 3 and alert_key not in self._alerted_double_signals:
+                        mom_data = mom['data']
+                        new_signals.append({
+                            'symbol': symbol,
+                            'price': float(price),
+                            'dwap': float(dwap),
+                            'pct_above_dwap': pct_above,
+                            'momentum_rank': mom['rank'],
+                            'momentum_score': mom_data.composite_score,
+                            'short_momentum': mom_data.short_momentum,
+                            'long_momentum': mom_data.long_momentum,
+                            'dwap_crossover_date': crossover_date or today_str,
+                            'days_since_crossover': days_since or 0,
+                        })
+                        # Mark as alerted
+                        self._alerted_double_signals.add(alert_key)
+
+            # Clean up old alert keys (keep last 100)
+            if len(self._alerted_double_signals) > 100:
+                # Convert to list, sort, keep recent ones
+                self._alerted_double_signals = set(list(self._alerted_double_signals)[-50:])
+
+            # Send alert email if new signals found
+            if new_signals:
+                logger.info(f"⚡ Found {len(new_signals)} new double signal(s)!")
+                for sig in new_signals:
+                    logger.info(f"   • {sig['symbol']}: ${sig['price']:.2f} (+{sig['pct_above_dwap']:.1f}%) - Mom #{sig['momentum_rank']}")
+
+                # Send email alert
+                success = await email_service.send_double_signal_alert(
+                    to_email=ADMIN_EMAIL,
+                    new_signals=new_signals,
+                    approaching=approaching
+                )
+
+                if success:
+                    logger.info(f"📧 Double signal alert sent to {ADMIN_EMAIL}")
+                else:
+                    logger.warning("⚠️ Failed to send double signal alert email")
+            else:
+                logger.info(f"✅ No new double signals (checked {len(top_momentum)} momentum stocks)")
+                if approaching:
+                    logger.info(f"   👀 {len(approaching)} stocks approaching trigger")
+
+        except Exception as e:
+            logger.error(f"❌ Double signal alert check failed: {e}")
+            import traceback
+            traceback.print_exc()
 
     async def send_daily_emails(self):
         """

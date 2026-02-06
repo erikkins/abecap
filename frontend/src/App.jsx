@@ -17,6 +17,7 @@ import AdminDashboard from './components/AdminDashboard';
 import SubscriptionBanner from './components/SubscriptionBanner';
 import MomentumRankings from './components/MomentumRankings';
 import DoubleSignals from './components/DoubleSignals';
+import ApproachingTrigger from './components/ApproachingTrigger';
 
 // ============================================================================
 // API Configuration
@@ -1853,7 +1854,10 @@ function Dashboard() {
             {showEnsembleView ? (
               /* Ensemble View - Double Signals Only */
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <DoubleSignals onSymbolClick={(symbol) => setChartModal({ type: 'signal', data: { symbol }, symbol })} />
+                <div className="space-y-4">
+                  <DoubleSignals onSymbolClick={(symbol) => setChartModal({ type: 'signal', data: { symbol }, symbol })} />
+                  <ApproachingTrigger onSymbolClick={(symbol) => setChartModal({ type: 'signal', data: { symbol }, symbol })} />
+                </div>
                 <div className="bg-white rounded-lg shadow p-6">
                   <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                     <Zap className="w-5 h-5 text-yellow-500" />
