@@ -1368,6 +1368,7 @@ async def start_walk_forward_async(
     min_score_diff: float = Query(10.0, ge=0, le=50),
     enable_ai: bool = Query(True, description="Enable AI optimization at each period"),
     max_symbols: int = Query(50, ge=10, le=500, description="Max symbols to use (50=fast, 500=full)"),
+    strategy_id: int = Query(None, description="Fixed strategy ID (if set, uses only this strategy, no switching)"),
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -1376,6 +1377,8 @@ async def start_walk_forward_async(
 
     Creates a job record and invokes Lambda asynchronously. Use the status
     endpoint to poll for completion.
+
+    If strategy_id is provided, uses only that strategy (no auto-switching or AI).
     """
     print(f"[WALK-FORWARD] Endpoint called: start={start_date}, end={end_date}, ai={enable_ai}, symbols={max_symbols}")
 
@@ -1443,7 +1446,8 @@ async def start_walk_forward_async(
                 "frequency": frequency,
                 "min_score_diff": min_score_diff,
                 "enable_ai": enable_ai,
-                "max_symbols": max_symbols
+                "max_symbols": max_symbols,
+                "strategy_id": strategy_id
             }
         }
         lambda_client.invoke(
@@ -1451,7 +1455,7 @@ async def start_walk_forward_async(
             InvocationType='Event',  # Async invocation
             Payload=json.dumps(payload)
         )
-        print(f"[WALK-FORWARD] Lambda invoked async for job {job_id}")
+        print(f"[WALK-FORWARD] Lambda invoked async for job {job_id}, strategy_id={strategy_id}")
     except Exception as e:
         print(f"[WALK-FORWARD] Failed to invoke Lambda async: {e}, running synchronously...")
         # Fallback: run synchronously (for local dev)
@@ -1464,7 +1468,8 @@ async def start_walk_forward_async(
                 min_score_diff=min_score_diff,
                 enable_ai_optimization=enable_ai,
                 max_symbols=max_symbols,
-                existing_job_id=job_id
+                existing_job_id=job_id,
+                fixed_strategy_id=strategy_id
             )
             return {
                 "job_id": job_id,

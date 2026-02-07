@@ -255,6 +255,8 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
   const [minScoreDiff, setMinScoreDiff] = useState(10);
   const [enableAI, setEnableAI] = useState(true);
   const [maxSymbols, setMaxSymbols] = useState(50);
+  const [strategies, setStrategies] = useState([]);
+  const [selectedStrategyId, setSelectedStrategyId] = useState(''); // '' = auto-select
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState(null);
   const [jobStatus, setJobStatus] = useState(null);
@@ -270,8 +272,22 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
   const [currentRegime, setCurrentRegime] = useState(null);
   const [loadingRegimes, setLoadingRegimes] = useState(false);
 
+  // Fetch available strategies
+  const fetchStrategies = async () => {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/strategies`);
+      if (response.ok) {
+        const data = await response.json();
+        setStrategies(data.strategies || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch strategies:', err);
+    }
+  };
+
   useEffect(() => {
     fetchHistory();
+    fetchStrategies();
     fetchCurrentRegime();
   }, []);
 
@@ -387,9 +403,12 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
         end_date: endDate,
         frequency: frequency,
         min_score_diff: minScoreDiff,
-        enable_ai: enableAI,
+        enable_ai: selectedStrategyId ? false : enableAI, // Disable AI if fixed strategy
         max_symbols: maxSymbols
       });
+      if (selectedStrategyId) {
+        params.append('strategy_id', selectedStrategyId);
+      }
 
       // Use the /start endpoint which now returns results directly
       const response = await fetchWithAuth(
@@ -623,25 +642,59 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
           )}
         </div>
 
-        {/* AI Optimization Toggle */}
-        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200">
+        {/* Strategy Selection */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-blue-600" />
+            Strategy
+          </label>
+          <select
+            value={selectedStrategyId}
+            onChange={(e) => setSelectedStrategyId(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Auto-select best strategy (with switching)</option>
+            {strategies.map(s => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.strategy_type})
+              </option>
+            ))}
+          </select>
+          {selectedStrategyId && (
+            <p className="text-xs text-blue-600">
+              Fixed strategy mode: Will use only this strategy without switching or AI optimization.
+            </p>
+          )}
+        </div>
+
+        {/* AI Optimization Toggle - disabled when using fixed strategy */}
+        <div className={`flex items-center justify-between p-4 rounded-xl border ${
+          selectedStrategyId
+            ? 'bg-gray-100 border-gray-200 opacity-60'
+            : 'bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200'
+        }`}>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Brain className="w-5 h-5 text-purple-600" />
+            <div className={`p-2 rounded-lg ${selectedStrategyId ? 'bg-gray-200' : 'bg-purple-100'}`}>
+              <Brain className={`w-5 h-5 ${selectedStrategyId ? 'text-gray-400' : 'text-purple-600'}`} />
             </div>
             <div>
               <p className="font-medium text-gray-900">AI Parameter Optimization</p>
-              <p className="text-sm text-gray-600">Detect emerging trends and adapt parameters at each period</p>
+              <p className="text-sm text-gray-600">
+                {selectedStrategyId
+                  ? 'Disabled when using fixed strategy'
+                  : 'Detect emerging trends and adapt parameters at each period'}
+              </p>
             </div>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
+          <label className={`relative inline-flex items-center ${selectedStrategyId ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
             <input
               type="checkbox"
-              checked={enableAI}
+              checked={selectedStrategyId ? false : enableAI}
               onChange={(e) => setEnableAI(e.target.checked)}
+              disabled={!!selectedStrategyId}
               className="sr-only peer"
             />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600 peer-disabled:opacity-50"></div>
           </label>
         </div>
 

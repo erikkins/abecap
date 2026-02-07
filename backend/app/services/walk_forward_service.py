@@ -733,7 +733,8 @@ class WalkForwardService:
         lookback_days: int = 60,
         enable_ai_optimization: bool = True,
         max_symbols: int = 50,
-        existing_job_id: int = None
+        existing_job_id: int = None,
+        fixed_strategy_id: int = None  # If set, use only this strategy (no switching)
     ) -> WalkForwardResult:
         """
         Run walk-forward simulation with AI optimization over a historical period.
@@ -757,13 +758,14 @@ class WalkForwardService:
             min_score_diff: Minimum score difference to trigger switch
             lookback_days: Days of data for strategy evaluation
             enable_ai_optimization: Whether to run AI param optimization each period
+            fixed_strategy_id: If provided, use only this strategy (disables switching and AI)
 
         Returns:
             WalkForwardResult with complete simulation data including AI insights
         """
         import logging
         logger = logging.getLogger()
-        print(f"[WF-SERVICE] Starting simulation: {start_date} to {end_date}, ai={enable_ai_optimization}")
+        print(f"[WF-SERVICE] Starting simulation: {start_date} to {end_date}, ai={enable_ai_optimization}, fixed_strategy={fixed_strategy_id}")
 
         # Load all strategies
         result = await db.execute(
@@ -774,6 +776,16 @@ class WalkForwardService:
 
         if not strategies:
             raise RuntimeError("No strategies found in database")
+
+        # If fixed_strategy_id is set, find that strategy and disable switching
+        fixed_strategy = None
+        if fixed_strategy_id:
+            fixed_strategy = next((s for s in strategies if s.id == fixed_strategy_id), None)
+            if not fixed_strategy:
+                raise RuntimeError(f"Strategy with id {fixed_strategy_id} not found")
+            print(f"[WF-SERVICE] Using FIXED strategy: {fixed_strategy.name} (id={fixed_strategy_id})")
+            # Disable AI optimization when using fixed strategy
+            enable_ai_optimization = False
 
         # Get top liquid symbols (use max_symbols param for full universe testing)
         top_symbols = get_top_liquid_symbols(max_symbols=max_symbols)
@@ -847,16 +859,38 @@ class WalkForwardService:
             print(f"[WF-SERVICE] Period {i+1}/{len(periods)}: {period_start.strftime('%Y-%m-%d')} to {period_end.strftime('%Y-%m-%d')}")
             period_ai_opt = None
 
-            # Step 1: Evaluate all existing strategies
-            evaluations = []
-            for strategy in strategies:
-                metrics = self._evaluate_strategy_at_date(
-                    strategy, period_start, lookback_days, ticker_list=top_symbols
-                )
-                if metrics:
-                    metrics["score"] = self._calculate_recommendation_score(metrics)
-                    metrics["is_ai"] = False
-                    evaluations.append(metrics)
+            # If using fixed strategy, skip all evaluation and switching
+            if fixed_strategy:
+                if i == 0:
+                    # First period - set the fixed strategy as active
+                    active_strategy = fixed_strategy
+                    active_strategy_type = fixed_strategy.strategy_type
+                    active_strategy_score = 100.0  # Dummy score
+                    switch_history.append(SwitchEvent(
+                        date=period_start.strftime('%Y-%m-%d'),
+                        from_strategy_id=None,
+                        from_strategy_name="Initial",
+                        to_strategy_id=fixed_strategy.id,
+                        to_strategy_name=fixed_strategy.name,
+                        reason="fixed_strategy_selected",
+                        score_before=0,
+                        score_after=100.0,
+                        is_ai_generated=False
+                    ))
+                    print(f"[WF-SERVICE] Using fixed strategy: {fixed_strategy.name}")
+                # Skip to trading simulation below
+                evaluations = []
+            else:
+                # Step 1: Evaluate all existing strategies
+                evaluations = []
+                for strategy in strategies:
+                    metrics = self._evaluate_strategy_at_date(
+                        strategy, period_start, lookback_days, ticker_list=top_symbols
+                    )
+                    if metrics:
+                        metrics["score"] = self._calculate_recommendation_score(metrics)
+                        metrics["is_ai"] = False
+                        evaluations.append(metrics)
 
             # Step 2: Run AI optimization if enabled
             if enable_ai_optimization:

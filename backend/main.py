@@ -321,7 +321,8 @@ async def _run_walk_forward_job(job_config: dict):
                 min_score_diff=job_config["min_score_diff"],
                 enable_ai_optimization=job_config["enable_ai"],
                 max_symbols=job_config["max_symbols"],
-                existing_job_id=job_id
+                existing_job_id=job_id,
+                fixed_strategy_id=job_config.get("strategy_id")
             )
 
             print(f"[ASYNC-WF] Job {job_id} completed: return={sim_result.total_return_pct}%")
