@@ -525,7 +525,8 @@ class BacktesterService:
         use_momentum_strategy: bool = True,  # Deprecated, use strategy_type
         ticker_list: Optional[List[str]] = None,
         exit_strategy: Optional[ExitStrategyConfig] = None,
-        strategy_type: Optional[str] = None  # "momentum", "dwap", "dwap_hybrid"
+        strategy_type: Optional[str] = None,  # "momentum", "dwap", "dwap_hybrid"
+        force_close_at_end: bool = False  # Close all positions at simulation end
     ) -> BacktestResult:
         """
         Run backtest over historical data
@@ -539,6 +540,8 @@ class BacktesterService:
             exit_strategy: Optional exit strategy configuration
             strategy_type: Strategy to use - "momentum", "dwap", or "dwap_hybrid"
                           If None, falls back to use_momentum_strategy for compatibility
+            force_close_at_end: If True, close all open positions at simulation end
+                               and record as trades with exit_reason="simulation_end"
 
         Returns:
             BacktestResult with positions, trades, and metrics
@@ -1057,6 +1060,46 @@ class BacktesterService:
                 'date': date_str,
                 'equity': capital + position_value
             })
+
+        # Force close remaining positions at simulation end if requested
+        if force_close_at_end and positions:
+            last_date = dates[-1]
+            last_date_str = last_date.strftime('%Y-%m-%d')
+            print(f"[BACKTEST] Force closing {len(positions)} positions at simulation end ({last_date_str})")
+
+            for symbol, pos in positions.items():
+                df = scanner_service.data_cache.get(symbol)
+                if df is None:
+                    continue
+
+                # Get price on the last day of simulation
+                row = self._get_row_for_date(df, last_date)
+                if row is None:
+                    # Fall back to latest price
+                    current_price = df.iloc[-1]['close']
+                else:
+                    current_price = row['close']
+
+                pnl_pct = (current_price - pos['entry_price']) / pos['entry_price']
+
+                trade_id += 1
+                trades.append(SimulatedTrade(
+                    id=trade_id,
+                    symbol=symbol,
+                    entry_date=pos['entry_date'],
+                    exit_date=last_date_str,
+                    entry_price=pos['entry_price'],
+                    exit_price=current_price,
+                    shares=pos['shares'],
+                    pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
+                    pnl_pct=round(pnl_pct * 100, 2),
+                    exit_reason='simulation_end',
+                    days_held=self._days_between(last_date, pos['entry_date']),
+                    dwap_at_entry=pos.get('dwap_at_entry', 0)
+                ))
+                capital += pos['shares'] * current_price
+
+            positions.clear()
 
         # Convert remaining positions to SimulatedPosition objects
         final_positions = []

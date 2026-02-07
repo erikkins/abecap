@@ -57,6 +57,37 @@ const TradeChartModal = ({ trade, onClose, fetchWithAuth }) => {
   const isProfit = trade.pnl_pct >= 0;
   const holdingDays = Math.ceil((new Date(trade.exit_date) - new Date(trade.entry_date)) / (1000 * 60 * 60 * 24));
 
+  // Add markers to price data for entry/exit points
+  const chartData = priceData.map(d => ({
+    ...d,
+    isEntry: d.date === trade.entry_date,
+    isExit: d.date === trade.exit_date,
+  }));
+
+  // Custom dot renderer for B/S markers
+  const renderDot = (props) => {
+    const { cx, cy, payload } = props;
+    if (!payload) return null;
+
+    if (payload.isEntry) {
+      return (
+        <g key={`entry-${payload.date}`}>
+          <circle cx={cx} cy={cy} r={14} fill="#10B981" />
+          <text x={cx} y={cy + 5} textAnchor="middle" fill="white" fontSize={12} fontWeight="bold">B</text>
+        </g>
+      );
+    }
+    if (payload.isExit) {
+      return (
+        <g key={`exit-${payload.date}`}>
+          <circle cx={cx} cy={cy} r={14} fill={isProfit ? '#F59E0B' : '#EF4444'} />
+          <text x={cx} y={cy + 5} textAnchor="middle" fill="white" fontSize={12} fontWeight="bold">S</text>
+        </g>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
@@ -126,7 +157,7 @@ const TradeChartModal = ({ trade, onClose, fetchWithAuth }) => {
             <div className="text-center py-12 text-gray-500">No price data available</div>
           ) : (
             <ResponsiveContainer width="100%" height={350}>
-              <ComposedChart data={priceData}>
+              <ComposedChart data={chartData}>
                 <defs>
                   <linearGradient id="tradeGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.15}/>
@@ -180,55 +211,16 @@ const TradeChartModal = ({ trade, onClose, fetchWithAuth }) => {
                   }}
                 />
                 <Bar yAxisId="volume" dataKey="volume" fill="#E5E7EB" opacity={0.5} />
-                <Area yAxisId="price" type="monotone" dataKey="close" stroke="#3B82F6" strokeWidth={2} fill="url(#tradeGradient)" />
-
-                {/* Entry price horizontal line */}
-                <ReferenceLine
+                <Area
                   yAxisId="price"
-                  y={trade.entry_price}
-                  stroke="#10B981"
+                  type="monotone"
+                  dataKey="close"
+                  stroke="#3B82F6"
                   strokeWidth={2}
-                  strokeDasharray="8 4"
-                  label={{
-                    value: `Buy $${trade.entry_price?.toFixed(2)}`,
-                    fill: '#10B981',
-                    fontWeight: 'bold',
-                    fontSize: 12,
-                    position: 'insideLeft'
-                  }}
+                  fill="url(#tradeGradient)"
+                  dot={renderDot}
                 />
 
-                {/* Exit price horizontal line */}
-                <ReferenceLine
-                  yAxisId="price"
-                  y={trade.exit_price}
-                  stroke={isProfit ? '#F59E0B' : '#EF4444'}
-                  strokeWidth={2}
-                  strokeDasharray="8 4"
-                  label={{
-                    value: `Sell $${trade.exit_price?.toFixed(2)} (${isProfit ? '+' : ''}${trade.pnl_pct?.toFixed(1)}%)`,
-                    fill: isProfit ? '#F59E0B' : '#EF4444',
-                    fontWeight: 'bold',
-                    fontSize: 12,
-                    position: 'insideRight'
-                  }}
-                />
-
-                {/* Entry date vertical line */}
-                <ReferenceLine
-                  x={trade.entry_date}
-                  stroke="#10B981"
-                  strokeWidth={2}
-                  label={{ value: 'BUY', fill: '#10B981', fontSize: 11, fontWeight: 'bold', position: 'top' }}
-                />
-
-                {/* Exit date vertical line */}
-                <ReferenceLine
-                  x={trade.exit_date}
-                  stroke={isProfit ? '#F59E0B' : '#EF4444'}
-                  strokeWidth={2}
-                  label={{ value: 'SELL', fill: isProfit ? '#F59E0B' : '#EF4444', fontSize: 11, fontWeight: 'bold', position: 'top' }}
-                />
 
               </ComposedChart>
             </ResponsiveContainer>
@@ -237,10 +229,10 @@ const TradeChartModal = ({ trade, onClose, fetchWithAuth }) => {
           {/* Legend */}
           <div className="flex items-center justify-center gap-6 mt-4 text-xs text-gray-500">
             <span className="flex items-center gap-1.5">
-              <span className="w-4 h-0.5 bg-emerald-500"></span> Buy
+              <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center justify-center">B</span> Buy
             </span>
             <span className="flex items-center gap-1.5">
-              <span className={`w-4 h-0.5 ${isProfit ? 'bg-amber-500' : 'bg-red-500'}`}></span> Sell
+              <span className={`w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center ${isProfit ? 'bg-amber-500' : 'bg-red-500'}`}>S</span> Sell
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-8 h-0.5 bg-blue-500"></span> Price

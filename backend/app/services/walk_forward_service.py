@@ -604,7 +604,8 @@ class WalkForwardService:
                 start_date=start_date,
                 end_date=end_date,
                 strategy_type=strategy_type,
-                ticker_list=ticker_list
+                ticker_list=ticker_list,
+                force_close_at_end=True  # Close all positions at period end for accurate trade tracking
             )
 
             ending_capital = starting_capital * (1 + result.total_return_pct / 100)
@@ -669,7 +670,8 @@ class WalkForwardService:
                 start_date=start_date,
                 end_date=end_date,
                 strategy_type=strategy.strategy_type,
-                ticker_list=ticker_list
+                ticker_list=ticker_list,
+                force_close_at_end=True  # Close all positions at period end for accurate trade tracking
             )
 
             ending_capital = starting_capital * (1 + result.total_return_pct / 100)
