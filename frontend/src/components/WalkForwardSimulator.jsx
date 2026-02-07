@@ -1,8 +1,285 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend, ReferenceArea } from 'recharts';
-import { PlayCircle, RefreshCw, TrendingUp, Calendar, ArrowRight, AlertCircle, Zap, Brain, ChevronDown, ChevronUp, Eye, EyeOff, BarChart2 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend, ReferenceArea, ComposedChart, Area, Bar, ReferenceDot } from 'recharts';
+import { PlayCircle, RefreshCw, TrendingUp, Calendar, ArrowRight, AlertCircle, Zap, Brain, ChevronDown, ChevronUp, Eye, EyeOff, BarChart2, X, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+// Trade Chart Modal - Shows buy/sell points for a specific trade
+const TradeChartModal = ({ trade, onClose, fetchWithAuth }) => {
+  const [priceData, setPriceData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchTradeData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Calculate days needed: from 30 days before entry to 30 days after exit
+        const entryDate = new Date(trade.entry_date);
+        const exitDate = new Date(trade.exit_date);
+        const today = new Date();
+        const daysSinceEntry = Math.ceil((today - entryDate) / (1000 * 60 * 60 * 24));
+        const daysNeeded = daysSinceEntry + 60; // Extra buffer
+
+        const response = await fetchWithAuth(`${API_URL}/api/stock/${trade.symbol}/history?days=${daysNeeded}`);
+        if (!response.ok) throw new Error('Failed to fetch chart data');
+
+        const result = await response.json();
+        let chartData = result.data || [];
+
+        // Filter to show transaction window: 30 days before entry to 30 days after exit
+        const windowStart = new Date(entryDate);
+        windowStart.setDate(windowStart.getDate() - 30);
+        const windowEnd = new Date(exitDate);
+        windowEnd.setDate(windowEnd.getDate() + 30);
+        // Don't go past today
+        const maxEnd = new Date();
+        const effectiveEnd = windowEnd > maxEnd ? maxEnd : windowEnd;
+
+        chartData = chartData.filter(d => {
+          const date = new Date(d.date);
+          return date >= windowStart && date <= effectiveEnd;
+        });
+
+        setPriceData(chartData);
+      } catch (err) {
+        console.error('Trade chart error:', err);
+        setError('Failed to load chart data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTradeData();
+  }, [trade, fetchWithAuth]);
+
+  // Find entry and exit points in chart data
+  const entryPoint = priceData.find(d => d.date === trade.entry_date);
+  const exitPoint = priceData.find(d => d.date === trade.exit_date);
+
+  const isProfit = trade.pnl_pct >= 0;
+  const holdingDays = Math.ceil((new Date(trade.exit_date) - new Date(trade.entry_date)) / (1000 * 60 * 60 * 24));
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100 relative flex-shrink-0">
+          <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg z-10">
+            <X size={24} className="text-gray-400" />
+          </button>
+
+          <div className="pr-12">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-2xl font-bold text-gray-900">{trade.symbol}</h2>
+              <span className={`px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1 ${
+                isProfit ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+              }`}>
+                {isProfit ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                {isProfit ? '+' : ''}{trade.pnl_pct?.toFixed(1)}%
+              </span>
+              <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
+                {trade.strategy_name}
+              </span>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+              <div className="bg-emerald-50 rounded-lg p-2 text-center">
+                <p className="text-xs text-gray-500">Entry</p>
+                <p className="font-semibold text-emerald-700">${trade.entry_price?.toFixed(2)}</p>
+                <p className="text-xs text-gray-400">{new Date(trade.entry_date).toLocaleDateString()}</p>
+              </div>
+              <div className={`rounded-lg p-2 text-center ${isProfit ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                <p className="text-xs text-gray-500">Exit</p>
+                <p className={`font-semibold ${isProfit ? 'text-emerald-700' : 'text-red-700'}`}>${trade.exit_price?.toFixed(2)}</p>
+                <p className="text-xs text-gray-400">{new Date(trade.exit_date).toLocaleDateString()}</p>
+              </div>
+              <div className={`rounded-lg p-2 text-center ${isProfit ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                <p className="text-xs text-gray-500">P&L</p>
+                <p className={`font-semibold ${isProfit ? 'text-emerald-700' : 'text-red-700'}`}>
+                  {isProfit ? '+' : ''}${trade.pnl_dollars?.toFixed(0)}
+                </p>
+                <p className="text-xs text-gray-400">{trade.shares?.toFixed(0)} shares</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-2 text-center">
+                <p className="text-xs text-gray-500">Held</p>
+                <p className="font-semibold text-gray-700">{holdingDays} days</p>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-2 text-center">
+                <p className="text-xs text-gray-500">Exit Reason</p>
+                <p className="font-semibold text-amber-700 text-xs">{trade.exit_reason?.replace('_', ' ')}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Chart */}
+        <div className="flex-1 p-6 overflow-y-auto">
+          <div className="mb-2 text-xs text-gray-500 text-center">
+            Transaction window: 30 days before entry → 30 days after exit
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <RefreshCw className="w-8 h-8 text-gray-400 animate-spin" />
+            </div>
+          ) : error ? (
+            <div className="text-center py-12 text-red-500">{error}</div>
+          ) : priceData.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">No price data available</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={350}>
+              <ComposedChart data={priceData}>
+                <defs>
+                  <linearGradient id="tradeGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11 }}
+                  stroke="#9CA3AF"
+                  tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  interval={Math.floor(priceData.length / 8)}
+                />
+                <YAxis
+                  yAxisId="price"
+                  tick={{ fontSize: 11 }}
+                  stroke="#9CA3AF"
+                  domain={['dataMin - 5', 'dataMax + 5']}
+                  tickFormatter={(val) => `$${val.toFixed(0)}`}
+                />
+                <YAxis
+                  yAxisId="volume"
+                  orientation="right"
+                  tick={{ fontSize: 10 }}
+                  stroke="#D1D5DB"
+                  tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`}
+                />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0]?.payload;
+                    const isEntryDay = d?.date === trade.entry_date;
+                    const isExitDay = d?.date === trade.exit_date;
+                    return (
+                      <div className={`bg-white p-3 rounded-lg shadow-lg border text-sm ${
+                        isEntryDay ? 'border-emerald-400 border-2' :
+                        isExitDay ? 'border-amber-400 border-2' : 'border-gray-200'
+                      }`}>
+                        <p className="font-medium text-gray-900 mb-1">
+                          {new Date(label).toLocaleDateString()}
+                          {isEntryDay && <span className="ml-2 text-emerald-600 font-bold">BUY</span>}
+                          {isExitDay && <span className="ml-2 text-amber-600 font-bold">SELL</span>}
+                        </p>
+                        <p className="text-blue-600">Close: ${d?.close?.toFixed(2)}</p>
+                        {isEntryDay && <p className="text-emerald-600 font-medium">Entry: ${trade.entry_price?.toFixed(2)}</p>}
+                        {isExitDay && <p className="text-amber-600 font-medium">Exit: ${trade.exit_price?.toFixed(2)}</p>}
+                        {d?.volume > 0 && <p className="text-gray-400">Vol: {(d.volume / 1000000).toFixed(1)}M</p>}
+                      </div>
+                    );
+                  }}
+                />
+                <Bar yAxisId="volume" dataKey="volume" fill="#E5E7EB" opacity={0.5} />
+                <Area yAxisId="price" type="monotone" dataKey="close" stroke="#3B82F6" strokeWidth={2} fill="url(#tradeGradient)" />
+
+                {/* Entry price horizontal line */}
+                <ReferenceLine
+                  yAxisId="price"
+                  y={trade.entry_price}
+                  stroke="#10B981"
+                  strokeWidth={2}
+                  strokeDasharray="8 4"
+                  label={{
+                    value: `Buy $${trade.entry_price?.toFixed(2)}`,
+                    fill: '#10B981',
+                    fontWeight: 'bold',
+                    fontSize: 12,
+                    position: 'insideLeft'
+                  }}
+                />
+
+                {/* Exit price horizontal line */}
+                <ReferenceLine
+                  yAxisId="price"
+                  y={trade.exit_price}
+                  stroke={isProfit ? '#F59E0B' : '#EF4444'}
+                  strokeWidth={2}
+                  strokeDasharray="8 4"
+                  label={{
+                    value: `Sell $${trade.exit_price?.toFixed(2)} (${isProfit ? '+' : ''}${trade.pnl_pct?.toFixed(1)}%)`,
+                    fill: isProfit ? '#F59E0B' : '#EF4444',
+                    fontWeight: 'bold',
+                    fontSize: 12,
+                    position: 'insideRight'
+                  }}
+                />
+
+                {/* Entry date vertical line */}
+                <ReferenceLine
+                  x={trade.entry_date}
+                  stroke="#10B981"
+                  strokeWidth={2}
+                  label={{ value: 'BUY', fill: '#10B981', fontSize: 11, fontWeight: 'bold', position: 'top' }}
+                />
+
+                {/* Exit date vertical line */}
+                <ReferenceLine
+                  x={trade.exit_date}
+                  stroke={isProfit ? '#F59E0B' : '#EF4444'}
+                  strokeWidth={2}
+                  label={{ value: 'SELL', fill: isProfit ? '#F59E0B' : '#EF4444', fontSize: 11, fontWeight: 'bold', position: 'top' }}
+                />
+
+                {/* Entry point marker */}
+                {entryPoint && (
+                  <ReferenceDot
+                    x={trade.entry_date}
+                    y={trade.entry_price}
+                    yAxisId="price"
+                    r={8}
+                    fill="#10B981"
+                    stroke="#fff"
+                    strokeWidth={2}
+                  />
+                )}
+
+                {/* Exit point marker */}
+                {exitPoint && (
+                  <ReferenceDot
+                    x={trade.exit_date}
+                    y={trade.exit_price}
+                    yAxisId="price"
+                    r={8}
+                    fill={isProfit ? '#F59E0B' : '#EF4444'}
+                    stroke="#fff"
+                    strokeWidth={2}
+                  />
+                )}
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
+
+          {/* Legend */}
+          <div className="flex items-center justify-center gap-6 mt-4 text-xs text-gray-500">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-emerald-500"></span> Buy Point
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className={`w-3 h-3 rounded-full ${isProfit ? 'bg-amber-500' : 'bg-red-500'}`}></span> Sell Point
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-8 h-0.5 bg-blue-500"></span> Price
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function WalkForwardSimulator({ fetchWithAuth }) {
   const [startDate, setStartDate] = useState(() => {
@@ -24,6 +301,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
   const [showAIDetails, setShowAIDetails] = useState(false);
   const [showParamEvolution, setShowParamEvolution] = useState(false);
   const [showTrades, setShowTrades] = useState(false);
+  const [selectedTrade, setSelectedTrade] = useState(null);
   const [regimePeriods, setRegimePeriods] = useState([]);
   const [showRegimes, setShowRegimes] = useState(true);
   const [currentRegime, setCurrentRegime] = useState(null);
@@ -997,6 +1275,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                     <BarChart2 className="w-5 h-5 text-emerald-600" />
                     <h4 className="font-medium text-gray-900">Trades Executed</h4>
                     <span className="text-sm text-emerald-600">({result.trades.length} trades)</span>
+                    <span className="text-xs text-gray-400 hidden md:inline">• Click any trade to view chart</span>
                   </div>
                   {showTrades ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                 </button>
@@ -1018,8 +1297,18 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {result.trades.map((trade, i) => (
-                          <tr key={i} className={trade.pnl_pct >= 0 ? 'bg-emerald-50/30' : 'bg-red-50/30'}>
-                            <td className="px-3 py-2 font-medium text-gray-900">{trade.symbol}</td>
+                          <tr
+                            key={i}
+                            onClick={() => setSelectedTrade(trade)}
+                            className={`cursor-pointer transition-colors hover:bg-blue-50 ${trade.pnl_pct >= 0 ? 'bg-emerald-50/30' : 'bg-red-50/30'}`}
+                            title="Click to view chart"
+                          >
+                            <td className="px-3 py-2 font-medium text-gray-900">
+                              <span className="flex items-center gap-1">
+                                {trade.symbol}
+                                <BarChart2 className="w-3 h-3 text-gray-400" />
+                              </span>
+                            </td>
                             <td className="px-3 py-2 text-gray-600 text-xs">{trade.strategy_name?.replace('AI-', '')}</td>
                             <td className="px-3 py-2 text-gray-600">{new Date(trade.entry_date).toLocaleDateString()}</td>
                             <td className="px-3 py-2 text-gray-600">{new Date(trade.exit_date).toLocaleDateString()}</td>
@@ -1072,6 +1361,15 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
           </div>
         )}
       </div>
+
+      {/* Trade Chart Modal */}
+      {selectedTrade && (
+        <TradeChartModal
+          trade={selectedTrade}
+          onClose={() => setSelectedTrade(null)}
+          fetchWithAuth={fetchWithAuth}
+        />
+      )}
     </div>
   );
 }
