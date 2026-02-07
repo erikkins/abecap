@@ -397,6 +397,61 @@ async def _get_walk_forward_history(limit: int = 10):
         }
 
 
+async def _seed_and_list_strategies():
+    """Seed strategies if needed and return the list."""
+    from sqlalchemy import select
+    from app.core.database import StrategyDefinition
+    from app.api.admin import seed_strategies
+
+    async with async_session() as db:
+        # Seed strategies
+        count = await seed_strategies(db)
+        print(f"[SEED] Seeded {count} strategies")
+
+        # List all strategies
+        result = await db.execute(select(StrategyDefinition).order_by(StrategyDefinition.id))
+        strategies = result.scalars().all()
+
+        return {
+            "status": "success",
+            "seeded": count,
+            "strategies": [
+                {
+                    "id": s.id,
+                    "name": s.name,
+                    "description": s.description,
+                    "strategy_type": s.strategy_type,
+                    "is_active": s.is_active
+                }
+                for s in strategies
+            ]
+        }
+
+
+async def _list_strategies():
+    """List all strategies."""
+    from sqlalchemy import select
+    from app.core.database import StrategyDefinition
+
+    async with async_session() as db:
+        result = await db.execute(select(StrategyDefinition).order_by(StrategyDefinition.id))
+        strategies = result.scalars().all()
+
+        return {
+            "status": "success",
+            "strategies": [
+                {
+                    "id": s.id,
+                    "name": s.name,
+                    "description": s.description,
+                    "strategy_type": s.strategy_type,
+                    "is_active": s.is_active
+                }
+                for s in strategies
+            ]
+        }
+
+
 async def _get_walk_forward_trades(simulation_id: int):
     """Get detailed trades from a walk-forward simulation."""
     import json
@@ -565,6 +620,38 @@ def handler(event, context):
         except Exception as e:
             import traceback
             print(f"❌ Walk-forward trades failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Handle seed strategies (direct Lambda invocation)
+    if event.get("seed_strategies"):
+        print("🌱 Seed strategies request received")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_seed_and_list_strategies())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Seed strategies failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Handle list strategies (direct Lambda invocation)
+    if event.get("list_strategies"):
+        print("📋 List strategies request received")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_list_strategies())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ List strategies failed: {e}")
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 

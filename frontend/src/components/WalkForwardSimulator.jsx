@@ -278,7 +278,8 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
       const response = await fetchWithAuth(`${API_URL}/api/admin/strategies`);
       if (response.ok) {
         const data = await response.json();
-        setStrategies(data.strategies || []);
+        // API returns a list directly, not {strategies: [...]}
+        setStrategies(Array.isArray(data) ? data : (data.strategies || []));
       }
     } catch (err) {
       console.error('Failed to fetch strategies:', err);
