@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend, ReferenceArea, ComposedChart, Area, Bar, ReferenceDot } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend, ReferenceArea, ComposedChart, Area, Bar } from 'recharts';
 import { PlayCircle, RefreshCw, TrendingUp, Calendar, ArrowRight, AlertCircle, Zap, Brain, ChevronDown, ChevronUp, Eye, EyeOff, BarChart2, X, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -53,10 +53,6 @@ const TradeChartModal = ({ trade, onClose, fetchWithAuth }) => {
 
     fetchTradeData();
   }, [trade, fetchWithAuth]);
-
-  // Find entry and exit points in chart data
-  const entryPoint = priceData.find(d => d.date === trade.entry_date);
-  const exitPoint = priceData.find(d => d.date === trade.exit_date);
 
   const isProfit = trade.pnl_pct >= 0;
   const holdingDays = Math.ceil((new Date(trade.exit_date) - new Date(trade.entry_date)) / (1000 * 60 * 60 * 24));
@@ -234,31 +230,6 @@ const TradeChartModal = ({ trade, onClose, fetchWithAuth }) => {
                   label={{ value: 'SELL', fill: isProfit ? '#F59E0B' : '#EF4444', fontSize: 11, fontWeight: 'bold', position: 'top' }}
                 />
 
-                {/* Entry point marker */}
-                {entryPoint && (
-                  <ReferenceDot
-                    x={trade.entry_date}
-                    y={trade.entry_price}
-                    yAxisId="price"
-                    r={8}
-                    fill="#10B981"
-                    stroke="#fff"
-                    strokeWidth={2}
-                  />
-                )}
-
-                {/* Exit point marker */}
-                {exitPoint && (
-                  <ReferenceDot
-                    x={trade.exit_date}
-                    y={trade.exit_price}
-                    yAxisId="price"
-                    r={8}
-                    fill={isProfit ? '#F59E0B' : '#EF4444'}
-                    stroke="#fff"
-                    strokeWidth={2}
-                  />
-                )}
               </ComposedChart>
             </ResponsiveContainer>
           )}
@@ -266,10 +237,10 @@ const TradeChartModal = ({ trade, onClose, fetchWithAuth }) => {
           {/* Legend */}
           <div className="flex items-center justify-center gap-6 mt-4 text-xs text-gray-500">
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-emerald-500"></span> Buy Point
+              <span className="w-4 h-0.5 bg-emerald-500"></span> Buy
             </span>
             <span className="flex items-center gap-1.5">
-              <span className={`w-3 h-3 rounded-full ${isProfit ? 'bg-amber-500' : 'bg-red-500'}`}></span> Sell Point
+              <span className={`w-4 h-0.5 ${isProfit ? 'bg-amber-500' : 'bg-red-500'}`}></span> Sell
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-8 h-0.5 bg-blue-500"></span> Price
