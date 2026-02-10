@@ -24,7 +24,7 @@ from app.core.database import (
 from app.services.strategy_analyzer import (
     strategy_analyzer_service, CustomBacktester, StrategyParams, get_top_liquid_symbols
 )
-from app.services.email_service import email_service
+from app.services.email_service import admin_email_service
 from app.services.scanner import scanner_service
 from app.services.market_regime import market_regime_detector, MarketRegime, MARKET_REGIMES
 import pandas as pd
@@ -589,7 +589,7 @@ class AutoSwitchService:
 
                         # Send switch notification email
                         if config.notify_on_switch and config.admin_email:
-                            await email_service.send_switch_notification_email(
+                            await admin_email_service.send_switch_notification_email(
                                 to_email=config.admin_email,
                                 from_strategy=switch_result.get('from_strategy', 'None'),
                                 to_strategy=switch_result['to_strategy'],
@@ -619,7 +619,7 @@ class AutoSwitchService:
 
                 # Send analysis notification email
                 if config.notify_on_analysis and config.admin_email:
-                    await email_service.send_strategy_analysis_email(
+                    await admin_email_service.send_strategy_analysis_email(
                         to_email=config.admin_email,
                         analysis_results=analysis,
                         recommendation=recommendation_notes,

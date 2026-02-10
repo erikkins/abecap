@@ -26,6 +26,13 @@ SMTP_PASS = os.getenv('SMTP_PASS', '')
 FROM_EMAIL = os.getenv('FROM_EMAIL', 'signals@rigacap.com')
 FROM_NAME = os.getenv('FROM_NAME', 'RigaCap Signals')
 
+# Admin emails - only these addresses can receive internal/admin notifications
+ADMIN_EMAILS = set(
+    e.strip().lower()
+    for e in os.getenv('ADMIN_EMAILS', 'erik@rigacap.com').split(',')
+    if e.strip()
+)
+
 
 class EmailService:
     """
@@ -611,6 +618,182 @@ Trading involves risk. Past performance does not guarantee future results.
             text_content=text
         )
 
+    async def send_trial_ending_email(
+        self,
+        to_email: str,
+        name: str,
+        days_remaining: int = 2,
+        signals_generated: int = 0,
+        strong_signals_seen: int = 0
+    ) -> bool:
+        """
+        Send a 'your trial is ending soon' email to nudge conversion.
+
+        Args:
+            to_email: User email
+            name: User's full name
+            days_remaining: Days left in trial (typically 2 or 1)
+            signals_generated: Total signals generated during their trial
+            strong_signals_seen: Strong signals they received
+        """
+        first_name = name.split()[0] if name else "there"
+        urgency = "tomorrow" if days_remaining == 1 else f"in {days_remaining} days"
+
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <tr>
+            <td style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 48px 24px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 16px;">⏰</div>
+                <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
+                    Your Trial Ends {urgency.title()}
+                </h1>
+                <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.9); font-size: 18px;">
+                    Don't lose access to your trading edge
+                </p>
+            </td>
+        </tr>
+
+        <!-- Message -->
+        <tr>
+            <td style="padding: 40px 32px;">
+                <p style="font-size: 18px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    Hey {first_name},
+                </p>
+                <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    Just a heads up — your free trial ends <strong>{urgency}</strong>.
+                    After that, you'll lose access to daily signals, portfolio tracking,
+                    and market regime alerts.
+                </p>
+
+                <!-- Trial Stats -->
+                {f'''
+                <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
+                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #1e40af;">
+                        📊 Your Trial So Far
+                    </h2>
+                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                        <tr>
+                            <td style="padding: 8px 0; text-align: center; width: 50%;">
+                                <div style="font-size: 36px; font-weight: 700; color: #1e40af;">{signals_generated}</div>
+                                <div style="font-size: 13px; color: #6b7280; margin-top: 4px;">Signals Generated</div>
+                            </td>
+                            <td style="padding: 8px 0; text-align: center; width: 50%;">
+                                <div style="font-size: 36px; font-weight: 700; color: #059669;">{strong_signals_seen}</div>
+                                <div style="font-size: 13px; color: #6b7280; margin-top: 4px;">Strong Signals</div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                ''' if signals_generated > 0 else ''}
+
+                <!-- What You'll Lose -->
+                <div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
+                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #dc2626;">
+                        🚫 What You'll Lose
+                    </h2>
+                    <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
+                        <li>Daily AI-powered buy signals</li>
+                        <li>Market regime alerts (bull/bear detection)</li>
+                        <li>Momentum rankings across 4,500+ stocks</li>
+                        <li>Portfolio P&L tracking</li>
+                        <li>Missed opportunity alerts</li>
+                    </ul>
+                </div>
+
+                <!-- CTA Button -->
+                <div style="text-align: center; margin: 32px 0;">
+                    <a href="https://rigacap.com/app/subscribe"
+                       style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; font-size: 18px; font-weight: 600; padding: 18px 48px; border-radius: 12px; text-decoration: none;">
+                        Subscribe Now →
+                    </a>
+                </div>
+
+                <!-- Social Proof -->
+                <div style="background-color: #f0fdf4; border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center;">
+                    <p style="margin: 0 0 4px 0; font-size: 14px; color: #065f46; text-transform: uppercase; font-weight: 600;">
+                        Backtest Performance
+                    </p>
+                    <p style="margin: 0; font-size: 42px; font-weight: 700; color: #059669;">
+                        263%
+                    </p>
+                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #374151;">
+                        Total return over 15 years &bull; 1.15 Sharpe ratio
+                    </p>
+                </div>
+
+                <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
+                    Questions? Just reply to this email — we're happy to help.
+                </p>
+
+                <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
+                    Happy trading! 📈<br>
+                    <strong>The RigaCap Team</strong>
+                </p>
+            </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+                    <a href="https://rigacap.com/app" style="color: #4f46e5; text-decoration: none;">View Dashboard</a>
+                    &nbsp;&bull;&nbsp;
+                    <a href="#" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
+                </p>
+                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                    Trading involves risk. Past performance does not guarantee future results.
+                </p>
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
+                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+        text = f"""
+Hey {first_name},
+
+Your RigaCap free trial ends {urgency}!
+
+After that, you'll lose access to:
+- Daily AI-powered buy signals
+- Market regime alerts
+- Momentum rankings across 4,500+ stocks
+- Portfolio P&L tracking
+- Missed opportunity alerts
+
+Subscribe now to keep your trading edge: https://rigacap.com/app/subscribe
+
+Our backtest showed 263% total return over 15 years with a 1.15 Sharpe ratio.
+
+Questions? Just reply to this email.
+
+Happy trading!
+The RigaCap Team
+
+---
+Trading involves risk. Past performance does not guarantee future results.
+"""
+
+        day_word = "Tomorrow" if days_remaining == 1 else f"in {days_remaining} Days"
+        return await self.send_email(
+            to_email=to_email,
+            subject=f"⏰ Your Trial Ends {day_word} — Subscribe to Keep Your Edge",
+            html_content=html,
+            text_content=text
+        )
+
     async def send_goodbye_email(self, to_email: str, name: str) -> bool:
         """
         Send a 'sorry to see you go' email when a user cancels or trial expires.
@@ -752,6 +935,272 @@ Unsubscribe: https://rigacap.com/unsubscribe
             text_content=text
         )
 
+
+    async def send_double_signal_alert(
+        self,
+        to_email: str,
+        new_signals: List[Dict],
+        approaching: List[Dict] = None
+    ) -> bool:
+        """
+        Send alert when momentum stocks cross the DWAP +5% trigger (new double signals).
+
+        Args:
+            to_email: Recipient email
+            new_signals: List of newly triggered double signals
+            approaching: Optional list of stocks approaching trigger (watchlist)
+
+        Returns:
+            True if sent successfully
+        """
+        if not new_signals:
+            return True  # Nothing to send
+
+        approaching = approaching or []
+
+        # Build signal rows HTML
+        signal_rows = ""
+        for s in new_signals[:10]:  # Max 10 signals
+            symbol = s.get('symbol', 'N/A')
+            price = s.get('price', 0)
+            pct_above = s.get('pct_above_dwap', 0)
+            mom_rank = s.get('momentum_rank', 0)
+            short_mom = s.get('short_momentum', 0)
+            crossover_date = s.get('dwap_crossover_date', 'Today')
+
+            signal_rows += f"""
+            <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #d1fae5;">
+                    <div style="font-size: 18px; font-weight: 700; color: #059669;">
+                        ⚡ {symbol}
+                    </div>
+                    <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">
+                        Crossed +5% on {crossover_date}
+                    </div>
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: right;">
+                    <div style="font-size: 16px; font-weight: 600;">${price:.2f}</div>
+                    <div style="font-size: 12px; color: #059669;">+{pct_above:.1f}% DWAP</div>
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: center;">
+                    <div style="background-color: #fef3c7; color: #92400e; font-size: 14px; font-weight: 600; padding: 4px 12px; border-radius: 99px; display: inline-block;">
+                        #{mom_rank}
+                    </div>
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: right; color: {'#059669' if short_mom > 0 else '#dc2626'};">
+                    {'+' if short_mom > 0 else ''}{short_mom:.1f}%
+                </td>
+            </tr>
+            """
+
+        # Build approaching watchlist HTML
+        watchlist_html = ""
+        if approaching:
+            watchlist_rows = ""
+            for a in approaching[:5]:  # Max 5 approaching
+                symbol = a.get('symbol', 'N/A')
+                price = a.get('price', 0)
+                pct_above = a.get('pct_above_dwap', 0)
+                distance = a.get('distance_to_trigger', 0)
+
+                watchlist_rows += f"""
+                <tr>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid #fef3c7; font-weight: 600;">{symbol}</td>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid #fef3c7; text-align: right;">${price:.2f}</td>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid #fef3c7; text-align: right; color: #92400e;">+{pct_above:.1f}%</td>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid #fef3c7; text-align: right; color: #b45309;">+{distance:.1f}% to go</td>
+                </tr>
+                """
+
+            watchlist_html = f"""
+            <tr>
+                <td style="padding: 0 24px 24px;">
+                    <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px;">
+                        <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e;">
+                            👀 Approaching Trigger ({len(approaching)} stocks)
+                        </h3>
+                        <p style="margin: 0 0 12px 0; font-size: 13px; color: #92400e;">
+                            These momentum stocks are at +3-4% DWAP and may trigger soon:
+                        </p>
+                        <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                            <tr style="background-color: rgba(0,0,0,0.05);">
+                                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; color: #92400e;">Symbol</th>
+                                <th style="padding: 8px 12px; text-align: right; font-size: 11px; text-transform: uppercase; color: #92400e;">Price</th>
+                                <th style="padding: 8px 12px; text-align: right; font-size: 11px; text-transform: uppercase; color: #92400e;">DWAP%</th>
+                                <th style="padding: 8px 12px; text-align: right; font-size: 11px; text-transform: uppercase; color: #92400e;">Distance</th>
+                            </tr>
+                            {watchlist_rows}
+                        </table>
+                    </div>
+                </td>
+            </tr>
+            """
+
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <tr>
+            <td style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 32px 24px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 12px;">⚡</div>
+                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
+                    New Double Signal{'s' if len(new_signals) > 1 else ''}!
+                </h1>
+                <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
+                    {len(new_signals)} momentum stock{'s' if len(new_signals) > 1 else ''} just crossed DWAP +5%
+                </p>
+            </td>
+        </tr>
+
+        <!-- Explanation -->
+        <tr>
+            <td style="padding: 24px;">
+                <div style="background-color: #ecfdf5; border-radius: 12px; padding: 16px; border-left: 4px solid #059669;">
+                    <p style="margin: 0; font-size: 14px; color: #065f46;">
+                        <strong>Double Signals</strong> are stocks that are BOTH in the top 20 momentum rankings
+                        AND have crossed +5% above their 200-day DWAP. Historically, these signals
+                        have shown <strong>2.5x higher returns</strong> than DWAP-only signals.
+                    </p>
+                </div>
+            </td>
+        </tr>
+
+        <!-- New Signals Table -->
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827;">
+                    🎯 New Double Signals
+                </h2>
+                <table cellpadding="0" cellspacing="0" style="width: 100%; border: 1px solid #d1fae5; border-radius: 8px; overflow: hidden;">
+                    <tr style="background-color: #ecfdf5;">
+                        <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #065f46;">Symbol</th>
+                        <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; color: #065f46;">Price</th>
+                        <th style="padding: 12px; text-align: center; font-size: 12px; text-transform: uppercase; color: #065f46;">Mom#</th>
+                        <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; color: #065f46;">10d</th>
+                    </tr>
+                    {signal_rows}
+                </table>
+            </td>
+        </tr>
+
+        <!-- Approaching Watchlist -->
+        {watchlist_html}
+
+        <!-- CTA -->
+        <tr>
+            <td style="padding: 0 24px 24px; text-align: center;">
+                <a href="https://rigacap.com/app"
+                   style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; font-size: 16px; font-weight: 600; padding: 16px 40px; border-radius: 12px; text-decoration: none;">
+                    View Full Dashboard →
+                </a>
+            </td>
+        </tr>
+
+        <!-- Disclaimer -->
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <p style="margin: 0; font-size: 12px; color: #6b7280; text-align: center;">
+                    This is not financial advice. Always do your own research before trading.
+                    Past performance does not guarantee future results.
+                </p>
+            </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+                    <a href="https://rigacap.com/app" style="color: #4f46e5; text-decoration: none;">Dashboard</a>
+                    &nbsp;•&nbsp;
+                    <a href="#" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
+                </p>
+                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+        # Plain text version
+        text_lines = [
+            "⚡ NEW DOUBLE SIGNAL ALERT",
+            "=" * 40,
+            f"{len(new_signals)} momentum stock(s) just crossed DWAP +5%",
+            "",
+            "NEW SIGNALS:",
+        ]
+        for s in new_signals[:10]:
+            text_lines.append(
+                f"  • {s.get('symbol')}: ${s.get('price', 0):.2f} (+{s.get('pct_above_dwap', 0):.1f}% DWAP) - Mom #{s.get('momentum_rank', 0)}"
+            )
+
+        if approaching:
+            text_lines.extend(["", "APPROACHING TRIGGER:"])
+            for a in approaching[:5]:
+                text_lines.append(
+                    f"  • {a.get('symbol')}: ${a.get('price', 0):.2f} (+{a.get('pct_above_dwap', 0):.1f}% DWAP) - {a.get('distance_to_trigger', 0):.1f}% to go"
+                )
+
+        text_lines.extend([
+            "",
+            "View full dashboard: https://rigacap.com/app",
+            "",
+            "---",
+            "This is not financial advice. Past performance does not guarantee future results.",
+        ])
+
+        return await self.send_email(
+            to_email=to_email,
+            subject=f"⚡ {len(new_signals)} New Double Signal{'s' if len(new_signals) > 1 else ''} - Momentum + DWAP Crossover",
+            html_content=html,
+            text_content="\n".join(text_lines)
+        )
+
+
+# Singleton instance
+email_service = EmailService()
+
+
+class AdminEmailService(EmailService):
+    """
+    Email service for admin-only notifications.
+
+    Enforces that emails can only be sent to addresses in the ADMIN_EMAILS
+    allowlist. This prevents internal system emails (ticker alerts, strategy
+    analysis, switch notifications, AI generation reports) from ever being
+    sent to subscribers.
+    """
+
+    def _validate_admin_recipient(self, to_email: str) -> bool:
+        """Check that the recipient is a configured admin."""
+        if to_email.lower().strip() not in ADMIN_EMAILS:
+            logger.error(
+                f"BLOCKED: Attempted to send admin email to non-admin address: {to_email}. "
+                f"Allowed admins: {ADMIN_EMAILS}"
+            )
+            return False
+        return True
+
+    async def send_email(
+        self,
+        to_email: str,
+        subject: str,
+        html_content: str,
+        text_content: Optional[str] = None
+    ) -> bool:
+        """Override send_email to enforce admin-only recipients."""
+        if not self._validate_admin_recipient(to_email):
+            return False
+        return await super().send_email(to_email, subject, html_content, text_content)
 
     async def send_ticker_alert(
         self,
@@ -901,7 +1350,6 @@ Unsubscribe: https://rigacap.com/unsubscribe
             html_content=html,
             text_content="\n".join(text_lines)
         )
-
 
     async def send_strategy_analysis_email(
         self,
@@ -1256,235 +1704,4 @@ Unsubscribe: https://rigacap.com/unsubscribe
         )
 
 
-    async def send_double_signal_alert(
-        self,
-        to_email: str,
-        new_signals: List[Dict],
-        approaching: List[Dict] = None
-    ) -> bool:
-        """
-        Send alert when momentum stocks cross the DWAP +5% trigger (new double signals).
-
-        Args:
-            to_email: Recipient email
-            new_signals: List of newly triggered double signals
-            approaching: Optional list of stocks approaching trigger (watchlist)
-
-        Returns:
-            True if sent successfully
-        """
-        if not new_signals:
-            return True  # Nothing to send
-
-        approaching = approaching or []
-
-        # Build signal rows HTML
-        signal_rows = ""
-        for s in new_signals[:10]:  # Max 10 signals
-            symbol = s.get('symbol', 'N/A')
-            price = s.get('price', 0)
-            pct_above = s.get('pct_above_dwap', 0)
-            mom_rank = s.get('momentum_rank', 0)
-            short_mom = s.get('short_momentum', 0)
-            crossover_date = s.get('dwap_crossover_date', 'Today')
-
-            signal_rows += f"""
-            <tr>
-                <td style="padding: 12px; border-bottom: 1px solid #d1fae5;">
-                    <div style="font-size: 18px; font-weight: 700; color: #059669;">
-                        ⚡ {symbol}
-                    </div>
-                    <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">
-                        Crossed +5% on {crossover_date}
-                    </div>
-                </td>
-                <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: right;">
-                    <div style="font-size: 16px; font-weight: 600;">${price:.2f}</div>
-                    <div style="font-size: 12px; color: #059669;">+{pct_above:.1f}% DWAP</div>
-                </td>
-                <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: center;">
-                    <div style="background-color: #fef3c7; color: #92400e; font-size: 14px; font-weight: 600; padding: 4px 12px; border-radius: 99px; display: inline-block;">
-                        #{mom_rank}
-                    </div>
-                </td>
-                <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: right; color: {'#059669' if short_mom > 0 else '#dc2626'};">
-                    {'+' if short_mom > 0 else ''}{short_mom:.1f}%
-                </td>
-            </tr>
-            """
-
-        # Build approaching watchlist HTML
-        watchlist_html = ""
-        if approaching:
-            watchlist_rows = ""
-            for a in approaching[:5]:  # Max 5 approaching
-                symbol = a.get('symbol', 'N/A')
-                price = a.get('price', 0)
-                pct_above = a.get('pct_above_dwap', 0)
-                distance = a.get('distance_to_trigger', 0)
-
-                watchlist_rows += f"""
-                <tr>
-                    <td style="padding: 8px 12px; border-bottom: 1px solid #fef3c7; font-weight: 600;">{symbol}</td>
-                    <td style="padding: 8px 12px; border-bottom: 1px solid #fef3c7; text-align: right;">${price:.2f}</td>
-                    <td style="padding: 8px 12px; border-bottom: 1px solid #fef3c7; text-align: right; color: #92400e;">+{pct_above:.1f}%</td>
-                    <td style="padding: 8px 12px; border-bottom: 1px solid #fef3c7; text-align: right; color: #b45309;">+{distance:.1f}% to go</td>
-                </tr>
-                """
-
-            watchlist_html = f"""
-            <tr>
-                <td style="padding: 0 24px 24px;">
-                    <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px;">
-                        <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e;">
-                            👀 Approaching Trigger ({len(approaching)} stocks)
-                        </h3>
-                        <p style="margin: 0 0 12px 0; font-size: 13px; color: #92400e;">
-                            These momentum stocks are at +3-4% DWAP and may trigger soon:
-                        </p>
-                        <table cellpadding="0" cellspacing="0" style="width: 100%;">
-                            <tr style="background-color: rgba(0,0,0,0.05);">
-                                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; color: #92400e;">Symbol</th>
-                                <th style="padding: 8px 12px; text-align: right; font-size: 11px; text-transform: uppercase; color: #92400e;">Price</th>
-                                <th style="padding: 8px 12px; text-align: right; font-size: 11px; text-transform: uppercase; color: #92400e;">DWAP%</th>
-                                <th style="padding: 8px 12px; text-align: right; font-size: 11px; text-transform: uppercase; color: #92400e;">Distance</th>
-                            </tr>
-                            {watchlist_rows}
-                        </table>
-                    </div>
-                </td>
-            </tr>
-            """
-
-        html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
-    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-        <!-- Header -->
-        <tr>
-            <td style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 32px 24px; text-align: center;">
-                <div style="font-size: 48px; margin-bottom: 12px;">⚡</div>
-                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
-                    New Double Signal{'s' if len(new_signals) > 1 else ''}!
-                </h1>
-                <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
-                    {len(new_signals)} momentum stock{'s' if len(new_signals) > 1 else ''} just crossed DWAP +5%
-                </p>
-            </td>
-        </tr>
-
-        <!-- Explanation -->
-        <tr>
-            <td style="padding: 24px;">
-                <div style="background-color: #ecfdf5; border-radius: 12px; padding: 16px; border-left: 4px solid #059669;">
-                    <p style="margin: 0; font-size: 14px; color: #065f46;">
-                        <strong>Double Signals</strong> are stocks that are BOTH in the top 20 momentum rankings
-                        AND have crossed +5% above their 200-day DWAP. Historically, these signals
-                        have shown <strong>2.5x higher returns</strong> than DWAP-only signals.
-                    </p>
-                </div>
-            </td>
-        </tr>
-
-        <!-- New Signals Table -->
-        <tr>
-            <td style="padding: 0 24px 24px;">
-                <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827;">
-                    🎯 New Double Signals
-                </h2>
-                <table cellpadding="0" cellspacing="0" style="width: 100%; border: 1px solid #d1fae5; border-radius: 8px; overflow: hidden;">
-                    <tr style="background-color: #ecfdf5;">
-                        <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #065f46;">Symbol</th>
-                        <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; color: #065f46;">Price</th>
-                        <th style="padding: 12px; text-align: center; font-size: 12px; text-transform: uppercase; color: #065f46;">Mom#</th>
-                        <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; color: #065f46;">10d</th>
-                    </tr>
-                    {signal_rows}
-                </table>
-            </td>
-        </tr>
-
-        <!-- Approaching Watchlist -->
-        {watchlist_html}
-
-        <!-- CTA -->
-        <tr>
-            <td style="padding: 0 24px 24px; text-align: center;">
-                <a href="https://rigacap.com/app"
-                   style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; font-size: 16px; font-weight: 600; padding: 16px 40px; border-radius: 12px; text-decoration: none;">
-                    View Full Dashboard →
-                </a>
-            </td>
-        </tr>
-
-        <!-- Disclaimer -->
-        <tr>
-            <td style="padding: 0 24px 24px;">
-                <p style="margin: 0; font-size: 12px; color: #6b7280; text-align: center;">
-                    This is not financial advice. Always do your own research before trading.
-                    Past performance does not guarantee future results.
-                </p>
-            </td>
-        </tr>
-
-        <!-- Footer -->
-        <tr>
-            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
-                    <a href="https://rigacap.com/app" style="color: #4f46e5; text-decoration: none;">Dashboard</a>
-                    &nbsp;•&nbsp;
-                    <a href="#" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
-                </p>
-                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                    &copy; {datetime.now().year} RigaCap. All rights reserved.
-                </p>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
-"""
-
-        # Plain text version
-        text_lines = [
-            "⚡ NEW DOUBLE SIGNAL ALERT",
-            "=" * 40,
-            f"{len(new_signals)} momentum stock(s) just crossed DWAP +5%",
-            "",
-            "NEW SIGNALS:",
-        ]
-        for s in new_signals[:10]:
-            text_lines.append(
-                f"  • {s.get('symbol')}: ${s.get('price', 0):.2f} (+{s.get('pct_above_dwap', 0):.1f}% DWAP) - Mom #{s.get('momentum_rank', 0)}"
-            )
-
-        if approaching:
-            text_lines.extend(["", "APPROACHING TRIGGER:"])
-            for a in approaching[:5]:
-                text_lines.append(
-                    f"  • {a.get('symbol')}: ${a.get('price', 0):.2f} (+{a.get('pct_above_dwap', 0):.1f}% DWAP) - {a.get('distance_to_trigger', 0):.1f}% to go"
-                )
-
-        text_lines.extend([
-            "",
-            "View full dashboard: https://rigacap.com/app",
-            "",
-            "---",
-            "This is not financial advice. Past performance does not guarantee future results.",
-        ])
-
-        return await self.send_email(
-            to_email=to_email,
-            subject=f"⚡ {len(new_signals)} New Double Signal{'s' if len(new_signals) > 1 else ''} - Momentum + DWAP Crossover",
-            html_content=html,
-            text_content="\n".join(text_lines)
-        )
-
-
-# Singleton instance
-email_service = EmailService()
+admin_email_service = AdminEmailService()

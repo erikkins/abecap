@@ -17,3 +17,6 @@ turnstile_secret_key  = "0x..."
 # Create an App Password at: https://myaccount.google.com/apppasswords
 smtp_user             = "daily@rigacap.com"   # Also used as FROM_EMAIL
 smtp_pass             = "xxxx xxxx xxxx xxxx" # 16-char App Password
+
+# Admin emails - only these addresses receive internal notifications
+admin_emails          = "erik@rigacap.com"    # Comma-separated for multiple

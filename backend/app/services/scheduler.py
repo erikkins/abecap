@@ -19,7 +19,7 @@ import pytz
 
 from app.core.config import settings
 from app.services.scanner import scanner_service
-from app.services.email_service import email_service
+from app.services.email_service import email_service, admin_email_service
 from app.services.data_export import data_export_service
 from app.services.stock_universe import MUST_INCLUDE
 
@@ -435,7 +435,7 @@ class SchedulerService:
                     logger.warning(f"   • {issue['symbol']}: {issue['issue']}")
 
                 # Send alert email
-                await email_service.send_ticker_alert(
+                await admin_email_service.send_ticker_alert(
                     to_email=ADMIN_EMAIL,
                     issues=issues,
                     check_type="position"

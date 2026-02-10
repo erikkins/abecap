@@ -105,6 +105,11 @@ variable "smtp_pass" {
   default     = ""
 }
 
+variable "admin_emails" {
+  description = "Comma-separated list of admin email addresses for internal notifications"
+  default     = "erik@rigacap.com"
+}
+
 variable "lambda_image_tag" {
   description = "Docker image tag for Lambda container"
   default     = "latest"
@@ -472,6 +477,7 @@ resource "aws_lambda_function" "api" {
       SMTP_PASS             = var.smtp_pass
       FROM_EMAIL            = var.smtp_user  # Use same as SMTP_USER
       FROM_NAME             = "RigaCap Signals"
+      ADMIN_EMAILS          = var.admin_emails
     }
   }
 
