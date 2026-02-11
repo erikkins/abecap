@@ -35,18 +35,18 @@ async def send_all_samples(to_email: str):
 
     results = {}
 
-    # 1. Daily Summary
+    # 1. Daily Summary (ensemble format with freshness + watchlist)
     print("1/9 Sending Daily Summary...")
     results['daily_summary'] = await svc.send_daily_summary(
         to_email=to_email,
         signals=[
-            {"symbol": "NVDA", "price": 892.50, "pct_above_dwap": 8.2, "signal_strength": 85, "is_strong": True, "sector": "Technology"},
-            {"symbol": "META", "price": 512.30, "pct_above_dwap": 6.7, "signal_strength": 72, "is_strong": True, "sector": "Communication"},
-            {"symbol": "AMZN", "price": 185.40, "pct_above_dwap": 5.9, "signal_strength": 68, "is_strong": False, "sector": "Consumer Cyclical"},
-            {"symbol": "AVGO", "price": 1345.00, "pct_above_dwap": 5.3, "signal_strength": 61, "is_strong": False, "sector": "Technology"},
-            {"symbol": "CRM", "price": 298.75, "pct_above_dwap": 5.1, "signal_strength": 55, "is_strong": False, "sector": "Technology"},
+            {"symbol": "NVDA", "price": 892.50, "pct_above_dwap": 8.2, "momentum_rank": 1, "is_strong": True, "is_fresh": True, "days_since_crossover": 0},
+            {"symbol": "META", "price": 512.30, "pct_above_dwap": 6.7, "momentum_rank": 3, "is_strong": True, "is_fresh": True, "days_since_crossover": 2},
+            {"symbol": "AMZN", "price": 185.40, "pct_above_dwap": 5.9, "momentum_rank": 5, "is_strong": False, "is_fresh": True, "days_since_crossover": 4},
+            {"symbol": "AVGO", "price": 1345.00, "pct_above_dwap": 5.3, "momentum_rank": 8, "is_strong": False, "is_fresh": False, "days_since_crossover": 12},
+            {"symbol": "CRM", "price": 298.75, "pct_above_dwap": 5.1, "momentum_rank": 14, "is_strong": False, "is_fresh": False, "days_since_crossover": 30},
         ],
-        market_regime={"regime": "bull", "spy_price": 523.45, "vix_level": 14.2},
+        market_regime={"regime": "strong_bull", "spy_price": 523.45, "vix_level": 14.2},
         positions=[
             {"symbol": "AAPL", "shares": 50, "entry_price": 185.00, "current_price": 198.50},
             {"symbol": "MSFT", "shares": 30, "entry_price": 375.00, "current_price": 412.00},
@@ -56,6 +56,11 @@ async def send_all_samples(to_email: str):
             {"symbol": "SMCI", "signal_date": "2024-01-10", "would_be_return": 45.2, "would_be_pnl": 4520},
             {"symbol": "ARM", "signal_date": "2024-01-15", "would_be_return": 22.8, "would_be_pnl": 2280},
             {"symbol": "PLTR", "signal_date": "2024-01-22", "would_be_return": 15.3, "would_be_pnl": 1530},
+        ],
+        watchlist=[
+            {"symbol": "TSLA", "price": 245.80, "pct_above_dwap": 3.8, "distance_to_trigger": 1.2},
+            {"symbol": "AMD", "price": 178.50, "pct_above_dwap": 4.1, "distance_to_trigger": 0.9},
+            {"symbol": "NFLX", "price": 620.30, "pct_above_dwap": 3.5, "distance_to_trigger": 1.5},
         ]
     )
 
@@ -155,19 +160,20 @@ async def send_all_samples(to_email: str):
         created_strategy_name="AI-Bull-2026-02"
     )
 
-    # 8. Double Signal Alert
+    # 9. Double Signal Alert (with regime context + freshness)
     print("9/9 Sending Double Signal Alert...")
     results['double_signal'] = await svc.send_double_signal_alert(
         to_email=to_email,
         new_signals=[
-            {"symbol": "NVDA", "price": 892.50, "pct_above_dwap": 8.2, "momentum_rank": 1, "short_momentum": 12.5, "dwap_crossover_date": "Today"},
-            {"symbol": "META", "price": 512.30, "pct_above_dwap": 6.7, "momentum_rank": 3, "short_momentum": 8.3, "dwap_crossover_date": "Today"},
-            {"symbol": "AVGO", "price": 1345.00, "pct_above_dwap": 5.3, "momentum_rank": 7, "short_momentum": 6.1, "dwap_crossover_date": "Yesterday"},
+            {"symbol": "NVDA", "price": 892.50, "pct_above_dwap": 8.2, "momentum_rank": 1, "short_momentum": 12.5, "dwap_crossover_date": "Today", "days_since_crossover": 0},
+            {"symbol": "META", "price": 512.30, "pct_above_dwap": 6.7, "momentum_rank": 3, "short_momentum": 8.3, "dwap_crossover_date": "Today", "days_since_crossover": 0},
+            {"symbol": "AVGO", "price": 1345.00, "pct_above_dwap": 5.3, "momentum_rank": 7, "short_momentum": 6.1, "dwap_crossover_date": "2026-02-10", "days_since_crossover": 1},
         ],
         approaching=[
             {"symbol": "AMZN", "price": 185.40, "pct_above_dwap": 4.2, "distance_to_trigger": 0.8},
             {"symbol": "CRM", "price": 298.75, "pct_above_dwap": 3.8, "distance_to_trigger": 1.2},
-        ]
+        ],
+        market_regime={"regime": "strong_bull", "spy_price": 523.45}
     )
 
     # Print results

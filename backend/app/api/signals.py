@@ -220,14 +220,13 @@ async def get_signal_for_symbol(symbol: str):
 
 class MissedOpportunity(BaseModel):
     symbol: str
-    signal_date: str
-    signal_price: float
-    exit_date: str  # When it hit +20% target
-    exit_price: float
+    entry_date: str
+    entry_price: float
+    sell_date: str  # When it hit +20% profit target
+    sell_price: float
     would_be_return: float
     would_be_pnl: float
     days_held: int = 0
-    signal_strength: float = 0.0
     sector: str = ""
 
 
@@ -270,14 +269,13 @@ async def get_missed_opportunities(
 
         opportunities.append(MissedOpportunity(
             symbol=trade.symbol,
-            signal_date=trade.entry_date,
-            signal_price=round(trade.entry_price, 2),
-            exit_date=trade.exit_date,
-            exit_price=round(trade.exit_price, 2),
+            entry_date=trade.entry_date,
+            entry_price=round(trade.entry_price, 2),
+            sell_date=trade.exit_date,
+            sell_price=round(trade.exit_price, 2),
             would_be_return=round(trade.pnl_pct, 1),
             would_be_pnl=round(trade.pnl, 2),
             days_held=trade.days_held,
-            signal_strength=0.0,  # Not applicable for backtest trades
             sector=sector
         ))
 
