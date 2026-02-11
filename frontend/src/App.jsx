@@ -1312,6 +1312,9 @@ function Dashboard() {
       try {
         const data = await api.get('/api/signals/dashboard');
         setDashboardData(data);
+        if (data.missed_opportunities?.length > 0) {
+          setMissedOpportunities(data.missed_opportunities);
+        }
       } catch (err) {
         console.log('Dashboard data fetch failed:', err);
       }
@@ -1437,14 +1440,13 @@ function Dashboard() {
       const refreshData = async () => {
         try {
           // Load all data in parallel - try cached walk-forward first, fallback to simple backtest
-          const [walkForwardResult, signalsResult, marketResult, userPositionsResult, userTradesResult, missedResult] = await Promise.allSettled([
+          const [walkForwardResult, signalsResult, marketResult, userPositionsResult, userTradesResult] = await Promise.allSettled([
             api.get('/api/backtest/walk-forward-cached').catch(() => null),
             // Only fetch from API if CDN failed
             signals.length === 0 ? api.get('/api/signals/memory-scan?refresh=false&apply_market_filter=true').catch(() => null) : Promise.resolve(null),
             api.get('/api/market/regime').catch(() => null),
             api.get('/api/portfolio/positions').catch(() => null),
             api.get('/api/portfolio/trades?limit=50').catch(() => null),
-            api.get('/api/signals/missed?days=90&limit=5').catch(() => null)
           ]);
 
           // Process walk-forward or fallback to simple backtest (for stats display only, NOT for positions/trades)
@@ -1511,11 +1513,7 @@ function Dashboard() {
             setMarketRegime(marketResult.value);
           }
 
-          // Process missed opportunities - signals that hit +20% profit target
-          if (missedResult.status === 'fulfilled' && Array.isArray(missedResult.value)) {
-            setMissedOpportunities(missedResult.value);
-            setCache(CACHE_KEYS.MISSED, missedResult.value);
-          }
+          // Missed opportunities now come from /api/signals/dashboard (via fetchDashboard)
         } catch (err) {
           console.log('Background refresh failed:', err);
         }

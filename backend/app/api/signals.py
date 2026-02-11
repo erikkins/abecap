@@ -498,6 +498,7 @@ class DashboardResponse(BaseModel):
     watchlist: List[dict] = []
     market_stats: dict = {}
     recent_signals: List[dict] = []
+    missed_opportunities: List[dict] = []
     generated_at: str
 
 
@@ -682,6 +683,68 @@ async def get_dashboard_data(
     except Exception as e:
         print(f"Market stats error: {e}")
 
+    # --- Missed opportunities (lightweight: scan data_cache for past DWAP crossovers that hit +20%) ---
+    missed_opportunities = []
+    try:
+        import numpy as np
+        lookback = 90  # trading days
+        profit_target = 0.20  # +20%
+
+        for symbol, df in scanner_service.data_cache.items():
+            if df is None or len(df) < 250 or symbol in ('SPY', '^VIX'):
+                continue
+
+            if 'dwap' not in df.columns:
+                continue
+
+            recent = df.tail(lookback + 60)  # extra buffer for exit window
+            if len(recent) < lookback:
+                continue
+
+            closes = recent['close'].values
+            dwaps = recent['dwap'].values
+            dates = recent.index
+
+            # Find DWAP crossover points (crossed above 5%)
+            for i in range(1, min(lookback, len(recent) - 1)):
+                if dwaps[i] <= 0 or pd.isna(dwaps[i]) or dwaps[i-1] <= 0 or pd.isna(dwaps[i-1]):
+                    continue
+
+                prev_pct = (closes[i-1] / dwaps[i-1] - 1)
+                curr_pct = (closes[i] / dwaps[i] - 1)
+
+                if prev_pct < 0.05 and curr_pct >= 0.05:
+                    entry_price = float(closes[i])
+                    entry_idx = i
+                    entry_date = dates[i]
+
+                    # Check if it hit +20% within remaining data
+                    for j in range(i + 1, len(recent)):
+                        if closes[j] >= entry_price * (1 + profit_target):
+                            sell_price = float(closes[j])
+                            sell_date = dates[j]
+                            days_held = (sell_date - entry_date).days
+                            pnl_pct = (sell_price / entry_price - 1) * 100
+                            pnl_dollars = (sell_price - entry_price) * 100  # Assume 100 shares
+
+                            missed_opportunities.append({
+                                'symbol': symbol,
+                                'entry_date': entry_date.strftime('%Y-%m-%d') if hasattr(entry_date, 'strftime') else str(entry_date)[:10],
+                                'entry_price': round(entry_price, 2),
+                                'sell_date': sell_date.strftime('%Y-%m-%d') if hasattr(sell_date, 'strftime') else str(sell_date)[:10],
+                                'sell_price': round(sell_price, 2),
+                                'would_be_return': round(pnl_pct, 1),
+                                'would_be_pnl': round(pnl_dollars, 0),
+                                'days_held': int(days_held),
+                            })
+                            break  # Only count first hit per crossover
+                    break  # Only first crossover per symbol
+
+        missed_opportunities.sort(key=lambda x: x['would_be_return'], reverse=True)
+        missed_opportunities = missed_opportunities[:5]
+    except Exception as e:
+        print(f"Missed opportunities error: {e}")
+
     # --- Recent signals with performance ---
     recent_signals = []
     try:
@@ -712,6 +775,7 @@ async def get_dashboard_data(
         'watchlist': watchlist,
         'market_stats': market_stats,
         'recent_signals': recent_signals,
+        'missed_opportunities': missed_opportunities,
         'generated_at': datetime.now().isoformat(),
     }
 
