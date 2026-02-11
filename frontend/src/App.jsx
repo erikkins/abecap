@@ -32,6 +32,7 @@ const CACHE_KEYS = {
   POSITIONS: 'rigacap_positions_cache',
   MISSED: 'rigacap_missed_cache',
   BACKTEST: 'rigacap_backtest_cache',
+  VIEW_MODE: 'rigacap_view_mode',
   CACHE_TIME: 'rigacap_cache_time'
 };
 
@@ -177,7 +178,7 @@ const ErrorDisplay = ({ message, onRetry }) => (
 // LoginModal is now imported from ./components/LoginModal
 
 // Buy Modal Component
-const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy }) => {
+const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy, viewMode = 'advanced' }) => {
   const [shares, setShares] = useState(Math.floor(10000 / price)); // Default ~$10k position
   const [entryPrice, setEntryPrice] = useState(price);
   const [submitting, setSubmitting] = useState(false);
@@ -240,13 +241,15 @@ const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy }) => {
               <span className="font-semibold">${totalCost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Trailing Stop (15%)</span>
+              <span className="text-gray-500">{viewMode === 'simple' ? '15% Safety Net' : 'Trailing Stop (15%)'}</span>
               <span className="text-red-500 font-medium">${trailingStop.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Exit Strategy</span>
-              <span className="text-gray-600 font-medium">Let winners run</span>
-            </div>
+            {viewMode !== 'simple' && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Exit Strategy</span>
+                <span className="text-gray-600 font-medium">Let winners run</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -370,7 +373,7 @@ const SellModal = ({ symbol, position, currentPrice, stockInfo, onClose, onSell 
 };
 
 // Stock Chart Modal
-const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote }) => {
+const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, viewMode = 'advanced' }) => {
   const [timeRange, setTimeRange] = useState('1Y');
   const [priceData, setPriceData] = useState([]);
   const [stockInfo, setStockInfo] = useState(null);
@@ -636,13 +639,15 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote }) =
                   domain={['dataMin - 10', 'dataMax + 10']}
                   tickFormatter={(val) => `$${val.toFixed(0)}`}
                 />
-                <YAxis
-                  yAxisId="volume"
-                  orientation="right"
-                  tick={{ fontSize: 10 }}
-                  stroke="#D1D5DB"
-                  tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`}
-                />
+                {viewMode !== 'simple' && (
+                  <YAxis
+                    yAxisId="volume"
+                    orientation="right"
+                    tick={{ fontSize: 10 }}
+                    stroke="#D1D5DB"
+                    tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`}
+                  />
+                )}
                 <Tooltip
                   content={({ active, payload, label }) => {
                     if (!active || !payload?.length) return null;
@@ -651,6 +656,17 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote }) =
                     const isSellDay = d?.date === data?.sell_date;
                     const borderClass = isEntryDay ? 'border-emerald-400 border-2' :
                                        isSellDay ? 'border-amber-400 border-2' : 'border-gray-200';
+                    if (viewMode === 'simple') {
+                      return (
+                        <div className={`bg-white p-3 rounded-lg shadow-lg border ${borderClass} text-sm`}>
+                          <p className="font-medium text-gray-900 mb-1">{new Date(label).toLocaleDateString()}</p>
+                          <p className="text-blue-600">Price: ${d?.close?.toFixed(2)}</p>
+                          {isEntryDay && <p className="text-emerald-600 font-medium">Entry Point</p>}
+                          {isSellDay && <p className="text-amber-600 font-medium">Exit Point</p>}
+                          {d?.isLive && <p className="text-blue-500 font-medium">Live Price</p>}
+                        </div>
+                      );
+                    }
                     return (
                       <div className={`bg-white p-3 rounded-lg shadow-lg border ${borderClass} text-sm`}>
                         <p className="font-medium text-gray-900 mb-1">
@@ -678,8 +694,8 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote }) =
                     );
                   }}
                 />
-                <Bar yAxisId="volume" dataKey="volume" fill="#E5E7EB" opacity={0.5} />
-                {chartDataWithLive.some(d => d.dwap) && (
+                {viewMode !== 'simple' && <Bar yAxisId="volume" dataKey="volume" fill="#E5E7EB" opacity={0.5} />}
+                {viewMode !== 'simple' && chartDataWithLive.some(d => d.dwap) && (
                   <>
                     <Line yAxisId="price" type="monotone" dataKey="dwap" stroke="#8B5CF6" strokeWidth={2} dot={false} name="DWAP" />
                     {/* DWAP +5% buy trigger line */}
@@ -696,7 +712,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote }) =
                     />
                   </>
                 )}
-                {chartDataWithLive.some(d => d.ma_50) && (
+                {viewMode !== 'simple' && chartDataWithLive.some(d => d.ma_50) && (
                   <Line yAxisId="price" type="monotone" dataKey="ma_50" stroke="#F97316" strokeWidth={1.5} dot={false} strokeDasharray="5 5" name="MA50" />
                 )}
                 <Area yAxisId="price" type="monotone" dataKey="close" stroke="#3B82F6" strokeWidth={2} fill="url(#priceGradient)" name="Price" />
@@ -866,79 +882,122 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote }) =
             </div>
           )}
 
-          <div className="grid grid-cols-4 gap-4">
+          <div className={`grid ${viewMode === 'simple' ? 'grid-cols-2' : 'grid-cols-4'} gap-4`}>
             {type === 'signal' ? (
-              <>
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">DWAP Signal</p>
-                  <p className="text-lg font-semibold text-emerald-600">+{data?.pct_above_dwap}%</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">Volume</p>
-                  <p className="text-lg font-semibold">{data?.volume_ratio}x avg</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">Stop Loss</p>
-                  <p className="text-lg font-semibold text-red-500">${data?.stop_loss?.toFixed(2)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">Profit Target</p>
-                  <p className="text-lg font-semibold text-emerald-600">${data?.profit_target?.toFixed(2)}</p>
-                </div>
-              </>
+              viewMode === 'simple' ? (
+                <>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Price</p>
+                    <p className="text-lg font-semibold">${data?.price?.toFixed(2)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Potential</p>
+                    <p className="text-lg font-semibold text-emerald-600">Strong</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">DWAP Signal</p>
+                    <p className="text-lg font-semibold text-emerald-600">+{data?.pct_above_dwap}%</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Volume</p>
+                    <p className="text-lg font-semibold">{data?.volume_ratio}x avg</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Stop Loss</p>
+                    <p className="text-lg font-semibold text-red-500">${data?.stop_loss?.toFixed(2)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Profit Target</p>
+                    <p className="text-lg font-semibold text-emerald-600">${data?.profit_target?.toFixed(2)}</p>
+                  </div>
+                </>
+              )
             ) : type === 'missed' ? (
-              <>
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">Buy Date</p>
-                  <p className="text-lg font-semibold">{data?.entry_date}</p>
-                  <p className="text-xs text-emerald-600">${data?.entry_price?.toFixed(2)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">Sell Date</p>
-                  <p className="text-lg font-semibold">{data?.sell_date}</p>
-                  <p className="text-xs text-emerald-600">${data?.sell_price?.toFixed(2)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">Return</p>
-                  <p className="text-lg font-semibold text-emerald-600">
-                    +{data?.would_be_return?.toFixed(1)}%
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">Days Held</p>
-                  <p className="text-lg font-semibold">{data?.days_held || '-'}</p>
-                </div>
-              </>
+              viewMode === 'simple' ? (
+                <>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Return</p>
+                    <p className="text-lg font-semibold text-emerald-600">
+                      +{data?.would_be_return?.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Days Held</p>
+                    <p className="text-lg font-semibold">{data?.days_held || '-'}</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Buy Date</p>
+                    <p className="text-lg font-semibold">{data?.entry_date}</p>
+                    <p className="text-xs text-emerald-600">${data?.entry_price?.toFixed(2)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Sell Date</p>
+                    <p className="text-lg font-semibold">{data?.sell_date}</p>
+                    <p className="text-xs text-emerald-600">${data?.sell_price?.toFixed(2)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Return</p>
+                    <p className="text-lg font-semibold text-emerald-600">
+                      +{data?.would_be_return?.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Days Held</p>
+                    <p className="text-lg font-semibold">{data?.days_held || '-'}</p>
+                  </div>
+                </>
+              )
             ) : (
-              <>
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">Entry Price</p>
-                  <p className="text-lg font-semibold">${data?.entry_price?.toFixed(2)}</p>
-                  <p className="text-xs text-gray-400">{data?.entry_date}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">Current P&L</p>
-                  <p className={`text-lg font-semibold ${data?.pnl_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                    {data?.pnl_pct >= 0 ? '+' : ''}{data?.pnl_pct?.toFixed(1)}%
-                  </p>
-                  <p className={`text-xs ${data?.pnl_dollars >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
-                    ${data?.pnl_dollars?.toFixed(0) || ((data?.current_price - data?.entry_price) * data?.shares).toFixed(0)}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">Shares</p>
-                  <p className="text-lg font-semibold">{data?.shares?.toFixed(2)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">Days Held</p>
-                  <p className="text-lg font-semibold">{data?.days_held}</p>
-                </div>
-              </>
+              viewMode === 'simple' ? (
+                <>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Price</p>
+                    <p className="text-lg font-semibold">${data?.current_price?.toFixed(2) || data?.entry_price?.toFixed(2)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">P&L</p>
+                    <p className={`text-lg font-semibold ${data?.pnl_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {data?.pnl_pct >= 0 ? '+' : ''}{data?.pnl_pct?.toFixed(1)}%
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Entry Price</p>
+                    <p className="text-lg font-semibold">${data?.entry_price?.toFixed(2)}</p>
+                    <p className="text-xs text-gray-400">{data?.entry_date}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Current P&L</p>
+                    <p className={`text-lg font-semibold ${data?.pnl_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {data?.pnl_pct >= 0 ? '+' : ''}{data?.pnl_pct?.toFixed(1)}%
+                    </p>
+                    <p className={`text-xs ${data?.pnl_dollars >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                      ${data?.pnl_dollars?.toFixed(0) || ((data?.current_price - data?.entry_price) * data?.shares).toFixed(0)}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Shares</p>
+                    <p className="text-lg font-semibold">{data?.shares?.toFixed(2)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500">Days Held</p>
+                    <p className="text-lg font-semibold">{data?.days_held}</p>
+                  </div>
+                </>
+              )
             )}
           </div>
 
-          {/* Technical Indicators - Signal only */}
-          {type === 'signal' && (data?.ma_50 || stockInfo?.ma_50) && (
+          {/* Technical Indicators - Signal only, Advanced mode only */}
+          {viewMode !== 'simple' && type === 'signal' && (data?.ma_50 || stockInfo?.ma_50) && (
             <div className="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-200">
               <div className="text-center">
                 <p className="text-sm text-gray-500">50-Day MA</p>
@@ -998,6 +1057,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote }) =
           symbol={symbol}
           price={currentPrice}
           stockInfo={stockInfo}
+          viewMode={viewMode}
           onClose={() => setShowBuyModal(false)}
           onBuy={() => {
             onAction && onAction();
@@ -1207,6 +1267,7 @@ function Dashboard() {
   const [marketRegime, setMarketRegime] = useState(null);
   const [liveQuotes, setLiveQuotes] = useState({});
   const [quotesLastUpdate, setQuotesLastUpdate] = useState(null);
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem(CACHE_KEYS.VIEW_MODE) || 'simple');
 
   // Live quotes polling - updates prices every 30 seconds during market hours
   useEffect(() => {
@@ -1239,6 +1300,11 @@ function Dashboard() {
 
     return () => clearInterval(interval);
   }, [positions.length, signals.length]); // Re-run when positions or signals change
+
+  // Persist view mode to localStorage
+  useEffect(() => {
+    localStorage.setItem(CACHE_KEYS.VIEW_MODE, viewMode);
+  }, [viewMode]);
 
   // Fetch unified dashboard data (regime forecast, buy signals, sell guidance, watchlist)
   useEffect(() => {
@@ -1594,6 +1660,18 @@ function Dashboard() {
           </nav>
 
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setViewMode(v => v === 'simple' ? 'advanced' : 'simple')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
+                viewMode === 'simple'
+                  ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                  : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+              }`}
+              title={viewMode === 'simple' ? 'Switch to Advanced mode' : 'Switch to Simple mode'}
+            >
+              {viewMode === 'simple' ? <Eye size={14} /> : <Settings size={14} />}
+              {viewMode === 'simple' ? 'Simple' : 'Advanced'}
+            </button>
             <div className="text-right text-sm">
               <span className="text-gray-500">Last scan: </span>
               <span className="text-gray-700 font-medium">{lastScan ? lastScan.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : 'Never'}</span>
@@ -1663,119 +1741,152 @@ function Dashboard() {
 
             {/* Regime Forecast Bar */}
             {dashboardData?.regime_forecast && (
-              <div className={`mb-4 p-4 rounded-xl border ${
-                dashboardData.regime_forecast.current_regime === 'strong_bull' ? 'bg-emerald-50 border-emerald-200' :
-                dashboardData.regime_forecast.current_regime === 'weak_bull' ? 'bg-green-50 border-green-200' :
-                dashboardData.regime_forecast.current_regime === 'rotating_bull' ? 'bg-violet-50 border-violet-200' :
-                dashboardData.regime_forecast.current_regime === 'range_bound' ? 'bg-amber-50 border-amber-200' :
-                dashboardData.regime_forecast.current_regime === 'recovery' ? 'bg-cyan-50 border-cyan-200' :
-                dashboardData.regime_forecast.current_regime === 'weak_bear' ? 'bg-orange-50 border-orange-200' :
-                dashboardData.regime_forecast.current_regime === 'panic_crash' ? 'bg-red-50 border-red-200' :
-                'bg-gray-50 border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${
-                      dashboardData.regime_forecast.current_regime === 'strong_bull' ? 'bg-emerald-100' :
-                      dashboardData.regime_forecast.current_regime === 'weak_bull' ? 'bg-green-100' :
-                      dashboardData.regime_forecast.current_regime === 'rotating_bull' ? 'bg-violet-100' :
-                      dashboardData.regime_forecast.current_regime === 'range_bound' ? 'bg-amber-100' :
-                      dashboardData.regime_forecast.current_regime === 'recovery' ? 'bg-cyan-100' :
-                      dashboardData.regime_forecast.current_regime === 'weak_bear' ? 'bg-orange-100' :
-                      'bg-red-100'
-                    }`}>
-                      {['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? <TrendingUp className="w-5 h-5 text-emerald-600" /> :
-                       dashboardData.regime_forecast.current_regime === 'rotating_bull' ? <RefreshCw className="w-5 h-5 text-violet-600" /> :
-                       dashboardData.regime_forecast.current_regime === 'range_bound' ? <Activity className="w-5 h-5 text-amber-600" /> :
-                       <TrendingDown className="w-5 h-5 text-red-600" />}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-900">
-                          {dashboardData.regime_forecast.current_regime_name} Market
-                        </span>
-                        {dashboardData.market_stats?.spy_price && (
-                          <>
-                            <span className="text-gray-400">|</span>
-                            <span className="text-gray-600 text-sm">SPY ${dashboardData.market_stats.spy_price.toFixed(2)}</span>
-                          </>
-                        )}
-                        {dashboardData.market_stats?.vix_level && (
-                          <>
-                            <span className="text-gray-400">|</span>
-                            <span className="text-gray-600 text-sm">VIX {dashboardData.market_stats.vix_level.toFixed(1)}</span>
-                          </>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                          dashboardData.regime_forecast.outlook === 'stable' ? 'bg-green-100 text-green-700' :
-                          dashboardData.regime_forecast.outlook === 'improving' ? 'bg-emerald-100 text-emerald-700' :
-                          'bg-orange-100 text-orange-700'
-                        }`}>
-                          Outlook: {dashboardData.regime_forecast.outlook}
-                        </span>
-                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                          dashboardData.regime_forecast.risk_change === 'decreasing' ? 'bg-green-100 text-green-700' :
-                          dashboardData.regime_forecast.risk_change === 'stable' ? 'bg-gray-100 text-gray-600' :
-                          'bg-red-100 text-red-700'
-                        }`}>
-                          Risk: {dashboardData.regime_forecast.risk_change}
-                        </span>
-                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                          dashboardData.regime_forecast.recommended_action === 'stay_invested' ? 'bg-green-100 text-green-700' :
-                          dashboardData.regime_forecast.recommended_action === 'tighten_stops' ? 'bg-yellow-100 text-yellow-700' :
-                          dashboardData.regime_forecast.recommended_action === 'reduce_exposure' ? 'bg-orange-100 text-orange-700' :
-                          'bg-red-100 text-red-700'
-                        }`}>
-                          {dashboardData.regime_forecast.recommended_action.replace(/_/g, ' ')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-sm text-gray-600 max-w-sm text-right leading-tight">
-                    {dashboardData.regime_forecast.outlook_detail}
-                  </div>
+              viewMode === 'simple' ? (
+                /* Simple mode: traffic light + one sentence */
+                <div className="mb-4 p-3 rounded-xl border border-gray-200 bg-white flex items-center gap-3">
+                  <div className={`w-4 h-4 rounded-full flex-shrink-0 ${
+                    ['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-emerald-500' :
+                    ['rotating_bull', 'range_bound'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-amber-400' :
+                    'bg-red-500'
+                  }`} />
+                  <span className="text-sm text-gray-700">
+                    {['strong_bull', 'weak_bull'].includes(dashboardData.regime_forecast.current_regime)
+                      ? 'Market looks good. Stay invested.'
+                      : dashboardData.regime_forecast.current_regime === 'recovery'
+                      ? 'Market is recovering. Good time to look for opportunities.'
+                      : dashboardData.regime_forecast.current_regime === 'rotating_bull'
+                      ? 'Market is rotating between sectors. Be selective.'
+                      : dashboardData.regime_forecast.current_regime === 'range_bound'
+                      ? 'Market is moving sideways. Wait for clearer direction.'
+                      : dashboardData.regime_forecast.current_regime === 'weak_bear'
+                      ? 'Caution: market weakening. Consider tightening stops.'
+                      : 'Market under stress. Protect your positions.'}
+                  </span>
                 </div>
-
-                {/* Transition probabilities mini bar */}
-                {dashboardData.regime_forecast.transition_probabilities && (
-                  <div className="mt-3 flex items-center gap-1 h-3 rounded-full overflow-hidden bg-gray-100">
-                    {Object.entries(dashboardData.regime_forecast.transition_probabilities)
-                      .filter(([_, pct]) => pct > 3)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([regime, pct]) => {
-                        const colors = {
-                          strong_bull: 'bg-emerald-500',
-                          weak_bull: 'bg-green-400',
-                          rotating_bull: 'bg-violet-400',
-                          range_bound: 'bg-amber-400',
-                          weak_bear: 'bg-orange-400',
-                          panic_crash: 'bg-red-500',
-                          recovery: 'bg-cyan-400',
-                        };
-                        return (
-                          <div
-                            key={regime}
-                            className={`h-full ${colors[regime] || 'bg-gray-300'}`}
-                            style={{ width: `${pct}%` }}
-                            title={`${regime.replace('_', ' ')}: ${pct.toFixed(0)}%`}
-                          />
-                        );
-                      })}
+              ) : (
+                /* Advanced mode: full regime bar */
+                <div className={`mb-4 p-4 rounded-xl border ${
+                  dashboardData.regime_forecast.current_regime === 'strong_bull' ? 'bg-emerald-50 border-emerald-200' :
+                  dashboardData.regime_forecast.current_regime === 'weak_bull' ? 'bg-green-50 border-green-200' :
+                  dashboardData.regime_forecast.current_regime === 'rotating_bull' ? 'bg-violet-50 border-violet-200' :
+                  dashboardData.regime_forecast.current_regime === 'range_bound' ? 'bg-amber-50 border-amber-200' :
+                  dashboardData.regime_forecast.current_regime === 'recovery' ? 'bg-cyan-50 border-cyan-200' :
+                  dashboardData.regime_forecast.current_regime === 'weak_bear' ? 'bg-orange-50 border-orange-200' :
+                  dashboardData.regime_forecast.current_regime === 'panic_crash' ? 'bg-red-50 border-red-200' :
+                  'bg-gray-50 border-gray-200'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-full ${
+                        dashboardData.regime_forecast.current_regime === 'strong_bull' ? 'bg-emerald-100' :
+                        dashboardData.regime_forecast.current_regime === 'weak_bull' ? 'bg-green-100' :
+                        dashboardData.regime_forecast.current_regime === 'rotating_bull' ? 'bg-violet-100' :
+                        dashboardData.regime_forecast.current_regime === 'range_bound' ? 'bg-amber-100' :
+                        dashboardData.regime_forecast.current_regime === 'recovery' ? 'bg-cyan-100' :
+                        dashboardData.regime_forecast.current_regime === 'weak_bear' ? 'bg-orange-100' :
+                        'bg-red-100'
+                      }`}>
+                        {['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? <TrendingUp className="w-5 h-5 text-emerald-600" /> :
+                         dashboardData.regime_forecast.current_regime === 'rotating_bull' ? <RefreshCw className="w-5 h-5 text-violet-600" /> :
+                         dashboardData.regime_forecast.current_regime === 'range_bound' ? <Activity className="w-5 h-5 text-amber-600" /> :
+                         <TrendingDown className="w-5 h-5 text-red-600" />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-900">
+                            {dashboardData.regime_forecast.current_regime_name} Market
+                          </span>
+                          {dashboardData.market_stats?.spy_price && (
+                            <>
+                              <span className="text-gray-400">|</span>
+                              <span className="text-gray-600 text-sm">SPY ${dashboardData.market_stats.spy_price.toFixed(2)}</span>
+                            </>
+                          )}
+                          {dashboardData.market_stats?.vix_level && (
+                            <>
+                              <span className="text-gray-400">|</span>
+                              <span className="text-gray-600 text-sm">VIX {dashboardData.market_stats.vix_level.toFixed(1)}</span>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                            dashboardData.regime_forecast.outlook === 'stable' ? 'bg-green-100 text-green-700' :
+                            dashboardData.regime_forecast.outlook === 'improving' ? 'bg-emerald-100 text-emerald-700' :
+                            'bg-orange-100 text-orange-700'
+                          }`}>
+                            Outlook: {dashboardData.regime_forecast.outlook}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                            dashboardData.regime_forecast.risk_change === 'decreasing' ? 'bg-green-100 text-green-700' :
+                            dashboardData.regime_forecast.risk_change === 'stable' ? 'bg-gray-100 text-gray-600' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            Risk: {dashboardData.regime_forecast.risk_change}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                            dashboardData.regime_forecast.recommended_action === 'stay_invested' ? 'bg-green-100 text-green-700' :
+                            dashboardData.regime_forecast.recommended_action === 'tighten_stops' ? 'bg-yellow-100 text-yellow-700' :
+                            dashboardData.regime_forecast.recommended_action === 'reduce_exposure' ? 'bg-orange-100 text-orange-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {dashboardData.regime_forecast.recommended_action.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-600 max-w-sm text-right leading-tight">
+                      {dashboardData.regime_forecast.outlook_detail}
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  {/* Transition probabilities mini bar */}
+                  {dashboardData.regime_forecast.transition_probabilities && (
+                    <div className="mt-3 flex items-center gap-1 h-3 rounded-full overflow-hidden bg-gray-100">
+                      {Object.entries(dashboardData.regime_forecast.transition_probabilities)
+                        .filter(([_, pct]) => pct > 3)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([regime, pct]) => {
+                          const colors = {
+                            strong_bull: 'bg-emerald-500',
+                            weak_bull: 'bg-green-400',
+                            rotating_bull: 'bg-violet-400',
+                            range_bound: 'bg-amber-400',
+                            weak_bear: 'bg-orange-400',
+                            panic_crash: 'bg-red-500',
+                            recovery: 'bg-cyan-400',
+                          };
+                          return (
+                            <div
+                              key={regime}
+                              className={`h-full ${colors[regime] || 'bg-gray-300'}`}
+                              style={{ width: `${pct}%` }}
+                              title={`${regime.replace('_', ' ')}: ${pct.toFixed(0)}%`}
+                            />
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              )
             )}
 
             {/* Metric Cards */}
-            <div className="grid grid-cols-5 gap-4 mb-6">
-              <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={Wallet} trend="up" />
-              <MetricCard title="Open P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} icon={totalPnlPct >= 0 ? TrendingUp : TrendingDown} trend={totalPnlPct >= 0 ? 'up' : 'down'} />
-              <MetricCard title="Positions" value={`${positions.length}/6`} icon={PieIcon} />
-              <MetricCard title="Buy Signals" value={dashboardData?.market_stats?.signal_count || signalsWithLiveQuotes.length} subtitle={`${dashboardData?.market_stats?.fresh_count || 0} fresh`} icon={Zap} />
-              <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${trades.length} trades`} icon={Target} />
-            </div>
+            {viewMode === 'simple' ? (
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={Wallet} trend="up" />
+                <MetricCard title="P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} icon={totalPnlPct >= 0 ? TrendingUp : TrendingDown} trend={totalPnlPct >= 0 ? 'up' : 'down'} />
+                <MetricCard title="Buy Signals" value={dashboardData?.market_stats?.signal_count || signalsWithLiveQuotes.length} subtitle={`${dashboardData?.market_stats?.fresh_count || 0} fresh`} icon={Zap} />
+              </div>
+            ) : (
+              <div className="grid grid-cols-5 gap-4 mb-6">
+                <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={Wallet} trend="up" />
+                <MetricCard title="Open P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} icon={totalPnlPct >= 0 ? TrendingUp : TrendingDown} trend={totalPnlPct >= 0 ? 'up' : 'down'} />
+                <MetricCard title="Positions" value={`${positions.length}/6`} icon={PieIcon} />
+                <MetricCard title="Buy Signals" value={dashboardData?.market_stats?.signal_count || signalsWithLiveQuotes.length} subtitle={`${dashboardData?.market_stats?.fresh_count || 0} fresh`} icon={Zap} />
+                <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${trades.length} trades`} icon={Target} />
+              </div>
+            )}
 
             {/* Two column layout: Buy Signals | Open Positions */}
             <div className="grid grid-cols-2 gap-6">
@@ -1796,73 +1907,195 @@ function Dashboard() {
 
                 <div className="max-h-[500px] overflow-y-auto">
                   {(dashboardData?.buy_signals || []).length > 0 ? (
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 text-gray-600 sticky top-0">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-medium">Symbol</th>
-                          <th className="px-3 py-2 text-right font-medium">Price</th>
-                          <th className="px-3 py-2 text-right font-medium">DWAP%</th>
-                          <th className="px-3 py-2 text-right font-medium">Mom#</th>
-                          <th className="px-3 py-2 text-center font-medium">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {dashboardData.buy_signals.map((s) => (
-                          <tr
-                            key={s.symbol}
-                            className={`cursor-pointer transition-colors ${
-                              s.is_fresh
-                                ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500'
-                                : 'hover:bg-gray-50'
-                            }`}
-                            onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
-                          >
-                            <td className="px-3 py-2.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className={`font-semibold ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>
-                                  {s.symbol}
-                                </span>
-                                {s.is_strong && <ArrowUpRight className="w-3 h-3 text-green-500" />}
+                    viewMode === 'simple' ? (
+                      /* Simple mode: list items with confidence dots */
+                      <div className="divide-y divide-gray-100">
+                        {dashboardData.buy_signals.map((s) => {
+                          const confidenceDots = Math.min(5, Math.max(1, Math.round((s.ensemble_score || 0) / 20)));
+                          return (
+                            <div
+                              key={s.symbol}
+                              className={`px-4 py-3 flex items-center justify-between cursor-pointer transition-colors ${
+                                s.is_fresh ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500' : 'hover:bg-gray-50'
+                              }`}
+                              onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className={`font-semibold text-base ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>{s.symbol}</span>
+                                <span className="text-gray-500 text-sm">${s.price?.toFixed(2)}</span>
+                                <div className="flex gap-0.5">
+                                  {[1,2,3,4,5].map(i => (
+                                    <div key={i} className={`w-2 h-2 rounded-full ${i <= confidenceDots ? 'bg-emerald-500' : 'bg-gray-200'}`} />
+                                  ))}
+                                </div>
                               </div>
                               {s.is_fresh && (
-                                <span className="text-xs text-green-600">
-                                  {s.days_since_crossover === 0 ? 'Today' : `${s.days_since_crossover}d ago`}
-                                </span>
+                                <span className="text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium">BUY</span>
                               )}
-                            </td>
-                            <td className="px-3 py-2.5 text-right">${s.price?.toFixed(2)}</td>
-                            <td className="px-3 py-2.5 text-right text-green-600 font-medium">+{s.pct_above_dwap?.toFixed(1)}%</td>
-                            <td className="px-3 py-2.5 text-right">
-                              <span className={`font-medium ${s.momentum_rank <= 5 ? 'text-green-600' : 'text-gray-600'}`}>
-                                #{s.momentum_rank}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2.5 text-center">
-                              {s.is_fresh ? (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setChartModal({ type: 'signal', data: s, symbol: s.symbol });
-                                  }}
-                                  className="text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium hover:bg-green-700"
-                                >
-                                  BUY
-                                </button>
-                              ) : (
-                                <span className="text-xs text-gray-400">
-                                  {s.days_since_crossover ? `${s.days_since_crossover}d` : '60d+'}
-                                </span>
-                              )}
-                            </td>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      /* Advanced mode: full table */
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 text-gray-600 sticky top-0">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium">Symbol</th>
+                            <th className="px-3 py-2 text-right font-medium">Price</th>
+                            <th className="px-3 py-2 text-right font-medium">DWAP%</th>
+                            <th className="px-3 py-2 text-right font-medium">Mom#</th>
+                            <th className="px-3 py-2 text-center font-medium">Action</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {dashboardData.buy_signals.map((s) => (
+                            <tr
+                              key={s.symbol}
+                              className={`cursor-pointer transition-colors ${
+                                s.is_fresh
+                                  ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500'
+                                  : 'hover:bg-gray-50'
+                              }`}
+                              onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
+                            >
+                              <td className="px-3 py-2.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`font-semibold ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>
+                                    {s.symbol}
+                                  </span>
+                                  {s.is_strong && <ArrowUpRight className="w-3 h-3 text-green-500" />}
+                                </div>
+                                {s.is_fresh && (
+                                  <span className="text-xs text-green-600">
+                                    {s.days_since_crossover === 0 ? 'Today' : `${s.days_since_crossover}d ago`}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2.5 text-right">${s.price?.toFixed(2)}</td>
+                              <td className="px-3 py-2.5 text-right text-green-600 font-medium">+{s.pct_above_dwap?.toFixed(1)}%</td>
+                              <td className="px-3 py-2.5 text-right">
+                                <span className={`font-medium ${s.momentum_rank <= 5 ? 'text-green-600' : 'text-gray-600'}`}>
+                                  #{s.momentum_rank}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2.5 text-center">
+                                {s.is_fresh ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setChartModal({ type: 'signal', data: s, symbol: s.symbol });
+                                    }}
+                                    className="text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium hover:bg-green-700"
+                                  >
+                                    BUY
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-gray-400">
+                                    {s.days_since_crossover ? `${s.days_since_crossover}d` : '60d+'}
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )
                   ) : (
-                    <div className="text-center py-12 text-gray-500">
-                      <Activity className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                      <p>No ensemble signals today</p>
-                      <p className="text-xs mt-1">Requires DWAP +5% AND top momentum ranking</p>
+                    /* Smart empty state */
+                    <div className="p-5 space-y-4">
+                      {/* A. Market context message */}
+                      {dashboardData?.regime_forecast && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                            ['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-emerald-500' :
+                            ['rotating_bull', 'range_bound'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-amber-400' :
+                            'bg-red-500'
+                          }`} />
+                          <span>
+                            <strong>{dashboardData.regime_forecast.current_regime_name}</strong> market
+                            {' '}&mdash; no fresh crossovers today.
+                            {(dashboardData?.watchlist || []).length > 0 && ` ${dashboardData.watchlist.length} stock${dashboardData.watchlist.length > 1 ? 's' : ''} on watchlist.`}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* B. Promoted watchlist */}
+                      {(dashboardData?.watchlist || []).length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Approaching Buy Trigger</p>
+                          {viewMode === 'simple' ? (
+                            <div className="space-y-1.5">
+                              {dashboardData.watchlist.map(s => (
+                                <div
+                                  key={s.symbol}
+                                  className="flex items-center justify-between px-3 py-2 bg-amber-50 rounded-lg cursor-pointer hover:bg-amber-100 transition-colors"
+                                  onClick={() => setChartModal({ type: 'signal', data: { symbol: s.symbol }, symbol: s.symbol })}
+                                >
+                                  <span className="font-semibold text-gray-900">{s.symbol}</span>
+                                  <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                                    {s.distance_to_trigger?.toFixed(1)}% to go
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <table className="w-full text-sm">
+                              <thead className="text-gray-500">
+                                <tr>
+                                  <th className="text-left text-xs font-medium pb-1">Symbol</th>
+                                  <th className="text-right text-xs font-medium pb-1">Price</th>
+                                  <th className="text-right text-xs font-medium pb-1">DWAP%</th>
+                                  <th className="text-right text-xs font-medium pb-1">Distance</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                {dashboardData.watchlist.map(s => (
+                                  <tr
+                                    key={s.symbol}
+                                    className="cursor-pointer hover:bg-amber-50 transition-colors"
+                                    onClick={() => setChartModal({ type: 'signal', data: { symbol: s.symbol }, symbol: s.symbol })}
+                                  >
+                                    <td className="py-1.5 font-semibold text-gray-900">{s.symbol}</td>
+                                    <td className="py-1.5 text-right text-gray-600">${s.price?.toFixed(2)}</td>
+                                    <td className="py-1.5 text-right text-green-600">+{s.pct_above_dwap?.toFixed(1)}%</td>
+                                    <td className="py-1.5 text-right font-medium text-amber-700">+{s.distance_to_trigger?.toFixed(1)}%</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      )}
+
+                      {/* C. Recent signals with outcomes */}
+                      {(dashboardData?.recent_signals || []).length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Recent Signals</p>
+                          <div className="flex flex-wrap gap-2">
+                            {dashboardData.recent_signals.map(rs => (
+                              <div key={`${rs.symbol}-${rs.signal_date}`} className="flex items-center gap-1.5 text-xs bg-gray-100 px-2.5 py-1.5 rounded-lg">
+                                <span className="font-semibold text-gray-800">{rs.symbol}</span>
+                                <span className="text-gray-500">{new Date(rs.signal_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                                {rs.performance_pct != null && (
+                                  <span className={`font-medium ${rs.performance_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                    {rs.performance_pct >= 0 ? '+' : ''}{rs.performance_pct}%
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Fallback if no watchlist and no recent signals */}
+                      {(dashboardData?.watchlist || []).length === 0 && (dashboardData?.recent_signals || []).length === 0 && !dashboardData?.regime_forecast && (
+                        <div className="text-center py-6 text-gray-500">
+                          <Activity className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                          <p>No ensemble signals today</p>
+                          <p className="text-xs mt-1">Requires DWAP +5% AND top momentum ranking</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1877,67 +2110,104 @@ function Dashboard() {
 
                 <div className="max-h-[500px] overflow-y-auto">
                   {(dashboardData?.positions_with_guidance || positionsWithLiveQuotes).length > 0 ? (
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 text-gray-600 sticky top-0">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-medium">Symbol</th>
-                          <th className="px-3 py-2 text-right font-medium">P&L</th>
-                          <th className="px-3 py-2 text-center font-medium">Status</th>
-                          <th className="px-3 py-2 text-right font-medium">Stop</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
+                    viewMode === 'simple' ? (
+                      /* Simple mode: list items with friendly status */
+                      <div className="divide-y divide-gray-100">
                         {(dashboardData?.positions_with_guidance || positionsWithLiveQuotes).map((p) => {
                           const action = p.action || 'hold';
                           const pnl = p.pnl_pct || ((p.current_price - p.entry_price) / p.entry_price * 100) || 0;
-                          const pnlColor = pnl >= 0 ? 'text-emerald-600' : 'text-red-500';
+                          const friendlyStatus = action === 'sell' ? 'Consider selling'
+                            : action === 'warning' ? 'Watch closely'
+                            : 'Looking good';
+                          const statusColor = action === 'sell' ? 'text-red-600'
+                            : action === 'warning' ? 'text-amber-600'
+                            : 'text-emerald-600';
 
                           return (
-                            <tr
+                            <div
                               key={p.id || p.symbol}
-                              className={`cursor-pointer transition-colors ${
+                              className={`px-4 py-3 flex items-center justify-between cursor-pointer transition-colors ${
                                 action === 'sell' ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500' :
                                 action === 'warning' ? 'bg-amber-50 hover:bg-amber-100 border-l-4 border-l-amber-500' :
                                 'hover:bg-gray-50'
                               }`}
                               onClick={() => setChartModal({ type: 'position', data: p, symbol: p.symbol })}
                             >
-                              <td className="px-3 py-2.5">
+                              <div>
                                 <span className="font-semibold text-gray-900">{p.symbol}</span>
-                                <div className="text-xs text-gray-400">{p.shares?.toFixed(1)} shares</div>
-                              </td>
-                              <td className="px-3 py-2.5 text-right">
-                                <span className={`font-semibold ${pnlColor}`}>
+                                <span className={`ml-2 font-semibold ${pnl >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                                   {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%
                                 </span>
-                                <div className="text-xs text-gray-400">${p.current_price?.toFixed(2)}</div>
-                              </td>
-                              <td className="px-3 py-2.5 text-center">
-                                {action === 'sell' ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700">
-                                    <TrendingDown size={12} /> SELL
-                                  </span>
-                                ) : action === 'warning' ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-700">
-                                    <AlertCircle size={12} /> WARN
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-600">
-                                    <Shield size={12} /> HOLD
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-3 py-2.5 text-right">
-                                <span className="text-xs text-gray-600">${p.trailing_stop_level?.toFixed(2) || '--'}</span>
-                                <div className="text-xs text-gray-400">
-                                  {p.distance_to_stop_pct != null ? `${p.distance_to_stop_pct.toFixed(0)}% away` : ''}
-                                </div>
-                              </td>
-                            </tr>
+                              </div>
+                              <span className={`text-xs font-medium ${statusColor}`}>{friendlyStatus}</span>
+                            </div>
                           );
                         })}
-                      </tbody>
-                    </table>
+                      </div>
+                    ) : (
+                      /* Advanced mode: full table */
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 text-gray-600 sticky top-0">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium">Symbol</th>
+                            <th className="px-3 py-2 text-right font-medium">P&L</th>
+                            <th className="px-3 py-2 text-center font-medium">Status</th>
+                            <th className="px-3 py-2 text-right font-medium">Stop</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {(dashboardData?.positions_with_guidance || positionsWithLiveQuotes).map((p) => {
+                            const action = p.action || 'hold';
+                            const pnl = p.pnl_pct || ((p.current_price - p.entry_price) / p.entry_price * 100) || 0;
+                            const pnlColor = pnl >= 0 ? 'text-emerald-600' : 'text-red-500';
+
+                            return (
+                              <tr
+                                key={p.id || p.symbol}
+                                className={`cursor-pointer transition-colors ${
+                                  action === 'sell' ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500' :
+                                  action === 'warning' ? 'bg-amber-50 hover:bg-amber-100 border-l-4 border-l-amber-500' :
+                                  'hover:bg-gray-50'
+                                }`}
+                                onClick={() => setChartModal({ type: 'position', data: p, symbol: p.symbol })}
+                              >
+                                <td className="px-3 py-2.5">
+                                  <span className="font-semibold text-gray-900">{p.symbol}</span>
+                                  <div className="text-xs text-gray-400">{p.shares?.toFixed(1)} shares</div>
+                                </td>
+                                <td className="px-3 py-2.5 text-right">
+                                  <span className={`font-semibold ${pnlColor}`}>
+                                    {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%
+                                  </span>
+                                  <div className="text-xs text-gray-400">${p.current_price?.toFixed(2)}</div>
+                                </td>
+                                <td className="px-3 py-2.5 text-center">
+                                  {action === 'sell' ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700">
+                                      <TrendingDown size={12} /> SELL
+                                    </span>
+                                  ) : action === 'warning' ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-700">
+                                      <AlertCircle size={12} /> WARN
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-600">
+                                      <Shield size={12} /> HOLD
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2.5 text-right">
+                                  <span className="text-xs text-gray-600">${p.trailing_stop_level?.toFixed(2) || '--'}</span>
+                                  <div className="text-xs text-gray-400">
+                                    {p.distance_to_stop_pct != null ? `${p.distance_to_stop_pct.toFixed(0)}% away` : ''}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )
                   ) : (
                     <div className="text-center py-12 text-gray-500">
                       <PieIcon className="w-12 h-12 mx-auto text-gray-300 mb-3" />
@@ -1948,7 +2218,7 @@ function Dashboard() {
                 </div>
 
                 {/* Action reasons for positions needing attention */}
-                {dashboardData?.positions_with_guidance?.filter(p => p.action !== 'hold').length > 0 && (
+                {viewMode !== 'simple' && dashboardData?.positions_with_guidance?.filter(p => p.action !== 'hold').length > 0 && (
                   <div className="border-t border-gray-100 px-4 py-3 space-y-1">
                     {dashboardData.positions_with_guidance.filter(p => p.action !== 'hold').map(p => (
                       <div key={p.symbol} className={`text-xs px-2 py-1 rounded ${
@@ -1962,29 +2232,113 @@ function Dashboard() {
               </div>
             </div>
 
-            {/* Watchlist — Approaching Trigger */}
-            {(dashboardData?.watchlist || []).length > 0 && (
-              <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
-                <div className="px-5 py-3 border-b border-amber-200 flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-amber-600" />
-                  <h3 className="font-medium text-amber-800">Watchlist — Approaching Trigger</h3>
-                  <span className="text-xs text-amber-600 ml-2">Momentum stocks near +5% DWAP</span>
+            {/* Watchlist — Approaching Trigger (hidden when promoted into empty buy signals) */}
+            {(dashboardData?.watchlist || []).length > 0 && (dashboardData?.buy_signals || []).length > 0 && (
+              viewMode === 'simple' ? (
+                <div className="mt-6 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+                  <Eye className="w-4 h-4 text-amber-600 inline mr-1.5" />
+                  {dashboardData.watchlist.length} stock{dashboardData.watchlist.length > 1 ? 's are' : ' is'} close to triggering a buy signal: {dashboardData.watchlist.map(s => s.symbol).join(', ')}
                 </div>
-                <div className="flex flex-wrap gap-3 px-5 py-3">
-                  {dashboardData.watchlist.map((s) => (
-                    <div
-                      key={s.symbol}
-                      className="flex items-center gap-2 px-3 py-2 bg-white border border-amber-200 rounded-lg hover:bg-amber-100 cursor-pointer transition-colors"
-                      onClick={() => setChartModal({ type: 'signal', data: { symbol: s.symbol }, symbol: s.symbol })}
-                    >
-                      <span className="font-semibold text-gray-900">{s.symbol}</span>
-                      <span className="text-xs text-amber-600">#{s.momentum_rank}</span>
-                      <span className="text-xs text-gray-500">+{s.pct_above_dwap?.toFixed(1)}% DWAP</span>
-                      <span className="text-xs font-medium text-amber-700">+{s.distance_to_trigger?.toFixed(1)}% to go</span>
-                    </div>
-                  ))}
+              ) : (
+                <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
+                  <div className="px-5 py-3 border-b border-amber-200 flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-amber-600" />
+                    <h3 className="font-medium text-amber-800">Watchlist — Approaching Trigger</h3>
+                    <span className="text-xs text-amber-600 ml-2">Momentum stocks near +5% DWAP</span>
+                  </div>
+                  <div className="flex flex-wrap gap-3 px-5 py-3">
+                    {dashboardData.watchlist.map((s) => (
+                      <div
+                        key={s.symbol}
+                        className="flex items-center gap-2 px-3 py-2 bg-white border border-amber-200 rounded-lg hover:bg-amber-100 cursor-pointer transition-colors"
+                        onClick={() => setChartModal({ type: 'signal', data: { symbol: s.symbol }, symbol: s.symbol })}
+                      >
+                        <span className="font-semibold text-gray-900">{s.symbol}</span>
+                        <span className="text-xs text-amber-600">#{s.momentum_rank}</span>
+                        <span className="text-xs text-gray-500">+{s.pct_above_dwap?.toFixed(1)}% DWAP</span>
+                        <span className="text-xs font-medium text-amber-700">+{s.distance_to_trigger?.toFixed(1)}% to go</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )
+            )}
+
+            {/* Missed Opportunities */}
+            {missedOpportunities.length > 0 && (
+              viewMode === 'simple' ? (
+                /* Simple mode: summary + top 3 cards */
+                <div className="mt-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
+                  <p className="text-sm text-amber-800 mb-3">
+                    You could have made{' '}
+                    <strong className="text-amber-900">
+                      +${missedOpportunities.reduce((sum, m) => sum + (m.would_be_pnl || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </strong>
+                    {' '}last month following our signals.
+                  </p>
+                  <div className="flex gap-3">
+                    {missedOpportunities.slice(0, 3).map(m => (
+                      <div
+                        key={m.symbol}
+                        className="flex-1 bg-white border border-amber-200 rounded-lg px-3 py-2 text-center cursor-pointer hover:bg-amber-50 transition-colors"
+                        onClick={() => setChartModal({ type: 'missed', data: m, symbol: m.symbol })}
+                      >
+                        <span className="font-semibold text-gray-900">{m.symbol}</span>
+                        <div className="text-emerald-600 font-bold text-sm">
+                          +{m.would_be_return?.toFixed(0)}%
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                /* Advanced mode: full table */
+                <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-amber-500" />
+                    <h2 className="text-lg font-semibold text-gray-900">Missed Opportunities</h2>
+                    <span className="text-xs text-gray-500 ml-2">Signals that hit +20% profit target</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-gray-600">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium">Symbol</th>
+                          <th className="px-3 py-2 text-left font-medium">Buy Date</th>
+                          <th className="px-3 py-2 text-right font-medium">Buy $</th>
+                          <th className="px-3 py-2 text-left font-medium">Sell Date</th>
+                          <th className="px-3 py-2 text-right font-medium">Sell $</th>
+                          <th className="px-3 py-2 text-right font-medium">Return</th>
+                          <th className="px-3 py-2 text-right font-medium">P&L</th>
+                          <th className="px-3 py-2 text-right font-medium">Days</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {missedOpportunities.map((m) => (
+                          <tr
+                            key={`${m.symbol}-${m.entry_date}`}
+                            className="hover:bg-amber-50 cursor-pointer transition-colors"
+                            onClick={() => setChartModal({ type: 'missed', data: m, symbol: m.symbol })}
+                          >
+                            <td className="px-3 py-2.5 font-semibold text-gray-900">{m.symbol}</td>
+                            <td className="px-3 py-2.5 text-gray-500">{m.entry_date}</td>
+                            <td className="px-3 py-2.5 text-right">${m.entry_price?.toFixed(2)}</td>
+                            <td className="px-3 py-2.5 text-gray-500">{m.sell_date}</td>
+                            <td className="px-3 py-2.5 text-right">${m.sell_price?.toFixed(2)}</td>
+                            <td className="px-3 py-2.5 text-right">
+                              <span className="text-emerald-600 font-semibold">+{m.would_be_return?.toFixed(1)}%</span>
+                            </td>
+                            <td className="px-3 py-2.5 text-right text-emerald-600 font-medium">
+                              +${m.would_be_pnl?.toFixed(0)}
+                            </td>
+                            <td className="px-3 py-2.5 text-right text-gray-500">{m.days_held}d</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
             )}
 
             {/* Backtest/Walk-Forward summary */}
@@ -2069,7 +2423,7 @@ function Dashboard() {
       </main>
 
       {showLoginModal && <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />}
-      {chartModal && <StockChartModal {...chartModal} liveQuote={liveQuotes[chartModal.symbol]} onClose={() => setChartModal(null)} onAction={() => { setChartModal(null); reloadPositions(); }} />}
+      {chartModal && <StockChartModal {...chartModal} viewMode={viewMode} liveQuote={liveQuotes[chartModal.symbol]} onClose={() => setChartModal(null)} onAction={() => { setChartModal(null); reloadPositions(); }} />}
     </div>
   );
 }

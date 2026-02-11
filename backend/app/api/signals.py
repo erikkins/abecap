@@ -499,6 +499,7 @@ class DashboardResponse(BaseModel):
     positions_with_guidance: List[dict] = []
     watchlist: List[dict] = []
     market_stats: dict = {}
+    recent_signals: List[dict] = []
     generated_at: str
 
 
@@ -678,12 +679,36 @@ async def get_dashboard_data(
     except Exception as e:
         print(f"Market stats error: {e}")
 
+    # --- Recent signals with performance ---
+    recent_signals = []
+    try:
+        result = await db.execute(
+            select(Signal).where(Signal.signal_type == 'BUY')
+            .order_by(desc(Signal.created_at)).limit(5)
+        )
+        for sig in result.scalars().all():
+            current_price = None
+            df = scanner_service.data_cache.get(sig.symbol)
+            if df is not None and len(df) > 0:
+                current_price = round(float(df.iloc[-1]['close']), 2)
+            perf_pct = round((current_price / sig.price - 1) * 100, 1) if current_price and sig.price > 0 else None
+            recent_signals.append({
+                'symbol': sig.symbol,
+                'signal_date': sig.created_at.strftime('%Y-%m-%d'),
+                'signal_price': round(float(sig.price), 2),
+                'current_price': current_price,
+                'performance_pct': perf_pct,
+            })
+    except Exception as e:
+        print(f"Recent signals error: {e}")
+
     return {
         'regime_forecast': regime_forecast_data,
         'buy_signals': buy_signals,
         'positions_with_guidance': positions_with_guidance,
         'watchlist': watchlist,
         'market_stats': market_stats,
+        'recent_signals': recent_signals,
         'generated_at': datetime.now().isoformat(),
     }
 
