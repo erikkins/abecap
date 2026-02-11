@@ -102,7 +102,7 @@ class ScannerService:
         Load full NASDAQ + NYSE universe from S3 cache or fetch fresh.
 
         Uses 7-day cache by default since the stock universe doesn't change frequently.
-        This replaces the default 80-stock list with all tradeable stocks (~4500).
+        This replaces the default 80-stock list with all tradeable stocks (~6500).
 
         Args:
             max_cache_age_hours: Max age of cached universe (default 168 = 7 days)

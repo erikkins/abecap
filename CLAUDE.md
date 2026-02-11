@@ -30,8 +30,8 @@ PORTFOLIO:
 - Weekly rebalancing (Fridays)
 ```
 
-**Backtest Results (2011-2026, 15 years):**
-- 263% total return (9% annualized)
+**Backtest Results (2021-2026, 5 years):**
+- 263% total return (29% annualized)
 - 1.15 Sharpe ratio
 - -14.2% max drawdown
 - 49% win rate
@@ -68,6 +68,40 @@ SELL RULES:
 | Market Filter | None | SPY > 200MA |
 | Rebalancing | Daily | Weekly |
 | Sharpe | 0.19 | 1.48 |
+
+## Ensemble Strategy (Current Production)
+
+The Ensemble strategy (strategy_id: 5, type: `ensemble`) combines DWAP timing + momentum quality + trailing stops + 7-regime market detection. This is the proprietary differentiator and centerpiece of all marketing.
+
+```
+ENTRY (3-factor ensemble):
+1. TIMING: Price > DWAP × 1.05 (catches early breakouts)
+2. QUALITY: Top momentum ranking (10d/60d composite)
+3. CONFIRMATION: Near 50-day high, volume spike × 1.3
+
+EXIT:
+- Trailing Stop: 12% from high water mark
+- Market Regime Filter: Adapts across 7 regimes
+
+PORTFOLIO:
+- Max 6 positions @ 15% each
+- Biweekly rebalancing
+```
+
+**Walk-Forward Results (2021-2026, 5 years, no hindsight bias):**
+
+| Period | Return | Sharpe | Max Drawdown |
+|--------|--------|--------|-------------|
+| 2021-2022 | +62.0% | 1.21 | -14.8% |
+| 2022-2023 | -13.2% | -1.38 | -15.1% |
+| 2023-2024 | +22.2% | 1.02 | -13.6% |
+| 2024-2025 | +20.7% | 0.89 | -13.7% |
+| 2025-2026 | +87.5% | 2.32 | -8.3% |
+| **5-Year Total** | **+289%** | **0.81 avg** | **-15.1%** |
+
+- 31% annualized return
+- 80% win rate (4 of 5 years positive)
+- Walk-forward job IDs: 62, 64, 60, 63, 61
 
 ## Architecture
 

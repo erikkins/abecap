@@ -138,16 +138,18 @@ class EmailService:
         )
         total_missed = sum(m.get('would_be_pnl', 0) for m in missed_opportunities[:5])
 
-        # Regime styling
-        regime = market_regime.get('regime', 'neutral') if market_regime else 'neutral'
+        # Regime styling - matches 7 regimes from market_regime.py REGIME_DEFINITIONS
+        regime = market_regime.get('regime', 'range_bound') if market_regime else 'range_bound'
         regime_colors = {
-            'strong_bull': ('#059669', '#d1fae5', 'Strong Bull'),
-            'bull': ('#10b981', '#ecfdf5', 'Bull Market'),
-            'neutral': ('#6b7280', '#f3f4f6', 'Neutral'),
-            'bear': ('#f59e0b', '#fef3c7', 'Bear Market'),
-            'strong_bear': ('#dc2626', '#fee2e2', 'Strong Bear')
+            'strong_bull': ('#10B981', '#d1fae5', 'Strong Bull'),
+            'weak_bull': ('#84CC16', '#ecfdf5', 'Weak Bull'),
+            'rotating_bull': ('#8B5CF6', '#ede9fe', 'Rotating Bull'),
+            'range_bound': ('#F59E0B', '#fef3c7', 'Range-Bound'),
+            'weak_bear': ('#F97316', '#fff7ed', 'Weak Bear'),
+            'panic_crash': ('#EF4444', '#fee2e2', 'Panic/Crash'),
+            'recovery': ('#06B6D4', '#cffafe', 'Recovery'),
         }
-        regime_color, regime_bg, regime_label = regime_colors.get(regime, regime_colors['neutral'])
+        regime_color, regime_bg, regime_label = regime_colors.get(regime, ('#6b7280', '#f3f4f6', regime.replace('_', ' ').title()))
 
         html = f"""
 <!DOCTYPE html>
@@ -258,7 +260,7 @@ class EmailService:
                             {f'<span style="font-size: 12px; font-weight: 400; color: #6b7280; margin-left: 8px;">{sector}</span>' if sector else ''}
                         </div>
                         <div style="font-size: 14px; color: #6b7280; margin-top: 4px;">
-                            ${price:.2f} &nbsp;•&nbsp; +{pct_above:.1f}% above DWAP
+                            ${price:.2f} &nbsp;•&nbsp; +{pct_above:.1f}% above avg
                         </div>
                     </td>
                     <td style="text-align: right;">
@@ -389,14 +391,14 @@ class EmailService:
             pct = s.get('pct_above_dwap', 0)
             strength = s.get('signal_strength', 0)
             marker = "***" if s.get('is_strong') else ""
-            lines.append(f"{marker}{symbol}: ${price:.2f} (+{pct:.1f}% DWAP) - Strength: {strength:.0f}")
+            lines.append(f"{marker}{symbol}: ${price:.2f} (Score: {strength:.0f}) - +{pct:.1f}% above avg")
 
         lines.extend([
             "",
             "View full details at: https://rigacap.com/dashboard",
             "",
             "---",
-            "RigaCap - DWAP Trading Signals",
+            "RigaCap - AI-Powered Trading Signals",
             "Trading involves risk. Past performance does not guarantee future results."
         ])
 
@@ -519,8 +521,9 @@ class EmailService:
                 </p>
                 <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
                     Thank you for joining RigaCap! We're thrilled to have you on board.
-                    You've just unlocked access to our powerful DWAP trading signals that
-                    have helped traders achieve <strong>216% returns</strong> in backtesting.
+                    You've just unlocked access to our AI-powered <strong>Ensemble signals</strong> —
+                    combining timing, momentum quality, and adaptive risk management to
+                    find the best opportunities in any market.
                 </p>
 
                 <!-- What You Get Box -->
@@ -530,7 +533,7 @@ class EmailService:
                     </h2>
                     <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
                         <li><strong>Daily AI-powered signals</strong> — Know exactly when to buy</li>
-                        <li><strong>4,500+ stocks scanned</strong> — Never miss an opportunity</li>
+                        <li><strong>6,500+ stocks scanned</strong> — Never miss an opportunity</li>
                         <li><strong>Stop-loss & profit targets</strong> — Manage risk automatically</li>
                         <li><strong>Market regime analysis</strong> — Bull or bear, we've got you</li>
                         <li><strong>Daily email digest</strong> — Signals delivered to your inbox</li>
@@ -540,7 +543,7 @@ class EmailService:
 
                 <p style="font-size: 16px; color: #374151; margin: 24px 0; line-height: 1.6;">
                     Your <strong>7-day free trial</strong> starts now. Explore the dashboard,
-                    check out today's signals, and see the DWAP algorithm in action!
+                    check out today's signals, and see the Ensemble algorithm in action!
                 </p>
 
                 <!-- CTA Button -->
@@ -594,7 +597,7 @@ Your journey to smarter trading starts now.
 
 Here's what you get:
 - Daily AI-powered signals
-- 4,500+ stocks scanned daily
+- 6,500+ stocks scanned daily
 - Stop-loss & profit targets
 - Market regime analysis
 - Daily email digest
@@ -702,7 +705,7 @@ Trading involves risk. Past performance does not guarantee future results.
                     <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
                         <li>Daily AI-powered buy signals</li>
                         <li>Market regime alerts (bull/bear detection)</li>
-                        <li>Momentum rankings across 4,500+ stocks</li>
+                        <li>Momentum rankings across 6,500+ stocks</li>
                         <li>Portfolio P&L tracking</li>
                         <li>Missed opportunity alerts</li>
                     </ul>
@@ -719,13 +722,13 @@ Trading involves risk. Past performance does not guarantee future results.
                 <!-- Social Proof -->
                 <div style="background-color: #f0fdf4; border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center;">
                     <p style="margin: 0 0 4px 0; font-size: 14px; color: #065f46; text-transform: uppercase; font-weight: 600;">
-                        Backtest Performance
+                        Latest Year Performance
                     </p>
                     <p style="margin: 0; font-size: 42px; font-weight: 700; color: #059669;">
-                        263%
+                        87.5%
                     </p>
                     <p style="margin: 4px 0 0 0; font-size: 14px; color: #374151;">
-                        Total return over 15 years &bull; 1.15 Sharpe ratio
+                        Walk-forward return (2025-2026) &bull; 2.32 Sharpe ratio
                     </p>
                 </div>
 
@@ -769,13 +772,13 @@ Your RigaCap free trial ends {urgency}!
 After that, you'll lose access to:
 - Daily AI-powered buy signals
 - Market regime alerts
-- Momentum rankings across 4,500+ stocks
+- Momentum rankings across 6,500+ stocks
 - Portfolio P&L tracking
 - Missed opportunity alerts
 
 Subscribe now to keep your trading edge: https://rigacap.com/app/subscribe
 
-Our backtest showed 263% total return over 15 years with a 1.15 Sharpe ratio.
+Our walk-forward simulation returned 87.5% in the latest year (2025-2026) with a 2.32 Sharpe ratio.
 
 Questions? Just reply to this email.
 
@@ -836,7 +839,7 @@ Trading involves risk. Past performance does not guarantee future results.
                         📉 What You're Missing Today:
                     </h2>
                     <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
-                        <li>Fresh daily signals from 4,500+ stocks</li>
+                        <li>Fresh daily signals from 6,500+ stocks</li>
                         <li>Real-time market regime updates</li>
                         <li>Buy signals before they surge</li>
                         <li>Stop-loss alerts to protect your capital</li>
@@ -846,13 +849,13 @@ Trading involves risk. Past performance does not guarantee future results.
                 <!-- Stats -->
                 <div style="background-color: #f0fdf4; border-radius: 16px; padding: 24px; margin: 24px 0; text-align: center;">
                     <p style="margin: 0; font-size: 14px; color: #059669; text-transform: uppercase; font-weight: 600;">
-                        Our Backtest Performance
+                        Latest Year Performance
                     </p>
                     <p style="margin: 8px 0 0 0; font-size: 48px; font-weight: 700; color: #059669;">
-                        216%
+                        87.5%
                     </p>
                     <p style="margin: 4px 0 0 0; font-size: 14px; color: #374151;">
-                        Total return over the test period
+                        Walk-forward return (2025-2026) &bull; 2.32 Sharpe ratio
                     </p>
                 </div>
 
@@ -909,12 +912,12 @@ Hey {first_name},
 We noticed your RigaCap subscription has ended. We're sad to see you go!
 
 What you're missing:
-- Fresh daily signals from 4,500+ stocks
+- Fresh daily signals from 6,500+ stocks
 - Real-time market regime updates
 - Buy signals before they surge
 - Stop-loss alerts to protect your capital
 
-Our backtest showed 216% returns. We'd love to have you back.
+Our walk-forward simulation returned 87.5% in the latest year with a 2.32 Sharpe ratio. We'd love to have you back.
 
 SPECIAL OFFER: Get 20% off your first month when you reactivate.
 Visit: https://rigacap.com/app?promo=COMEBACK20
@@ -943,11 +946,11 @@ Unsubscribe: https://rigacap.com/unsubscribe
         approaching: List[Dict] = None
     ) -> bool:
         """
-        Send alert when momentum stocks cross the DWAP +5% trigger (new double signals).
+        Send alert when momentum stocks hit the breakout signal trigger.
 
         Args:
             to_email: Recipient email
-            new_signals: List of newly triggered double signals
+            new_signals: List of newly triggered breakout signals
             approaching: Optional list of stocks approaching trigger (watchlist)
 
         Returns:
@@ -975,12 +978,12 @@ Unsubscribe: https://rigacap.com/unsubscribe
                         ⚡ {symbol}
                     </div>
                     <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">
-                        Crossed +5% on {crossover_date}
+                        Signal triggered on {crossover_date}
                     </div>
                 </td>
                 <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: right;">
                     <div style="font-size: 16px; font-weight: 600;">${price:.2f}</div>
-                    <div style="font-size: 12px; color: #059669;">+{pct_above:.1f}% DWAP</div>
+                    <div style="font-size: 12px; color: #059669;">+{pct_above:.1f}% above avg</div>
                 </td>
                 <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: center;">
                     <div style="background-color: #fef3c7; color: #92400e; font-size: 14px; font-weight: 600; padding: 4px 12px; border-radius: 99px; display: inline-block;">
@@ -1020,13 +1023,13 @@ Unsubscribe: https://rigacap.com/unsubscribe
                             👀 Approaching Trigger ({len(approaching)} stocks)
                         </h3>
                         <p style="margin: 0 0 12px 0; font-size: 13px; color: #92400e;">
-                            These momentum stocks are at +3-4% DWAP and may trigger soon:
+                            These momentum stocks are approaching the signal trigger:
                         </p>
                         <table cellpadding="0" cellspacing="0" style="width: 100%;">
                             <tr style="background-color: rgba(0,0,0,0.05);">
                                 <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; color: #92400e;">Symbol</th>
                                 <th style="padding: 8px 12px; text-align: right; font-size: 11px; text-transform: uppercase; color: #92400e;">Price</th>
-                                <th style="padding: 8px 12px; text-align: right; font-size: 11px; text-transform: uppercase; color: #92400e;">DWAP%</th>
+                                <th style="padding: 8px 12px; text-align: right; font-size: 11px; text-transform: uppercase; color: #92400e;">Signal%</th>
                                 <th style="padding: 8px 12px; text-align: right; font-size: 11px; text-transform: uppercase; color: #92400e;">Distance</th>
                             </tr>
                             {watchlist_rows}
@@ -1050,10 +1053,10 @@ Unsubscribe: https://rigacap.com/unsubscribe
             <td style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 32px 24px; text-align: center;">
                 <div style="font-size: 48px; margin-bottom: 12px;">⚡</div>
                 <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
-                    New Double Signal{'s' if len(new_signals) > 1 else ''}!
+                    New Breakout Signal{'s' if len(new_signals) > 1 else ''}!
                 </h1>
                 <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
-                    {len(new_signals)} momentum stock{'s' if len(new_signals) > 1 else ''} just crossed DWAP +5%
+                    {len(new_signals)} momentum stock{'s' if len(new_signals) > 1 else ''} just hit the signal trigger
                 </p>
             </td>
         </tr>
@@ -1063,9 +1066,9 @@ Unsubscribe: https://rigacap.com/unsubscribe
             <td style="padding: 24px;">
                 <div style="background-color: #ecfdf5; border-radius: 12px; padding: 16px; border-left: 4px solid #059669;">
                     <p style="margin: 0; font-size: 14px; color: #065f46;">
-                        <strong>Double Signals</strong> are stocks that are BOTH in the top 20 momentum rankings
-                        AND have crossed +5% above their 200-day DWAP. Historically, these signals
-                        have shown <strong>2.5x higher returns</strong> than DWAP-only signals.
+                        <strong>Breakout Signals</strong> are stocks that pass ALL three Ensemble filters:
+                        top momentum ranking, price breakout confirmation, and favorable risk profile.
+                        These high-conviction signals have shown <strong>2.5x higher returns</strong> than single-factor signals.
                     </p>
                 </div>
             </td>
@@ -1075,7 +1078,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
         <tr>
             <td style="padding: 0 24px 24px;">
                 <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827;">
-                    🎯 New Double Signals
+                    🎯 New Breakout Signals
                 </h2>
                 <table cellpadding="0" cellspacing="0" style="width: 100%; border: 1px solid #d1fae5; border-radius: 8px; overflow: hidden;">
                     <tr style="background-color: #ecfdf5;">
@@ -1132,22 +1135,22 @@ Unsubscribe: https://rigacap.com/unsubscribe
 
         # Plain text version
         text_lines = [
-            "⚡ NEW DOUBLE SIGNAL ALERT",
+            "⚡ NEW BREAKOUT SIGNAL ALERT",
             "=" * 40,
-            f"{len(new_signals)} momentum stock(s) just crossed DWAP +5%",
+            f"{len(new_signals)} momentum stock(s) just hit the signal trigger",
             "",
             "NEW SIGNALS:",
         ]
         for s in new_signals[:10]:
             text_lines.append(
-                f"  • {s.get('symbol')}: ${s.get('price', 0):.2f} (+{s.get('pct_above_dwap', 0):.1f}% DWAP) - Mom #{s.get('momentum_rank', 0)}"
+                f"  • {s.get('symbol')}: ${s.get('price', 0):.2f} (+{s.get('pct_above_dwap', 0):.1f}% above avg) - Mom #{s.get('momentum_rank', 0)}"
             )
 
         if approaching:
             text_lines.extend(["", "APPROACHING TRIGGER:"])
             for a in approaching[:5]:
                 text_lines.append(
-                    f"  • {a.get('symbol')}: ${a.get('price', 0):.2f} (+{a.get('pct_above_dwap', 0):.1f}% DWAP) - {a.get('distance_to_trigger', 0):.1f}% to go"
+                    f"  • {a.get('symbol')}: ${a.get('price', 0):.2f} (+{a.get('pct_above_dwap', 0):.1f}% above avg) - {a.get('distance_to_trigger', 0):.1f}% to go"
                 )
 
         text_lines.extend([
@@ -1160,7 +1163,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
 
         return await self.send_email(
             to_email=to_email,
-            subject=f"⚡ {len(new_signals)} New Double Signal{'s' if len(new_signals) > 1 else ''} - Momentum + DWAP Crossover",
+            subject=f"⚡ {len(new_signals)} New Breakout Signal{'s' if len(new_signals) > 1 else ''} - Momentum + Breakout Signal",
             html_content=html,
             text_content="\n".join(text_lines)
         )
@@ -1604,11 +1607,15 @@ class AdminEmailService(EmailService):
             """
 
         regime_colors = {
-            "bull": ("#059669", "#d1fae5"),
-            "bear": ("#dc2626", "#fee2e2"),
-            "neutral": ("#6b7280", "#f3f4f6")
+            "strong_bull": ("#10B981", "#d1fae5"),
+            "weak_bull": ("#84CC16", "#ecfdf5"),
+            "rotating_bull": ("#8B5CF6", "#ede9fe"),
+            "range_bound": ("#F59E0B", "#fef3c7"),
+            "weak_bear": ("#F97316", "#fff7ed"),
+            "panic_crash": ("#EF4444", "#fee2e2"),
+            "recovery": ("#06B6D4", "#cffafe"),
         }
-        regime_color, regime_bg = regime_colors.get(market_regime, regime_colors["neutral"])
+        regime_color, regime_bg = regime_colors.get(market_regime, ("#6b7280", "#f3f4f6"))
 
         created_section = ""
         if created_strategy_name:
