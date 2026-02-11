@@ -15,9 +15,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginModal from './components/LoginModal';
 import AdminDashboard from './components/AdminDashboard';
 import SubscriptionBanner from './components/SubscriptionBanner';
-import MomentumRankings from './components/MomentumRankings';
-import DoubleSignals from './components/DoubleSignals';
-import ApproachingTrigger from './components/ApproachingTrigger';
+// DoubleSignals, MomentumRankings, ApproachingTrigger removed — absorbed into unified dashboard
 
 // ============================================================================
 // API Configuration
@@ -185,8 +183,7 @@ const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy }) => {
   const [submitting, setSubmitting] = useState(false);
 
   const totalCost = shares * entryPrice;
-  const stopLoss = entryPrice * 0.92; // 8% stop
-  const profitTarget = entryPrice * 1.20; // 20% target
+  const trailingStop = entryPrice * 0.85; // 15% trailing stop
 
   const handleBuy = async () => {
     setSubmitting(true);
@@ -243,12 +240,12 @@ const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy }) => {
               <span className="font-semibold">${totalCost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Stop Loss (8%)</span>
-              <span className="text-red-500 font-medium">${stopLoss.toFixed(2)}</span>
+              <span className="text-gray-500">Trailing Stop (15%)</span>
+              <span className="text-red-500 font-medium">${trailingStop.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Profit Target (20%)</span>
-              <span className="text-emerald-600 font-medium">${profitTarget.toFixed(2)}</span>
+              <span className="text-gray-500">Exit Strategy</span>
+              <span className="text-gray-600 font-medium">Let winners run</span>
             </div>
           </div>
         </div>
@@ -1202,8 +1199,8 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastScan, setLastScan] = useState(null);
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [showEnsembleView, setShowEnsembleView] = useState(true); // true = ensemble (double), false = separate lists
+  const [activeTab, setActiveTab] = useState('signals');
+  const [dashboardData, setDashboardData] = useState(null); // Unified dashboard data
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [chartModal, setChartModal] = useState(null);
   const [dataStatus, setDataStatus] = useState({ loaded: 0, status: 'loading' });
@@ -1242,6 +1239,22 @@ function Dashboard() {
 
     return () => clearInterval(interval);
   }, [positions.length, signals.length]); // Re-run when positions or signals change
+
+  // Fetch unified dashboard data (regime forecast, buy signals, sell guidance, watchlist)
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const data = await api.get('/api/signals/dashboard');
+        setDashboardData(data);
+      } catch (err) {
+        console.log('Dashboard data fetch failed:', err);
+      }
+    };
+
+    fetchDashboard();
+    const interval = setInterval(fetchDashboard, 60000); // Refresh every 60 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   // Merge live quotes into positions for display
   const positionsWithLiveQuotes = positions.map(p => {
@@ -1567,11 +1580,8 @@ function Dashboard() {
           </div>
 
           <nav className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
-            <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'dashboard' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
-              <BarChart3 size={16} className="inline mr-2" />Dashboard
-            </button>
-            <button onClick={() => setActiveTab('momentum')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'momentum' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
-              <TrendingUp size={16} className="inline mr-2" />Momentum
+            <button onClick={() => setActiveTab('signals')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'signals' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
+              <Zap size={16} className="inline mr-2" />Signals
             </button>
             <button onClick={() => setActiveTab('history')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
               <History size={16} className="inline mr-2" />Trade History
@@ -1638,11 +1648,348 @@ function Dashboard() {
           </div>
         )}
 
-        {activeTab === 'dashboard' ? (
+        {activeTab === 'signals' ? (
           <>
-            {/* Backtest/Walk-Forward summary banner */}
+            {/* Go to Cash Banner */}
+            {dashboardData?.regime_forecast?.recommended_action === 'go_to_cash' && (
+              <div className="mb-4 p-4 bg-red-600 text-white rounded-xl flex items-center gap-3">
+                <Shield className="w-6 h-6 flex-shrink-0" />
+                <div>
+                  <h3 className="font-bold text-lg">Market Conditions Deteriorating — Consider Closing Positions</h3>
+                  <p className="text-red-100 text-sm">{dashboardData.regime_forecast.outlook_detail}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Regime Forecast Bar */}
+            {dashboardData?.regime_forecast && (
+              <div className={`mb-4 p-4 rounded-xl border ${
+                dashboardData.regime_forecast.current_regime === 'strong_bull' ? 'bg-emerald-50 border-emerald-200' :
+                dashboardData.regime_forecast.current_regime === 'weak_bull' ? 'bg-green-50 border-green-200' :
+                dashboardData.regime_forecast.current_regime === 'rotating_bull' ? 'bg-violet-50 border-violet-200' :
+                dashboardData.regime_forecast.current_regime === 'range_bound' ? 'bg-amber-50 border-amber-200' :
+                dashboardData.regime_forecast.current_regime === 'recovery' ? 'bg-cyan-50 border-cyan-200' :
+                dashboardData.regime_forecast.current_regime === 'weak_bear' ? 'bg-orange-50 border-orange-200' :
+                dashboardData.regime_forecast.current_regime === 'panic_crash' ? 'bg-red-50 border-red-200' :
+                'bg-gray-50 border-gray-200'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-full ${
+                      dashboardData.regime_forecast.current_regime === 'strong_bull' ? 'bg-emerald-100' :
+                      dashboardData.regime_forecast.current_regime === 'weak_bull' ? 'bg-green-100' :
+                      dashboardData.regime_forecast.current_regime === 'rotating_bull' ? 'bg-violet-100' :
+                      dashboardData.regime_forecast.current_regime === 'range_bound' ? 'bg-amber-100' :
+                      dashboardData.regime_forecast.current_regime === 'recovery' ? 'bg-cyan-100' :
+                      dashboardData.regime_forecast.current_regime === 'weak_bear' ? 'bg-orange-100' :
+                      'bg-red-100'
+                    }`}>
+                      {['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? <TrendingUp className="w-5 h-5 text-emerald-600" /> :
+                       dashboardData.regime_forecast.current_regime === 'rotating_bull' ? <RefreshCw className="w-5 h-5 text-violet-600" /> :
+                       dashboardData.regime_forecast.current_regime === 'range_bound' ? <Activity className="w-5 h-5 text-amber-600" /> :
+                       <TrendingDown className="w-5 h-5 text-red-600" />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-900">
+                          {dashboardData.regime_forecast.current_regime_name} Market
+                        </span>
+                        {dashboardData.market_stats?.spy_price && (
+                          <>
+                            <span className="text-gray-400">|</span>
+                            <span className="text-gray-600 text-sm">SPY ${dashboardData.market_stats.spy_price.toFixed(2)}</span>
+                          </>
+                        )}
+                        {dashboardData.market_stats?.vix_level && (
+                          <>
+                            <span className="text-gray-400">|</span>
+                            <span className="text-gray-600 text-sm">VIX {dashboardData.market_stats.vix_level.toFixed(1)}</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                          dashboardData.regime_forecast.outlook === 'stable' ? 'bg-green-100 text-green-700' :
+                          dashboardData.regime_forecast.outlook === 'improving' ? 'bg-emerald-100 text-emerald-700' :
+                          'bg-orange-100 text-orange-700'
+                        }`}>
+                          Outlook: {dashboardData.regime_forecast.outlook}
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                          dashboardData.regime_forecast.risk_change === 'decreasing' ? 'bg-green-100 text-green-700' :
+                          dashboardData.regime_forecast.risk_change === 'stable' ? 'bg-gray-100 text-gray-600' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          Risk: {dashboardData.regime_forecast.risk_change}
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                          dashboardData.regime_forecast.recommended_action === 'stay_invested' ? 'bg-green-100 text-green-700' :
+                          dashboardData.regime_forecast.recommended_action === 'tighten_stops' ? 'bg-yellow-100 text-yellow-700' :
+                          dashboardData.regime_forecast.recommended_action === 'reduce_exposure' ? 'bg-orange-100 text-orange-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {dashboardData.regime_forecast.recommended_action.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-600 max-w-sm text-right leading-tight">
+                    {dashboardData.regime_forecast.outlook_detail}
+                  </div>
+                </div>
+
+                {/* Transition probabilities mini bar */}
+                {dashboardData.regime_forecast.transition_probabilities && (
+                  <div className="mt-3 flex items-center gap-1 h-3 rounded-full overflow-hidden bg-gray-100">
+                    {Object.entries(dashboardData.regime_forecast.transition_probabilities)
+                      .filter(([_, pct]) => pct > 3)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([regime, pct]) => {
+                        const colors = {
+                          strong_bull: 'bg-emerald-500',
+                          weak_bull: 'bg-green-400',
+                          rotating_bull: 'bg-violet-400',
+                          range_bound: 'bg-amber-400',
+                          weak_bear: 'bg-orange-400',
+                          panic_crash: 'bg-red-500',
+                          recovery: 'bg-cyan-400',
+                        };
+                        return (
+                          <div
+                            key={regime}
+                            className={`h-full ${colors[regime] || 'bg-gray-300'}`}
+                            style={{ width: `${pct}%` }}
+                            title={`${regime.replace('_', ' ')}: ${pct.toFixed(0)}%`}
+                          />
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Metric Cards */}
+            <div className="grid grid-cols-5 gap-4 mb-6">
+              <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={Wallet} trend="up" />
+              <MetricCard title="Open P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} icon={totalPnlPct >= 0 ? TrendingUp : TrendingDown} trend={totalPnlPct >= 0 ? 'up' : 'down'} />
+              <MetricCard title="Positions" value={`${positions.length}/6`} icon={PieIcon} />
+              <MetricCard title="Buy Signals" value={dashboardData?.market_stats?.signal_count || signalsWithLiveQuotes.length} subtitle={`${dashboardData?.market_stats?.fresh_count || 0} fresh`} icon={Zap} />
+              <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${trades.length} trades`} icon={Target} />
+            </div>
+
+            {/* Two column layout: Buy Signals | Open Positions */}
+            <div className="grid grid-cols-2 gap-6">
+              {/* LEFT: Buy Signals */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-yellow-500" />
+                    <h2 className="text-lg font-semibold text-gray-900">Buy Signals</h2>
+                    {dashboardData?.buy_signals?.filter(s => s.is_fresh).length > 0 && (
+                      <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-medium">
+                        {dashboardData.buy_signals.filter(s => s.is_fresh).length} fresh
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-500">Ensemble: DWAP + Momentum</span>
+                </div>
+
+                <div className="max-h-[500px] overflow-y-auto">
+                  {(dashboardData?.buy_signals || []).length > 0 ? (
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-gray-600 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium">Symbol</th>
+                          <th className="px-3 py-2 text-right font-medium">Price</th>
+                          <th className="px-3 py-2 text-right font-medium">DWAP%</th>
+                          <th className="px-3 py-2 text-right font-medium">Mom#</th>
+                          <th className="px-3 py-2 text-center font-medium">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {dashboardData.buy_signals.map((s) => (
+                          <tr
+                            key={s.symbol}
+                            className={`cursor-pointer transition-colors ${
+                              s.is_fresh
+                                ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500'
+                                : 'hover:bg-gray-50'
+                            }`}
+                            onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
+                          >
+                            <td className="px-3 py-2.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`font-semibold ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>
+                                  {s.symbol}
+                                </span>
+                                {s.is_strong && <ArrowUpRight className="w-3 h-3 text-green-500" />}
+                              </div>
+                              {s.is_fresh && (
+                                <span className="text-xs text-green-600">
+                                  {s.days_since_crossover === 0 ? 'Today' : `${s.days_since_crossover}d ago`}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-right">${s.price?.toFixed(2)}</td>
+                            <td className="px-3 py-2.5 text-right text-green-600 font-medium">+{s.pct_above_dwap?.toFixed(1)}%</td>
+                            <td className="px-3 py-2.5 text-right">
+                              <span className={`font-medium ${s.momentum_rank <= 5 ? 'text-green-600' : 'text-gray-600'}`}>
+                                #{s.momentum_rank}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 text-center">
+                              {s.is_fresh ? (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setChartModal({ type: 'signal', data: s, symbol: s.symbol });
+                                  }}
+                                  className="text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium hover:bg-green-700"
+                                >
+                                  BUY
+                                </button>
+                              ) : (
+                                <span className="text-xs text-gray-400">
+                                  {s.days_since_crossover ? `${s.days_since_crossover}d` : '60d+'}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="text-center py-12 text-gray-500">
+                      <Activity className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                      <p>No ensemble signals today</p>
+                      <p className="text-xs mt-1">Requires DWAP +5% AND top momentum ranking</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* RIGHT: Open Positions with Sell Guidance */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">Open Positions</h2>
+                  <span className="text-xs text-gray-500">Click row for chart</span>
+                </div>
+
+                <div className="max-h-[500px] overflow-y-auto">
+                  {(dashboardData?.positions_with_guidance || positionsWithLiveQuotes).length > 0 ? (
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-gray-600 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium">Symbol</th>
+                          <th className="px-3 py-2 text-right font-medium">P&L</th>
+                          <th className="px-3 py-2 text-center font-medium">Status</th>
+                          <th className="px-3 py-2 text-right font-medium">Stop</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {(dashboardData?.positions_with_guidance || positionsWithLiveQuotes).map((p) => {
+                          const action = p.action || 'hold';
+                          const pnl = p.pnl_pct || ((p.current_price - p.entry_price) / p.entry_price * 100) || 0;
+                          const pnlColor = pnl >= 0 ? 'text-emerald-600' : 'text-red-500';
+
+                          return (
+                            <tr
+                              key={p.id || p.symbol}
+                              className={`cursor-pointer transition-colors ${
+                                action === 'sell' ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500' :
+                                action === 'warning' ? 'bg-amber-50 hover:bg-amber-100 border-l-4 border-l-amber-500' :
+                                'hover:bg-gray-50'
+                              }`}
+                              onClick={() => setChartModal({ type: 'position', data: p, symbol: p.symbol })}
+                            >
+                              <td className="px-3 py-2.5">
+                                <span className="font-semibold text-gray-900">{p.symbol}</span>
+                                <div className="text-xs text-gray-400">{p.shares?.toFixed(1)} shares</div>
+                              </td>
+                              <td className="px-3 py-2.5 text-right">
+                                <span className={`font-semibold ${pnlColor}`}>
+                                  {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%
+                                </span>
+                                <div className="text-xs text-gray-400">${p.current_price?.toFixed(2)}</div>
+                              </td>
+                              <td className="px-3 py-2.5 text-center">
+                                {action === 'sell' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700">
+                                    <TrendingDown size={12} /> SELL
+                                  </span>
+                                ) : action === 'warning' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-700">
+                                    <AlertCircle size={12} /> WARN
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-600">
+                                    <Shield size={12} /> HOLD
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2.5 text-right">
+                                <span className="text-xs text-gray-600">${p.trailing_stop_level?.toFixed(2) || '--'}</span>
+                                <div className="text-xs text-gray-400">
+                                  {p.distance_to_stop_pct != null ? `${p.distance_to_stop_pct.toFixed(0)}% away` : ''}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="text-center py-12 text-gray-500">
+                      <PieIcon className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                      <p>No open positions</p>
+                      <p className="text-xs mt-1">Click BUY on a fresh signal to add a position</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action reasons for positions needing attention */}
+                {dashboardData?.positions_with_guidance?.filter(p => p.action !== 'hold').length > 0 && (
+                  <div className="border-t border-gray-100 px-4 py-3 space-y-1">
+                    {dashboardData.positions_with_guidance.filter(p => p.action !== 'hold').map(p => (
+                      <div key={p.symbol} className={`text-xs px-2 py-1 rounded ${
+                        p.action === 'sell' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                      }`}>
+                        <strong>{p.symbol}:</strong> {p.action_reason}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Watchlist — Approaching Trigger */}
+            {(dashboardData?.watchlist || []).length > 0 && (
+              <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
+                <div className="px-5 py-3 border-b border-amber-200 flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-amber-600" />
+                  <h3 className="font-medium text-amber-800">Watchlist — Approaching Trigger</h3>
+                  <span className="text-xs text-amber-600 ml-2">Momentum stocks near +5% DWAP</span>
+                </div>
+                <div className="flex flex-wrap gap-3 px-5 py-3">
+                  {dashboardData.watchlist.map((s) => (
+                    <div
+                      key={s.symbol}
+                      className="flex items-center gap-2 px-3 py-2 bg-white border border-amber-200 rounded-lg hover:bg-amber-100 cursor-pointer transition-colors"
+                      onClick={() => setChartModal({ type: 'signal', data: { symbol: s.symbol }, symbol: s.symbol })}
+                    >
+                      <span className="font-semibold text-gray-900">{s.symbol}</span>
+                      <span className="text-xs text-amber-600">#{s.momentum_rank}</span>
+                      <span className="text-xs text-gray-500">+{s.pct_above_dwap?.toFixed(1)}% DWAP</span>
+                      <span className="text-xs font-medium text-amber-700">+{s.distance_to_trigger?.toFixed(1)}% to go</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Backtest/Walk-Forward summary */}
             {backtest && (
-              <div className={`mb-4 bg-gradient-to-r ${backtest.is_walk_forward ? 'from-purple-50 to-indigo-50 border-purple-200' : 'from-blue-50 to-indigo-50 border-blue-200'} border rounded-xl p-4`}>
+              <div className={`mt-6 bg-gradient-to-r ${backtest.is_walk_forward ? 'from-purple-50 to-indigo-50 border-purple-200' : 'from-blue-50 to-indigo-50 border-blue-200'} border rounded-xl p-4`}>
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold text-gray-900">
@@ -1650,9 +1997,10 @@ function Dashboard() {
                     </h3>
                     <p className="text-sm text-gray-500">
                       {backtest.is_walk_forward
-                        ? `Adaptive strategy with ${backtest.num_strategy_switches || 0} switches • ${backtest.start_date} to ${backtest.end_date}`
-                        : `Based on ${backtest.strategy === 'momentum' ? 'Momentum' : 'DWAP'} strategy from ${backtest.start_date} to ${backtest.end_date}`
+                        ? `Adaptive strategy with ${backtest.num_strategy_switches || 0} switches`
+                        : `Based on ${backtest.strategy === 'momentum' ? 'Momentum' : 'DWAP'} strategy`
                       }
+                      {' '}| {backtest.start_date} to {backtest.end_date}
                     </p>
                   </div>
                   <div className="flex gap-6 text-sm">
@@ -1662,19 +2010,6 @@ function Dashboard() {
                         {parseFloat(backtest.total_return_pct) >= 0 ? '+' : ''}{backtest.total_return_pct}%
                       </p>
                     </div>
-                    {backtest.is_walk_forward ? (
-                      <div className="text-center">
-                        <p className="text-gray-500">vs SPY</p>
-                        <p className={`font-bold ${parseFloat(backtest.total_return_pct) > parseFloat(backtest.benchmark_return_pct) ? 'text-emerald-600' : 'text-gray-900'}`}>
-                          {parseFloat(backtest.total_return_pct) > parseFloat(backtest.benchmark_return_pct) ? '+' : ''}{(parseFloat(backtest.total_return_pct) - parseFloat(backtest.benchmark_return_pct)).toFixed(1)}%
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="text-center">
-                        <p className="text-gray-500">Win Rate</p>
-                        <p className="font-bold text-gray-900">{backtest.win_rate}%</p>
-                      </div>
-                    )}
                     <div className="text-center">
                       <p className="text-gray-500">Sharpe</p>
                       <p className="font-bold text-gray-900">{backtest.sharpe_ratio}</p>
@@ -1687,284 +2022,8 @@ function Dashboard() {
                 </div>
               </div>
             )}
-
-            {/* Market Regime Banner */}
-            {marketRegime && (
-              <div className={`mb-4 p-3 rounded-lg flex items-center justify-between ${
-                marketRegime.regime === 'strong_bull' ? 'bg-emerald-50 border border-emerald-200' :
-                marketRegime.regime === 'weak_bull' ? 'bg-green-50 border border-green-200' :
-                marketRegime.regime === 'rotating_bull' ? 'bg-violet-50 border border-violet-200' :
-                marketRegime.regime === 'range_bound' ? 'bg-amber-50 border border-amber-200' :
-                marketRegime.regime === 'recovery' ? 'bg-cyan-50 border border-cyan-200' :
-                marketRegime.regime === 'weak_bear' ? 'bg-orange-50 border border-orange-200' :
-                marketRegime.regime === 'panic_crash' ? 'bg-red-50 border border-red-200' :
-                'bg-gray-50 border border-gray-200'
-              }`}>
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-full ${
-                    marketRegime.regime === 'strong_bull' ? 'bg-emerald-100' :
-                    marketRegime.regime === 'weak_bull' ? 'bg-green-100' :
-                    marketRegime.regime === 'rotating_bull' ? 'bg-violet-100' :
-                    marketRegime.regime === 'range_bound' ? 'bg-amber-100' :
-                    marketRegime.regime === 'recovery' ? 'bg-cyan-100' :
-                    marketRegime.regime === 'weak_bear' ? 'bg-orange-100' :
-                    'bg-red-100'
-                  }`}>
-                    {marketRegime.regime === 'strong_bull' ? <TrendingUp className="w-5 h-5 text-emerald-600" /> :
-                     marketRegime.regime === 'weak_bull' ? <TrendingUp className="w-5 h-5 text-green-600" /> :
-                     marketRegime.regime === 'rotating_bull' ? <RefreshCw className="w-5 h-5 text-violet-600" /> :
-                     marketRegime.regime === 'range_bound' ? <Activity className="w-5 h-5 text-amber-600" /> :
-                     marketRegime.regime === 'recovery' ? <TrendingUp className="w-5 h-5 text-cyan-600" /> :
-                     marketRegime.regime === 'weak_bear' ? <TrendingDown className="w-5 h-5 text-orange-600" /> :
-                     <TrendingDown className="w-5 h-5 text-red-600" />}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-gray-900 capitalize">
-                      {marketRegime.regime_name || marketRegime.regime?.replace('_', ' ')} Market
-                    </span>
-                    <span className="mx-2 text-gray-400">|</span>
-                    <span className="text-gray-600">SPY ${marketRegime.spy_price?.toFixed(2)}</span>
-                    <span className="mx-2 text-gray-400">|</span>
-                    <span className="text-gray-600">VIX {marketRegime.vix_level?.toFixed(1)}</span>
-                    {marketRegime.risk_level && (
-                      <>
-                        <span className="mx-2 text-gray-400">|</span>
-                        <span className={`text-xs px-2 py-0.5 rounded ${
-                          marketRegime.risk_level === 'low' ? 'bg-green-100 text-green-700' :
-                          marketRegime.risk_level === 'extreme' ? 'bg-red-100 text-red-700' :
-                          marketRegime.risk_level === 'high' ? 'bg-orange-100 text-orange-700' :
-                          'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {marketRegime.risk_level} risk
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <div className="text-sm text-gray-600 max-w-sm text-right leading-tight">
-                  {marketRegime.recommendation}
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-5 gap-4 mb-6">
-              <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={Wallet} trend="up" />
-              <MetricCard title="Open P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} icon={totalPnlPct >= 0 ? TrendingUp : TrendingDown} trend={totalPnlPct >= 0 ? 'up' : 'down'} />
-              <MetricCard title="Positions" value={`${positions.length}/15`} icon={PieIcon} />
-              <MetricCard title="Signals" value={signalsWithLiveQuotes.length} subtitle={`${signalsWithLiveQuotes.filter(s => s.is_strong).length} strong`} icon={Zap} />
-              <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${trades.length} trades`} icon={Target} />
-            </div>
-
-            <div className="grid grid-cols-3 gap-6">
-              <div className="col-span-1">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900">Live Signals</h2>
-                    <span className="text-xs text-gray-500">Click to view chart</span>
-                  </div>
-                  <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
-                    {signalsWithLiveQuotes.length > 0 ? signalsWithLiveQuotes.map((s, i) => (
-                      <SignalCard key={i} signal={s} onClick={(sig) => setChartModal({ type: 'signal', data: sig, symbol: sig.symbol })} />
-                    )) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <Activity className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                        <p>No signals found</p>
-                        <p className="text-xs mt-1">Run a scan to check for opportunities</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-span-2">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-semibold text-gray-900">Open Positions</h2>
-                      {positions.length > 0 && positions[0]?.source === 'backtest' && (
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">Simulated</span>
-                      )}
-                    </div>
-                    <span className="text-xs text-gray-500">Click row to view chart with entry point</span>
-                  </div>
-                  {positions.length > 0 ? (
-                    <table className="w-full">
-                      <thead className="bg-gray-50 border-b border-gray-100">
-                        <tr>{['Symbol', 'Shares', 'Entry', 'Current', 'P&L', 'Trail Stop', 'Days'].map(h => <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr>
-                      </thead>
-                      <tbody>
-                        {positionsWithLiveQuotes.map(p => <PositionRow key={p.id} position={p} onClick={(pos) => setChartModal({ type: 'position', data: pos, symbol: pos.symbol })} />)}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <div className="text-center py-12 text-gray-500">
-                      <PieIcon className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                      <p>No open positions</p>
-                      <p className="text-xs mt-1">Positions will appear when signals meet buy criteria</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Missed Opportunities Section */}
-            {missedOpportunities.length > 0 && (
-              <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-semibold text-gray-900">Missed Opportunities</h2>
-                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">Hit +20% Target</span>
-                  </div>
-                  <span className="text-xs text-gray-500">Completed winning trades you could have made</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-100">
-                      <tr>
-                        {['Symbol', 'Buy Date', 'Buy Price', 'Sell Date', 'Sell Price', 'Return', 'P&L', 'Days'].map(h => (
-                          <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {missedOpportunities.map((opp, idx) => (
-                        <tr
-                          key={`${opp.symbol}-${idx}`}
-                          className="hover:bg-amber-50 border-b border-gray-50 cursor-pointer"
-                          onClick={() => setChartModal({
-                            type: 'missed',
-                            data: {
-                              ...opp,
-                              entry_date: opp.signal_date,
-                              entry_price: opp.signal_price,
-                              sell_date: opp.exit_date,
-                              sell_price: opp.exit_price
-                            },
-                            symbol: opp.symbol
-                          })}
-                        >
-                          <td className="py-3 px-4 font-semibold text-gray-900">{opp.symbol}</td>
-                          <td className="py-3 px-4 text-gray-500 text-sm">{opp.signal_date}</td>
-                          <td className="py-3 px-4">${opp.signal_price?.toFixed(2)}</td>
-                          <td className="py-3 px-4 text-gray-500 text-sm">{opp.exit_date}</td>
-                          <td className="py-3 px-4">${opp.exit_price?.toFixed(2)}</td>
-                          <td className="py-3 px-4">
-                            <span className="px-2 py-1 rounded text-sm font-semibold bg-green-50 text-green-600">
-                              +{opp.would_be_return?.toFixed(0)}%
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 font-medium text-green-600">
-                            +${opp.would_be_pnl?.toFixed(0)}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-500">{opp.days_held || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="px-5 py-3 bg-green-50 border-t border-green-100 text-sm text-green-700">
-                  <span className="font-medium">Total missed gains:</span> $
-                  {missedOpportunities.reduce((sum, o) => sum + (o.would_be_pnl || 0), 0).toLocaleString(undefined, {maximumFractionDigits: 0})}
-                  {' '}(based on $6k position size)
-                </div>
-              </div>
-            )}
           </>
-        ) : activeTab === 'momentum' ? (
-          <div className="space-y-6">
-            {/* View Toggle */}
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">View:</span>
-                <button
-                  onClick={() => setShowEnsembleView(true)}
-                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                    showEnsembleView ? 'bg-yellow-100 text-yellow-800 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  Ensemble Signals
-                </button>
-                <button
-                  onClick={() => setShowEnsembleView(false)}
-                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                    !showEnsembleView ? 'bg-blue-100 text-blue-800 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  Separate Lists
-                </button>
-              </div>
-            </div>
-
-            {showEnsembleView ? (
-              /* Ensemble View - Double Signals Only */
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <DoubleSignals onSymbolClick={(symbol) => setChartModal({ type: 'signal', data: { symbol }, symbol })} />
-                  <ApproachingTrigger onSymbolClick={(symbol) => setChartModal({ type: 'signal', data: { symbol }, symbol })} />
-                </div>
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-yellow-500" />
-                    Why Ensemble Signals?
-                  </h3>
-                  <div className="space-y-3 text-sm text-gray-600">
-                    <div className="p-3 bg-yellow-50 rounded-lg text-yellow-800">
-                      <strong>2.5x Higher Returns:</strong> Stocks with BOTH DWAP trigger AND top momentum ranking
-                      averaged +2.91% over 20 days vs +1.16% for DWAP-only signals.
-                    </div>
-                    <p>
-                      <strong>Entry Criteria:</strong>
-                    </p>
-                    <ul className="list-disc pl-5 space-y-1">
-                      <li>Price crossed +5% above 200-day DWAP (buy trigger)</li>
-                      <li>Stock ranks in top 20 by momentum score</li>
-                      <li>Volume {">"} 500,000 and Price {">"} $20</li>
-                    </ul>
-                    <p>
-                      <strong>Buy Point:</strong> When the DWAP +5% crossover occurs AND the stock is already
-                      showing momentum strength. These are high-conviction entries.
-                    </p>
-                    <p className="text-gray-500 text-xs mt-4">
-                      Switch to "Separate Lists" to see DWAP signals and momentum rankings independently.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* Separate Lists View */
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <MomentumRankings onSymbolClick={(symbol) => setChartModal({ type: 'signal', data: { symbol }, symbol })} />
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-blue-600" />
-                    How Momentum Ranking Works
-                  </h3>
-                  <div className="space-y-3 text-sm text-gray-600">
-                    <p>
-                      <strong>Score Formula:</strong> short_momentum × 0.5 + long_momentum × 0.3 - volatility × 0.2
-                    </p>
-                    <p>
-                      <strong>Quality Filters:</strong>
-                    </p>
-                    <ul className="list-disc pl-5 space-y-1">
-                      <li>Price above 20-day and 50-day moving averages</li>
-                      <li>Within 5% of 50-day high (breakout potential)</li>
-                      <li>Volume {">"} 500,000</li>
-                      <li>Price {">"} $20</li>
-                    </ul>
-                    <p>
-                      <strong>Trading Strategy:</strong> The momentum strategy buys the top-ranked stocks each week (Friday rebalance).
-                      Higher scores indicate stronger momentum with controlled volatility.
-                    </p>
-                    <div className="mt-4 p-3 bg-blue-50 rounded-lg text-blue-800">
-                      <strong>Tip:</strong> Switch to "Ensemble Signals" to see only stocks that appear in BOTH lists.
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
+        ) : activeTab === 'history' ? (
           <div className="space-y-6">
             <div className="grid grid-cols-4 gap-4">
               <MetricCard title="Total Trades" value={trades.length} icon={History} />
@@ -2006,7 +2065,7 @@ function Dashboard() {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
       </main>
 
       {showLoginModal && <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />}

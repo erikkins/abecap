@@ -254,6 +254,21 @@ REGIME_DEFINITIONS = {
 }
 
 
+@dataclass
+class RegimeForecast:
+    """Regime transition forecast with recommended actions."""
+    current_regime: str              # Current regime type value
+    current_regime_name: str         # Human-readable name
+    transition_probabilities: Dict[str, float]  # regime_name → probability (0-100)
+    outlook: str                     # "stable", "deteriorating", "improving"
+    outlook_detail: str              # Human-readable explanation
+    risk_change: str                 # "increasing", "stable", "decreasing"
+    recommended_action: str          # "stay_invested", "tighten_stops", "reduce_exposure", "go_to_cash"
+
+    def to_dict(self):
+        return asdict(self)
+
+
 class MarketRegimeService:
     """Detects and tracks market regimes over time."""
 
@@ -473,6 +488,292 @@ class MarketRegimeService:
 
         self._cache[conditions.date] = regime
         return regime
+
+    def predict_transitions(
+        self,
+        spy_df: pd.DataFrame,
+        universe_dfs: Optional[Dict[str, pd.DataFrame]] = None,
+        vix_df: Optional[pd.DataFrame] = None,
+        as_of_date: Optional[datetime] = None
+    ) -> RegimeForecast:
+        """
+        Predict regime transitions using current scores + indicator trajectory.
+
+        Combines the existing regime scoring with momentum/trajectory of key
+        indicators to estimate where the market is heading.
+        """
+        # Get current regime and conditions
+        regime = self.detect_regime(spy_df, universe_dfs, vix_df, as_of_date)
+        conditions = regime.conditions
+
+        # Score all regimes (raw scores)
+        regime_scores = {}
+        for regime_type, regime_def in REGIME_DEFINITIONS.items():
+            score = self._score_regime_match(conditions, regime_def)
+            regime_scores[regime_type] = max(score, 0)
+
+        # Calculate indicator trajectories from SPY data
+        if as_of_date:
+            as_of_ts = pd.Timestamp(as_of_date)
+            if spy_df.index.tz is not None:
+                as_of_ts = as_of_ts.tz_localize(spy_df.index.tz) if as_of_ts.tz is None else as_of_ts.tz_convert(spy_df.index.tz)
+            spy_slice = spy_df[spy_df.index <= as_of_ts]
+        else:
+            spy_slice = spy_df
+
+        trajectory = self._compute_trajectory(spy_slice, vix_df, as_of_date)
+
+        # Adjust scores based on trajectory
+        adjusted_scores = self._adjust_scores_by_trajectory(regime_scores, trajectory)
+
+        # Normalize to probabilities (sum to 100)
+        total = sum(adjusted_scores.values())
+        if total > 0:
+            probabilities = {
+                rt.value: round(s / total * 100, 1)
+                for rt, s in adjusted_scores.items()
+            }
+        else:
+            probabilities = {rt.value: round(100 / len(adjusted_scores), 1) for rt in adjusted_scores}
+
+        # Determine outlook
+        outlook, outlook_detail = self._determine_outlook(
+            regime.regime_type, probabilities, trajectory, conditions
+        )
+
+        # Determine risk change
+        risk_change = self._determine_risk_change(trajectory)
+
+        # Determine recommended action
+        recommended_action = self._determine_recommended_action(
+            regime.regime_type, probabilities, outlook, risk_change
+        )
+
+        return RegimeForecast(
+            current_regime=regime.regime_type.value,
+            current_regime_name=regime.regime_name,
+            transition_probabilities=probabilities,
+            outlook=outlook,
+            outlook_detail=outlook_detail,
+            risk_change=risk_change,
+            recommended_action=recommended_action
+        )
+
+    def _compute_trajectory(
+        self,
+        spy_df: pd.DataFrame,
+        vix_df: Optional[pd.DataFrame] = None,
+        as_of_date: Optional[datetime] = None
+    ) -> Dict[str, float]:
+        """Compute indicator deltas over recent periods."""
+        if len(spy_df) < 30:
+            return {}
+
+        close = spy_df['close']
+
+        # VIX trajectory
+        vix_delta_5d = 0.0
+        if vix_df is not None and len(vix_df) >= 10:
+            if as_of_date:
+                vix_ts = pd.Timestamp(as_of_date)
+                if vix_df.index.tz is not None:
+                    vix_ts = vix_ts.tz_localize(vix_df.index.tz) if vix_ts.tz is None else vix_ts.tz_convert(vix_df.index.tz)
+                vix_slice = vix_df[vix_df.index <= vix_ts]
+            else:
+                vix_slice = vix_df
+            if len(vix_slice) >= 6:
+                vix_now = vix_slice['close'].iloc[-1]
+                vix_5d_ago = vix_slice['close'].iloc[-6]
+                vix_delta_5d = vix_now - vix_5d_ago
+        else:
+            # Use realized vol as proxy
+            vol_now = close.pct_change().tail(5).std() * np.sqrt(252) * 100
+            vol_prev = close.pct_change().iloc[-11:-6].std() * np.sqrt(252) * 100
+            vix_delta_5d = vol_now - vol_prev if not np.isnan(vol_now) and not np.isnan(vol_prev) else 0
+
+        # SPY trend acceleration: is the trend strengthening or weakening?
+        ret_5d = (close.iloc[-1] / close.iloc[-6] - 1) * 100 if len(close) >= 6 else 0
+        ret_10d = (close.iloc[-1] / close.iloc[-11] - 1) * 100 if len(close) >= 11 else 0
+        ret_20d = (close.iloc[-1] / close.iloc[-21] - 1) * 100 if len(close) >= 21 else 0
+        # Acceleration: recent momentum stronger or weaker than prior?
+        trend_acceleration = ret_5d - (ret_10d - ret_5d) if len(close) >= 11 else 0
+
+        # Distance to 200MA (how close to regime boundary)
+        ma_200 = close.tail(200).mean() if len(close) >= 200 else close.mean()
+        spy_distance_to_200ma = (close.iloc[-1] / ma_200 - 1) * 100
+
+        # Breadth delta (approximate with SPY internals)
+        breadth_delta_10d = ret_10d  # Simplified: SPY return as breadth proxy
+
+        return {
+            'vix_delta_5d': round(vix_delta_5d, 2),
+            'trend_acceleration': round(trend_acceleration, 2),
+            'spy_distance_to_200ma': round(spy_distance_to_200ma, 2),
+            'breadth_delta_10d': round(breadth_delta_10d, 2),
+            'ret_5d': round(ret_5d, 2),
+            'ret_20d': round(ret_20d, 2),
+        }
+
+    def _adjust_scores_by_trajectory(
+        self,
+        raw_scores: Dict[RegimeType, float],
+        trajectory: Dict[str, float]
+    ) -> Dict[RegimeType, float]:
+        """Adjust regime scores based on where indicators are heading."""
+        adjusted = dict(raw_scores)
+        if not trajectory:
+            return adjusted
+
+        vix_delta = trajectory.get('vix_delta_5d', 0)
+        trend_accel = trajectory.get('trend_acceleration', 0)
+        dist_200ma = trajectory.get('spy_distance_to_200ma', 0)
+        ret_5d = trajectory.get('ret_5d', 0)
+
+        # Rising VIX → boost bearish regimes
+        if vix_delta > 2:
+            boost = min(vix_delta * 5, 25)
+            adjusted[RegimeType.WEAK_BEAR] = adjusted.get(RegimeType.WEAK_BEAR, 0) + boost
+            adjusted[RegimeType.PANIC_CRASH] = adjusted.get(RegimeType.PANIC_CRASH, 0) + boost * 0.5
+            adjusted[RegimeType.STRONG_BULL] = max(0, adjusted.get(RegimeType.STRONG_BULL, 0) - boost * 0.5)
+
+        # Falling VIX → boost bullish regimes
+        if vix_delta < -2:
+            boost = min(abs(vix_delta) * 5, 25)
+            adjusted[RegimeType.STRONG_BULL] = adjusted.get(RegimeType.STRONG_BULL, 0) + boost
+            adjusted[RegimeType.RECOVERY] = adjusted.get(RegimeType.RECOVERY, 0) + boost * 0.5
+
+        # Negative trend acceleration → market weakening
+        if trend_accel < -2:
+            boost = min(abs(trend_accel) * 3, 20)
+            adjusted[RegimeType.WEAK_BEAR] = adjusted.get(RegimeType.WEAK_BEAR, 0) + boost
+            adjusted[RegimeType.RANGE_BOUND] = adjusted.get(RegimeType.RANGE_BOUND, 0) + boost * 0.5
+
+        # Positive trend acceleration → market strengthening
+        if trend_accel > 2:
+            boost = min(trend_accel * 3, 20)
+            adjusted[RegimeType.STRONG_BULL] = adjusted.get(RegimeType.STRONG_BULL, 0) + boost
+
+        # Near 200MA boundary (within 2%) → higher transition uncertainty
+        if abs(dist_200ma) < 2:
+            if ret_5d < 0:
+                adjusted[RegimeType.WEAK_BEAR] = adjusted.get(RegimeType.WEAK_BEAR, 0) + 15
+            else:
+                adjusted[RegimeType.RECOVERY] = adjusted.get(RegimeType.RECOVERY, 0) + 10
+
+        # Sharp recent drop → boost crash/recovery
+        if ret_5d < -5:
+            adjusted[RegimeType.PANIC_CRASH] = adjusted.get(RegimeType.PANIC_CRASH, 0) + 20
+        elif ret_5d > 5:
+            adjusted[RegimeType.RECOVERY] = adjusted.get(RegimeType.RECOVERY, 0) + 15
+
+        return adjusted
+
+    def _determine_outlook(
+        self,
+        current_regime: RegimeType,
+        probabilities: Dict[str, float],
+        trajectory: Dict[str, float],
+        conditions: MarketConditions
+    ) -> Tuple[str, str]:
+        """Determine overall market outlook."""
+        bullish_regimes = ['strong_bull', 'weak_bull', 'rotating_bull', 'recovery']
+        bearish_regimes = ['weak_bear', 'panic_crash']
+
+        bullish_prob = sum(probabilities.get(r, 0) for r in bullish_regimes)
+        bearish_prob = sum(probabilities.get(r, 0) for r in bearish_regimes)
+
+        vix_delta = trajectory.get('vix_delta_5d', 0)
+        trend_accel = trajectory.get('trend_acceleration', 0)
+
+        details = []
+        if vix_delta > 3:
+            details.append("VIX rising")
+        elif vix_delta < -3:
+            details.append("VIX falling")
+
+        if trend_accel < -2:
+            details.append("momentum weakening")
+        elif trend_accel > 2:
+            details.append("momentum strengthening")
+
+        current_is_bullish = current_regime.value in bullish_regimes
+
+        if current_is_bullish and bearish_prob > 30:
+            outlook = "deteriorating"
+            top_risk = max(bearish_regimes, key=lambda r: probabilities.get(r, 0))
+            risk_name = top_risk.replace('_', ' ').title()
+            risk_pct = probabilities.get(top_risk, 0)
+            detail_str = ", ".join(details) if details else "indicators shifting"
+            detail = f"{detail_str} — {risk_pct:.0f}% chance of {risk_name} in 1-2 weeks"
+        elif not current_is_bullish and bullish_prob > 50:
+            outlook = "improving"
+            top_bull = max(bullish_regimes, key=lambda r: probabilities.get(r, 0))
+            bull_name = top_bull.replace('_', ' ').title()
+            bull_pct = probabilities.get(top_bull, 0)
+            detail_str = ", ".join(details) if details else "conditions easing"
+            detail = f"{detail_str} — {bull_pct:.0f}% chance of {bull_name} in 1-2 weeks"
+        else:
+            outlook = "stable"
+            current_prob = probabilities.get(current_regime.value, 0)
+            detail_str = ", ".join(details) if details else "no significant shifts detected"
+            detail = f"{detail_str} — {current_prob:.0f}% chance regime holds"
+
+        return outlook, detail
+
+    def _determine_risk_change(self, trajectory: Dict[str, float]) -> str:
+        """Determine if risk is increasing, stable, or decreasing."""
+        if not trajectory:
+            return "stable"
+
+        vix_delta = trajectory.get('vix_delta_5d', 0)
+        trend_accel = trajectory.get('trend_acceleration', 0)
+        ret_5d = trajectory.get('ret_5d', 0)
+
+        risk_score = 0
+        if vix_delta > 2:
+            risk_score += 1
+        elif vix_delta < -2:
+            risk_score -= 1
+        if trend_accel < -2:
+            risk_score += 1
+        elif trend_accel > 2:
+            risk_score -= 1
+        if ret_5d < -3:
+            risk_score += 1
+        elif ret_5d > 3:
+            risk_score -= 1
+
+        if risk_score >= 2:
+            return "increasing"
+        elif risk_score <= -2:
+            return "decreasing"
+        return "stable"
+
+    def _determine_recommended_action(
+        self,
+        current_regime: RegimeType,
+        probabilities: Dict[str, float],
+        outlook: str,
+        risk_change: str
+    ) -> str:
+        """Determine recommended portfolio action."""
+        panic_prob = probabilities.get('panic_crash', 0)
+        weak_bear_prob = probabilities.get('weak_bear', 0)
+        bearish_total = panic_prob + weak_bear_prob
+
+        # Go to cash if in panic or high crash probability
+        if current_regime == RegimeType.PANIC_CRASH or panic_prob > 30:
+            return "go_to_cash"
+
+        # Reduce exposure if in bear or high bearish probability
+        if current_regime == RegimeType.WEAK_BEAR or bearish_total > 50:
+            return "reduce_exposure"
+
+        # Tighten stops if outlook deteriorating
+        if outlook == "deteriorating" or risk_change == "increasing":
+            return "tighten_stops"
+
+        return "stay_invested"
 
     def get_regime_history(
         self,

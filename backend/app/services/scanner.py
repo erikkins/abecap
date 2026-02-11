@@ -791,5 +791,98 @@ class ScannerService:
         return sorted(watchlist, key=lambda x: -x['pct_above_dwap'])
 
 
+    def generate_sell_signals(
+        self,
+        positions: List[dict],
+        regime_forecast=None,
+        trailing_stop_pct: float = 15.0,
+    ) -> List[dict]:
+        """
+        For each position, determine: HOLD, WARNING, or SELL.
+
+        Args:
+            positions: List of position dicts with at least symbol, entry_price, shares,
+                       and optionally highest_price (tracked high water mark)
+            regime_forecast: RegimeForecast from market_regime.py (optional)
+            trailing_stop_pct: Trailing stop percentage (default 15%)
+
+        Returns:
+            List of position dicts with added sell guidance fields.
+        """
+        results = []
+
+        for pos in positions:
+            symbol = pos.get('symbol', '')
+            entry_price = pos.get('entry_price', 0)
+            stored_highest = pos.get('highest_price', entry_price)
+
+            # Look up current price
+            current_price = None
+            if symbol in self.data_cache and len(self.data_cache[symbol]) > 0:
+                current_price = float(self.data_cache[symbol].iloc[-1]['close'])
+            else:
+                current_price = pos.get('current_price', entry_price)
+
+            # Calculate high water mark
+            high_water_mark = max(entry_price, stored_highest or entry_price, current_price or entry_price)
+
+            # Calculate trailing stop
+            trailing_stop_level = high_water_mark * (1 - trailing_stop_pct / 100)
+            distance_to_stop_pct = (
+                (current_price - trailing_stop_level) / trailing_stop_level * 100
+                if trailing_stop_level > 0 else 100
+            )
+
+            # P&L from entry
+            pnl_pct = ((current_price - entry_price) / entry_price * 100) if entry_price > 0 else 0
+
+            # Determine action
+            action = "hold"
+            action_reason = ""
+
+            # Check regime-based exits first
+            if regime_forecast:
+                rec = regime_forecast.recommended_action
+                if rec == "go_to_cash":
+                    action = "sell"
+                    action_reason = f"Market regime exit — {regime_forecast.outlook_detail}"
+                elif rec == "reduce_exposure":
+                    action = "warning"
+                    action_reason = f"Regime deteriorating — consider reducing exposure"
+                elif rec == "tighten_stops":
+                    if action != "sell":
+                        action = "warning"
+                        action_reason = f"Tighten stops — {regime_forecast.outlook_detail}"
+
+            # Check trailing stop (overrides regime warning if triggered)
+            if current_price <= trailing_stop_level:
+                action = "sell"
+                action_reason = f"Trailing stop hit — price ${current_price:.2f} below stop ${trailing_stop_level:.2f}"
+
+            # Check proximity to trailing stop (warning zone)
+            elif distance_to_stop_pct < 3 and action != "sell":
+                action = "warning"
+                if not action_reason:
+                    action_reason = f"Within {distance_to_stop_pct:.1f}% of trailing stop ${trailing_stop_level:.2f}"
+
+            # Default hold reason
+            if action == "hold" and not action_reason:
+                action_reason = f"Trailing stop at ${trailing_stop_level:.2f} ({distance_to_stop_pct:.0f}% away)"
+
+            result = {
+                **pos,
+                'current_price': round(current_price, 2),
+                'action': action,
+                'action_reason': action_reason,
+                'trailing_stop_level': round(trailing_stop_level, 2),
+                'distance_to_stop_pct': round(distance_to_stop_pct, 1),
+                'high_water_mark': round(high_water_mark, 2),
+                'pnl_pct': round(pnl_pct, 1),
+            }
+            results.append(result)
+
+        return results
+
+
 # Singleton instance
 scanner_service = ScannerService()

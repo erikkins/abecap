@@ -9,7 +9,7 @@ from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel
 
-from app.core.database import get_db, Signal
+from app.core.database import get_db, Signal, Position
 from app.services.scanner import scanner_service, SignalData
 from app.services.stock_universe import stock_universe_service
 from app.services.data_export import data_export_service
@@ -489,6 +489,202 @@ async def get_stock_info(symbol: str):
         "website": info.get("website", ""),
         "employees": info.get("employees"),
         **current_data
+    }
+
+
+class DashboardResponse(BaseModel):
+    """Unified dashboard response — one call, everything the frontend needs."""
+    regime_forecast: Optional[dict] = None
+    buy_signals: List[dict] = []
+    positions_with_guidance: List[dict] = []
+    watchlist: List[dict] = []
+    market_stats: dict = {}
+    generated_at: str
+
+
+@router.get("/dashboard")
+async def get_dashboard_data(
+    db: AsyncSession = Depends(get_db),
+    momentum_top_n: int = 20,
+    fresh_days: int = 5
+):
+    """
+    Unified dashboard endpoint.
+
+    Returns buy signals (ensemble), sell guidance for positions,
+    regime forecast, watchlist, and market stats in one call.
+    """
+    from app.core.config import settings
+    from app.services.market_regime import market_regime_service, RegimeForecast
+    import pandas as pd
+
+    if not scanner_service.data_cache:
+        raise HTTPException(status_code=503, detail="Price data not loaded")
+
+    # --- Regime forecast ---
+    regime_forecast_data = None
+    regime_forecast_obj = None
+    try:
+        spy_df = scanner_service.data_cache.get('SPY')
+        vix_df = scanner_service.data_cache.get('^VIX')
+        if spy_df is not None and len(spy_df) >= 200:
+            regime_forecast_obj = market_regime_service.predict_transitions(
+                spy_df=spy_df,
+                universe_dfs=scanner_service.data_cache,
+                vix_df=vix_df
+            )
+            regime_forecast_data = regime_forecast_obj.to_dict()
+    except Exception as e:
+        import traceback
+        print(f"Regime forecast error: {e}")
+        traceback.print_exc()
+
+    # --- Buy signals (ensemble double-signals with freshness tracking) ---
+    buy_signals = []
+    try:
+        # Get DWAP signals and momentum rankings
+        dwap_signals = await scanner_service.scan(refresh_data=False, apply_market_filter=True)
+        dwap_by_symbol = {s.symbol: s for s in dwap_signals}
+
+        momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True)
+        momentum_by_symbol = {
+            r.symbol: {'rank': i + 1, 'data': r}
+            for i, r in enumerate(momentum_rankings[:momentum_top_n])
+        }
+
+        for symbol in dwap_by_symbol:
+            if symbol in momentum_by_symbol:
+                dwap = dwap_by_symbol[symbol]
+                mom = momentum_by_symbol[symbol]
+                mom_data = mom['data']
+                mom_rank = mom['rank']
+
+                dwap_score = min(dwap.pct_above_dwap * 10, 50)
+                rank_score = (momentum_top_n - mom_rank + 1) * 2.5
+                ensemble_score = dwap_score + rank_score
+
+                crossover_date, days_since = find_dwap_crossover_date(symbol)
+                is_fresh = days_since is not None and days_since <= fresh_days
+
+                buy_signals.append({
+                    'symbol': symbol,
+                    'price': dwap.price,
+                    'dwap': dwap.dwap,
+                    'pct_above_dwap': dwap.pct_above_dwap,
+                    'volume': dwap.volume,
+                    'volume_ratio': dwap.volume_ratio,
+                    'is_strong': dwap.is_strong,
+                    'momentum_rank': mom_rank,
+                    'momentum_score': round(mom_data.composite_score, 2),
+                    'short_momentum': round(mom_data.short_momentum, 2),
+                    'long_momentum': round(mom_data.long_momentum, 2),
+                    'ensemble_score': round(ensemble_score, 1),
+                    'dwap_crossover_date': crossover_date,
+                    'days_since_crossover': days_since,
+                    'is_fresh': is_fresh,
+                })
+
+        # Sort: fresh first by recency, then stale by ensemble score
+        buy_signals.sort(key=lambda x: (
+            0 if x['is_fresh'] else 1,
+            x.get('days_since_crossover') or 999,
+            -x['ensemble_score']
+        ))
+    except Exception as e:
+        print(f"Buy signals error: {e}")
+
+    # --- Positions with sell guidance ---
+    positions_with_guidance = []
+    try:
+        result = await db.execute(
+            select(Position).where(Position.status == 'open')
+        )
+        open_positions = result.scalars().all()
+
+        pos_dicts = []
+        for p in open_positions:
+            pos_dicts.append({
+                'id': p.id,
+                'symbol': p.symbol,
+                'shares': p.shares,
+                'entry_price': p.entry_price,
+                'entry_date': p.created_at.strftime('%Y-%m-%d') if p.created_at else None,
+                'current_price': p.current_price or p.entry_price,
+                'highest_price': getattr(p, 'highest_price', None) or p.entry_price,
+            })
+
+        if pos_dicts:
+            positions_with_guidance = scanner_service.generate_sell_signals(
+                positions=pos_dicts,
+                regime_forecast=regime_forecast_obj,
+            )
+    except Exception as e:
+        print(f"Positions guidance error: {e}")
+
+    # --- Watchlist (approaching trigger) ---
+    watchlist = []
+    try:
+        momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True)
+        top_momentum = {
+            r.symbol: {'rank': i + 1, 'data': r}
+            for i, r in enumerate(momentum_rankings[:momentum_top_n])
+        }
+
+        for symbol, mom in top_momentum.items():
+            df = scanner_service.data_cache.get(symbol)
+            if df is None or len(df) < 1:
+                continue
+
+            row = df.iloc[-1]
+            price = row['close']
+            dwap_val = row.get('dwap')
+
+            if pd.isna(dwap_val) or dwap_val <= 0:
+                continue
+
+            pct_above = (price / dwap_val - 1) * 100
+
+            if 3.0 <= pct_above < 5.0:
+                mom_data = mom['data']
+                watchlist.append({
+                    'symbol': symbol,
+                    'price': round(float(price), 2),
+                    'dwap': round(float(dwap_val), 2),
+                    'pct_above_dwap': round(pct_above, 2),
+                    'distance_to_trigger': round(5.0 - pct_above, 2),
+                    'momentum_rank': mom['rank'],
+                    'momentum_score': round(mom_data.composite_score, 2),
+                })
+
+        watchlist.sort(key=lambda x: x['distance_to_trigger'])
+        watchlist = watchlist[:5]
+    except Exception as e:
+        print(f"Watchlist error: {e}")
+
+    # --- Market stats ---
+    market_stats = {}
+    try:
+        spy_df = scanner_service.data_cache.get('SPY')
+        vix_df = scanner_service.data_cache.get('^VIX')
+        if spy_df is not None and len(spy_df) > 0:
+            market_stats['spy_price'] = round(float(spy_df.iloc[-1]['close']), 2)
+        if vix_df is not None and len(vix_df) > 0:
+            market_stats['vix_level'] = round(float(vix_df.iloc[-1]['close']), 2)
+        if regime_forecast_data:
+            market_stats['regime_name'] = regime_forecast_data.get('current_regime_name', '')
+            market_stats['regime'] = regime_forecast_data.get('current_regime', '')
+        market_stats['signal_count'] = len(buy_signals)
+        market_stats['fresh_count'] = len([s for s in buy_signals if s.get('is_fresh')])
+    except Exception as e:
+        print(f"Market stats error: {e}")
+
+    return {
+        'regime_forecast': regime_forecast_data,
+        'buy_signals': buy_signals,
+        'positions_with_guidance': positions_with_guidance,
+        'watchlist': watchlist,
+        'market_stats': market_stats,
+        'generated_at': datetime.now().isoformat(),
     }
 
 
