@@ -753,16 +753,16 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   />
                 )}
 
-                {/* Stop loss line */}
-                {data?.stop_loss && (
+                {/* Trailing stop line (current strategy) */}
+                {data?.trailing_stop_level && (
                   <ReferenceLine
                     yAxisId="price"
-                    y={data.stop_loss}
+                    y={data.trailing_stop_level}
                     stroke="#EF4444"
                     strokeWidth={1.5}
                     strokeDasharray="4 4"
                     label={{
-                      value: `Stop $${data.stop_loss.toFixed(2)}`,
+                      value: `Trailing Stop $${data.trailing_stop_level.toFixed(2)}`,
                       fill: '#EF4444',
                       fontSize: 10,
                       position: 'insideBottomRight'
@@ -770,22 +770,42 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   />
                 )}
 
-                {/* Profit target line */}
-                {data?.profit_target && (
+                {/* High water mark line */}
+                {data?.high_water_mark && data?.entry_price && data.high_water_mark > data.entry_price * 1.01 && (
                   <ReferenceLine
                     yAxisId="price"
-                    y={data.profit_target}
-                    stroke="#10B981"
-                    strokeWidth={1.5}
-                    strokeDasharray="4 4"
+                    y={data.high_water_mark}
+                    stroke="#8B5CF6"
+                    strokeWidth={1}
+                    strokeDasharray="3 3"
                     label={{
-                      value: `Target $${data.profit_target.toFixed(2)}`,
-                      fill: '#10B981',
+                      value: `High $${data.high_water_mark.toFixed(2)}`,
+                      fill: '#8B5CF6',
                       fontSize: 10,
                       position: 'insideTopRight'
                     }}
                   />
                 )}
+
+                {/* +20% gain reference line */}
+                {(data?.entry_price || data?.price) && (type === 'position' || type === 'signal') && (() => {
+                  const basePrice = data?.entry_price || data?.price;
+                  return (
+                    <ReferenceLine
+                      yAxisId="price"
+                      y={basePrice * 1.20}
+                      stroke="#10B981"
+                      strokeWidth={1}
+                      strokeDasharray="6 4"
+                      label={{
+                        value: `+20% $${(basePrice * 1.20).toFixed(2)}`,
+                        fill: '#10B981',
+                        fontSize: 10,
+                        position: 'insideTopRight'
+                      }}
+                    />
+                  );
+                })()}
 
                 {/* Buy point marker - triangle at entry date */}
                 {(() => {
@@ -902,16 +922,16 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                     <p className="text-lg font-semibold text-emerald-600">+{data?.pct_above_dwap}%</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Volume</p>
-                    <p className="text-lg font-semibold">{data?.volume_ratio}x avg</p>
+                    <p className="text-sm text-gray-500">Mom Rank</p>
+                    <p className={`text-lg font-semibold ${data?.momentum_rank <= 5 ? 'text-emerald-600' : 'text-gray-700'}`}>#{data?.momentum_rank || '-'}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Stop Loss</p>
-                    <p className="text-lg font-semibold text-red-500">${data?.stop_loss?.toFixed(2)}</p>
+                    <p className="text-sm text-gray-500">Trailing Stop</p>
+                    <p className="text-lg font-semibold text-red-500">15%</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Profit Target</p>
-                    <p className="text-lg font-semibold text-emerald-600">${data?.profit_target?.toFixed(2)}</p>
+                    <p className="text-sm text-gray-500">+20% Gain</p>
+                    <p className="text-lg font-semibold text-emerald-600">${data?.price ? (data.price * 1.20).toFixed(2) : '-'}</p>
                   </div>
                 </>
               )
@@ -984,12 +1004,21 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Shares</p>
-                    <p className="text-lg font-semibold">{data?.shares?.toFixed(2)}</p>
+                    <p className="text-sm text-gray-500">Trailing Stop</p>
+                    <p className="text-lg font-semibold text-red-500">
+                      {data?.trailing_stop_level ? `$${data.trailing_stop_level.toFixed(2)}` : '-'}
+                    </p>
+                    {data?.distance_to_stop_pct != null && (
+                      <p className={`text-xs ${data.distance_to_stop_pct < 5 ? 'text-red-400' : 'text-gray-400'}`}>
+                        {data.distance_to_stop_pct.toFixed(1)}% away
+                      </p>
+                    )}
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Days Held</p>
-                    <p className="text-lg font-semibold">{data?.days_held}</p>
+                    <p className="text-sm text-gray-500">High Water</p>
+                    <p className="text-lg font-semibold text-purple-600">
+                      {data?.high_water_mark ? `$${data.high_water_mark.toFixed(2)}` : '-'}
+                    </p>
                   </div>
                 </>
               )
