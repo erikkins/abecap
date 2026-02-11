@@ -6,6 +6,7 @@ import uuid
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text
+from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime, timedelta
@@ -230,6 +231,7 @@ class WalkForwardSimulation(Base):
     status = Column(String(20), default="completed")  # pending/completed/failed
     is_daily_cache = Column(Boolean, default=False, index=True)  # For dashboard cached results
     step_functions_arn = Column(String(500), nullable=True)  # Step Functions execution ARN
+    is_nightly_missed_opps = Column(Boolean, default=False, index=True)  # For nightly missed opportunities cache
 
     period_results = relationship("WalkForwardPeriodResult", back_populates="simulation", cascade="all, delete-orphan")
 
@@ -282,6 +284,30 @@ class StrategyGenerationRun(Base):
     created_strategy_id = Column(Integer, ForeignKey("strategy_definitions.id"), nullable=True)
 
     created_strategy = relationship("StrategyDefinition")
+
+
+class SocialPost(Base):
+    """Social media post queue for admin review/approval"""
+    __tablename__ = "social_posts"
+
+    id = Column(Integer, primary_key=True)
+    post_type = Column(String(50))  # trade_result, missed_opportunity, weekly_recap, regime_commentary
+    platform = Column(String(20))  # twitter, instagram
+    status = Column(String(20), default="draft")  # draft, approved, rejected, posted
+    text_content = Column(Text)
+    hashtags = Column(Text, nullable=True)
+    image_s3_key = Column(String(500), nullable=True)
+    image_metadata_json = Column(Text, nullable=True)
+    source_simulation_id = Column(Integer, nullable=True)
+    source_trade_json = Column(Text, nullable=True)
+    source_data_json = Column(Text, nullable=True)
+    scheduled_for = Column(DateTime, nullable=True)
+    posted_at = Column(DateTime, nullable=True)
+    reviewed_by = Column(String(100), nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 
 class User(Base):
@@ -463,6 +489,44 @@ async def _run_schema_migrations(conn):
             ADD COLUMN IF NOT EXISTS step_functions_arn VARCHAR(500)
         """))
         print("✅ Schema migration: step_functions_arn column ready")
+    except Exception as e:
+        print(f"⚠️ Schema migration skipped: {e}")
+
+    # Migration: Add is_nightly_missed_opps column to walk_forward_simulations
+    try:
+        await conn.execute(text("""
+            ALTER TABLE walk_forward_simulations
+            ADD COLUMN IF NOT EXISTS is_nightly_missed_opps BOOLEAN DEFAULT FALSE
+        """))
+        print("✅ Schema migration: is_nightly_missed_opps column ready")
+    except Exception as e:
+        print(f"⚠️ Schema migration skipped: {e}")
+
+    # Migration: Create social_posts table
+    try:
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS social_posts (
+                id SERIAL PRIMARY KEY,
+                post_type VARCHAR(50),
+                platform VARCHAR(20),
+                status VARCHAR(20) DEFAULT 'draft',
+                text_content TEXT,
+                hashtags TEXT,
+                image_s3_key VARCHAR(500),
+                image_metadata_json TEXT,
+                source_simulation_id INTEGER,
+                source_trade_json TEXT,
+                source_data_json TEXT,
+                scheduled_for TIMESTAMP,
+                posted_at TIMESTAMP,
+                reviewed_by VARCHAR(100),
+                reviewed_at TIMESTAMP,
+                rejection_reason TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """))
+        print("✅ Schema migration: social_posts table ready")
     except Exception as e:
         print(f"⚠️ Schema migration skipped: {e}")
 

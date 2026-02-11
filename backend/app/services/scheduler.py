@@ -222,6 +222,105 @@ class SchedulerService:
                     await db.commit()
                 raise
 
+    async def _run_nightly_walk_forward(self):
+        """
+        Nightly walk-forward simulation for missed opportunities + social content.
+
+        Runs at 8 PM ET (after daily emails at 6 PM) on trading days.
+        1. Runs 90-day rolling WF simulation with ensemble strategy
+        2. Stores results with is_nightly_missed_opps=True for dashboard
+        3. Generates social media content from best trades
+        """
+        from datetime import timedelta
+        from app.core.database import async_session, WalkForwardSimulation
+        from app.services.walk_forward_service import walk_forward_service
+        from sqlalchemy import select, delete
+
+        now = datetime.now(ET)
+        if not self._is_trading_day(now):
+            logger.info("📅 Not a trading day, skipping nightly walk-forward")
+            return
+
+        logger.info("🌙 Starting nightly walk-forward simulation...")
+
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=90)
+
+        async with async_session() as db:
+            try:
+                # Delete old nightly missed opps cache
+                await db.execute(
+                    delete(WalkForwardSimulation).where(
+                        WalkForwardSimulation.is_nightly_missed_opps == True
+                    )
+                )
+
+                # Create new job record
+                job = WalkForwardSimulation(
+                    simulation_date=datetime.utcnow(),
+                    start_date=start_date,
+                    end_date=end_date,
+                    reoptimization_frequency="biweekly",
+                    status="running",
+                    is_nightly_missed_opps=True,
+                    total_return_pct=0,
+                    sharpe_ratio=0,
+                    max_drawdown_pct=0,
+                    num_strategy_switches=0,
+                    benchmark_return_pct=0,
+                )
+                db.add(job)
+                await db.commit()
+                await db.refresh(job)
+                job_id = job.id
+
+                logger.info(f"[NIGHTLY-WF] Starting 90-day walk-forward (job {job_id})")
+
+                # Run walk-forward with ensemble strategy, no AI
+                result = await walk_forward_service.run_walk_forward_simulation(
+                    db=db,
+                    start_date=start_date,
+                    end_date=end_date,
+                    reoptimization_frequency="biweekly",
+                    min_score_diff=10.0,
+                    enable_ai_optimization=False,
+                    max_symbols=100,
+                    existing_job_id=job_id,
+                    fixed_strategy_id=5,  # Ensemble strategy
+                )
+
+                logger.info(f"[NIGHTLY-WF] Complete: {result.total_return_pct:.1f}% return, "
+                           f"{result.num_strategy_switches} switches")
+
+                # Generate social content from trades
+                try:
+                    from app.services.social_content_service import social_content_service
+                    posts = await social_content_service.generate_from_nightly_wf(db, job_id)
+                    logger.info(f"[NIGHTLY-WF] Generated {len(posts)} social posts")
+
+                    # On Fridays, also generate weekly recap
+                    if now.weekday() == 4:  # Friday
+                        recap_posts = await social_content_service.generate_weekly_recap(db)
+                        logger.info(f"[NIGHTLY-WF] Generated {len(recap_posts)} weekly recap posts")
+                except Exception as social_err:
+                    logger.error(f"[NIGHTLY-WF] Social content generation failed: {social_err}")
+
+            except Exception as e:
+                logger.error(f"[NIGHTLY-WF] Failed: {e}")
+                import traceback
+                traceback.print_exc()
+                # Update job status to failed
+                try:
+                    result = await db.execute(
+                        select(WalkForwardSimulation).where(WalkForwardSimulation.id == job_id)
+                    )
+                    job = result.scalar_one_or_none()
+                    if job:
+                        job.status = "failed"
+                        await db.commit()
+                except Exception:
+                    pass
+
     def _is_trading_day(self, dt: datetime) -> bool:
         """
         Check if the given date is a trading day
@@ -308,6 +407,20 @@ class SchedulerService:
             ),
             id='ticker_health_check',
             name='Ticker Health Check',
+            replace_existing=True
+        )
+
+        # Nightly walk-forward + social content at 8 PM ET
+        self.scheduler.add_job(
+            self._run_nightly_walk_forward,
+            CronTrigger(
+                day_of_week='mon-fri',
+                hour=20,
+                minute=0,
+                timezone=ET
+            ),
+            id='nightly_walk_forward',
+            name='Nightly Walk-Forward + Social Content',
             replace_existing=True
         )
 

@@ -683,94 +683,138 @@ async def get_dashboard_data(
     except Exception as e:
         print(f"Market stats error: {e}")
 
-    # --- Missed opportunities (DWAP crossovers with quality filters + trailing stop exit) ---
+    # --- Missed opportunities (from nightly WF cache, with on-the-fly fallback) ---
     missed_opportunities = []
     try:
-        lookback = 90  # trading days to scan back for crossovers
-        trailing_stop_pct = 0.15  # 15% trailing stop (matches current strategy)
-        min_price = settings.MIN_PRICE  # $20
-        min_volume = settings.MIN_VOLUME  # 500,000
+        from app.core.database import WalkForwardSimulation
+        import json as _json
 
-        # Get open position symbols to exclude (can't "miss" what you hold)
-        open_syms = set()
-        for pg in positions_with_guidance:
-            open_syms.add(pg.get('symbol', ''))
+        # Try to read from nightly WF cache first
+        nightly_result = await db.execute(
+            select(WalkForwardSimulation)
+            .where(WalkForwardSimulation.is_nightly_missed_opps == True)
+            .where(WalkForwardSimulation.status == "completed")
+            .order_by(desc(WalkForwardSimulation.simulation_date))
+            .limit(1)
+        )
+        nightly_sim = nightly_result.scalar_one_or_none()
 
-        for symbol, df in scanner_service.data_cache.items():
-            if df is None or len(df) < 250 or symbol in ('SPY', '^VIX'):
-                continue
-            if symbol in open_syms:
-                continue
-            if 'dwap' not in df.columns:
-                continue
+        if nightly_sim and nightly_sim.trades_json:
+            # Parse trades from nightly WF simulation
+            trades = _json.loads(nightly_sim.trades_json)
 
-            recent = df.tail(lookback + 60)  # extra buffer for exit window
-            if len(recent) < lookback:
-                continue
+            # Get open position symbols to exclude
+            open_syms = set()
+            for pg in positions_with_guidance:
+                open_syms.add(pg.get('symbol', ''))
 
-            closes = recent['close'].values
-            volumes = recent['volume'].values if 'volume' in recent.columns else None
-            dwaps = recent['dwap'].values
-            dates = recent.index
+            for trade in trades:
+                pnl_pct = trade.get('pnl_pct', 0)
+                symbol = trade.get('symbol', '')
 
-            # Find DWAP crossover points (crossed above 5%) with quality filters
-            for i in range(1, min(lookback, len(recent) - 1)):
-                if dwaps[i] <= 0 or pd.isna(dwaps[i]) or dwaps[i-1] <= 0 or pd.isna(dwaps[i-1]):
+                # Only profitable closed trades (>5% return), exclude open positions
+                if pnl_pct <= 5.0 or symbol in open_syms:
                     continue
 
-                # Quality filters at time of crossover
-                if closes[i] < min_price:
+                entry_date = trade.get('entry_date', '')
+                exit_date = trade.get('exit_date', '')
+                entry_price = trade.get('entry_price', 0)
+                exit_price = trade.get('exit_price', 0)
+                days_held = trade.get('days_held', 0)
+
+                missed_opportunities.append({
+                    'symbol': symbol,
+                    'entry_date': str(entry_date)[:10],
+                    'entry_price': round(float(entry_price), 2),
+                    'sell_date': str(exit_date)[:10],
+                    'sell_price': round(float(exit_price), 2),
+                    'would_be_return': round(float(pnl_pct), 1),
+                    'would_be_pnl': round((float(exit_price) - float(entry_price)) * 100, 0),
+                    'days_held': int(days_held),
+                    'strategy_name': trade.get('strategy_name', 'Ensemble'),
+                    'exit_reason': trade.get('exit_reason', ''),
+                })
+
+            missed_opportunities.sort(key=lambda x: x['would_be_return'], reverse=True)
+            missed_opportunities = missed_opportunities[:5]
+        else:
+            # Fallback: compute on-the-fly from price data
+            lookback = 90
+            trailing_stop_pct = 0.15
+            min_price = settings.MIN_PRICE
+            min_volume = settings.MIN_VOLUME
+
+            open_syms = set()
+            for pg in positions_with_guidance:
+                open_syms.add(pg.get('symbol', ''))
+
+            for symbol, df in scanner_service.data_cache.items():
+                if df is None or len(df) < 250 or symbol in ('SPY', '^VIX'):
                     continue
-                if volumes is not None and volumes[i] < min_volume:
+                if symbol in open_syms:
+                    continue
+                if 'dwap' not in df.columns:
                     continue
 
-                prev_pct = (closes[i-1] / dwaps[i-1] - 1)
-                curr_pct = (closes[i] / dwaps[i] - 1)
+                recent = df.tail(lookback + 60)
+                if len(recent) < lookback:
+                    continue
 
-                if prev_pct < 0.05 and curr_pct >= 0.05:
-                    entry_price = float(closes[i])
-                    entry_date = dates[i]
+                closes = recent['close'].values
+                volumes = recent['volume'].values if 'volume' in recent.columns else None
+                dwaps = recent['dwap'].values
+                dates = recent.index
 
-                    # Simulate trailing stop exit (15% from high water mark)
-                    high_water = entry_price
-                    sell_price = None
-                    sell_date = None
+                for i in range(1, min(lookback, len(recent) - 1)):
+                    if dwaps[i] <= 0 or pd.isna(dwaps[i]) or dwaps[i-1] <= 0 or pd.isna(dwaps[i-1]):
+                        continue
+                    if closes[i] < min_price:
+                        continue
+                    if volumes is not None and volumes[i] < min_volume:
+                        continue
 
-                    for j in range(i + 1, len(recent)):
-                        price_j = float(closes[j])
-                        high_water = max(high_water, price_j)
-                        trailing_stop = high_water * (1 - trailing_stop_pct)
+                    prev_pct = (closes[i-1] / dwaps[i-1] - 1)
+                    curr_pct = (closes[i] / dwaps[i] - 1)
 
-                        if price_j <= trailing_stop:
-                            # Trailing stop hit — closed position
-                            sell_price = price_j
-                            sell_date = dates[j]
-                            break
+                    if prev_pct < 0.05 and curr_pct >= 0.05:
+                        entry_price = float(closes[i])
+                        entry_date = dates[i]
 
-                    # If no trailing stop hit, use current price as "still open"
-                    if sell_price is None:
-                        sell_price = float(closes[-1])
-                        sell_date = dates[-1]
+                        high_water = entry_price
+                        sell_price = None
+                        sell_date = None
 
-                    pnl_pct = (sell_price / entry_price - 1) * 100
-                    days_held = (sell_date - entry_date).days
+                        for j in range(i + 1, len(recent)):
+                            price_j = float(closes[j])
+                            high_water = max(high_water, price_j)
+                            trailing_stop = high_water * (1 - trailing_stop_pct)
+                            if price_j <= trailing_stop:
+                                sell_price = price_j
+                                sell_date = dates[j]
+                                break
 
-                    # Only show profitable closed trades (>5% return)
-                    if pnl_pct > 5.0:
-                        missed_opportunities.append({
-                            'symbol': symbol,
-                            'entry_date': entry_date.strftime('%Y-%m-%d') if hasattr(entry_date, 'strftime') else str(entry_date)[:10],
-                            'entry_price': round(entry_price, 2),
-                            'sell_date': sell_date.strftime('%Y-%m-%d') if hasattr(sell_date, 'strftime') else str(sell_date)[:10],
-                            'sell_price': round(sell_price, 2),
-                            'would_be_return': round(pnl_pct, 1),
-                            'would_be_pnl': round((sell_price - entry_price) * 100, 0),  # Assume 100 shares
-                            'days_held': int(days_held),
-                        })
-                    break  # Only first crossover per symbol
+                        if sell_price is None:
+                            sell_price = float(closes[-1])
+                            sell_date = dates[-1]
 
-        missed_opportunities.sort(key=lambda x: x['would_be_return'], reverse=True)
-        missed_opportunities = missed_opportunities[:5]
+                        pnl_pct = (sell_price / entry_price - 1) * 100
+                        days_held = (sell_date - entry_date).days
+
+                        if pnl_pct > 5.0:
+                            missed_opportunities.append({
+                                'symbol': symbol,
+                                'entry_date': entry_date.strftime('%Y-%m-%d') if hasattr(entry_date, 'strftime') else str(entry_date)[:10],
+                                'entry_price': round(entry_price, 2),
+                                'sell_date': sell_date.strftime('%Y-%m-%d') if hasattr(sell_date, 'strftime') else str(sell_date)[:10],
+                                'sell_price': round(sell_price, 2),
+                                'would_be_return': round(pnl_pct, 1),
+                                'would_be_pnl': round((sell_price - entry_price) * 100, 0),
+                                'days_held': int(days_held),
+                            })
+                        break
+
+            missed_opportunities.sort(key=lambda x: x['would_be_return'], reverse=True)
+            missed_opportunities = missed_opportunities[:5]
     except Exception as e:
         print(f"Missed opportunities error: {e}")
 

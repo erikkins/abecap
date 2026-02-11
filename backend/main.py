@@ -34,6 +34,7 @@ from app.api.email import router as email_router
 from app.api.auth import router as auth_router
 from app.api.billing import router as billing_router
 from app.api.admin import router as admin_router
+from app.api.social import router as social_router
 from app.services.scanner import scanner_service
 from app.services.scheduler import scheduler_service
 from app.services.backtester import backtester_service
@@ -230,6 +231,7 @@ app.include_router(email_router, prefix="/api/email", tags=["email"])
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(billing_router, prefix="/api/billing", tags=["billing"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
+app.include_router(social_router, prefix="/api/admin/social", tags=["social"])
 
 # Lambda handler (for AWS Lambda deployment)
 # lifespan="off" avoids issues with event loop reuse on warm Lambdas
@@ -647,6 +649,95 @@ def handler(event, context):
         except Exception as e:
             print(f"❌ WF-FAIL handler itself failed: {e}")
             return {"error": str(e)}
+
+    # Handle nightly walk-forward job (direct Lambda invocation)
+    if event.get("nightly_wf_job"):
+        print(f"🌙 Nightly WF job received - {len(scanner_service.data_cache)} symbols in cache")
+        config = event["nightly_wf_job"]
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _run_nightly_wf():
+            from datetime import timedelta
+            from app.core.database import WalkForwardSimulation
+            from app.services.walk_forward_service import walk_forward_service
+            from sqlalchemy import delete, select
+            import json
+
+            days_back = config.get("days_back", 90)
+            strategy_id = config.get("strategy_id", 5)
+            max_symbols = config.get("max_symbols", 100)
+
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days_back)
+
+            async with async_session() as db:
+                # Delete old nightly cache
+                await db.execute(
+                    delete(WalkForwardSimulation).where(
+                        WalkForwardSimulation.is_nightly_missed_opps == True
+                    )
+                )
+
+                job = WalkForwardSimulation(
+                    simulation_date=datetime.utcnow(),
+                    start_date=start_date,
+                    end_date=end_date,
+                    reoptimization_frequency="biweekly",
+                    status="running",
+                    is_nightly_missed_opps=True,
+                    total_return_pct=0,
+                    sharpe_ratio=0,
+                    max_drawdown_pct=0,
+                    num_strategy_switches=0,
+                    benchmark_return_pct=0,
+                )
+                db.add(job)
+                await db.commit()
+                await db.refresh(job)
+                job_id = job.id
+
+                print(f"[NIGHTLY-WF] Starting {days_back}-day walk-forward (job {job_id})")
+
+                result = await walk_forward_service.run_walk_forward_simulation(
+                    db=db,
+                    start_date=start_date,
+                    end_date=end_date,
+                    reoptimization_frequency="biweekly",
+                    min_score_diff=10.0,
+                    enable_ai_optimization=False,
+                    max_symbols=max_symbols,
+                    existing_job_id=job_id,
+                    fixed_strategy_id=strategy_id,
+                )
+
+                # Generate social content
+                post_count = 0
+                try:
+                    from app.services.social_content_service import social_content_service
+                    posts = await social_content_service.generate_from_nightly_wf(db, job_id)
+                    post_count = len(posts)
+                except Exception as e:
+                    print(f"[NIGHTLY-WF] Social content error: {e}")
+
+                return {
+                    "status": "completed",
+                    "job_id": job_id,
+                    "total_return_pct": result.total_return_pct,
+                    "total_trades": len(result.trades) if hasattr(result, 'trades') else 0,
+                    "social_posts_generated": post_count,
+                }
+
+        try:
+            result = loop.run_until_complete(_run_nightly_wf())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Nightly WF failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "failed", "error": str(e)}
 
     # Handle backtest requests (direct Lambda invocation)
     if event.get("backtest_request"):

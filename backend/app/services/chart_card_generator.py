@@ -1,0 +1,304 @@
+"""
+Chart Card Generator - Create 1080x1080 Instagram chart cards from trade data.
+
+Uses matplotlib with Agg backend (headless, works on Lambda).
+Cards show price chart with entry/exit markers, return info, and branding.
+"""
+
+import io
+import json
+import logging
+import os
+from datetime import datetime, timedelta
+from typing import Optional, Dict
+
+import numpy as np
+
+logger = logging.getLogger(__name__)
+
+# Use Agg backend for headless rendering (must be set before importing pyplot)
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from matplotlib.patches import FancyBboxPatch
+
+
+# Brand colors
+BRAND_GREEN = '#10B981'
+BRAND_RED = '#EF4444'
+BRAND_DARK = '#1F2937'
+BRAND_LIGHT = '#F9FAFB'
+BRAND_ACCENT = '#3B82F6'
+BRAND_GRAY = '#6B7280'
+
+
+class ChartCardGenerator:
+    """Generate Instagram-ready chart card images from trade data."""
+
+    def __init__(self):
+        self._s3_client = None
+
+    def _get_s3_client(self):
+        if self._s3_client is None:
+            import boto3
+            self._s3_client = boto3.client('s3')
+        return self._s3_client
+
+    def generate_trade_card(
+        self,
+        symbol: str,
+        entry_price: float,
+        exit_price: float,
+        entry_date: str,
+        exit_date: str,
+        pnl_pct: float,
+        pnl_dollars: float = 0,
+        exit_reason: str = "trailing_stop",
+        strategy_name: str = "Ensemble",
+        regime_name: str = "",
+        company_name: str = "",
+    ) -> bytes:
+        """
+        Generate a 1080x1080 chart card image.
+
+        Returns PNG bytes.
+        """
+        is_win = pnl_pct > 0
+        accent_color = BRAND_GREEN if is_win else BRAND_RED
+
+        # Try to get price data for the chart
+        price_data = self._get_price_data(symbol, entry_date, exit_date)
+
+        fig, ax = plt.subplots(1, 1, figsize=(10.8, 10.8), dpi=100)
+        fig.patch.set_facecolor(BRAND_DARK)
+
+        # Layout regions (in figure coordinates)
+        # Header: top 8%
+        # Symbol/company: next 8%
+        # Chart: middle 46%
+        # Return: next 14%
+        # Details: next 12%
+        # Footer: bottom 6%
+
+        # Clear axes for custom layout
+        ax.set_position([0, 0, 1, 1])
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis('off')
+
+        # --- Header ---
+        ax.text(0.05, 0.95, 'RigaCap', fontsize=20, fontweight='bold',
+                color='white', va='top', ha='left',
+                fontfamily='sans-serif')
+        if regime_name:
+            ax.text(0.95, 0.95, f'Market: {regime_name}', fontsize=14,
+                    color=BRAND_GRAY, va='top', ha='right',
+                    fontfamily='sans-serif')
+
+        # --- Symbol ---
+        ax.text(0.5, 0.87, f'${symbol}', fontsize=42, fontweight='bold',
+                color='white', va='top', ha='center',
+                fontfamily='sans-serif')
+        if company_name:
+            ax.text(0.5, 0.82, company_name, fontsize=16,
+                    color=BRAND_GRAY, va='top', ha='center',
+                    fontfamily='sans-serif')
+
+        # --- Price Chart ---
+        if price_data is not None and len(price_data) > 5:
+            chart_ax = fig.add_axes([0.08, 0.38, 0.84, 0.40])
+            self._draw_price_chart(
+                chart_ax, price_data, entry_date, exit_date,
+                entry_price, exit_price, accent_color
+            )
+        else:
+            # No chart data — show placeholder
+            ax.text(0.5, 0.56, 'Price Chart', fontsize=18,
+                    color=BRAND_GRAY, va='center', ha='center',
+                    fontfamily='sans-serif', style='italic')
+
+        # --- Return ---
+        return_sign = '+' if pnl_pct > 0 else ''
+        ax.text(0.5, 0.30, f'{return_sign}{pnl_pct:.1f}%', fontsize=64,
+                fontweight='bold', color=accent_color,
+                va='center', ha='center', fontfamily='sans-serif')
+
+        if pnl_dollars:
+            dollar_sign = '+' if pnl_dollars > 0 else ''
+            ax.text(0.5, 0.23, f'{dollar_sign}${abs(pnl_dollars):,.0f}',
+                    fontsize=22, color=accent_color,
+                    va='center', ha='center', fontfamily='sans-serif')
+
+        # --- Details ---
+        entry_display = entry_date[:10] if entry_date else ''
+        exit_display = exit_date[:10] if exit_date else ''
+        if entry_display and exit_display:
+            days_held = self._calc_days(entry_date, exit_date)
+            detail_text = f'Entry: {entry_display}  →  Exit: {exit_display}  ({days_held}d)'
+        else:
+            detail_text = ''
+
+        ax.text(0.5, 0.16, detail_text, fontsize=15,
+                color=BRAND_GRAY, va='center', ha='center',
+                fontfamily='sans-serif')
+
+        # --- Badges ---
+        badge_y = 0.10
+        # Strategy badge
+        self._draw_badge(ax, 0.35, badge_y, strategy_name, BRAND_ACCENT)
+        # Exit reason badge
+        exit_display = exit_reason.replace('_', ' ').title() if exit_reason else 'Exit'
+        self._draw_badge(ax, 0.65, badge_y, exit_display, BRAND_GRAY)
+
+        # --- Footer ---
+        ax.text(0.05, 0.03, 'rigacap.com', fontsize=13,
+                color=BRAND_GRAY, va='bottom', ha='left',
+                fontfamily='sans-serif')
+        ax.text(0.95, 0.03, 'Walk-Forward Verified', fontsize=13,
+                color=BRAND_GRAY, va='bottom', ha='right',
+                fontfamily='sans-serif', style='italic')
+
+        # Render to bytes
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0,
+                    facecolor=BRAND_DARK, edgecolor='none')
+        plt.close(fig)
+        buf.seek(0)
+        return buf.read()
+
+    def _draw_price_chart(self, ax, price_data, entry_date, exit_date,
+                          entry_price, exit_price, accent_color):
+        """Draw the price line chart with entry/exit markers."""
+        import pandas as pd
+
+        dates = price_data.index
+        prices = price_data['close'].values
+
+        # Background
+        ax.set_facecolor('#111827')
+
+        # Price line
+        ax.plot(dates, prices, color='white', linewidth=1.5, alpha=0.9)
+
+        # Find entry/exit indices
+        entry_dt = pd.Timestamp(entry_date[:10])
+        exit_dt = pd.Timestamp(exit_date[:10])
+
+        # Shade between entry and exit
+        mask = (dates >= entry_dt) & (dates <= exit_dt)
+        if mask.any():
+            fill_dates = dates[mask]
+            fill_prices = prices[mask]
+            ax.fill_between(fill_dates, fill_prices,
+                           min(prices) * 0.98,
+                           alpha=0.15, color=accent_color)
+
+        # Entry marker (green triangle up)
+        entry_idx = np.argmin(np.abs((dates - entry_dt).total_seconds()))
+        ax.scatter([dates[entry_idx]], [prices[entry_idx]],
+                  color=BRAND_GREEN, marker='^', s=120, zorder=5)
+        ax.annotate(f'${entry_price:.0f}', (dates[entry_idx], prices[entry_idx]),
+                   textcoords="offset points", xytext=(0, 12),
+                   fontsize=10, color=BRAND_GREEN, ha='center',
+                   fontweight='bold')
+
+        # Exit marker (red triangle down)
+        exit_idx = np.argmin(np.abs((dates - exit_dt).total_seconds()))
+        ax.scatter([dates[exit_idx]], [prices[exit_idx]],
+                  color=BRAND_RED, marker='v', s=120, zorder=5)
+        ax.annotate(f'${exit_price:.0f}', (dates[exit_idx], prices[exit_idx]),
+                   textcoords="offset points", xytext=(0, -16),
+                   fontsize=10, color=BRAND_RED, ha='center',
+                   fontweight='bold')
+
+        # Formatting
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
+        ax.xaxis.set_major_locator(mdates.MonthLocator())
+        ax.tick_params(colors=BRAND_GRAY, labelsize=9)
+        ax.yaxis.set_visible(False)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        ax.grid(axis='y', alpha=0.1, color='white')
+
+    def _draw_badge(self, ax, x, y, text, color):
+        """Draw a rounded badge at the given position."""
+        bbox = dict(boxstyle='round,pad=0.4', facecolor=color, alpha=0.3,
+                    edgecolor=color, linewidth=1)
+        ax.text(x, y, text, fontsize=12, color='white',
+                va='center', ha='center', fontfamily='sans-serif',
+                bbox=bbox)
+
+    def _get_price_data(self, symbol: str, entry_date: str, exit_date: str):
+        """Get price data from scanner cache for chart rendering."""
+        try:
+            from app.services.scanner import scanner_service
+            import pandas as pd
+
+            df = scanner_service.data_cache.get(symbol)
+            if df is None or df.empty:
+                return None
+
+            # Get 60-day window centered on the trade
+            entry_dt = pd.Timestamp(entry_date[:10])
+            buffer = timedelta(days=30)
+            start = entry_dt - buffer
+            end = pd.Timestamp(exit_date[:10]) + buffer
+
+            mask = (df.index >= start) & (df.index <= end)
+            subset = df.loc[mask]
+
+            return subset if len(subset) > 5 else None
+        except Exception:
+            return None
+
+    def _calc_days(self, entry_date: str, exit_date: str) -> int:
+        """Calculate days between two date strings."""
+        try:
+            d1 = datetime.strptime(entry_date[:10], '%Y-%m-%d')
+            d2 = datetime.strptime(exit_date[:10], '%Y-%m-%d')
+            return (d2 - d1).days
+        except Exception:
+            return 0
+
+    def upload_to_s3(self, png_bytes: bytes, post_id: int,
+                     symbol: str, date_str: str) -> str:
+        """Upload chart card PNG to S3. Returns the S3 key."""
+        bucket = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
+        key = f"social/images/{post_id}_{symbol}_{date_str}.png"
+
+        try:
+            s3 = self._get_s3_client()
+            s3.put_object(
+                Bucket=bucket,
+                Key=key,
+                Body=png_bytes,
+                ContentType='image/png',
+            )
+            logger.info(f"Uploaded chart card to s3://{bucket}/{key}")
+            return key
+        except Exception as e:
+            logger.error(f"Failed to upload chart card: {e}")
+            return ""
+
+    def get_presigned_url(self, s3_key: str, expires_in: int = 3600) -> str:
+        """Get a presigned URL for an S3 chart card image."""
+        if not s3_key:
+            return ""
+
+        bucket = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
+        try:
+            s3 = self._get_s3_client()
+            url = s3.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': bucket, 'Key': s3_key},
+                ExpiresIn=expires_in,
+            )
+            return url
+        except Exception as e:
+            logger.error(f"Failed to generate presigned URL: {e}")
+            return ""
+
+
+# Singleton instance
+chart_card_generator = ChartCardGenerator()

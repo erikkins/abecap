@@ -21,6 +21,9 @@ alembic==1.13.1
 # Optimization
 optuna>=3.5.0
 
+# Charts
+matplotlib>=3.8.0
+
 # Data
 yfinance>=1.1.0
 pandas==2.1.4
