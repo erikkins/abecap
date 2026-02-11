@@ -683,17 +683,24 @@ async def get_dashboard_data(
     except Exception as e:
         print(f"Market stats error: {e}")
 
-    # --- Missed opportunities (lightweight: scan data_cache for past DWAP crossovers that hit +20%) ---
+    # --- Missed opportunities (DWAP crossovers with quality filters + trailing stop exit) ---
     missed_opportunities = []
     try:
-        import numpy as np
-        lookback = 90  # trading days
-        profit_target = 0.20  # +20%
+        lookback = 90  # trading days to scan back for crossovers
+        trailing_stop_pct = 0.15  # 15% trailing stop (matches current strategy)
+        min_price = settings.MIN_PRICE  # $20
+        min_volume = settings.MIN_VOLUME  # 500,000
+
+        # Get open position symbols to exclude (can't "miss" what you hold)
+        open_syms = set()
+        for pg in positions_with_guidance:
+            open_syms.add(pg.get('symbol', ''))
 
         for symbol, df in scanner_service.data_cache.items():
             if df is None or len(df) < 250 or symbol in ('SPY', '^VIX'):
                 continue
-
+            if symbol in open_syms:
+                continue
             if 'dwap' not in df.columns:
                 continue
 
@@ -702,12 +709,19 @@ async def get_dashboard_data(
                 continue
 
             closes = recent['close'].values
+            volumes = recent['volume'].values if 'volume' in recent.columns else None
             dwaps = recent['dwap'].values
             dates = recent.index
 
-            # Find DWAP crossover points (crossed above 5%)
+            # Find DWAP crossover points (crossed above 5%) with quality filters
             for i in range(1, min(lookback, len(recent) - 1)):
                 if dwaps[i] <= 0 or pd.isna(dwaps[i]) or dwaps[i-1] <= 0 or pd.isna(dwaps[i-1]):
+                    continue
+
+                # Quality filters at time of crossover
+                if closes[i] < min_price:
+                    continue
+                if volumes is not None and volumes[i] < min_volume:
                     continue
 
                 prev_pct = (closes[i-1] / dwaps[i-1] - 1)
@@ -715,29 +729,44 @@ async def get_dashboard_data(
 
                 if prev_pct < 0.05 and curr_pct >= 0.05:
                     entry_price = float(closes[i])
-                    entry_idx = i
                     entry_date = dates[i]
 
-                    # Check if it hit +20% within remaining data
-                    for j in range(i + 1, len(recent)):
-                        if closes[j] >= entry_price * (1 + profit_target):
-                            sell_price = float(closes[j])
-                            sell_date = dates[j]
-                            days_held = (sell_date - entry_date).days
-                            pnl_pct = (sell_price / entry_price - 1) * 100
-                            pnl_dollars = (sell_price - entry_price) * 100  # Assume 100 shares
+                    # Simulate trailing stop exit (15% from high water mark)
+                    high_water = entry_price
+                    sell_price = None
+                    sell_date = None
 
-                            missed_opportunities.append({
-                                'symbol': symbol,
-                                'entry_date': entry_date.strftime('%Y-%m-%d') if hasattr(entry_date, 'strftime') else str(entry_date)[:10],
-                                'entry_price': round(entry_price, 2),
-                                'sell_date': sell_date.strftime('%Y-%m-%d') if hasattr(sell_date, 'strftime') else str(sell_date)[:10],
-                                'sell_price': round(sell_price, 2),
-                                'would_be_return': round(pnl_pct, 1),
-                                'would_be_pnl': round(pnl_dollars, 0),
-                                'days_held': int(days_held),
-                            })
-                            break  # Only count first hit per crossover
+                    for j in range(i + 1, len(recent)):
+                        price_j = float(closes[j])
+                        high_water = max(high_water, price_j)
+                        trailing_stop = high_water * (1 - trailing_stop_pct)
+
+                        if price_j <= trailing_stop:
+                            # Trailing stop hit — closed position
+                            sell_price = price_j
+                            sell_date = dates[j]
+                            break
+
+                    # If no trailing stop hit, use current price as "still open"
+                    if sell_price is None:
+                        sell_price = float(closes[-1])
+                        sell_date = dates[-1]
+
+                    pnl_pct = (sell_price / entry_price - 1) * 100
+                    days_held = (sell_date - entry_date).days
+
+                    # Only show profitable closed trades (>5% return)
+                    if pnl_pct > 5.0:
+                        missed_opportunities.append({
+                            'symbol': symbol,
+                            'entry_date': entry_date.strftime('%Y-%m-%d') if hasattr(entry_date, 'strftime') else str(entry_date)[:10],
+                            'entry_price': round(entry_price, 2),
+                            'sell_date': sell_date.strftime('%Y-%m-%d') if hasattr(sell_date, 'strftime') else str(sell_date)[:10],
+                            'sell_price': round(sell_price, 2),
+                            'would_be_return': round(pnl_pct, 1),
+                            'would_be_pnl': round((sell_price - entry_price) * 100, 0),  # Assume 100 shares
+                            'days_held': int(days_held),
+                        })
                     break  # Only first crossover per symbol
 
         missed_opportunities.sort(key=lambda x: x['would_be_return'], reverse=True)
