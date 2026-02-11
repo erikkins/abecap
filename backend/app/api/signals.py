@@ -569,20 +569,20 @@ async def get_dashboard_data(
 
                 buy_signals.append({
                     'symbol': symbol,
-                    'price': dwap.price,
-                    'dwap': dwap.dwap,
-                    'pct_above_dwap': dwap.pct_above_dwap,
-                    'volume': dwap.volume,
-                    'volume_ratio': dwap.volume_ratio,
-                    'is_strong': dwap.is_strong,
-                    'momentum_rank': mom_rank,
-                    'momentum_score': round(mom_data.composite_score, 2),
-                    'short_momentum': round(mom_data.short_momentum, 2),
-                    'long_momentum': round(mom_data.long_momentum, 2),
-                    'ensemble_score': round(ensemble_score, 1),
+                    'price': float(dwap.price),
+                    'dwap': float(dwap.dwap),
+                    'pct_above_dwap': float(dwap.pct_above_dwap),
+                    'volume': int(dwap.volume),
+                    'volume_ratio': float(dwap.volume_ratio),
+                    'is_strong': bool(dwap.is_strong),
+                    'momentum_rank': int(mom_rank),
+                    'momentum_score': round(float(mom_data.composite_score), 2),
+                    'short_momentum': round(float(mom_data.short_momentum), 2),
+                    'long_momentum': round(float(mom_data.long_momentum), 2),
+                    'ensemble_score': round(float(ensemble_score), 1),
                     'dwap_crossover_date': crossover_date,
-                    'days_since_crossover': days_since,
-                    'is_fresh': is_fresh,
+                    'days_since_crossover': int(days_since) if days_since is not None else None,
+                    'is_fresh': bool(is_fresh),
                 })
 
         # Sort: fresh first by recency, then stale by ensemble score
@@ -604,14 +604,19 @@ async def get_dashboard_data(
 
         pos_dicts = []
         for p in open_positions:
+            # Look up current price from data cache (Position table has no current_price column)
+            current_price = p.entry_price
+            df = scanner_service.data_cache.get(p.symbol)
+            if df is not None and len(df) > 0:
+                current_price = float(df.iloc[-1]['close'])
             pos_dicts.append({
                 'id': p.id,
                 'symbol': p.symbol,
-                'shares': p.shares,
-                'entry_price': p.entry_price,
+                'shares': float(p.shares),
+                'entry_price': float(p.entry_price),
                 'entry_date': p.created_at.strftime('%Y-%m-%d') if p.created_at else None,
-                'current_price': p.current_price or p.entry_price,
-                'highest_price': getattr(p, 'highest_price', None) or p.entry_price,
+                'current_price': current_price,
+                'highest_price': float(getattr(p, 'highest_price', None) or p.entry_price),
             })
 
         if pos_dicts:
@@ -651,10 +656,10 @@ async def get_dashboard_data(
                     'symbol': symbol,
                     'price': round(float(price), 2),
                     'dwap': round(float(dwap_val), 2),
-                    'pct_above_dwap': round(pct_above, 2),
-                    'distance_to_trigger': round(5.0 - pct_above, 2),
-                    'momentum_rank': mom['rank'],
-                    'momentum_score': round(mom_data.composite_score, 2),
+                    'pct_above_dwap': round(float(pct_above), 2),
+                    'distance_to_trigger': round(float(5.0 - pct_above), 2),
+                    'momentum_rank': int(mom['rank']),
+                    'momentum_score': round(float(mom_data.composite_score), 2),
                 })
 
         watchlist.sort(key=lambda x: x['distance_to_trigger'])
