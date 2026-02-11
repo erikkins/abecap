@@ -194,23 +194,32 @@ class ChartCardGenerator:
                            min(prices) * 0.98,
                            alpha=0.15, color=accent_color)
 
-        # Entry marker (green triangle up)
+        # Pad y-axis so labels aren't clipped at top/bottom
+        price_range = max(prices) - min(prices)
+        y_pad = price_range * 0.18
+        ax.set_ylim(min(prices) - y_pad, max(prices) + y_pad)
+
+        # Label background box style
+        label_bbox = dict(boxstyle='round,pad=0.3', facecolor='#111827',
+                          edgecolor='none', alpha=0.85)
+
+        # Entry marker (green triangle up) — label ABOVE the line
         entry_idx = np.argmin(np.abs((dates - entry_dt).total_seconds()))
         ax.scatter([dates[entry_idx]], [prices[entry_idx]],
                   color=BRAND_GREEN, marker='^', s=120, zorder=5)
         ax.annotate(f'${entry_price:.0f}', (dates[entry_idx], prices[entry_idx]),
-                   textcoords="offset points", xytext=(0, 12),
-                   fontsize=10, color=BRAND_GREEN, ha='center',
-                   fontweight='bold')
+                   textcoords="offset points", xytext=(0, 22),
+                   fontsize=11, color=BRAND_GREEN, ha='center',
+                   fontweight='bold', zorder=6, bbox=label_bbox)
 
-        # Exit marker (red triangle down)
+        # Exit marker (red triangle down) — label BELOW the line
         exit_idx = np.argmin(np.abs((dates - exit_dt).total_seconds()))
         ax.scatter([dates[exit_idx]], [prices[exit_idx]],
                   color=BRAND_RED, marker='v', s=120, zorder=5)
         ax.annotate(f'${exit_price:.0f}', (dates[exit_idx], prices[exit_idx]),
-                   textcoords="offset points", xytext=(0, -16),
-                   fontsize=10, color=BRAND_RED, ha='center',
-                   fontweight='bold')
+                   textcoords="offset points", xytext=(0, -26),
+                   fontsize=11, color=BRAND_RED, ha='center',
+                   fontweight='bold', zorder=6, bbox=label_bbox)
 
         # Formatting
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
