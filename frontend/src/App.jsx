@@ -2088,12 +2088,12 @@ function Dashboard() {
                         </div>
                       )}
 
-                      {/* Fallback if no watchlist and no recent signals */}
+                      {/* Fallback if nothing else rendered */}
                       {(dashboardData?.watchlist || []).length === 0 && (dashboardData?.recent_signals || []).length === 0 && !dashboardData?.regime_forecast && (
                         <div className="text-center py-6 text-gray-500">
                           <Activity className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                          <p>No ensemble signals today</p>
-                          <p className="text-xs mt-1">Requires DWAP +5% AND top momentum ranking</p>
+                          <p>No buy signals right now</p>
+                          <p className="text-xs mt-1">We're scanning the market — check back soon</p>
                         </div>
                       )}
                     </div>

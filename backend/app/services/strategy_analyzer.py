@@ -92,6 +92,12 @@ class CustomBacktester(BacktesterService):
         self.long_mom_days = params.long_momentum_days
         self.trailing_stop_pct = params.trailing_stop_pct / 100
 
+        # Momentum scoring weights
+        self.short_mom_weight = params.short_mom_weight
+        self.long_mom_weight = params.long_mom_weight
+        self.volatility_penalty = params.volatility_penalty
+        self.near_50d_high_pct = params.near_50d_high_pct
+
 
 class StrategyAnalyzerService:
     """

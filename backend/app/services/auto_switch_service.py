@@ -10,7 +10,6 @@ and adapt strategy parameters dynamically.
 
 import json
 import logging
-import itertools
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Tuple, List, Any
 
@@ -26,7 +25,8 @@ from app.services.strategy_analyzer import (
 )
 from app.services.email_service import admin_email_service
 from app.services.scanner import scanner_service
-from app.services.market_regime import market_regime_detector, MarketRegime, MARKET_REGIMES
+from app.services.market_regime import market_regime_service, MarketRegime
+from app.services.optuna_optimizer import StrategyOptimizer
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -47,43 +47,18 @@ class AutoSwitchService:
     - Audit trail of all switches
     """
 
-    # Expanded parameter ranges for AI optimization
-    EXPANDED_AI_PARAM_RANGES = {
-        "momentum": {
-            "trailing_stop_pct": [10, 12, 15, 18, 20],
-            "max_positions": [3, 4, 5, 6, 7],
-            "position_size_pct": [12, 15, 18, 20],
-            "short_momentum_days": [5, 10, 15],
-            "near_50d_high_pct": [3, 5, 7, 10],
-        },
-        "dwap": {
-            "dwap_threshold_pct": [3, 5, 7],
-            "stop_loss_pct": [6, 8, 10, 12],
-            "profit_target_pct": [15, 20, 25, 30],
-            "max_positions": [10, 15, 20],
-            "position_size_pct": [5, 6, 7],
-        }
-    }
-
-    # Coarse grid for fast optimization
-    COARSE_PARAM_RANGES = {
-        "momentum": {
-            "trailing_stop_pct": [12, 15, 18],
-            "max_positions": [4, 5, 6],
-            "position_size_pct": [15, 18],
-        },
-        "dwap": {
-            "stop_loss_pct": [7, 8, 9],
-            "profit_target_pct": [18, 20, 22],
-        }
-    }
-
     def __init__(self):
         pass
 
     def _detect_market_regime(self) -> MarketRegime:
         """Detect current market regime using multi-factor analysis"""
-        return market_regime_detector.detect_regime()
+        spy_df = scanner_service.data_cache.get('SPY')
+        vix_df = scanner_service.data_cache.get('^VIX')
+        return market_regime_service.detect_regime(
+            spy_df=spy_df,
+            universe_dfs=scanner_service.data_cache,
+            vix_df=vix_df,
+        )
 
     def _calculate_score(self, metrics: Dict) -> float:
         """Calculate recommendation score from metrics (legacy fixed weights)"""
@@ -125,7 +100,7 @@ class AutoSwitchService:
         """
         Run AI parameter optimization for current market conditions.
 
-        Uses two-phase optimization with regime-specific adaptive scoring.
+        Uses Optuna Bayesian optimization with regime-specific constraints.
         Returns best parameters with expected metrics.
         """
         regime = self._detect_market_regime()
@@ -134,56 +109,26 @@ class AutoSwitchService:
         if not top_symbols:
             return None
 
-        # Base params
-        if strategy_type == "momentum":
+        # Base params (non-tuned)
+        if strategy_type in ("momentum", "ensemble"):
             base_params = {
-                "short_momentum_days": 10,
                 "long_momentum_days": 60,
-                "trailing_stop_pct": 15.0,
-                "max_positions": 5,
-                "position_size_pct": 18.0,
                 "min_volume": 500_000,
                 "min_price": 20.0,
                 "market_filter_enabled": True,
-                "near_50d_high_pct": 5.0,
             }
         else:
             base_params = {
-                "dwap_threshold_pct": 5.0,
-                "stop_loss_pct": 8.0,
-                "profit_target_pct": 20.0,
-                "max_positions": 15,
-                "position_size_pct": 6.0,
                 "min_volume": 500_000,
                 "min_price": 20.0,
             }
 
-        # Apply regime-specific parameter adjustments to base
-        for param, adjustment in regime.param_adjustments.items():
-            if param in base_params:
-                base_params[param] = base_params[param] + adjustment
-
-        # Get regime-adjusted parameter ranges
-        param_ranges = self._get_regime_adjusted_ranges(
-            self.COARSE_PARAM_RANGES.get(strategy_type, {}),
-            regime
-        )
-
-        if not param_ranges:
-            return None
-
-        # Generate combinations
-        keys = list(param_ranges.keys())
-        values = [param_ranges[k] for k in keys]
-        combinations = [dict(zip(keys, combo)) for combo in itertools.product(*values)]
-
-        best_result = None
-        best_score = -float('inf')
+        best_result = {"data": None}
         combinations_tested = 0
 
-        for combo in combinations:
-            test_params = {**base_params, **combo}
-
+        def objective(suggested_params: Dict[str, Any]) -> Optional[float]:
+            nonlocal combinations_tested
+            test_params = {**base_params, **suggested_params}
             try:
                 params = StrategyParams(**test_params)
                 backtester = CustomBacktester()
@@ -205,12 +150,10 @@ class AutoSwitchService:
                     "profit_factor": result.profit_factor,
                 }
 
-                # Use adaptive scoring based on regime
                 adaptive_score = self._calculate_adaptive_score(metrics, regime)
 
-                if adaptive_score > best_score:
-                    best_score = adaptive_score
-                    best_result = {
+                if best_result["data"] is None or adaptive_score > best_result["data"]["score"]:
+                    best_result["data"] = {
                         "params": test_params,
                         "sharpe_ratio": result.sharpe_ratio,
                         "total_return_pct": result.total_return_pct,
@@ -219,51 +162,26 @@ class AutoSwitchService:
                         "calmar_ratio": result.calmar_ratio,
                         "profit_factor": result.profit_factor,
                         "score": adaptive_score,
-                        "market_regime": regime.name,
+                        "market_regime": regime.regime_name,
                         "regime_risk_level": regime.risk_level,
                         "regime_confidence": regime.confidence,
                         "strategy_type": strategy_type,
                         "combinations_tested": combinations_tested,
                     }
+
+                return adaptive_score
             except Exception:
-                continue
+                return None
 
-        return best_result
+        optimizer = StrategyOptimizer()
+        optimizer.optimize(
+            strategy_type=strategy_type,
+            objective_fn=objective,
+            regime_risk_level=regime.risk_level,
+            n_trials=30,
+        )
 
-    def _get_regime_adjusted_ranges(
-        self,
-        base_ranges: Dict[str, List],
-        regime: MarketRegime
-    ) -> Dict[str, List]:
-        """Adjust parameter ranges based on market regime risk level"""
-        adjusted = {}
-
-        for param, values in base_ranges.items():
-            if regime.risk_level == "extreme":
-                if param in ["trailing_stop_pct", "stop_loss_pct"]:
-                    adjusted[param] = [v for v in values if v >= 15] or values[-2:]
-                elif param == "max_positions":
-                    adjusted[param] = [v for v in values if v <= 4] or values[:2]
-                else:
-                    adjusted[param] = values
-            elif regime.risk_level == "high":
-                if param in ["trailing_stop_pct", "stop_loss_pct"]:
-                    adjusted[param] = [v for v in values if v >= 12] or values[-3:]
-                elif param == "max_positions":
-                    adjusted[param] = [v for v in values if v <= 5] or values[:3]
-                else:
-                    adjusted[param] = values
-            elif regime.risk_level == "low":
-                if param in ["trailing_stop_pct", "stop_loss_pct"]:
-                    adjusted[param] = [v for v in values if v <= 15] or values[:3]
-                elif param == "max_positions":
-                    adjusted[param] = [v for v in values if v >= 5] or values[-3:]
-                else:
-                    adjusted[param] = values
-            else:
-                adjusted[param] = values
-
-        return adjusted
+        return best_result["data"]
 
     async def get_config(self, db: AsyncSession) -> AutoSwitchConfig:
         """Get or create auto-switch configuration"""

@@ -184,6 +184,11 @@ class BacktesterService:
         self.profit_target_pct = settings.PROFIT_TARGET_PCT / 100  # 20%
         self.dwap_threshold_pct = settings.DWAP_THRESHOLD_PCT / 100  # 5%
         self.volume_spike_mult = settings.VOLUME_SPIKE_MULT
+        # Momentum scoring weights (tunable via AI optimization)
+        self.short_mom_weight = settings.SHORT_MOM_WEIGHT
+        self.long_mom_weight = settings.LONG_MOM_WEIGHT
+        self.volatility_penalty = settings.VOLATILITY_PENALTY
+        self.near_50d_high_pct = settings.NEAR_50D_HIGH_PCT
 
     def _calculate_enhanced_metrics(
         self,
@@ -496,14 +501,14 @@ class BacktesterService:
 
         # Quality filter
         passes_trend = price > ma_20 and price > ma_50
-        passes_breakout = dist_from_high >= -settings.NEAR_50D_HIGH_PCT
+        passes_breakout = dist_from_high >= -self.near_50d_high_pct
         passes_quality = passes_trend and passes_breakout
 
         # Composite score
         composite_score = (
-            short_mom * settings.SHORT_MOM_WEIGHT +
-            long_mom * settings.LONG_MOM_WEIGHT -
-            volatility * settings.VOLATILITY_PENALTY
+            short_mom * self.short_mom_weight +
+            long_mom * self.long_mom_weight -
+            volatility * self.volatility_penalty
         )
 
         return {

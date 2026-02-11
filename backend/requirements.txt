@@ -18,6 +18,9 @@ asyncpg==0.29.0
 greenlet==3.0.3
 alembic==1.13.1
 
+# Optimization
+optuna>=3.5.0
+
 # Data
 yfinance>=1.1.0
 pandas==2.1.4
