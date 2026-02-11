@@ -586,11 +586,16 @@ class SchedulerService:
                 for sig in new_signals:
                     logger.info(f"   • {sig['symbol']}: ${sig['price']:.2f} (+{sig['pct_above_dwap']:.1f}%) - Mom #{sig['momentum_rank']}")
 
+                # Get market regime for context
+                from app.services.market_analysis import market_analysis_service
+                regime = market_analysis_service.get_market_regime()
+
                 # Send email alert
                 success = await email_service.send_double_signal_alert(
                     to_email=ADMIN_EMAIL,
                     new_signals=new_signals,
-                    approaching=approaching
+                    approaching=approaching,
+                    market_regime=regime
                 )
 
                 if success:
@@ -611,7 +616,8 @@ class SchedulerService:
         """
         Send daily summary emails to subscribers
 
-        Runs at 6 PM ET (dinnertime) on trading days
+        Runs at 6 PM ET (dinnertime) on trading days.
+        Builds ensemble signals (same logic as dashboard) with freshness tracking.
         """
         logger.info("📧 Starting daily email job...")
 
@@ -622,9 +628,74 @@ class SchedulerService:
                 logger.info("📅 Not a trading day, skipping emails")
                 return
 
-            # Get today's signals
-            signals = await scanner_service.scan(refresh_data=False)
-            signal_dicts = [s.to_dict() for s in signals]
+            from app.api.signals import find_dwap_crossover_date
+
+            # Build ensemble signals (same as dashboard endpoint)
+            dwap_signals = await scanner_service.scan(refresh_data=False, apply_market_filter=True)
+            dwap_by_symbol = {s.symbol: s for s in dwap_signals}
+
+            momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True)
+            momentum_top_n = 20
+            fresh_days = 5
+            momentum_by_symbol = {
+                r.symbol: {'rank': i + 1, 'data': r}
+                for i, r in enumerate(momentum_rankings[:momentum_top_n])
+            }
+
+            # Build ensemble buy signals with freshness
+            buy_signals = []
+            for symbol in dwap_by_symbol:
+                if symbol in momentum_by_symbol:
+                    dwap = dwap_by_symbol[symbol]
+                    mom = momentum_by_symbol[symbol]
+                    mom_data = mom['data']
+                    mom_rank = mom['rank']
+
+                    dwap_score = min(dwap.pct_above_dwap * 10, 50)
+                    rank_score = (momentum_top_n - mom_rank + 1) * 2.5
+                    ensemble_score = dwap_score + rank_score
+
+                    crossover_date, days_since = find_dwap_crossover_date(symbol)
+                    is_fresh = days_since is not None and days_since <= fresh_days
+
+                    buy_signals.append({
+                        'symbol': symbol,
+                        'price': float(dwap.price),
+                        'pct_above_dwap': float(dwap.pct_above_dwap),
+                        'is_strong': bool(dwap.is_strong),
+                        'momentum_rank': int(mom_rank),
+                        'ensemble_score': round(float(ensemble_score), 1),
+                        'dwap_crossover_date': crossover_date,
+                        'days_since_crossover': int(days_since) if days_since is not None else None,
+                        'is_fresh': bool(is_fresh),
+                    })
+
+            buy_signals.sort(key=lambda x: (
+                0 if x['is_fresh'] else 1,
+                x.get('days_since_crossover') or 999,
+                -x['ensemble_score']
+            ))
+
+            # Build watchlist (approaching trigger)
+            watchlist = []
+            for r in momentum_rankings[:momentum_top_n]:
+                if r.symbol not in dwap_by_symbol:
+                    df = scanner_service.data_cache.get(r.symbol)
+                    if df is not None and len(df) >= 200:
+                        price = float(df['close'].iloc[-1])
+                        dwap_val = float(df['dwap'].iloc[-1]) if 'dwap' in df.columns else 0
+                        if dwap_val > 0:
+                            pct_above = (price / dwap_val - 1) * 100
+                            distance = 5.0 - pct_above
+                            if 0 < distance <= 3.0:
+                                watchlist.append({
+                                    'symbol': r.symbol,
+                                    'price': price,
+                                    'pct_above_dwap': round(pct_above, 1),
+                                    'distance_to_trigger': round(distance, 1),
+                                })
+
+            watchlist.sort(key=lambda x: x['distance_to_trigger'])
 
             # Get market regime
             from app.services.market_analysis import market_analysis_service
@@ -636,19 +707,30 @@ class SchedulerService:
 
             if not subscribers:
                 logger.info("📧 No subscribers configured, skipping email send")
-                # Log a sample of what the email would look like
-                strong_count = len([s for s in signals if s.is_strong])
-                logger.info(f"📧 Would have sent email with {len(signals)} signals ({strong_count} strong)")
+                fresh_count = len([s for s in buy_signals if s.get('is_fresh')])
+                logger.info(f"📧 Would have sent email with {len(buy_signals)} ensemble signals ({fresh_count} fresh), {len(watchlist)} watchlist")
                 return
 
-            # Send emails
-            result = await email_service.send_bulk_daily_summary(
-                subscribers=subscribers,
-                signals=signal_dicts,
-                market_regime=regime
-            )
+            # Send emails to each subscriber
+            sent = 0
+            failed = 0
+            for sub_email in subscribers:
+                try:
+                    success = await email_service.send_daily_summary(
+                        to_email=sub_email,
+                        signals=buy_signals,
+                        market_regime=regime,
+                        watchlist=watchlist,
+                    )
+                    if success:
+                        sent += 1
+                    else:
+                        failed += 1
+                except Exception as e:
+                    logger.error(f"Failed to send to {sub_email}: {e}")
+                    failed += 1
 
-            logger.info(f"📧 Daily emails complete: {result['sent']} sent, {result['failed']} failed")
+            logger.info(f"📧 Daily emails complete: {sent} sent, {failed} failed")
 
         except Exception as e:
             logger.error(f"❌ Daily email job failed: {e}")

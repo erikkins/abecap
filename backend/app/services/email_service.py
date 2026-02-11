@@ -110,7 +110,9 @@ class EmailService:
         market_regime: Dict,
         positions: List[Dict],
         missed_opportunities: List[Dict],
-        date: Optional[datetime] = None
+        date: Optional[datetime] = None,
+        watchlist: List[Dict] = None,
+        regime_forecast: Dict = None
     ) -> str:
         """
         Generate beautiful HTML for daily summary email
@@ -129,7 +131,8 @@ class EmailService:
             date = datetime.now()
 
         date_str = date.strftime("%A, %B %d, %Y")
-        strong_signals = [s for s in signals if s.get('is_strong')]
+        fresh_signals = [s for s in signals if s.get('is_fresh')]
+        watchlist = watchlist or []
 
         # Calculate totals
         total_positions_pnl = sum(
@@ -198,15 +201,18 @@ class EmailService:
         <tr>
             <td style="padding: 0 24px 24px;">
                 <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827;">
-                    🎯 Today's Signals ({len(strong_signals)} Strong)
+                    🎯 Ensemble Buy Signals{f' ({len(fresh_signals)} Fresh)' if fresh_signals else ''}
                 </h2>
-                {"".join(self._signal_row(s) for s in signals[:8]) if signals else '''
+                {"".join(self._signal_row(s) for s in signals[:8]) if signals else f'''
                 <div style="background-color: #f9fafb; border-radius: 8px; padding: 24px; text-align: center; color: #6b7280;">
-                    No signals found today. Check back tomorrow!
+                    No fresh signals today{f" — {len(watchlist)} stock{'s' if len(watchlist) != 1 else ''} on watchlist approaching trigger" if watchlist else ". Check back tomorrow!"}
                 </div>
                 '''}
             </td>
         </tr>
+
+        <!-- Watchlist Section -->
+        {self._watchlist_section(watchlist) if watchlist else ''}
 
         <!-- Open Positions -->
         {self._positions_section(positions, total_positions_pnl) if positions else ''}
@@ -243,34 +249,80 @@ class EmailService:
         symbol = signal.get('symbol', 'N/A')
         price = signal.get('price', 0)
         pct_above = signal.get('pct_above_dwap', 0)
-        strength = signal.get('signal_strength', 0)
+        mom_rank = signal.get('momentum_rank', 0)
         is_strong = signal.get('is_strong', False)
-        sector = signal.get('sector', '')
+        is_fresh = signal.get('is_fresh', False)
+        days_since = signal.get('days_since_crossover')
 
-        strength_color = '#059669' if strength >= 70 else '#f59e0b' if strength >= 50 else '#6b7280'
+        rank_color = '#059669' if mom_rank and mom_rank <= 5 else '#6b7280'
         badge = '🔥' if is_strong else '📊'
 
+        fresh_chip = ''
+        if is_fresh and days_since is not None and days_since == 0:
+            fresh_chip = '<span style="display: inline-block; background-color: #059669; color: #ffffff; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 99px; margin-left: 8px;">NEW TODAY</span>'
+        elif is_fresh:
+            fresh_chip = f'<span style="display: inline-block; background-color: #d1fae5; color: #065f46; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 99px; margin-left: 8px;">FRESH</span>'
+
         return f"""
-        <div style="background-color: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 8px;">
+        <div style="background-color: {'#f0fdf4' if is_fresh else '#f9fafb'}; border-radius: 8px; padding: 16px; margin-bottom: 8px; {('border-left: 4px solid #059669;' if is_fresh else '')}">
             <table cellpadding="0" cellspacing="0" style="width: 100%;">
                 <tr>
                     <td>
                         <div style="font-size: 16px; font-weight: 600; color: #111827;">
-                            {badge} {symbol}
-                            {f'<span style="font-size: 12px; font-weight: 400; color: #6b7280; margin-left: 8px;">{sector}</span>' if sector else ''}
+                            {badge} {symbol}{fresh_chip}
                         </div>
                         <div style="font-size: 14px; color: #6b7280; margin-top: 4px;">
-                            ${price:.2f} &nbsp;•&nbsp; +{pct_above:.1f}% above avg
+                            ${price:.2f} &nbsp;•&nbsp; DWAP +{pct_above:.1f}%
                         </div>
                     </td>
                     <td style="text-align: right;">
-                        <div style="display: inline-block; background-color: {strength_color}; color: #ffffff; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 99px;">
-                            {strength:.0f}
+                        <div style="display: inline-block; background-color: {rank_color}; color: #ffffff; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 99px;">
+                            Mom #{mom_rank}
                         </div>
                     </td>
                 </tr>
             </table>
         </div>
+        """
+
+    def _watchlist_section(self, watchlist: List[Dict]) -> str:
+        """Generate HTML for watchlist (approaching trigger) section"""
+        if not watchlist:
+            return ''
+
+        rows = ""
+        for w in watchlist[:3]:
+            symbol = w.get('symbol', 'N/A')
+            price = w.get('price', 0)
+            distance = w.get('distance_to_trigger', 0)
+
+            rows += f"""
+            <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #fef3c7;">
+                    <span style="font-weight: 600;">{symbol}</span>
+                    <span style="color: #6b7280; font-size: 12px;"> ${price:.2f}</span>
+                </td>
+                <td style="padding: 8px 0; text-align: right; border-bottom: 1px solid #fef3c7;">
+                    <span style="display: inline-block; background-color: #fbbf24; color: #78350f; font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 99px;">
+                        +{distance:.1f}% to go
+                    </span>
+                </td>
+            </tr>
+            """
+
+        return f"""
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e;">
+                        👀 Watchlist — Approaching Trigger
+                    </h3>
+                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                        {rows}
+                    </table>
+                </div>
+            </td>
+        </tr>
         """
 
     def _positions_section(self, positions: List[Dict], total_pnl: float) -> str:
@@ -364,24 +416,26 @@ class EmailService:
         self,
         signals: List[Dict],
         market_regime: Dict,
-        date: Optional[datetime] = None
+        date: Optional[datetime] = None,
+        watchlist: List[Dict] = None
     ) -> str:
         """Generate plain text fallback for email"""
         if date is None:
             date = datetime.now()
+        watchlist = watchlist or []
 
         date_str = date.strftime("%A, %B %d, %Y")
-        strong_signals = [s for s in signals if s.get('is_strong')]
+        fresh_signals = [s for s in signals if s.get('is_fresh')]
 
         lines = [
-            f"STOCKER DAILY - {date_str}",
+            f"RIGACAP DAILY - {date_str}",
             "=" * 40,
             "",
             f"Market Regime: {market_regime.get('regime', 'N/A') if market_regime else 'N/A'}",
             f"SPY: ${market_regime.get('spy_price', 'N/A') if market_regime else 'N/A'}",
             f"VIX: {market_regime.get('vix_level', 'N/A') if market_regime else 'N/A'}",
             "",
-            f"TODAY'S SIGNALS ({len(strong_signals)} Strong)",
+            f"ENSEMBLE SIGNALS ({len(fresh_signals)} Fresh)",
             "-" * 40,
         ]
 
@@ -389,16 +443,24 @@ class EmailService:
             symbol = s.get('symbol', 'N/A')
             price = s.get('price', 0)
             pct = s.get('pct_above_dwap', 0)
-            strength = s.get('signal_strength', 0)
-            marker = "***" if s.get('is_strong') else ""
-            lines.append(f"{marker}{symbol}: ${price:.2f} (Score: {strength:.0f}) - +{pct:.1f}% above avg")
+            mom_rank = s.get('momentum_rank', 0)
+            fresh_tag = " [NEW TODAY]" if s.get('is_fresh') and s.get('days_since_crossover') == 0 else (" [FRESH]" if s.get('is_fresh') else "")
+            lines.append(f"  {symbol}: ${price:.2f} (Mom #{mom_rank}) - DWAP +{pct:.1f}%{fresh_tag}")
+
+        if not signals and watchlist:
+            lines.append(f"  No fresh signals — {len(watchlist)} stock(s) on watchlist")
+
+        if watchlist:
+            lines.extend(["", "WATCHLIST — APPROACHING TRIGGER:", "-" * 40])
+            for w in watchlist[:3]:
+                lines.append(f"  {w.get('symbol', 'N/A')}: ${w.get('price', 0):.2f} — +{w.get('distance_to_trigger', 0):.1f}% to go")
 
         lines.extend([
             "",
-            "View full details at: https://rigacap.com/dashboard",
+            "View full details at: https://rigacap.com/app",
             "",
             "---",
-            "RigaCap - AI-Powered Trading Signals",
+            "RigaCap - Ensemble Trading Signals",
             "Trading involves risk. Past performance does not guarantee future results."
         ])
 
@@ -410,35 +472,47 @@ class EmailService:
         signals: List[Dict],
         market_regime: Dict,
         positions: List[Dict] = None,
-        missed_opportunities: List[Dict] = None
+        missed_opportunities: List[Dict] = None,
+        watchlist: List[Dict] = None,
+        regime_forecast: Dict = None
     ) -> bool:
         """
         Send daily summary email to a subscriber
 
         Args:
             to_email: Subscriber email
-            signals: Today's signals
+            signals: Today's ensemble signals
             market_regime: Current market regime info
             positions: User's open positions
             missed_opportunities: Recent missed opportunities
+            watchlist: Stocks approaching trigger
+            regime_forecast: Regime forecast data
 
         Returns:
             True if sent successfully
         """
         positions = positions or []
         missed_opportunities = missed_opportunities or []
+        watchlist = watchlist or []
 
-        strong_count = len([s for s in signals if s.get('is_strong')])
-        subject = f"📊 RigaCap Daily: {strong_count} Strong Signals Found"
+        fresh_count = len([s for s in signals if s.get('is_fresh')])
+        if fresh_count > 0:
+            subject = f"📊 RigaCap Daily: {fresh_count} Ensemble Signal{'s' if fresh_count != 1 else ''}"
+        elif watchlist:
+            subject = f"📊 Market Update — {len(watchlist)} on Watchlist"
+        else:
+            subject = "📊 RigaCap Daily: Market Update"
 
         html = self.generate_daily_summary_html(
             signals=signals,
             market_regime=market_regime,
             positions=positions,
-            missed_opportunities=missed_opportunities
+            missed_opportunities=missed_opportunities,
+            watchlist=watchlist,
+            regime_forecast=regime_forecast
         )
 
-        text = self.generate_plain_text(signals, market_regime)
+        text = self.generate_plain_text(signals, market_regime, watchlist=watchlist)
 
         return await self.send_email(to_email, subject, html, text)
 
@@ -532,10 +606,11 @@ class EmailService:
                         ✨ Here's what you get:
                     </h2>
                     <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
-                        <li><strong>Daily AI-powered signals</strong> — Know exactly when to buy</li>
-                        <li><strong>6,500+ stocks scanned</strong> — Never miss an opportunity</li>
-                        <li><strong>Stop-loss & profit targets</strong> — Manage risk automatically</li>
-                        <li><strong>Market regime analysis</strong> — Bull or bear, we've got you</li>
+                        <li><strong>Daily Ensemble signals</strong> — Know exactly when to buy</li>
+                        <li><strong>Simple & Advanced views</strong> — See clear buy/sell actions or dive into technical details</li>
+                        <li><strong>Smart watchlist</strong> — Get alerted when stocks approach buy triggers</li>
+                        <li><strong>Trailing stop protection</strong> — Adaptive risk management</li>
+                        <li><strong>Market regime analysis</strong> — 7-regime detection across bull, bear, and recovery</li>
                         <li><strong>Daily email digest</strong> — Signals delivered to your inbox</li>
                         <li><strong>Portfolio tracking</strong> — See your P&L in real-time</li>
                     </ul>
@@ -557,9 +632,9 @@ class EmailService:
                 <!-- Pro Tip -->
                 <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px; margin: 24px 0;">
                     <p style="margin: 0; font-size: 14px; color: #92400e;">
-                        <strong>💡 Pro Tip:</strong> For the best results, focus on signals with
-                        a strength score above 70. These "Strong Signals" have the highest
-                        probability of success!
+                        <strong>💡 Pro Tip:</strong> Look for signals with the green BUY badge —
+                        these are fresh breakouts with the highest conviction. Toggle Advanced mode
+                        in the dashboard for full technical details.
                     </p>
                 </div>
 
@@ -596,16 +671,17 @@ Welcome to RigaCap, {first_name}!
 Your journey to smarter trading starts now.
 
 Here's what you get:
-- Daily AI-powered signals
-- 6,500+ stocks scanned daily
-- Stop-loss & profit targets
-- Market regime analysis
+- Daily Ensemble signals — know exactly when to buy
+- Simple & Advanced views — clear actions or full technical details
+- Smart watchlist — alerts when stocks approach buy triggers
+- Trailing stop protection — adaptive risk management
+- Market regime analysis — 7-regime detection
 - Daily email digest
 - Portfolio tracking
 
 Your 7-day free trial starts now. Visit https://rigacap.com/app to see today's signals!
 
-Pro Tip: Focus on signals with strength above 70 for the best results.
+Pro Tip: Look for signals with the green BUY badge — these are fresh breakouts with the highest conviction.
 
 Happy trading!
 The RigaCap Team
@@ -943,7 +1019,8 @@ Unsubscribe: https://rigacap.com/unsubscribe
         self,
         to_email: str,
         new_signals: List[Dict],
-        approaching: List[Dict] = None
+        approaching: List[Dict] = None,
+        market_regime: Dict = None
     ) -> bool:
         """
         Send alert when momentum stocks hit the breakout signal trigger.
@@ -952,6 +1029,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
             to_email: Recipient email
             new_signals: List of newly triggered breakout signals
             approaching: Optional list of stocks approaching trigger (watchlist)
+            market_regime: Current market regime info (regime, spy_price)
 
         Returns:
             True if sent successfully
@@ -971,11 +1049,14 @@ Unsubscribe: https://rigacap.com/unsubscribe
             short_mom = s.get('short_momentum', 0)
             crossover_date = s.get('dwap_crossover_date', 'Today')
 
+            days_since = s.get('days_since_crossover')
+            new_badge = '<span style="display: inline-block; background-color: #059669; color: #ffffff; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 99px; margin-left: 8px; vertical-align: middle;">NEW TODAY</span>' if days_since is not None and days_since == 0 else ''
+
             signal_rows += f"""
             <tr>
                 <td style="padding: 12px; border-bottom: 1px solid #d1fae5;">
                     <div style="font-size: 18px; font-weight: 700; color: #059669;">
-                        ⚡ {symbol}
+                        ⚡ {symbol}{new_badge}
                     </div>
                     <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">
                         Signal triggered on {crossover_date}
@@ -983,7 +1064,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
                 </td>
                 <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: right;">
                     <div style="font-size: 16px; font-weight: 600;">${price:.2f}</div>
-                    <div style="font-size: 12px; color: #059669;">+{pct_above:.1f}% above avg</div>
+                    <div style="font-size: 12px; color: #059669;">DWAP +{pct_above:.1f}%</div>
                 </td>
                 <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: center;">
                     <div style="background-color: #fef3c7; color: #92400e; font-size: 14px; font-weight: 600; padding: 4px 12px; border-radius: 99px; display: inline-block;">
@@ -1061,6 +1142,16 @@ Unsubscribe: https://rigacap.com/unsubscribe
             </td>
         </tr>
 
+        <!-- Regime Context -->
+        {f'''<tr>
+            <td style="padding: 24px 24px 0;">
+                <div style="text-align: center; font-size: 13px; color: #6b7280;">
+                    Market: <strong>{market_regime.get("regime", "").replace("_", " ").title()}</strong>
+                    &nbsp;•&nbsp; SPY ${market_regime.get("spy_price", "N/A")}
+                </div>
+            </td>
+        </tr>''' if market_regime else ''}
+
         <!-- Explanation -->
         <tr>
             <td style="padding: 24px;">
@@ -1069,6 +1160,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
                         <strong>Breakout Signals</strong> are stocks that pass ALL three Ensemble filters:
                         top momentum ranking, price breakout confirmation, and favorable risk profile.
                         These high-conviction signals have shown <strong>2.5x higher returns</strong> than single-factor signals.
+                        View the signal in your dashboard — toggle Advanced mode for full technical details.
                     </p>
                 </div>
             </td>
@@ -1138,19 +1230,21 @@ Unsubscribe: https://rigacap.com/unsubscribe
             "⚡ NEW BREAKOUT SIGNAL ALERT",
             "=" * 40,
             f"{len(new_signals)} momentum stock(s) just hit the signal trigger",
-            "",
-            "NEW SIGNALS:",
         ]
+        if market_regime:
+            text_lines.append(f"Market: {market_regime.get('regime', '').replace('_', ' ').title()} | SPY ${market_regime.get('spy_price', 'N/A')}")
+        text_lines.extend(["", "NEW SIGNALS:"])
         for s in new_signals[:10]:
+            fresh_tag = " [NEW TODAY]" if s.get('days_since_crossover') == 0 else ""
             text_lines.append(
-                f"  • {s.get('symbol')}: ${s.get('price', 0):.2f} (+{s.get('pct_above_dwap', 0):.1f}% above avg) - Mom #{s.get('momentum_rank', 0)}"
+                f"  • {s.get('symbol')}: ${s.get('price', 0):.2f} (DWAP +{s.get('pct_above_dwap', 0):.1f}%) - Mom #{s.get('momentum_rank', 0)}{fresh_tag}"
             )
 
         if approaching:
             text_lines.extend(["", "APPROACHING TRIGGER:"])
             for a in approaching[:5]:
                 text_lines.append(
-                    f"  • {a.get('symbol')}: ${a.get('price', 0):.2f} (+{a.get('pct_above_dwap', 0):.1f}% above avg) - {a.get('distance_to_trigger', 0):.1f}% to go"
+                    f"  • {a.get('symbol')}: ${a.get('price', 0):.2f} (DWAP +{a.get('pct_above_dwap', 0):.1f}%) - {a.get('distance_to_trigger', 0):.1f}% to go"
                 )
 
         text_lines.extend([
