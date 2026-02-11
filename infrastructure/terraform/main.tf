@@ -115,6 +115,8 @@ variable "lambda_image_tag" {
   default     = "latest"
 }
 
+data "aws_caller_identity" "current" {}
+
 locals {
   prefix = "${var.project_name}-${var.environment}"
 }
@@ -478,6 +480,7 @@ resource "aws_lambda_function" "api" {
       FROM_EMAIL            = var.smtp_user  # Use same as SMTP_USER
       FROM_NAME             = "RigaCap Signals"
       ADMIN_EMAILS          = var.admin_emails
+      STEP_FUNCTIONS_ARN    = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current.account_id}:stateMachine:${local.prefix}-walk-forward"
     }
   }
 
@@ -656,6 +659,124 @@ resource "aws_lambda_permission" "warmer" {
 }
 
 # ============================================================================
+# Step Functions - Walk-Forward Simulation
+# ============================================================================
+
+# IAM Role for Step Functions
+resource "aws_iam_role" "step_functions" {
+  name = "${local.prefix}-sfn-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "states.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# Allow Step Functions to invoke Lambda
+resource "aws_iam_role_policy" "step_functions_lambda" {
+  name = "${local.prefix}-sfn-lambda"
+  role = aws_iam_role.step_functions.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = "lambda:InvokeFunction"
+        Resource = aws_lambda_function.api.arn
+      }
+    ]
+  })
+}
+
+# Allow Step Functions to write CloudWatch logs
+resource "aws_iam_role_policy" "step_functions_logs" {
+  name = "${local.prefix}-sfn-logs"
+  role = aws_iam_role.step_functions.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogDelivery",
+          "logs:GetLogDelivery",
+          "logs:UpdateLogDelivery",
+          "logs:DeleteLogDelivery",
+          "logs:ListLogDeliveries",
+          "logs:PutResourcePolicy",
+          "logs:DescribeResourcePolicies",
+          "logs:DescribeLogGroups",
+          "logs:PutLogEvents",
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# CloudWatch Log Group for Step Functions
+resource "aws_cloudwatch_log_group" "step_functions" {
+  name              = "/aws/states/${local.prefix}-walk-forward"
+  retention_in_days = 30
+
+  tags = {
+    Name = "${local.prefix}-sfn-logs"
+  }
+}
+
+# Step Functions State Machine
+resource "aws_sfn_state_machine" "walk_forward" {
+  name     = "${local.prefix}-walk-forward"
+  role_arn = aws_iam_role.step_functions.arn
+
+  definition = templatefile("${path.module}/step-functions/walk-forward.json", {
+    lambda_arn = aws_lambda_function.api.arn
+  })
+
+  logging_configuration {
+    log_destination        = "${aws_cloudwatch_log_group.step_functions.arn}:*"
+    include_execution_data = true
+    level                  = "ERROR"
+  }
+
+  tags = {
+    Name = "${local.prefix}-walk-forward"
+  }
+}
+
+# Allow Lambda to start Step Functions executions
+resource "aws_iam_role_policy" "lambda_step_functions" {
+  name = "${local.prefix}-lambda-sfn"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "states:StartExecution",
+          "states:DescribeExecution"
+        ]
+        Resource = aws_sfn_state_machine.walk_forward.arn
+      }
+    ]
+  })
+}
+
+# ============================================================================
 # Outputs
 # ============================================================================
 
@@ -712,6 +833,11 @@ output "price_data_bucket" {
 output "ecr_repository_url" {
   value       = aws_ecr_repository.api.repository_url
   description = "ECR repository URL for Lambda container image"
+}
+
+output "step_functions_arn" {
+  value       = aws_sfn_state_machine.walk_forward.arn
+  description = "Step Functions state machine ARN for walk-forward simulations"
 }
 
 # ============================================================================

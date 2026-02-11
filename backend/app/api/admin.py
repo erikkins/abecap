@@ -1435,7 +1435,42 @@ async def start_walk_forward_async(
 
     print(f"[WALK-FORWARD] Pre-checks passed: {len(scanner_service.data_cache)} symbols loaded, SPY={'SPY' in scanner_service.data_cache}")
 
-    # Invoke Lambda asynchronously
+    # Try Step Functions first (handles long simulations), fall back to Lambda async, then sync
+    sfn_arn = os.environ.get('STEP_FUNCTIONS_ARN')
+    sfn_input = {
+        "job_id": job_id,
+        "start_date": start_date,
+        "end_date": end_date,
+        "frequency": frequency,
+        "min_score_diff": min_score_diff,
+        "enable_ai": enable_ai,
+        "max_symbols": max_symbols,
+        "strategy_id": strategy_id,
+        "n_trials": 30
+    }
+
+    if sfn_arn:
+        try:
+            sfn_client = boto3.client('stepfunctions', region_name='us-east-1')
+            import time
+            execution = sfn_client.start_execution(
+                stateMachineArn=sfn_arn,
+                name=f"wf-sim-{job_id}-{int(time.time())}",
+                input=json.dumps(sfn_input)
+            )
+            job.step_functions_arn = execution['executionArn']
+            await db.commit()
+            print(f"[WALK-FORWARD] Step Functions started for job {job_id}: {execution['executionArn']}")
+            return {
+                "job_id": job_id,
+                "status": "pending",
+                "execution_arn": execution['executionArn'],
+                "message": "Simulation started via Step Functions. Poll /status/{job_id} for results."
+            }
+        except Exception as sfn_err:
+            print(f"[WALK-FORWARD] Step Functions failed: {sfn_err}, falling back to Lambda async...")
+
+    # Fallback: invoke Lambda asynchronously
     try:
         lambda_client = boto3.client('lambda', region_name='us-east-1')
         payload = {

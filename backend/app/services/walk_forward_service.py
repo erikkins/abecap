@@ -9,7 +9,6 @@ emerging trends and adapt parameters dynamically.
 """
 
 import json
-import itertools
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field, asdict
@@ -19,12 +18,12 @@ import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.core.database import StrategyDefinition, WalkForwardSimulation
+from app.core.database import StrategyDefinition, WalkForwardSimulation, WalkForwardPeriodResult
 from app.services.backtester import BacktesterService
 from app.services.strategy_analyzer import StrategyAnalyzerService, CustomBacktester, StrategyParams, get_top_liquid_symbols
 from app.services.scanner import scanner_service
 from app.services.market_regime import market_regime_service, MarketRegime, REGIME_DEFINITIONS
-from app.services.scanner import scanner_service as regime_scanner_service
+from app.services.optuna_optimizer import StrategyOptimizer
 
 
 @dataclass
@@ -138,54 +137,6 @@ class WalkForwardService:
     - Adaptive scoring based on market regime
     - Enhanced metrics (Sortino, Calmar, Profit Factor, etc.)
     """
-
-    # Expanded parameter ranges for AI optimization
-    EXPANDED_AI_PARAM_RANGES = {
-        "momentum": {
-            # Risk Management
-            "trailing_stop_pct": [10, 12, 15, 18, 20],
-            "max_positions": [3, 4, 5, 6, 7],
-            "position_size_pct": [12, 15, 18, 20],
-            # Entry Timing
-            "short_momentum_days": [5, 10, 15],
-            "near_50d_high_pct": [3, 5, 7, 10],
-        },
-        "dwap": {
-            "dwap_threshold_pct": [3, 5, 7],
-            "stop_loss_pct": [6, 8, 10, 12],
-            "profit_target_pct": [15, 20, 25, 30],
-            "max_positions": [10, 15, 20],
-            "position_size_pct": [5, 6, 7],
-        },
-        "ensemble": {
-            # DWAP entry parameters
-            "dwap_threshold_pct": [4, 5, 6, 7],
-            # Risk Management (uses trailing stops like momentum)
-            "trailing_stop_pct": [10, 12, 15, 18],
-            "max_positions": [4, 5, 6, 7],
-            "position_size_pct": [12, 15, 18],
-            # Momentum quality filter
-            "near_50d_high_pct": [3, 5, 7],
-        }
-    }
-
-    # Coarse grid for Phase 1 (key parameters only)
-    COARSE_PARAM_RANGES = {
-        "momentum": {
-            "trailing_stop_pct": [12, 15, 18],
-            "max_positions": [4, 5, 6],
-            "position_size_pct": [15, 18],
-        },
-        "dwap": {
-            "stop_loss_pct": [7, 8, 9],
-            "profit_target_pct": [18, 20, 22],
-        },
-        "ensemble": {
-            "dwap_threshold_pct": [4, 5, 6],
-            "trailing_stop_pct": [12, 15],
-            "max_positions": [5, 6],
-        }
-    }
 
     def __init__(self):
         self.analyzer = StrategyAnalyzerService()
@@ -345,189 +296,83 @@ class WalkForwardService:
         as_of_date: datetime,
         strategy_type: str,
         lookback_days: int,
-        ticker_list: List[str]
+        ticker_list: List[str],
+        warm_start_params: Optional[Dict[str, Any]] = None,
+        n_trials: int = 30
     ) -> Optional[AIOptimizationResult]:
         """
-        Run AI parameter optimization using only data available at as_of_date.
+        Run AI parameter optimization using Optuna Bayesian search.
 
-        Uses two-phase smart grid optimization:
-        Phase 1: Coarse grid on key parameters (~18 combinations)
-        Phase 2: Fine-tune around best values (~30 additional combinations)
-
-        Applies regime-specific scoring weights for adaptive optimization.
+        Uses TPE (Tree-structured Parzen Estimator) over a continuous
+        parameter space with regime-specific constraints and warm-starting
+        from the previous period's best params.
         """
         regime = self._detect_market_regime_at_date(as_of_date)
 
-        # Build base params
-        if strategy_type == "momentum":
+        # Build base params (non-tuned parameters)
+        if strategy_type in ("momentum", "ensemble"):
             base_params = {
-                "short_momentum_days": 10,
                 "long_momentum_days": 60,
-                "trailing_stop_pct": 15.0,
-                "max_positions": 5,
-                "position_size_pct": 18.0,
                 "min_volume": 500_000,
                 "min_price": 20.0,
                 "market_filter_enabled": True,
-                "near_50d_high_pct": 5.0,
             }
         else:
             base_params = {
-                "dwap_threshold_pct": 5.0,
-                "stop_loss_pct": 8.0,
-                "profit_target_pct": 20.0,
-                "max_positions": 15,
-                "position_size_pct": 6.0,
                 "min_volume": 500_000,
                 "min_price": 20.0,
             }
 
-        # Apply regime-specific parameter adjustments to base
-        for param, adjustment in regime.param_adjustments.items():
-            if param in base_params:
-                base_params[param] = base_params[param] + adjustment
-
-        # Phase 1: Coarse grid optimization
-        coarse_ranges = self._get_regime_adjusted_ranges(
-            self.COARSE_PARAM_RANGES.get(strategy_type, {}),
-            regime
-        )
-
-        keys = list(coarse_ranges.keys())
-        values = [coarse_ranges[k] for k in keys]
-        phase1_combinations = [dict(zip(keys, combo)) for combo in itertools.product(*values)]
-
-        best_result = None
-        best_score = -float('inf')
-        best_combo = None
+        # Objective: merge Optuna-suggested params with base, run backtest, return score
         combinations_tested = 0
+        best_full_result = {"data": None}
 
-        # Test Phase 1 combinations
-        for combo in phase1_combinations:
-            test_params = {**base_params, **combo}
+        def objective(suggested_params: Dict[str, Any]) -> Optional[float]:
+            nonlocal combinations_tested
+            test_params = {**base_params, **suggested_params}
             result_data = self._test_param_combination(
                 test_params, strategy_type, as_of_date, lookback_days, ticker_list, regime
             )
             combinations_tested += 1
+            if result_data is None:
+                return None
+            # Track the full result for the best trial
+            if best_full_result["data"] is None or result_data["adaptive_score"] > best_full_result["data"]["adaptive_score"]:
+                best_full_result["data"] = result_data
+            return result_data["adaptive_score"]
 
-            if result_data and result_data["adaptive_score"] > best_score:
-                best_score = result_data["adaptive_score"]
-                best_result = result_data
-                best_combo = combo
+        optimizer = StrategyOptimizer()
+        opt_result = optimizer.optimize(
+            strategy_type=strategy_type,
+            objective_fn=objective,
+            regime_risk_level=regime.risk_level,
+            warm_start_params=warm_start_params,
+            n_trials=n_trials,
+            seed_date=as_of_date,
+        )
 
-        # Phase 2: Fine-tune around best values
-        if best_combo and strategy_type == "momentum":
-            fine_tune_ranges = self._get_fine_tune_ranges(best_combo, strategy_type)
-
-            for param_key, values_list in fine_tune_ranges.items():
-                for value in values_list:
-                    test_params = {**base_params, **best_combo, param_key: value}
-                    result_data = self._test_param_combination(
-                        test_params, strategy_type, as_of_date, lookback_days, ticker_list, regime
-                    )
-                    combinations_tested += 1
-
-                    if result_data and result_data["adaptive_score"] > best_score:
-                        best_score = result_data["adaptive_score"]
-                        best_result = result_data
-
-        if best_result:
+        if opt_result and best_full_result["data"]:
+            best = best_full_result["data"]
             return AIOptimizationResult(
                 date=as_of_date.strftime('%Y-%m-%d'),
-                best_params=best_result["full_params"],
-                expected_sharpe=best_result["sharpe_ratio"],
-                expected_return_pct=best_result["total_return_pct"],
+                best_params=best["full_params"],
+                expected_sharpe=best["sharpe_ratio"],
+                expected_return_pct=best["total_return_pct"],
                 strategy_type=strategy_type,
                 market_regime=regime.regime_type.value,
                 was_adopted=False,
                 reason="",
-                expected_sortino=best_result.get("sortino_ratio", 0),
-                expected_calmar=best_result.get("calmar_ratio", 0),
-                expected_profit_factor=best_result.get("profit_factor", 0),
-                expected_max_dd=best_result.get("max_drawdown_pct", 0),
+                expected_sortino=best.get("sortino_ratio", 0),
+                expected_calmar=best.get("calmar_ratio", 0),
+                expected_profit_factor=best.get("profit_factor", 0),
+                expected_max_dd=best.get("max_drawdown_pct", 0),
                 combinations_tested=combinations_tested,
                 regime_confidence=regime.confidence,
                 regime_risk_level=regime.risk_level,
-                adaptive_score=best_score
+                adaptive_score=opt_result["best_score"]
             )
 
         return None
-
-    def _get_regime_adjusted_ranges(
-        self,
-        base_ranges: Dict[str, List],
-        regime: MarketRegime
-    ) -> Dict[str, List]:
-        """
-        Adjust parameter ranges based on market regime.
-
-        For high-risk regimes, bias toward more conservative values.
-        For low-risk regimes, allow more aggressive values.
-        """
-        adjusted = {}
-
-        for param, values in base_ranges.items():
-            if regime.risk_level == "extreme":
-                # In panic/crash, prefer conservative (higher stops, fewer positions)
-                if param in ["trailing_stop_pct", "stop_loss_pct"]:
-                    adjusted[param] = [v for v in values if v >= 15] or values[-2:]
-                elif param == "max_positions":
-                    adjusted[param] = [v for v in values if v <= 4] or values[:2]
-                else:
-                    adjusted[param] = values
-            elif regime.risk_level == "high":
-                # Weak bear - slightly conservative
-                if param in ["trailing_stop_pct", "stop_loss_pct"]:
-                    adjusted[param] = [v for v in values if v >= 12] or values[-3:]
-                elif param == "max_positions":
-                    adjusted[param] = [v for v in values if v <= 5] or values[:3]
-                else:
-                    adjusted[param] = values
-            elif regime.risk_level == "low":
-                # Strong bull - can be more aggressive
-                if param in ["trailing_stop_pct", "stop_loss_pct"]:
-                    adjusted[param] = [v for v in values if v <= 15] or values[:3]
-                elif param == "max_positions":
-                    adjusted[param] = [v for v in values if v >= 5] or values[-3:]
-                else:
-                    adjusted[param] = values
-            else:
-                adjusted[param] = values
-
-        return adjusted
-
-    def _get_fine_tune_ranges(
-        self,
-        best_combo: Dict[str, Any],
-        strategy_type: str
-    ) -> Dict[str, List]:
-        """
-        Generate fine-tuning ranges around the best Phase 1 values.
-
-        Includes additional parameters not in Phase 1.
-        """
-        fine_tune = {}
-        expanded = self.EXPANDED_AI_PARAM_RANGES.get(strategy_type, {})
-
-        for param, full_values in expanded.items():
-            if param not in best_combo:
-                # New parameter - test a subset
-                fine_tune[param] = full_values[:3] if len(full_values) > 3 else full_values
-            else:
-                # Existing parameter - test adjacent values
-                best_val = best_combo[param]
-                if best_val in full_values:
-                    idx = full_values.index(best_val)
-                    # Get values ±1 step around best
-                    adjacent = []
-                    if idx > 0:
-                        adjacent.append(full_values[idx - 1])
-                    if idx < len(full_values) - 1:
-                        adjacent.append(full_values[idx + 1])
-                    if adjacent:
-                        fine_tune[param] = adjacent
-
-        return fine_tune
 
     def _test_param_combination(
         self,
@@ -734,7 +579,8 @@ class WalkForwardService:
         enable_ai_optimization: bool = True,
         max_symbols: int = 50,
         existing_job_id: int = None,
-        fixed_strategy_id: int = None  # If set, use only this strategy (no switching)
+        fixed_strategy_id: int = None,  # If set, use only this strategy (no switching)
+        n_trials: int = 30  # Number of Optuna optimization trials per period
     ) -> WalkForwardResult:
         """
         Run walk-forward simulation with AI optimization over a historical period.
@@ -778,14 +624,13 @@ class WalkForwardService:
             raise RuntimeError("No strategies found in database")
 
         # If fixed_strategy_id is set, find that strategy and disable switching
+        # AI optimization still runs if enabled (optimizes the fixed strategy's type)
         fixed_strategy = None
         if fixed_strategy_id:
             fixed_strategy = next((s for s in strategies if s.id == fixed_strategy_id), None)
             if not fixed_strategy:
                 raise RuntimeError(f"Strategy with id {fixed_strategy_id} not found")
-            print(f"[WF-SERVICE] Using FIXED strategy: {fixed_strategy.name} (id={fixed_strategy_id})")
-            # Disable AI optimization when using fixed strategy
-            enable_ai_optimization = False
+            print(f"[WF-SERVICE] Using FIXED strategy: {fixed_strategy.name} (id={fixed_strategy_id}), ai={enable_ai_optimization}")
 
         # Get top liquid symbols (use max_symbols param for full universe testing)
         top_symbols = get_top_liquid_symbols(max_symbols=max_symbols)
@@ -853,19 +698,22 @@ class WalkForwardService:
             "is_switch": False
         })
 
+        # Track previous period's best AI params for warm-starting
+        previous_best_params: Optional[Dict[str, Any]] = None
+
         # Process each period
         print(f"[WF-SERVICE] Starting simulation loop: {len(periods)} periods, initial capital=${capital:,.2f}")
         for i, (period_start, period_end) in enumerate(periods):
             print(f"[WF-SERVICE] Period {i+1}/{len(periods)}: {period_start.strftime('%Y-%m-%d')} to {period_end.strftime('%Y-%m-%d')}")
             period_ai_opt = None
 
-            # If using fixed strategy, skip all evaluation and switching
+            # If using fixed strategy, skip strategy evaluation (but AI optimization still runs)
             if fixed_strategy:
                 if i == 0:
                     # First period - set the fixed strategy as active
                     active_strategy = fixed_strategy
                     active_strategy_type = fixed_strategy.strategy_type
-                    active_strategy_score = 100.0  # Dummy score
+                    active_strategy_score = 0.0  # Let AI params beat this easily
                     switch_history.append(SwitchEvent(
                         date=period_start.strftime('%Y-%m-%d'),
                         from_strategy_id=None,
@@ -874,11 +722,11 @@ class WalkForwardService:
                         to_strategy_name=fixed_strategy.name,
                         reason="fixed_strategy_selected",
                         score_before=0,
-                        score_after=100.0,
+                        score_after=0.0,
                         is_ai_generated=False
                     ))
                     print(f"[WF-SERVICE] Using fixed strategy: {fixed_strategy.name}")
-                # Skip to trading simulation below
+                # Skip strategy evaluation but allow AI optimization below
                 evaluations = []
             else:
                 # Step 1: Evaluate all existing strategies
@@ -895,10 +743,13 @@ class WalkForwardService:
             # Step 2: Run AI optimization if enabled
             if enable_ai_optimization:
                 try:
-                    print(f"[WF-SERVICE] Running AI optimization for period {i+1}/{len(periods)}")
-                    # Run for primary strategy type (momentum)
+                    # Use the active strategy's type for AI optimization
+                    ai_strategy_type = active_strategy_type if active_strategy_type else "ensemble"
+                    print(f"[WF-SERVICE] Running AI optimization ({ai_strategy_type}) for period {i+1}/{len(periods)}")
                     ai_result = self._run_ai_optimization_at_date(
-                        period_start, "momentum", lookback_days, top_symbols
+                        period_start, ai_strategy_type, lookback_days, top_symbols,
+                        warm_start_params=previous_best_params,
+                        n_trials=n_trials
                     )
                     if ai_result:
                         period_ai_opt = ai_result
@@ -907,6 +758,7 @@ class WalkForwardService:
                         evaluations.append({
                             "strategy_id": None,
                             "name": f"AI-{ai_result.market_regime.replace('_', '-').title()}",
+                            "strategy_type": ai_result.strategy_type,
                             "sharpe_ratio": ai_result.expected_sharpe,
                             "total_return_pct": ai_result.expected_return_pct,
                             "max_drawdown_pct": ai_result.expected_max_dd,
@@ -969,7 +821,7 @@ class WalkForwardService:
                             ai_params=best.get("ai_params")
                         ))
                         active_params = best.get("ai_params")
-                        active_strategy_type = "momentum"
+                        active_strategy_type = best.get("strategy_type", active_strategy_type)
                         using_ai_params = True
                         active_strategy = None
                         active_strategy_score = best["score"]
@@ -1000,9 +852,10 @@ class WalkForwardService:
                             period_ai_opt.was_adopted = False
                             period_ai_opt.reason = "existing_strategy_better"
 
-            # Record AI optimization result
+            # Record AI optimization result and update warm-start params
             if period_ai_opt:
                 ai_optimizations.append(period_ai_opt)
+                previous_best_params = period_ai_opt.best_params
 
             # Record parameter snapshot
             if using_ai_params and active_params:
@@ -1225,6 +1078,679 @@ class WalkForwardService:
             errors=simulation_errors[:10],  # Include up to 10 errors
             trades=all_trades  # All trades across all periods
         )
+
+    # ========================================================================
+    # Step Functions methods: init, run_single_period, finalize
+    # ========================================================================
+
+    async def init_simulation(self, db: AsyncSession, config: dict) -> dict:
+        """
+        Initialize a walk-forward simulation for Step Functions execution.
+
+        Creates/updates the DB record, computes period dates, returns initial state.
+        The state dict is small (~2KB) and passes between Step Functions steps.
+
+        Args:
+            db: Database session
+            config: Dict with start_date, end_date, frequency, min_score_diff,
+                    enable_ai, max_symbols, strategy_id, n_trials, job_id
+
+        Returns:
+            State dict for Step Functions: simulation_id, period_index, total_periods,
+            capital, active_strategy_*, config, etc.
+        """
+        from datetime import datetime
+        import logging
+        logger = logging.getLogger()
+
+        start_date = datetime.strptime(config["start_date"], "%Y-%m-%d")
+        end_date = datetime.strptime(config["end_date"], "%Y-%m-%d")
+        frequency = config.get("frequency", "biweekly")
+        fixed_strategy_id = config.get("strategy_id")
+        enable_ai = config.get("enable_ai", True)
+
+        print(f"[WF-INIT] Initializing: {start_date} to {end_date}, freq={frequency}, "
+              f"ai={enable_ai}, fixed_strategy={fixed_strategy_id}")
+
+        # Load all strategies
+        result = await db.execute(
+            select(StrategyDefinition).order_by(StrategyDefinition.id)
+        )
+        strategies = result.scalars().all()
+        if not strategies:
+            raise RuntimeError("No strategies found in database")
+
+        # Validate fixed strategy
+        if fixed_strategy_id:
+            fixed = next((s for s in strategies if s.id == fixed_strategy_id), None)
+            if not fixed:
+                raise RuntimeError(f"Strategy with id {fixed_strategy_id} not found")
+            initial_strategy_id = fixed.id
+            initial_strategy_name = fixed.name
+            initial_strategy_type = fixed.strategy_type
+        else:
+            initial_strategy_id = strategies[0].id
+            initial_strategy_name = strategies[0].name
+            initial_strategy_type = strategies[0].strategy_type
+
+        # Compute period dates
+        periods = self._get_period_dates(start_date, end_date, frequency)
+        total_periods = len(periods)
+        print(f"[WF-INIT] {total_periods} periods, {len(strategies)} strategies")
+
+        # Get top symbols
+        top_symbols = get_top_liquid_symbols(max_symbols=config.get("max_symbols", 50))
+        if not top_symbols:
+            raise RuntimeError("No liquid symbols found. Ensure data is loaded.")
+
+        # Create or update simulation record
+        job_id = config.get("job_id")
+        if job_id:
+            result = await db.execute(
+                select(WalkForwardSimulation).where(WalkForwardSimulation.id == job_id)
+            )
+            sim = result.scalar_one_or_none()
+            if sim:
+                sim.status = "running"
+                await db.commit()
+            else:
+                raise RuntimeError(f"Simulation job {job_id} not found")
+        else:
+            sim = WalkForwardSimulation(
+                simulation_date=datetime.utcnow(),
+                start_date=start_date,
+                end_date=end_date,
+                reoptimization_frequency=frequency,
+                status="running",
+                total_return_pct=0,
+                sharpe_ratio=0,
+                max_drawdown_pct=0,
+                num_strategy_switches=0,
+                benchmark_return_pct=0,
+            )
+            db.add(sim)
+            await db.commit()
+            await db.refresh(sim)
+            job_id = sim.id
+
+        print(f"[WF-INIT] Simulation {job_id} initialized with {total_periods} periods")
+
+        # Return compact state for Step Functions (~2KB)
+        return {
+            "simulation_id": job_id,
+            "period_index": 0,
+            "total_periods": total_periods,
+            "capital": self.initial_capital,
+            "active_strategy_id": initial_strategy_id,
+            "active_strategy_name": initial_strategy_name,
+            "active_strategy_type": initial_strategy_type,
+            "active_strategy_score": 0.0,
+            "active_params": None,
+            "using_ai_params": False,
+            "warm_start_params": None,
+            "config": {
+                "start_date": config["start_date"],
+                "end_date": config["end_date"],
+                "frequency": frequency,
+                "min_score_diff": config.get("min_score_diff", 10.0),
+                "enable_ai": enable_ai,
+                "max_symbols": config.get("max_symbols", 50),
+                "strategy_id": fixed_strategy_id,
+                "n_trials": config.get("n_trials", 30),
+                "lookback_days": config.get("lookback_days", 60),
+            }
+        }
+
+    async def run_single_period(self, db: AsyncSession, state: dict) -> dict:
+        """
+        Run a single period of the walk-forward simulation.
+
+        Deterministically recomputes the period dates from config, evaluates
+        strategies, runs AI optimization if enabled, simulates trading,
+        and writes results to walk_forward_period_results table.
+
+        Args:
+            db: Database session
+            state: Current state dict from Step Functions
+
+        Returns:
+            Updated state dict with incremented period_index and new capital
+        """
+        import logging
+        logger = logging.getLogger()
+
+        period_index = state["period_index"]
+        simulation_id = state["simulation_id"]
+        capital = state["capital"]
+        config = state["config"]
+
+        start_date = datetime.strptime(config["start_date"], "%Y-%m-%d")
+        end_date = datetime.strptime(config["end_date"], "%Y-%m-%d")
+        frequency = config["frequency"]
+        min_score_diff = config["min_score_diff"]
+        enable_ai = config["enable_ai"]
+        fixed_strategy_id = config.get("strategy_id")
+        n_trials = config.get("n_trials", 30)
+        lookback_days = config.get("lookback_days", 60)
+
+        # Recompute period dates (deterministic from config)
+        periods = self._get_period_dates(start_date, end_date, frequency)
+        period_start, period_end = periods[period_index]
+
+        print(f"[WF-PERIOD] Period {period_index + 1}/{len(periods)}: "
+              f"{period_start.strftime('%Y-%m-%d')} to {period_end.strftime('%Y-%m-%d')}, "
+              f"capital=${capital:,.2f}")
+
+        # Load strategies from DB
+        result = await db.execute(
+            select(StrategyDefinition).order_by(StrategyDefinition.id)
+        )
+        strategies = result.scalars().all()
+
+        # Get top symbols
+        top_symbols = get_top_liquid_symbols(max_symbols=config.get("max_symbols", 50))
+
+        # Reconstruct active state from state dict
+        active_strategy = None
+        active_strategy_id = state["active_strategy_id"]
+        active_strategy_name = state["active_strategy_name"]
+        active_strategy_type = state["active_strategy_type"]
+        active_strategy_score = state["active_strategy_score"]
+        active_params = state.get("active_params")
+        using_ai_params = state.get("using_ai_params", False)
+        warm_start_params = state.get("warm_start_params")
+
+        if active_strategy_id and not using_ai_params:
+            active_strategy = next((s for s in strategies if s.id == active_strategy_id), None)
+
+        fixed_strategy = None
+        if fixed_strategy_id:
+            fixed_strategy = next((s for s in strategies if s.id == fixed_strategy_id), None)
+
+        # Track outputs for this period
+        switch_event = None
+        period_ai_opt = None
+        error_info = None
+
+        try:
+            # -- Strategy evaluation (same logic as run_walk_forward_simulation) --
+            if fixed_strategy:
+                if period_index == 0:
+                    active_strategy = fixed_strategy
+                    active_strategy_type = fixed_strategy.strategy_type
+                    active_strategy_score = 0.0
+                    switch_event = {
+                        "date": period_start.strftime('%Y-%m-%d'),
+                        "from_id": None,
+                        "from_name": "Initial",
+                        "to_id": fixed_strategy.id,
+                        "to_name": fixed_strategy.name,
+                        "reason": "fixed_strategy_selected",
+                        "score_before": 0,
+                        "score_after": 0.0,
+                        "is_ai_generated": False,
+                        "ai_params": None
+                    }
+                evaluations = []
+            else:
+                evaluations = []
+                for strategy in strategies:
+                    metrics = self._evaluate_strategy_at_date(
+                        strategy, period_start, lookback_days, ticker_list=top_symbols
+                    )
+                    if metrics:
+                        metrics["score"] = self._calculate_recommendation_score(metrics)
+                        metrics["is_ai"] = False
+                        evaluations.append(metrics)
+
+            # -- AI optimization --
+            if enable_ai:
+                try:
+                    ai_strategy_type = active_strategy_type if active_strategy_type else "ensemble"
+                    print(f"[WF-PERIOD] Running AI optimization ({ai_strategy_type})")
+                    ai_result = self._run_ai_optimization_at_date(
+                        period_start, ai_strategy_type, lookback_days, top_symbols,
+                        warm_start_params=warm_start_params,
+                        n_trials=n_trials
+                    )
+                    if ai_result:
+                        period_ai_opt = ai_result
+                        evaluations.append({
+                            "strategy_id": None,
+                            "name": f"AI-{ai_result.market_regime.replace('_', '-').title()}",
+                            "strategy_type": ai_result.strategy_type,
+                            "sharpe_ratio": ai_result.expected_sharpe,
+                            "total_return_pct": ai_result.expected_return_pct,
+                            "max_drawdown_pct": ai_result.expected_max_dd,
+                            "sortino_ratio": ai_result.expected_sortino,
+                            "calmar_ratio": ai_result.expected_calmar,
+                            "profit_factor": ai_result.expected_profit_factor,
+                            "score": ai_result.adaptive_score,
+                            "is_ai": True,
+                            "ai_params": ai_result.best_params,
+                            "market_regime": ai_result.market_regime,
+                            "regime_risk_level": ai_result.regime_risk_level,
+                            "regime_confidence": ai_result.regime_confidence,
+                            "combinations_tested": ai_result.combinations_tested
+                        })
+                except Exception as ai_err:
+                    print(f"[WF-PERIOD] AI optimization failed: {ai_err}")
+
+            # -- Switching logic --
+            if evaluations:
+                best = max(evaluations, key=lambda x: x["score"])
+                score_diff = best["score"] - active_strategy_score
+
+                should_switch = False
+                switch_reason = ""
+
+                if period_index == 0 and not fixed_strategy:
+                    should_switch = True
+                    switch_reason = "initial_selection"
+                elif score_diff >= min_score_diff:
+                    if best.get("is_ai"):
+                        if not using_ai_params:
+                            should_switch = True
+                            switch_reason = f"ai_optimization_+{score_diff:.1f}pts"
+                    elif best["strategy_id"] != active_strategy_id:
+                        should_switch = True
+                        switch_reason = f"strategy_switch_+{score_diff:.1f}pts"
+
+                if should_switch:
+                    if best.get("is_ai"):
+                        switch_event = {
+                            "date": period_start.strftime('%Y-%m-%d'),
+                            "from_id": active_strategy_id,
+                            "from_name": active_strategy_name,
+                            "to_id": None,
+                            "to_name": best["name"],
+                            "reason": switch_reason,
+                            "score_before": active_strategy_score,
+                            "score_after": best["score"],
+                            "is_ai_generated": True,
+                            "ai_params": best.get("ai_params")
+                        }
+                        active_params = best.get("ai_params")
+                        active_strategy_type = best.get("strategy_type", active_strategy_type)
+                        using_ai_params = True
+                        active_strategy = None
+                        active_strategy_id = None
+                        active_strategy_name = best["name"]
+                        active_strategy_score = best["score"]
+                        if period_ai_opt:
+                            period_ai_opt.was_adopted = True
+                            period_ai_opt.reason = switch_reason
+                    else:
+                        best_strategy = next(s for s in strategies if s.id == best["strategy_id"])
+                        switch_event = {
+                            "date": period_start.strftime('%Y-%m-%d'),
+                            "from_id": active_strategy_id,
+                            "from_name": active_strategy_name,
+                            "to_id": best_strategy.id,
+                            "to_name": best_strategy.name,
+                            "reason": switch_reason,
+                            "score_before": active_strategy_score,
+                            "score_after": best["score"],
+                            "is_ai_generated": False,
+                            "ai_params": None
+                        }
+                        active_strategy = best_strategy
+                        active_strategy_id = best_strategy.id
+                        active_strategy_name = best_strategy.name
+                        active_strategy_score = best["score"]
+                        active_params = None
+                        using_ai_params = False
+                        if period_ai_opt:
+                            period_ai_opt.was_adopted = False
+                            period_ai_opt.reason = "existing_strategy_better"
+
+            # Update warm-start params
+            if period_ai_opt:
+                warm_start_params = period_ai_opt.best_params
+
+            # -- Simulate trading --
+            strategy_name = active_strategy_name
+            period_trades = []
+            equity_points = []
+
+            if using_ai_params and active_params:
+                new_capital, period_return, info, period_trades = self._simulate_period_with_params(
+                    active_params, active_strategy_type, period_start, period_end,
+                    capital, ticker_list=top_symbols, strategy_name="AI-Optimized"
+                )
+                strategy_name = "AI-Optimized"
+                if info:
+                    error_info = info
+                equity_points = [
+                    {"date": period_start.strftime('%Y-%m-%d'), "equity": capital, "strategy": strategy_name},
+                    {"date": period_end.strftime('%Y-%m-%d'), "equity": new_capital, "strategy": strategy_name}
+                ]
+            elif active_strategy:
+                new_capital, eq_pts, period_return, info, period_trades = self._simulate_period_trading(
+                    active_strategy, period_start, period_end, capital, ticker_list=top_symbols
+                )
+                strategy_name = active_strategy.name
+                if info:
+                    error_info = info
+                equity_points = eq_pts if eq_pts else [
+                    {"date": period_start.strftime('%Y-%m-%d'), "equity": capital, "strategy": strategy_name},
+                    {"date": period_end.strftime('%Y-%m-%d'), "equity": new_capital, "strategy": strategy_name}
+                ]
+            else:
+                # No active strategy (shouldn't happen), keep capital flat
+                new_capital = capital
+                period_return = 0.0
+                error_info = f"Period {period_start.strftime('%Y-%m-%d')}: No active strategy"
+
+            # Build parameter snapshot
+            param_snapshot = None
+            if using_ai_params and active_params:
+                param_snapshot = {
+                    "date": period_start.strftime('%Y-%m-%d'),
+                    "strategy_name": "AI-Optimized",
+                    "strategy_type": active_strategy_type,
+                    "params": active_params,
+                    "source": "ai_generated"
+                }
+            elif active_strategy:
+                param_snapshot = {
+                    "date": period_start.strftime('%Y-%m-%d'),
+                    "strategy_name": active_strategy.name,
+                    "strategy_type": active_strategy.strategy_type,
+                    "params": json.loads(active_strategy.parameters),
+                    "source": "existing"
+                }
+
+        except Exception as e:
+            import traceback
+            error_info = f"Period {period_start.strftime('%Y-%m-%d')}: ERROR {str(e)}"
+            print(f"[WF-PERIOD] ERROR: {error_info}")
+            print(traceback.format_exc())
+            new_capital = capital
+            period_return = 0.0
+            period_trades = []
+            equity_points = []
+            param_snapshot = None
+
+        # -- Write period result to DB --
+        trades_data = json.dumps([
+            {
+                "period_start": t.period_start, "period_end": t.period_end,
+                "strategy_name": t.strategy_name, "symbol": t.symbol,
+                "entry_date": t.entry_date, "exit_date": t.exit_date,
+                "entry_price": t.entry_price, "exit_price": t.exit_price,
+                "shares": t.shares, "pnl_pct": t.pnl_pct,
+                "pnl_dollars": t.pnl_dollars, "exit_reason": t.exit_reason
+            }
+            for t in period_trades
+        ]) if period_trades else "[]"
+
+        ai_opt_data = None
+        if period_ai_opt:
+            ai_opt_data = json.dumps({
+                "date": period_ai_opt.date,
+                "best_params": period_ai_opt.best_params,
+                "expected_sharpe": period_ai_opt.expected_sharpe,
+                "expected_return_pct": period_ai_opt.expected_return_pct,
+                "strategy_type": period_ai_opt.strategy_type,
+                "market_regime": period_ai_opt.market_regime,
+                "was_adopted": period_ai_opt.was_adopted,
+                "reason": period_ai_opt.reason,
+                "adaptive_score": period_ai_opt.adaptive_score,
+                "combinations_tested": period_ai_opt.combinations_tested,
+            })
+
+        period_result = WalkForwardPeriodResult(
+            simulation_id=simulation_id,
+            period_index=period_index,
+            period_start=period_start,
+            period_end=period_end,
+            starting_capital=capital,
+            ending_capital=new_capital,
+            period_return_pct=period_return,
+            strategy_name=strategy_name,
+            strategy_type=active_strategy_type,
+            is_ai_params=using_ai_params,
+            switch_event_json=json.dumps(switch_event) if switch_event else None,
+            trades_json=trades_data,
+            equity_points_json=json.dumps(equity_points) if equity_points else None,
+            ai_optimization_json=ai_opt_data,
+            parameter_snapshot_json=json.dumps(param_snapshot) if param_snapshot else None,
+            error_info=error_info
+        )
+        db.add(period_result)
+        await db.commit()
+
+        print(f"[WF-PERIOD] Period {period_index + 1} done: ${capital:,.2f} -> ${new_capital:,.2f} "
+              f"({period_return:+.2f}%), {len(period_trades)} trades")
+
+        # Return updated state
+        return {
+            "simulation_id": simulation_id,
+            "period_index": period_index + 1,
+            "total_periods": state["total_periods"],
+            "capital": new_capital,
+            "active_strategy_id": active_strategy_id,
+            "active_strategy_name": active_strategy_name,
+            "active_strategy_type": active_strategy_type,
+            "active_strategy_score": active_strategy_score,
+            "active_params": active_params,
+            "using_ai_params": using_ai_params,
+            "warm_start_params": warm_start_params,
+            "config": config
+        }
+
+    async def finalize_simulation(self, db: AsyncSession, state: dict) -> dict:
+        """
+        Finalize a Step Functions walk-forward simulation.
+
+        Reads all period results from DB, computes aggregate metrics,
+        updates the simulation record, and cleans up period results.
+
+        Args:
+            db: Database session
+            state: Final state dict from Step Functions
+
+        Returns:
+            Summary dict with total_return, sharpe, max_dd, etc.
+        """
+        simulation_id = state["simulation_id"]
+        config = state["config"]
+        frequency = config["frequency"]
+
+        print(f"[WF-FINALIZE] Finalizing simulation {simulation_id}")
+
+        # Read all period results
+        result = await db.execute(
+            select(WalkForwardPeriodResult)
+            .where(WalkForwardPeriodResult.simulation_id == simulation_id)
+            .order_by(WalkForwardPeriodResult.period_index)
+        )
+        period_results = result.scalars().all()
+
+        if not period_results:
+            raise RuntimeError(f"No period results found for simulation {simulation_id}")
+
+        # Rebuild combined data from period results
+        equity_curve = []
+        switch_history = []
+        all_trades = []
+        simulation_errors = []
+        initial_capital = self.initial_capital
+
+        # Add initial equity point
+        start_date = datetime.strptime(config["start_date"], "%Y-%m-%d")
+        end_date = datetime.strptime(config["end_date"], "%Y-%m-%d")
+
+        # Get SPY benchmark data
+        spy_start_price = None
+        spy_df = None
+        if 'SPY' in scanner_service.data_cache:
+            spy_df = scanner_service.data_cache['SPY']
+            start_ts = pd.Timestamp(start_date)
+            if spy_df.index.tz is not None:
+                start_ts = start_ts.tz_localize(spy_df.index.tz) if start_ts.tz is None else start_ts.tz_convert(spy_df.index.tz)
+            spy_at_start = spy_df[spy_df.index >= start_ts]
+            if len(spy_at_start) > 0:
+                spy_start_price = spy_at_start.iloc[0]['close']
+
+        def get_spy_equity(date_str: str) -> float:
+            if spy_start_price is None or spy_df is None:
+                return None
+            try:
+                date_ts = pd.Timestamp(date_str)
+                if spy_df.index.tz is not None:
+                    date_ts = date_ts.tz_localize(spy_df.index.tz) if date_ts.tz is None else date_ts.tz_convert(spy_df.index.tz)
+                spy_at_date = spy_df[spy_df.index <= date_ts]
+                if len(spy_at_date) > 0:
+                    spy_price = spy_at_date.iloc[-1]['close']
+                    return initial_capital * (spy_price / spy_start_price)
+            except:
+                pass
+            return None
+
+        equity_curve.append({
+            "date": config["start_date"],
+            "equity": initial_capital,
+            "spy_equity": initial_capital,
+            "strategy": "Initial",
+            "is_switch": False
+        })
+
+        for pr in period_results:
+            # Collect switch events
+            if pr.switch_event_json:
+                switch_event = json.loads(pr.switch_event_json)
+                switch_history.append(switch_event)
+
+            # Collect trades
+            if pr.trades_json:
+                trades = json.loads(pr.trades_json)
+                all_trades.extend(trades)
+
+            # Collect errors
+            if pr.error_info:
+                simulation_errors.append(pr.error_info)
+
+            # Add equity curve point
+            date_str = pr.period_end.strftime('%Y-%m-%d') if pr.period_end else None
+            is_switch = pr.switch_event_json is not None
+            equity_curve.append({
+                "date": date_str,
+                "equity": pr.ending_capital,
+                "spy_equity": get_spy_equity(date_str) if date_str else None,
+                "strategy": pr.strategy_name,
+                "is_switch": is_switch,
+                "is_ai": pr.is_ai_params
+            })
+
+        # Calculate final metrics
+        final_capital = period_results[-1].ending_capital
+        total_return_pct = (final_capital - initial_capital) / initial_capital * 100
+
+        # Sharpe ratio from equity curve
+        if len(equity_curve) > 1:
+            returns = []
+            for i in range(1, len(equity_curve)):
+                prev_eq = equity_curve[i-1]["equity"]
+                curr_eq = equity_curve[i]["equity"]
+                if prev_eq > 0:
+                    returns.append((curr_eq - prev_eq) / prev_eq)
+            if returns:
+                periods_per_year = {"weekly": 52, "fast": 52, "biweekly": 26, "monthly": 12}.get(frequency, 26)
+                avg_return = np.mean(returns) * periods_per_year
+                std_return = np.std(returns) * np.sqrt(periods_per_year)
+                sharpe_ratio = avg_return / std_return if std_return > 0 else 0
+            else:
+                sharpe_ratio = 0
+        else:
+            sharpe_ratio = 0
+
+        # Max drawdown
+        peak = equity_curve[0]["equity"]
+        max_dd = 0
+        for point in equity_curve:
+            if point["equity"] > peak:
+                peak = point["equity"]
+            dd = (peak - point["equity"]) / peak * 100
+            if dd > max_dd:
+                max_dd = dd
+
+        # SPY benchmark return
+        benchmark_return_pct = 0.0
+        if spy_df is not None:
+            start_ts = pd.Timestamp(start_date)
+            end_ts = pd.Timestamp(end_date)
+            if spy_df.index.tz is not None:
+                start_ts = start_ts.tz_localize(spy_df.index.tz) if start_ts.tz is None else start_ts.tz_convert(spy_df.index.tz)
+                end_ts = end_ts.tz_localize(spy_df.index.tz) if end_ts.tz is None else end_ts.tz_convert(spy_df.index.tz)
+            spy_data = spy_df[(spy_df.index >= start_ts) & (spy_df.index <= end_ts)]
+            if len(spy_data) >= 2:
+                spy_start = spy_data.iloc[0]['close']
+                spy_end = spy_data.iloc[-1]['close']
+                benchmark_return_pct = (spy_end - spy_start) / spy_start * 100
+
+        # Serialize to JSON
+        switch_history_data = json.dumps(switch_history)
+        equity_curve_data = json.dumps(equity_curve)
+        errors_data = json.dumps(simulation_errors[:20])
+        trades_data = json.dumps(all_trades)
+
+        # Update simulation record
+        result = await db.execute(
+            select(WalkForwardSimulation).where(WalkForwardSimulation.id == simulation_id)
+        )
+        sim = result.scalar_one_or_none()
+        if sim:
+            sim.total_return_pct = round(total_return_pct, 2)
+            sim.sharpe_ratio = round(sharpe_ratio, 2)
+            sim.max_drawdown_pct = round(max_dd, 2)
+            sim.num_strategy_switches = len(switch_history) - 1 if switch_history else 0
+            sim.benchmark_return_pct = round(benchmark_return_pct, 2)
+            sim.switch_history_json = switch_history_data
+            sim.equity_curve_json = equity_curve_data
+            sim.errors_json = errors_data
+            sim.trades_json = trades_data
+            sim.status = "completed"
+
+        # Clean up period results (data now lives in simulation record)
+        for pr in period_results:
+            await db.delete(pr)
+
+        await db.commit()
+
+        summary = {
+            "simulation_id": simulation_id,
+            "status": "completed",
+            "total_return_pct": round(total_return_pct, 2),
+            "sharpe_ratio": round(sharpe_ratio, 2),
+            "max_drawdown_pct": round(max_dd, 2),
+            "benchmark_return_pct": round(benchmark_return_pct, 2),
+            "num_strategy_switches": len(switch_history) - 1 if switch_history else 0,
+            "total_trades": len(all_trades),
+            "total_periods": len(period_results),
+            "errors": len(simulation_errors),
+        }
+        print(f"[WF-FINALIZE] Complete: {summary}")
+        return summary
+
+    async def mark_simulation_failed(self, db: AsyncSession, state: dict, error: str = None) -> dict:
+        """Mark a simulation as failed in the database."""
+        simulation_id = state.get("simulation_id")
+        if not simulation_id:
+            return {"status": "error", "message": "No simulation_id in state"}
+
+        result = await db.execute(
+            select(WalkForwardSimulation).where(WalkForwardSimulation.id == simulation_id)
+        )
+        sim = result.scalar_one_or_none()
+        if sim:
+            sim.status = "failed"
+            if error:
+                sim.switch_history_json = json.dumps({"error": error})
+            await db.commit()
+
+        return {"status": "failed", "simulation_id": simulation_id, "error": error}
 
     async def get_simulation_history(
         self,

@@ -322,7 +322,8 @@ async def _run_walk_forward_job(job_config: dict):
                 enable_ai_optimization=job_config["enable_ai"],
                 max_symbols=job_config["max_symbols"],
                 existing_job_id=job_id,
-                fixed_strategy_id=job_config.get("strategy_id")
+                fixed_strategy_id=job_config.get("strategy_id"),
+                n_trials=job_config.get("n_trials", 30)
             )
 
             print(f"[ASYNC-WF] Job {job_id} completed: return={sim_result.total_return_pct}%")
@@ -550,6 +551,102 @@ def handler(event, context):
             asyncio.set_event_loop(loop)
         result = loop.run_until_complete(_run_walk_forward_job(job_config))
         return result
+
+    # Handle Step Functions walk-forward: init
+    if event.get("wf_init"):
+        print(f"📊 WF-INIT: Step Functions initialization")
+        config = event["wf_init"]
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _run_wf_init():
+            from app.services.walk_forward_service import walk_forward_service
+            async with async_session() as db:
+                return await walk_forward_service.init_simulation(db, config)
+
+        try:
+            result = loop.run_until_complete(_run_wf_init())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ WF-INIT failed: {e}")
+            print(traceback.format_exc())
+            return {"error": str(e)}
+
+    # Handle Step Functions walk-forward: single period
+    if event.get("wf_period"):
+        print(f"📊 WF-PERIOD: Processing period {event['wf_period'].get('period_index', '?')}")
+        state = event["wf_period"]
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _run_wf_period():
+            from app.services.walk_forward_service import walk_forward_service
+            async with async_session() as db:
+                return await walk_forward_service.run_single_period(db, state)
+
+        try:
+            result = loop.run_until_complete(_run_wf_period())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ WF-PERIOD failed: {e}")
+            print(traceback.format_exc())
+            # Don't kill the whole simulation — increment period and continue
+            return {
+                **state,
+                "period_index": state.get("period_index", 0) + 1,
+                "error": str(e)
+            }
+
+    # Handle Step Functions walk-forward: finalize
+    if event.get("wf_finalize"):
+        print(f"📊 WF-FINALIZE: Computing final metrics")
+        state = event["wf_finalize"]
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _run_wf_finalize():
+            from app.services.walk_forward_service import walk_forward_service
+            async with async_session() as db:
+                return await walk_forward_service.finalize_simulation(db, state)
+
+        try:
+            result = loop.run_until_complete(_run_wf_finalize())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ WF-FINALIZE failed: {e}")
+            print(traceback.format_exc())
+            return {"error": str(e), "simulation_id": state.get("simulation_id")}
+
+    # Handle Step Functions walk-forward: mark failed
+    if event.get("wf_fail"):
+        print(f"📊 WF-FAIL: Marking simulation as failed")
+        state = event["wf_fail"]
+        error_msg = state.get("error", "Unknown error in Step Functions execution")
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _run_wf_fail():
+            from app.services.walk_forward_service import walk_forward_service
+            async with async_session() as db:
+                return await walk_forward_service.mark_simulation_failed(db, state, error_msg)
+
+        try:
+            result = loop.run_until_complete(_run_wf_fail())
+            return result
+        except Exception as e:
+            print(f"❌ WF-FAIL handler itself failed: {e}")
+            return {"error": str(e)}
 
     # Handle backtest requests (direct Lambda invocation)
     if event.get("backtest_request"):

@@ -229,6 +229,38 @@ class WalkForwardSimulation(Base):
     trades_json = Column(Text)  # JSON array of trades executed during simulation
     status = Column(String(20), default="completed")  # pending/completed/failed
     is_daily_cache = Column(Boolean, default=False, index=True)  # For dashboard cached results
+    step_functions_arn = Column(String(500), nullable=True)  # Step Functions execution ARN
+
+    period_results = relationship("WalkForwardPeriodResult", back_populates="simulation", cascade="all, delete-orphan")
+
+
+class WalkForwardPeriodResult(Base):
+    """Per-period results for Step Functions walk-forward simulation.
+
+    Stores period data in DB instead of accumulating in Step Functions state
+    (which has a 256KB limit). Cleaned up after finalization.
+    """
+    __tablename__ = "walk_forward_period_results"
+
+    id = Column(Integer, primary_key=True)
+    simulation_id = Column(Integer, ForeignKey("walk_forward_simulations.id"), index=True, nullable=False)
+    period_index = Column(Integer, nullable=False)
+    period_start = Column(DateTime)
+    period_end = Column(DateTime)
+    starting_capital = Column(Float)
+    ending_capital = Column(Float)
+    period_return_pct = Column(Float)
+    strategy_name = Column(String(100))
+    strategy_type = Column(String(50))
+    is_ai_params = Column(Boolean, default=False)
+    switch_event_json = Column(Text)       # SwitchEvent dict or null
+    trades_json = Column(Text)             # Array of PeriodTrade dicts
+    equity_points_json = Column(Text)      # Equity curve points for this period
+    ai_optimization_json = Column(Text)    # AIOptimizationResult dict or null
+    parameter_snapshot_json = Column(Text)  # ParameterSnapshot dict or null
+    error_info = Column(Text)
+
+    simulation = relationship("WalkForwardSimulation", back_populates="period_results")
 
 
 class StrategyGenerationRun(Base):
@@ -421,6 +453,47 @@ async def _run_schema_migrations(conn):
             ADD COLUMN IF NOT EXISTS trades_json TEXT
         """))
         print("✅ Schema migration: trades_json column ready")
+    except Exception as e:
+        print(f"⚠️ Schema migration skipped: {e}")
+
+    # Migration: Add step_functions_arn column to walk_forward_simulations
+    try:
+        await conn.execute(text("""
+            ALTER TABLE walk_forward_simulations
+            ADD COLUMN IF NOT EXISTS step_functions_arn VARCHAR(500)
+        """))
+        print("✅ Schema migration: step_functions_arn column ready")
+    except Exception as e:
+        print(f"⚠️ Schema migration skipped: {e}")
+
+    # Migration: Create walk_forward_period_results table
+    try:
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS walk_forward_period_results (
+                id SERIAL PRIMARY KEY,
+                simulation_id INTEGER NOT NULL REFERENCES walk_forward_simulations(id),
+                period_index INTEGER NOT NULL,
+                period_start TIMESTAMP,
+                period_end TIMESTAMP,
+                starting_capital FLOAT,
+                ending_capital FLOAT,
+                period_return_pct FLOAT,
+                strategy_name VARCHAR(100),
+                strategy_type VARCHAR(50),
+                is_ai_params BOOLEAN DEFAULT FALSE,
+                switch_event_json TEXT,
+                trades_json TEXT,
+                equity_points_json TEXT,
+                ai_optimization_json TEXT,
+                parameter_snapshot_json TEXT,
+                error_info TEXT
+            )
+        """))
+        await conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_wfpr_simulation_id
+            ON walk_forward_period_results(simulation_id)
+        """))
+        print("✅ Schema migration: walk_forward_period_results table ready")
     except Exception as e:
         print(f"⚠️ Schema migration skipped: {e}")
 

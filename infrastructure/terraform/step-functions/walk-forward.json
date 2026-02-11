@@ -1,0 +1,176 @@
+{
+  "Comment": "Walk-Forward Simulation: iterates through periods, one Lambda invocation per period",
+  "StartAt": "Initialize",
+  "States": {
+    "Initialize": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${lambda_arn}",
+        "Payload": {
+          "wf_init.$": "$"
+        }
+      },
+      "ResultSelector": {
+        "simulation_id.$": "$.Payload.simulation_id",
+        "period_index.$": "$.Payload.period_index",
+        "total_periods.$": "$.Payload.total_periods",
+        "capital.$": "$.Payload.capital",
+        "active_strategy_id.$": "$.Payload.active_strategy_id",
+        "active_strategy_name.$": "$.Payload.active_strategy_name",
+        "active_strategy_type.$": "$.Payload.active_strategy_type",
+        "active_strategy_score.$": "$.Payload.active_strategy_score",
+        "active_params.$": "$.Payload.active_params",
+        "using_ai_params.$": "$.Payload.using_ai_params",
+        "warm_start_params.$": "$.Payload.warm_start_params",
+        "config.$": "$.Payload.config"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "MarkSimulationFailed",
+          "ResultPath": "$.error_info"
+        }
+      ],
+      "Next": "CheckInitResult"
+    },
+
+    "CheckInitResult": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.total_periods",
+          "NumericGreaterThan": 0,
+          "Next": "ProcessPeriod"
+        }
+      ],
+      "Default": "MarkSimulationFailed"
+    },
+
+    "ProcessPeriod": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${lambda_arn}",
+        "Payload": {
+          "wf_period.$": "$"
+        }
+      },
+      "ResultSelector": {
+        "simulation_id.$": "$.Payload.simulation_id",
+        "period_index.$": "$.Payload.period_index",
+        "total_periods.$": "$.Payload.total_periods",
+        "capital.$": "$.Payload.capital",
+        "active_strategy_id.$": "$.Payload.active_strategy_id",
+        "active_strategy_name.$": "$.Payload.active_strategy_name",
+        "active_strategy_type.$": "$.Payload.active_strategy_type",
+        "active_strategy_score.$": "$.Payload.active_strategy_score",
+        "active_params.$": "$.Payload.active_params",
+        "using_ai_params.$": "$.Payload.using_ai_params",
+        "warm_start_params.$": "$.Payload.warm_start_params",
+        "config.$": "$.Payload.config"
+      },
+      "TimeoutSeconds": 900,
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "MarkSimulationFailed",
+          "ResultPath": "$.error_info"
+        }
+      ],
+      "Next": "CheckPeriodsRemaining"
+    },
+
+    "CheckPeriodsRemaining": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.period_index",
+          "NumericLessThanPath": "$.total_periods",
+          "Next": "ProcessPeriod"
+        }
+      ],
+      "Default": "Finalize"
+    },
+
+    "Finalize": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${lambda_arn}",
+        "Payload": {
+          "wf_finalize.$": "$"
+        }
+      },
+      "ResultSelector": {
+        "simulation_id.$": "$.Payload.simulation_id",
+        "status.$": "$.Payload.status",
+        "total_return_pct.$": "$.Payload.total_return_pct",
+        "sharpe_ratio.$": "$.Payload.sharpe_ratio",
+        "max_drawdown_pct.$": "$.Payload.max_drawdown_pct",
+        "benchmark_return_pct.$": "$.Payload.benchmark_return_pct",
+        "total_trades.$": "$.Payload.total_trades",
+        "total_periods.$": "$.Payload.total_periods"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "MarkSimulationFailed",
+          "ResultPath": "$.error_info"
+        }
+      ],
+      "Next": "SimulationComplete"
+    },
+
+    "SimulationComplete": {
+      "Type": "Succeed"
+    },
+
+    "MarkSimulationFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${lambda_arn}",
+        "Payload": {
+          "wf_fail.$": "$"
+        }
+      },
+      "ResultSelector": {
+        "status.$": "$.Payload.status",
+        "simulation_id.$": "$.Payload.simulation_id",
+        "error.$": "$.Payload.error"
+      },
+      "Next": "SimulationFailed"
+    },
+
+    "SimulationFailed": {
+      "Type": "Fail",
+      "Error": "SimulationFailed",
+      "Cause": "Walk-forward simulation failed. Check CloudWatch logs for details."
+    }
+  }
+}
