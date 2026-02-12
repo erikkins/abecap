@@ -740,13 +740,23 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                     lines.push({ id: 'gain20', y: basePrice * 1.20 });
                   }
 
+                  // Include the current price (last point of the price line) as a
+                  // collision source — right-aligned labels sit where the price line ends
+                  const lastClose = chartDataWithLive.length > 0
+                    ? chartDataWithLive[chartDataWithLive.length - 1]?.close
+                    : null;
+                  if (lastClose) {
+                    lines.push({ id: '_price', y: lastClose });
+                  }
+
                   // For each line, check if its default label position would be
-                  // intersected by another line. If so, flip to the other side.
+                  // intersected by another line OR the price line. If so, flip.
                   // "Close" = within 3% of the line's price (label height zone).
                   const closenessThreshold = 0.03;
 
-                  const otherLinesNear = (myY, myId, side) => {
+                  const hasConflict = (myY, myId, side) => {
                     // side: 'above' or 'below' — check if another line sits in that zone
+                    if (!myY) return false;
                     return lines.some(l => {
                       if (l.id === myId) return false;
                       const diff = (l.y - myY) / myY;
@@ -755,30 +765,39 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                     });
                   };
 
+                  // Also check if the price line crosses through the label zone
+                  // (price is within threshold on either side of the reference line)
+                  const priceCrosses = (myY, myId) => {
+                    if (!myY || !lastClose) return false;
+                    if (myId === '_price') return false;
+                    const diff = Math.abs(lastClose - myY) / myY;
+                    return diff < closenessThreshold;
+                  };
+
                   // Default positions and their flip logic
-                  // Buy: label above (insideTopLeft), flip to below if another line is just above
-                  const buyAbove = !otherLinesNear(entryPrice, 'buy', 'above');
-                  const buyPos = buyAbove ? 'insideTopLeft' : 'insideBottomLeft';
+                  // Buy: label above left, flip below if another line/price is just above
+                  const buyConflictAbove = hasConflict(entryPrice, 'buy', 'above') || priceCrosses(entryPrice, 'buy');
+                  const buyPos = !buyConflictAbove ? 'insideTopLeft' : 'insideBottomLeft';
 
-                  // High: label above (insideTopRight), flip to below if crowded
+                  // High: label above right, flip below if crowded or price crosses
                   const highY = data?.high_water_mark;
-                  const highAbove = !otherLinesNear(highY, 'high', 'above');
-                  const highPos = highAbove ? 'insideTopRight' : 'insideBottomRight';
+                  const highConflictAbove = hasConflict(highY, 'high', 'above') || priceCrosses(highY, 'high');
+                  const highPos = !highConflictAbove ? 'insideTopRight' : 'insideBottomRight';
 
-                  // Stop: label below (insideBottomRight), flip to above if crowded
+                  // Stop: label below right, flip above if crowded or price crosses
                   const stopY = data?.trailing_stop_level;
-                  const stopBelow = !otherLinesNear(stopY, 'stop', 'below');
-                  const stopPos = stopBelow ? 'insideBottomRight' : 'insideTopRight';
+                  const stopConflictBelow = hasConflict(stopY, 'stop', 'below') || priceCrosses(stopY, 'stop');
+                  const stopPos = !stopConflictBelow ? 'insideBottomRight' : 'insideTopRight';
 
-                  // +20%: label above (insideTopRight), flip to below if crowded
+                  // +20%: label above right, flip below if crowded or price crosses
                   const gain20Y = basePrice ? basePrice * 1.20 : 0;
-                  const gain20Above = !otherLinesNear(gain20Y, 'gain20', 'above');
-                  const gain20Pos = gain20Above ? 'insideTopRight' : 'insideBottomRight';
+                  const gain20ConflictAbove = hasConflict(gain20Y, 'gain20', 'above') || priceCrosses(gain20Y, 'gain20');
+                  const gain20Pos = !gain20ConflictAbove ? 'insideTopRight' : 'insideBottomRight';
 
-                  // Sell (missed): label above (insideTopRight), flip if crowded
+                  // Sell (missed): label above right, flip if crowded or price crosses
                   const sellY = data?.sell_price;
-                  const sellAbove = !otherLinesNear(sellY, 'sell', 'above');
-                  const sellPos = sellAbove ? 'insideTopRight' : 'insideBottomRight';
+                  const sellConflictAbove = hasConflict(sellY, 'sell', 'above') || priceCrosses(sellY, 'sell');
+                  const sellPos = !sellConflictAbove ? 'insideTopRight' : 'insideBottomRight';
 
                   return (
                     <>
