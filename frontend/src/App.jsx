@@ -828,7 +828,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                           strokeWidth={2}
                           strokeDasharray="8 4"
                           label={{
-                            value: `Sell $${sellY.toFixed(2)} (+20%)`,
+                            value: `Sell $${sellY.toFixed(2)}${data?.exit_reason ? ` (${data.exit_reason.replace(/_/g, ' ')})` : ''}`,
                             fill: '#F59E0B',
                             fontWeight: 'bold',
                             fontSize: 12,
