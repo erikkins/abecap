@@ -899,6 +899,10 @@ async def get_dashboard_data(
     except Exception as e:
         print(f"Recent signals error: {e}")
 
+    # Filter out stocks the user already holds from buy signals
+    open_position_syms = {pg.get('symbol', '') for pg in positions_with_guidance}
+    buy_signals = [s for s in buy_signals if s['symbol'] not in open_position_syms]
+
     return {
         'regime_forecast': regime_forecast_data,
         'buy_signals': buy_signals,
