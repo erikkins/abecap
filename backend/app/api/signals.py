@@ -508,17 +508,28 @@ async def get_dashboard_data(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user_optional),
     momentum_top_n: int = 20,
-    fresh_days: int = 5
+    fresh_days: int = 5,
+    as_of_date: Optional[str] = None,
 ):
     """
     Unified dashboard endpoint.
 
     Returns buy signals (ensemble), sell guidance for positions,
     regime forecast, watchlist, and market stats in one call.
+
+    Admin-only: pass as_of_date=YYYY-MM-DD to view the dashboard
+    as it would have appeared on that historical date.
     """
     from app.core.config import settings
     from app.services.market_regime import market_regime_service, RegimeForecast
     import pandas as pd
+
+    # --- Time-travel mode (admin only) ---
+    effective_date = None
+    if as_of_date:
+        if not user or not user.is_admin():
+            raise HTTPException(status_code=403, detail="Admin only")
+        effective_date = pd.Timestamp(as_of_date).normalize()
 
     if not scanner_service.data_cache:
         raise HTTPException(status_code=503, detail="Price data not loaded")
@@ -533,7 +544,8 @@ async def get_dashboard_data(
             regime_forecast_obj = market_regime_service.predict_transitions(
                 spy_df=spy_df,
                 universe_dfs=scanner_service.data_cache,
-                vix_df=vix_df
+                vix_df=vix_df,
+                as_of_date=effective_date,
             )
             regime_forecast_data = regime_forecast_obj.to_dict()
     except Exception as e:
@@ -545,10 +557,10 @@ async def get_dashboard_data(
     buy_signals = []
     try:
         # Get DWAP signals and momentum rankings
-        dwap_signals = await scanner_service.scan(refresh_data=False, apply_market_filter=True)
+        dwap_signals = await scanner_service.scan(refresh_data=False, apply_market_filter=True, as_of_date=effective_date)
         dwap_by_symbol = {s.symbol: s for s in dwap_signals}
 
-        momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True)
+        momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True, as_of_date=effective_date)
         momentum_by_symbol = {
             r.symbol: {'rank': i + 1, 'data': r}
             for i, r in enumerate(momentum_rankings[:momentum_top_n])
@@ -565,7 +577,7 @@ async def get_dashboard_data(
                 rank_score = (momentum_top_n - mom_rank + 1) * 2.5
                 ensemble_score = dwap_score + rank_score
 
-                crossover_date, days_since = find_dwap_crossover_date(symbol)
+                crossover_date, days_since = find_dwap_crossover_date(symbol, as_of_date=effective_date)
                 is_fresh = days_since is not None and days_since <= fresh_days
 
                 buy_signals.append({
@@ -595,46 +607,47 @@ async def get_dashboard_data(
     except Exception as e:
         print(f"Buy signals error: {e}")
 
-    # --- Positions with sell guidance ---
+    # --- Positions with sell guidance (skip in time-travel mode) ---
     positions_with_guidance = []
-    try:
-        if user is None:
-            open_positions = []
-        else:
-            result = await db.execute(
-                select(Position).where(Position.status == 'open', Position.user_id == user.id)
-            )
-            open_positions = result.scalars().all()
+    if not effective_date:
+        try:
+            if user is None:
+                open_positions = []
+            else:
+                result = await db.execute(
+                    select(Position).where(Position.status == 'open', Position.user_id == user.id)
+                )
+                open_positions = result.scalars().all()
 
-        pos_dicts = []
-        for p in open_positions:
-            # Look up current price from data cache (Position table has no current_price column)
-            current_price = p.entry_price
-            df = scanner_service.data_cache.get(p.symbol)
-            if df is not None and len(df) > 0:
-                current_price = float(df.iloc[-1]['close'])
-            pos_dicts.append({
-                'id': p.id,
-                'symbol': p.symbol,
-                'shares': float(p.shares),
-                'entry_price': float(p.entry_price),
-                'entry_date': p.created_at.strftime('%Y-%m-%d') if p.created_at else None,
-                'current_price': current_price,
-                'highest_price': float(getattr(p, 'highest_price', None) or p.entry_price),
-            })
+            pos_dicts = []
+            for p in open_positions:
+                # Look up current price from data cache (Position table has no current_price column)
+                current_price = p.entry_price
+                df = scanner_service.data_cache.get(p.symbol)
+                if df is not None and len(df) > 0:
+                    current_price = float(df.iloc[-1]['close'])
+                pos_dicts.append({
+                    'id': p.id,
+                    'symbol': p.symbol,
+                    'shares': float(p.shares),
+                    'entry_price': float(p.entry_price),
+                    'entry_date': p.created_at.strftime('%Y-%m-%d') if p.created_at else None,
+                    'current_price': current_price,
+                    'highest_price': float(getattr(p, 'highest_price', None) or p.entry_price),
+                })
 
-        if pos_dicts:
-            positions_with_guidance = scanner_service.generate_sell_signals(
-                positions=pos_dicts,
-                regime_forecast=regime_forecast_obj,
-            )
-    except Exception as e:
-        print(f"Positions guidance error: {e}")
+            if pos_dicts:
+                positions_with_guidance = scanner_service.generate_sell_signals(
+                    positions=pos_dicts,
+                    regime_forecast=regime_forecast_obj,
+                )
+        except Exception as e:
+            print(f"Positions guidance error: {e}")
 
     # --- Watchlist (approaching trigger) ---
     watchlist = []
     try:
-        momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True)
+        momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True, as_of_date=effective_date)
         top_momentum = {
             r.symbol: {'rank': i + 1, 'data': r}
             for i, r in enumerate(momentum_rankings[:momentum_top_n])
@@ -644,6 +657,11 @@ async def get_dashboard_data(
             df = scanner_service.data_cache.get(symbol)
             if df is None or len(df) < 1:
                 continue
+
+            if effective_date:
+                df = df[df.index <= effective_date]
+                if len(df) < 1:
+                    continue
 
             row = df.iloc[-1]
             price = row['close']
@@ -676,6 +694,11 @@ async def get_dashboard_data(
     try:
         spy_df = scanner_service.data_cache.get('SPY')
         vix_df = scanner_service.data_cache.get('^VIX')
+        if effective_date:
+            if spy_df is not None:
+                spy_df = spy_df[spy_df.index <= effective_date]
+            if vix_df is not None:
+                vix_df = vix_df[vix_df.index <= effective_date]
         if spy_df is not None and len(spy_df) > 0:
             market_stats['spy_price'] = round(float(spy_df.iloc[-1]['close']), 2)
         if vix_df is not None and len(vix_df) > 0:
@@ -688,216 +711,218 @@ async def get_dashboard_data(
     except Exception as e:
         print(f"Market stats error: {e}")
 
-    # --- Missed opportunities (from nightly WF cache, with on-the-fly fallback) ---
+    # --- Missed opportunities (skip in time-travel mode) ---
     missed_opportunities = []
-    TRAILING_STOP_PCT = 0.15  # 15% trailing stop for missed-opportunity simulation
-    try:
-        from app.core.database import WalkForwardSimulation
-        import json as _json
+    if not effective_date:
+        TRAILING_STOP_PCT = 0.15  # 15% trailing stop for missed-opportunity simulation
+        try:
+            from app.core.database import WalkForwardSimulation
+            import json as _json
 
-        # Try to read from nightly WF cache first
-        nightly_result = await db.execute(
-            select(WalkForwardSimulation)
-            .where(WalkForwardSimulation.is_nightly_missed_opps == True)
-            .where(WalkForwardSimulation.status == "completed")
-            .order_by(desc(WalkForwardSimulation.simulation_date))
-            .limit(1)
-        )
-        nightly_sim = nightly_result.scalar_one_or_none()
+            # Try to read from nightly WF cache first
+            nightly_result = await db.execute(
+                select(WalkForwardSimulation)
+                .where(WalkForwardSimulation.is_nightly_missed_opps == True)
+                .where(WalkForwardSimulation.status == "completed")
+                .order_by(desc(WalkForwardSimulation.simulation_date))
+                .limit(1)
+            )
+            nightly_sim = nightly_result.scalar_one_or_none()
 
-        if nightly_sim and nightly_sim.trades_json:
-            # Parse trades from nightly WF simulation
-            trades = _json.loads(nightly_sim.trades_json)
+            if nightly_sim and nightly_sim.trades_json:
+                # Parse trades from nightly WF simulation
+                trades = _json.loads(nightly_sim.trades_json)
 
-            # Get open position symbols to exclude
-            open_syms = set()
-            for pg in positions_with_guidance:
-                open_syms.add(pg.get('symbol', ''))
+                # Get open position symbols to exclude
+                open_syms = set()
+                for pg in positions_with_guidance:
+                    open_syms.add(pg.get('symbol', ''))
 
-            for trade in trades:
-                symbol = trade.get('symbol', '')
-                if symbol in open_syms:
-                    continue
-
-                exit_reason = trade.get('exit_reason', '')
-                entry_price = float(trade.get('entry_price', 0))
-                entry_date_str = str(trade.get('entry_date', ''))[:10]
-
-                # For simulation_end trades, re-simulate with trailing stop
-                # using all available price data (the sim ended early, but we
-                # have more data — find where the 15% trailing stop would hit)
-                if exit_reason == 'simulation_end':
-                    df = scanner_service.data_cache.get(symbol)
-                    if df is None or len(df) < 50 or entry_price <= 0:
+                for trade in trades:
+                    symbol = trade.get('symbol', '')
+                    if symbol in open_syms:
                         continue
 
-                    # Find entry date in price data and simulate forward
-                    entry_ts = pd.Timestamp(entry_date_str)
-                    mask = df.index >= entry_ts
-                    if not mask.any():
-                        continue
-                    post_entry = df.loc[mask]
+                    exit_reason = trade.get('exit_reason', '')
+                    entry_price = float(trade.get('entry_price', 0))
+                    entry_date_str = str(trade.get('entry_date', ''))[:10]
 
-                    high_water = entry_price
-                    sell_price = None
-                    sell_date = None
-                    for idx, row in post_entry.iterrows():
-                        price_j = float(row['close'])
-                        high_water = max(high_water, price_j)
-                        trailing_stop = high_water * (1 - TRAILING_STOP_PCT)
-                        if price_j <= trailing_stop:
-                            sell_price = price_j
-                            sell_date = idx
-                            break
+                    # For simulation_end trades, re-simulate with trailing stop
+                    # using all available price data (the sim ended early, but we
+                    # have more data — find where the 15% trailing stop would hit)
+                    if exit_reason == 'simulation_end':
+                        df = scanner_service.data_cache.get(symbol)
+                        if df is None or len(df) < 50 or entry_price <= 0:
+                            continue
 
-                    if sell_price is None:
-                        continue  # Trailing stop never hit — position still alive
-
-                    pnl_pct = (sell_price / entry_price - 1) * 100
-                    if pnl_pct <= 5.0:
-                        continue
-
-                    days_held = (sell_date - entry_ts).days
-
-                    missed_opportunities.append({
-                        'symbol': symbol,
-                        'entry_date': entry_date_str,
-                        'entry_price': round(entry_price, 2),
-                        'sell_date': sell_date.strftime('%Y-%m-%d') if hasattr(sell_date, 'strftime') else str(sell_date)[:10],
-                        'sell_price': round(sell_price, 2),
-                        'would_be_return': round(pnl_pct, 1),
-                        'would_be_pnl': round((sell_price - entry_price) * 100, 0),
-                        'days_held': int(days_held),
-                        'strategy_name': trade.get('strategy_name', 'Ensemble'),
-                        'exit_reason': 'trailing_stop',
-                    })
-                else:
-                    # Normal exit (trailing_stop, regime, etc.) — keep as-is
-                    pnl_pct = trade.get('pnl_pct', 0)
-                    if pnl_pct <= 5.0:
-                        continue
-
-                    exit_date = trade.get('exit_date', '')
-                    exit_price = trade.get('exit_price', 0)
-                    days_held = trade.get('days_held', 0)
-
-                    missed_opportunities.append({
-                        'symbol': symbol,
-                        'entry_date': entry_date_str,
-                        'entry_price': round(float(entry_price), 2),
-                        'sell_date': str(exit_date)[:10],
-                        'sell_price': round(float(exit_price), 2),
-                        'would_be_return': round(float(pnl_pct), 1),
-                        'would_be_pnl': round((float(exit_price) - float(entry_price)) * 100, 0),
-                        'days_held': int(days_held),
-                        'strategy_name': trade.get('strategy_name', 'Ensemble'),
-                        'exit_reason': exit_reason,
-                    })
-
-            missed_opportunities.sort(key=lambda x: x['would_be_return'], reverse=True)
-            missed_opportunities = missed_opportunities[:5]
-        else:
-            # Fallback: compute on-the-fly from price data
-            lookback = 90
-            min_price = settings.MIN_PRICE
-            min_volume = settings.MIN_VOLUME
-
-            open_syms = set()
-            for pg in positions_with_guidance:
-                open_syms.add(pg.get('symbol', ''))
-
-            for symbol, df in scanner_service.data_cache.items():
-                if df is None or len(df) < 250 or symbol in ('SPY', '^VIX'):
-                    continue
-                if symbol in open_syms:
-                    continue
-                if 'dwap' not in df.columns:
-                    continue
-
-                recent = df.tail(lookback + 60)
-                if len(recent) < lookback:
-                    continue
-
-                closes = recent['close'].values
-                volumes = recent['volume'].values if 'volume' in recent.columns else None
-                dwaps = recent['dwap'].values
-                dates = recent.index
-
-                for i in range(1, min(lookback, len(recent) - 1)):
-                    if dwaps[i] <= 0 or pd.isna(dwaps[i]) or dwaps[i-1] <= 0 or pd.isna(dwaps[i-1]):
-                        continue
-                    if closes[i] < min_price:
-                        continue
-                    if volumes is not None and volumes[i] < min_volume:
-                        continue
-
-                    prev_pct = (closes[i-1] / dwaps[i-1] - 1)
-                    curr_pct = (closes[i] / dwaps[i] - 1)
-
-                    if prev_pct < 0.05 and curr_pct >= 0.05:
-                        entry_price = float(closes[i])
-                        entry_date = dates[i]
+                        # Find entry date in price data and simulate forward
+                        entry_ts = pd.Timestamp(entry_date_str)
+                        mask = df.index >= entry_ts
+                        if not mask.any():
+                            continue
+                        post_entry = df.loc[mask]
 
                         high_water = entry_price
                         sell_price = None
                         sell_date = None
-
-                        for j in range(i + 1, len(recent)):
-                            price_j = float(closes[j])
+                        for idx, row in post_entry.iterrows():
+                            price_j = float(row['close'])
                             high_water = max(high_water, price_j)
                             trailing_stop = high_water * (1 - TRAILING_STOP_PCT)
                             if price_j <= trailing_stop:
                                 sell_price = price_j
-                                sell_date = dates[j]
+                                sell_date = idx
                                 break
 
-                        # Skip if trailing stop never hit — position still alive
                         if sell_price is None:
-                            break
+                            continue  # Trailing stop never hit — position still alive
 
                         pnl_pct = (sell_price / entry_price - 1) * 100
-                        days_held = (sell_date - entry_date).days
+                        if pnl_pct <= 5.0:
+                            continue
 
-                        if pnl_pct > 5.0:
-                            missed_opportunities.append({
-                                'symbol': symbol,
-                                'entry_date': entry_date.strftime('%Y-%m-%d') if hasattr(entry_date, 'strftime') else str(entry_date)[:10],
-                                'entry_price': round(entry_price, 2),
-                                'sell_date': sell_date.strftime('%Y-%m-%d') if hasattr(sell_date, 'strftime') else str(sell_date)[:10],
-                                'sell_price': round(sell_price, 2),
-                                'would_be_return': round(pnl_pct, 1),
-                                'would_be_pnl': round((sell_price - entry_price) * 100, 0),
-                                'days_held': int(days_held),
-                            })
-                        break
+                        days_held = (sell_date - entry_ts).days
 
-            missed_opportunities.sort(key=lambda x: x['would_be_return'], reverse=True)
-            missed_opportunities = missed_opportunities[:5]
-    except Exception as e:
-        print(f"Missed opportunities error: {e}")
+                        missed_opportunities.append({
+                            'symbol': symbol,
+                            'entry_date': entry_date_str,
+                            'entry_price': round(entry_price, 2),
+                            'sell_date': sell_date.strftime('%Y-%m-%d') if hasattr(sell_date, 'strftime') else str(sell_date)[:10],
+                            'sell_price': round(sell_price, 2),
+                            'would_be_return': round(pnl_pct, 1),
+                            'would_be_pnl': round((sell_price - entry_price) * 100, 0),
+                            'days_held': int(days_held),
+                            'strategy_name': trade.get('strategy_name', 'Ensemble'),
+                            'exit_reason': 'trailing_stop',
+                        })
+                    else:
+                        # Normal exit (trailing_stop, regime, etc.) — keep as-is
+                        pnl_pct = trade.get('pnl_pct', 0)
+                        if pnl_pct <= 5.0:
+                            continue
 
-    # --- Recent signals with performance ---
+                        exit_date = trade.get('exit_date', '')
+                        exit_price = trade.get('exit_price', 0)
+                        days_held = trade.get('days_held', 0)
+
+                        missed_opportunities.append({
+                            'symbol': symbol,
+                            'entry_date': entry_date_str,
+                            'entry_price': round(float(entry_price), 2),
+                            'sell_date': str(exit_date)[:10],
+                            'sell_price': round(float(exit_price), 2),
+                            'would_be_return': round(float(pnl_pct), 1),
+                            'would_be_pnl': round((float(exit_price) - float(entry_price)) * 100, 0),
+                            'days_held': int(days_held),
+                            'strategy_name': trade.get('strategy_name', 'Ensemble'),
+                            'exit_reason': exit_reason,
+                        })
+
+                missed_opportunities.sort(key=lambda x: x['would_be_return'], reverse=True)
+                missed_opportunities = missed_opportunities[:5]
+            else:
+                # Fallback: compute on-the-fly from price data
+                lookback = 90
+                min_price = settings.MIN_PRICE
+                min_volume = settings.MIN_VOLUME
+
+                open_syms = set()
+                for pg in positions_with_guidance:
+                    open_syms.add(pg.get('symbol', ''))
+
+                for symbol, df in scanner_service.data_cache.items():
+                    if df is None or len(df) < 250 or symbol in ('SPY', '^VIX'):
+                        continue
+                    if symbol in open_syms:
+                        continue
+                    if 'dwap' not in df.columns:
+                        continue
+
+                    recent = df.tail(lookback + 60)
+                    if len(recent) < lookback:
+                        continue
+
+                    closes = recent['close'].values
+                    volumes = recent['volume'].values if 'volume' in recent.columns else None
+                    dwaps = recent['dwap'].values
+                    dates = recent.index
+
+                    for i in range(1, min(lookback, len(recent) - 1)):
+                        if dwaps[i] <= 0 or pd.isna(dwaps[i]) or dwaps[i-1] <= 0 or pd.isna(dwaps[i-1]):
+                            continue
+                        if closes[i] < min_price:
+                            continue
+                        if volumes is not None and volumes[i] < min_volume:
+                            continue
+
+                        prev_pct = (closes[i-1] / dwaps[i-1] - 1)
+                        curr_pct = (closes[i] / dwaps[i] - 1)
+
+                        if prev_pct < 0.05 and curr_pct >= 0.05:
+                            entry_price = float(closes[i])
+                            entry_date = dates[i]
+
+                            high_water = entry_price
+                            sell_price = None
+                            sell_date = None
+
+                            for j in range(i + 1, len(recent)):
+                                price_j = float(closes[j])
+                                high_water = max(high_water, price_j)
+                                trailing_stop = high_water * (1 - TRAILING_STOP_PCT)
+                                if price_j <= trailing_stop:
+                                    sell_price = price_j
+                                    sell_date = dates[j]
+                                    break
+
+                            # Skip if trailing stop never hit — position still alive
+                            if sell_price is None:
+                                break
+
+                            pnl_pct = (sell_price / entry_price - 1) * 100
+                            days_held = (sell_date - entry_date).days
+
+                            if pnl_pct > 5.0:
+                                missed_opportunities.append({
+                                    'symbol': symbol,
+                                    'entry_date': entry_date.strftime('%Y-%m-%d') if hasattr(entry_date, 'strftime') else str(entry_date)[:10],
+                                    'entry_price': round(entry_price, 2),
+                                    'sell_date': sell_date.strftime('%Y-%m-%d') if hasattr(sell_date, 'strftime') else str(sell_date)[:10],
+                                    'sell_price': round(sell_price, 2),
+                                    'would_be_return': round(pnl_pct, 1),
+                                    'would_be_pnl': round((sell_price - entry_price) * 100, 0),
+                                    'days_held': int(days_held),
+                                })
+                            break
+
+                missed_opportunities.sort(key=lambda x: x['would_be_return'], reverse=True)
+                missed_opportunities = missed_opportunities[:5]
+        except Exception as e:
+            print(f"Missed opportunities error: {e}")
+
+    # --- Recent signals with performance (skip in time-travel mode) ---
     recent_signals = []
-    try:
-        result = await db.execute(
-            select(Signal).where(Signal.signal_type == 'BUY')
-            .order_by(desc(Signal.created_at)).limit(5)
-        )
-        for sig in result.scalars().all():
-            current_price = None
-            df = scanner_service.data_cache.get(sig.symbol)
-            if df is not None and len(df) > 0:
-                current_price = round(float(df.iloc[-1]['close']), 2)
-            perf_pct = round((current_price / sig.price - 1) * 100, 1) if current_price and sig.price > 0 else None
-            recent_signals.append({
-                'symbol': sig.symbol,
-                'signal_date': sig.created_at.strftime('%Y-%m-%d'),
-                'signal_price': round(float(sig.price), 2),
-                'current_price': current_price,
-                'performance_pct': perf_pct,
-            })
-    except Exception as e:
-        print(f"Recent signals error: {e}")
+    if not effective_date:
+        try:
+            result = await db.execute(
+                select(Signal).where(Signal.signal_type == 'BUY')
+                .order_by(desc(Signal.created_at)).limit(5)
+            )
+            for sig in result.scalars().all():
+                current_price = None
+                df = scanner_service.data_cache.get(sig.symbol)
+                if df is not None and len(df) > 0:
+                    current_price = round(float(df.iloc[-1]['close']), 2)
+                perf_pct = round((current_price / sig.price - 1) * 100, 1) if current_price and sig.price > 0 else None
+                recent_signals.append({
+                    'symbol': sig.symbol,
+                    'signal_date': sig.created_at.strftime('%Y-%m-%d'),
+                    'signal_price': round(float(sig.price), 2),
+                    'current_price': current_price,
+                    'performance_pct': perf_pct,
+                })
+        except Exception as e:
+            print(f"Recent signals error: {e}")
 
     # Filter out stocks the user already holds from buy signals
     open_position_syms = {pg.get('symbol', '') for pg in positions_with_guidance}
@@ -911,6 +936,7 @@ async def get_dashboard_data(
         'market_stats': market_stats,
         'recent_signals': recent_signals,
         'missed_opportunities': missed_opportunities,
+        'as_of_date': as_of_date,
         'generated_at': datetime.now().isoformat(),
     }
 
@@ -1019,7 +1045,7 @@ class DoubleSignalsResponse(BaseModel):
     generated_at: str
 
 
-def find_dwap_crossover_date(symbol: str, threshold_pct: float = 5.0, lookback_days: int = 60) -> tuple:
+def find_dwap_crossover_date(symbol: str, threshold_pct: float = 5.0, lookback_days: int = 60, as_of_date=None) -> tuple:
     """
     Find when a stock first crossed above DWAP threshold in recent history.
     Returns (crossover_date, days_since) or (None, None) if not found.
@@ -1029,6 +1055,12 @@ def find_dwap_crossover_date(symbol: str, threshold_pct: float = 5.0, lookback_d
     df = scanner_service.data_cache.get(symbol)
     if df is None or len(df) < 200:
         return None, None
+
+    # Time-travel: truncate to as_of_date
+    if as_of_date:
+        df = df[df.index <= as_of_date]
+        if len(df) < 200:
+            return None, None
 
     # Look at recent history (last N trading days)
     recent = df.tail(lookback_days)

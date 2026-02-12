@@ -467,7 +467,7 @@ class ScannerService:
             df['dist_from_50d_high'] = self.distance_from_high(df['close'], 50)
         return df
 
-    def rank_stocks_momentum(self, apply_market_filter: bool = True) -> List[MomentumSignalData]:
+    def rank_stocks_momentum(self, apply_market_filter: bool = True, as_of_date=None) -> List[MomentumSignalData]:
         """
         Rank all stocks by momentum composite score (v2 strategy)
 
@@ -503,6 +503,12 @@ class ScannerService:
             # Ensure momentum indicators are computed
             df = self._ensure_momentum_indicators(df)
             self.data_cache[symbol] = df
+
+            # Time-travel: truncate to as_of_date after indicators computed on full df
+            if as_of_date:
+                df = df[df.index <= pd.Timestamp(as_of_date).normalize()]
+                if len(df) < settings.LONG_MOMENTUM_DAYS + 20:
+                    continue
 
             row = df.iloc[-1]
             price = row['close']
@@ -540,6 +546,7 @@ class ScannerService:
             # Calculate trailing stop
             trailing_stop = price * (1 - settings.TRAILING_STOP_PCT / 100)
 
+            signal_ts = str(as_of_date)[:10] if as_of_date else datetime.now().isoformat()
             candidates.append(MomentumSignalData(
                 symbol=symbol,
                 rank=0,  # Will be set after sorting
@@ -553,7 +560,7 @@ class ScannerService:
                 dist_from_50d_high=round(dist_from_high, 2),
                 passes_quality_filter=passes_quality,
                 trailing_stop=round(trailing_stop, 2),
-                timestamp=datetime.now().isoformat()
+                timestamp=signal_ts
             ))
 
         # Sort by composite score (highest first), prioritizing quality filter pass
@@ -568,7 +575,7 @@ class ScannerService:
 
         return candidates
 
-    def analyze_stock(self, symbol: str) -> Optional[SignalData]:
+    def analyze_stock(self, symbol: str, as_of_date=None) -> Optional[SignalData]:
         """
         Analyze single stock for buy signals
 
@@ -591,6 +598,12 @@ class ScannerService:
         # Ensure indicators are computed (lazy computation)
         df = self._ensure_indicators(df)
         self.data_cache[symbol] = df  # Cache the computed indicators
+
+        # Time-travel: truncate to as_of_date after indicators computed on full df
+        if as_of_date:
+            df = df[df.index <= pd.Timestamp(as_of_date).normalize()]
+            if len(df) < 200:
+                return None
 
         # Current values
         row = df.iloc[-1]
@@ -630,6 +643,7 @@ class ScannerService:
         stop_loss = price * (1 - settings.STOP_LOSS_PCT / 100)
         profit_target = price * (1 + settings.PROFIT_TARGET_PCT / 100)
         
+        signal_ts = str(as_of_date)[:10] if as_of_date else datetime.now().isoformat()
         return SignalData(
             symbol=symbol,
             signal_type='BUY',
@@ -644,14 +658,15 @@ class ScannerService:
             ma_200=round(ma_200, 2),
             high_52w=round(h_52w, 2),
             is_strong=is_strong,
-            timestamp=datetime.now().isoformat()
+            timestamp=signal_ts
         )
     
     async def scan(
         self,
         refresh_data: bool = True,
         apply_market_filter: bool = True,
-        min_signal_strength: float = 0
+        min_signal_strength: float = 0,
+        as_of_date=None
     ) -> List[SignalData]:
         """
         Run full market scan with market regime awareness
@@ -664,6 +679,10 @@ class ScannerService:
         Returns:
             List of SignalData objects sorted by signal strength
         """
+        # Time-travel mode: never refresh data (we need historical data intact)
+        if as_of_date:
+            refresh_data = False
+
         # In Lambda mode, always try to load from S3 cache first (faster than yfinance)
         import os
         is_lambda = os.environ.get("ENVIRONMENT") == "prod"
@@ -715,7 +734,7 @@ class ScannerService:
         self.signals = []
 
         for symbol in self.data_cache:
-            signal = self.analyze_stock(symbol)
+            signal = self.analyze_stock(symbol, as_of_date=as_of_date)
             if not signal:
                 continue
 
