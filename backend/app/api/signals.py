@@ -9,7 +9,8 @@ from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel
 
-from app.core.database import get_db, Signal, Position
+from app.core.database import get_db, Signal, Position, User
+from app.core.security import get_current_user_optional
 from app.services.scanner import scanner_service, SignalData
 from app.services.stock_universe import stock_universe_service
 from app.services.data_export import data_export_service
@@ -505,6 +506,7 @@ class DashboardResponse(BaseModel):
 @router.get("/dashboard")
 async def get_dashboard_data(
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_optional),
     momentum_top_n: int = 20,
     fresh_days: int = 5
 ):
@@ -596,10 +598,13 @@ async def get_dashboard_data(
     # --- Positions with sell guidance ---
     positions_with_guidance = []
     try:
-        result = await db.execute(
-            select(Position).where(Position.status == 'open')
-        )
-        open_positions = result.scalars().all()
+        if user is None:
+            open_positions = []
+        else:
+            result = await db.execute(
+                select(Position).where(Position.status == 'open', Position.user_id == user.id)
+            )
+            open_positions = result.scalars().all()
 
         pos_dicts = []
         for p in open_positions:

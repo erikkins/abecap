@@ -28,7 +28,8 @@ from sqlalchemy import select, desc, func
 import pandas as pd
 
 from app.core.config import settings
-from app.core.database import init_db, get_db, Position as DBPosition, Trade as DBTrade, Signal as DBSignal, async_session
+from app.core.database import init_db, get_db, Position as DBPosition, Trade as DBTrade, Signal as DBSignal, User, async_session
+from app.core.security import get_current_user
 from app.api.signals import router as signals_router
 from app.api.email import router as email_router
 from app.api.auth import router as auth_router
@@ -1515,11 +1516,11 @@ async def get_cached_walk_forward(db: AsyncSession = Depends(get_db)):
 # ============================================================================
 
 @app.get("/api/portfolio/positions", response_model=PositionsListResponse)
-async def get_positions(db: AsyncSession = Depends(get_db)):
+async def get_positions(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Get all open positions with current prices (split-adjusted)"""
 
     result = await db.execute(
-        select(DBPosition).where(DBPosition.status == "open").order_by(desc(DBPosition.created_at))
+        select(DBPosition).where(DBPosition.status == "open", DBPosition.user_id == user.id).order_by(desc(DBPosition.created_at))
     )
     db_positions = result.scalars().all()
 
@@ -1614,7 +1615,7 @@ async def get_positions(db: AsyncSession = Depends(get_db)):
 
 
 @app.post("/api/portfolio/positions")
-async def open_position(request: OpenPositionRequest, db: AsyncSession = Depends(get_db)):
+async def open_position(request: OpenPositionRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Open a new position"""
     symbol = request.symbol.upper()
 
@@ -1631,6 +1632,7 @@ async def open_position(request: OpenPositionRequest, db: AsyncSession = Depends
     shares = request.shares or (10000 / price)  # Default ~$10k position
 
     position = DBPosition(
+        user_id=user.id,
         symbol=symbol,
         entry_date=datetime.now(),
         entry_price=price,
@@ -1659,10 +1661,10 @@ async def open_position(request: OpenPositionRequest, db: AsyncSession = Depends
 
 
 @app.delete("/api/portfolio/positions/{position_id}")
-async def close_position(position_id: int, exit_price: Optional[float] = None, db: AsyncSession = Depends(get_db)):
+async def close_position(position_id: int, exit_price: Optional[float] = None, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Close a position and record the trade (with split-adjusted prices)"""
 
-    result = await db.execute(select(DBPosition).where(DBPosition.id == position_id))
+    result = await db.execute(select(DBPosition).where(DBPosition.id == position_id, DBPosition.user_id == user.id))
     position = result.scalar_one_or_none()
 
     if not position:
@@ -1698,6 +1700,7 @@ async def close_position(position_id: int, exit_price: Optional[float] = None, d
 
     # Record trade with split-adjusted entry price
     trade = DBTrade(
+        user_id=user.id,
         position_id=position.id,
         symbol=position.symbol,
         entry_date=position.entry_date,
@@ -1730,11 +1733,11 @@ async def close_position(position_id: int, exit_price: Optional[float] = None, d
 
 
 @app.get("/api/portfolio/trades")
-async def get_trades(limit: int = 50, db: AsyncSession = Depends(get_db)):
+async def get_trades(limit: int = 50, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Get trade history"""
 
     result = await db.execute(
-        select(DBTrade).order_by(desc(DBTrade.exit_date)).limit(limit)
+        select(DBTrade).where(DBTrade.user_id == user.id).order_by(desc(DBTrade.exit_date)).limit(limit)
     )
     trades = result.scalars().all()
 
@@ -1759,7 +1762,7 @@ async def get_trades(limit: int = 50, db: AsyncSession = Depends(get_db)):
 
 
 @app.get("/api/portfolio/equity")
-async def get_equity_curve(db: AsyncSession = Depends(get_db)):
+async def get_equity_curve(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Get equity curve based on trade history
 
@@ -1767,7 +1770,7 @@ async def get_equity_curve(db: AsyncSession = Depends(get_db)):
     TODO: Implement proper daily equity tracking.
     """
     result = await db.execute(
-        select(DBTrade).order_by(DBTrade.exit_date)
+        select(DBTrade).where(DBTrade.user_id == user.id).order_by(DBTrade.exit_date)
     )
     trades = result.scalars().all()
 
@@ -1855,7 +1858,7 @@ async def get_stock_history(symbol: str, days: int = 252):
 # ============================================================================
 
 @app.get("/api/quotes/live")
-async def get_live_quotes(symbols: str = ""):
+async def get_live_quotes(symbols: str = "", user: User = Depends(get_current_user)):
     """
     Get live/current quotes for symbols.
 
@@ -1878,7 +1881,7 @@ async def get_live_quotes(symbols: str = ""):
         try:
             async with async_session() as db:
                 result = await db.execute(
-                    select(DBPosition.symbol).where(DBPosition.status == 'open').distinct()
+                    select(DBPosition.symbol).where(DBPosition.status == 'open', DBPosition.user_id == user.id).distinct()
                 )
                 symbol_list = [row[0] for row in result.fetchall()]
         except:

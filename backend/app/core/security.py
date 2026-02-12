@@ -121,7 +121,7 @@ async def get_current_user_optional(
     db: AsyncSession = Depends(get_db)
 ):
     """Get the current user if authenticated, otherwise return None."""
-    from app.models.user import User
+    from app.core.database import User
 
     if credentials is None:
         return None

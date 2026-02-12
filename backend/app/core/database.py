@@ -79,8 +79,9 @@ class Signal(Base):
 class Position(Base):
     """Open trading positions"""
     __tablename__ = "positions"
-    
+
     id = Column(Integer, primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     symbol = Column(String(10), index=True, nullable=False)
     entry_date = Column(DateTime, nullable=False)
     entry_price = Column(Float, nullable=False)
@@ -98,8 +99,9 @@ class Position(Base):
 class Trade(Base):
     """Completed trades"""
     __tablename__ = "trades"
-    
+
     id = Column(Integer, primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     position_id = Column(Integer, ForeignKey("positions.id"))
     symbol = Column(String(10), index=True, nullable=False)
     entry_date = Column(DateTime, nullable=False)
@@ -558,6 +560,31 @@ async def _run_schema_migrations(conn):
             ON walk_forward_period_results(simulation_id)
         """))
         print("✅ Schema migration: walk_forward_period_results table ready")
+    except Exception as e:
+        print(f"⚠️ Schema migration skipped: {e}")
+
+    # Migration: Add user_id to positions and trades tables
+    try:
+        await conn.execute(text("""
+            ALTER TABLE positions ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id)
+        """))
+        await conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_positions_user_id ON positions(user_id)
+        """))
+        await conn.execute(text("""
+            ALTER TABLE trades ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id)
+        """))
+        await conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_trades_user_id ON trades(user_id)
+        """))
+        # Assign orphaned rows to admin
+        await conn.execute(text("""
+            UPDATE positions SET user_id = (SELECT id FROM users WHERE email = 'erik@rigacap.com') WHERE user_id IS NULL
+        """))
+        await conn.execute(text("""
+            UPDATE trades SET user_id = (SELECT id FROM users WHERE email = 'erik@rigacap.com') WHERE user_id IS NULL
+        """))
+        print("✅ Schema migration: user_id columns on positions/trades ready")
     except Exception as e:
         print(f"⚠️ Schema migration skipped: {e}")
 
