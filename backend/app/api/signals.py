@@ -534,6 +534,12 @@ async def get_dashboard_data(
     if not scanner_service.data_cache:
         raise HTTPException(status_code=503, detail="Price data not loaded")
 
+    def _truncate_df(df, ts):
+        """Truncate dataframe to timestamp, handling tz-aware indices."""
+        if hasattr(df.index, 'tz') and df.index.tz is not None and ts.tz is None:
+            ts = ts.tz_localize(df.index.tz)
+        return df[df.index <= ts]
+
     # --- Regime forecast ---
     regime_forecast_data = None
     regime_forecast_obj = None
@@ -661,7 +667,7 @@ async def get_dashboard_data(
                 continue
 
             if effective_date:
-                df = df[df.index <= effective_date]
+                df = _truncate_df(df, effective_date)
                 if len(df) < 1:
                     continue
 
@@ -698,9 +704,9 @@ async def get_dashboard_data(
         vix_df = scanner_service.data_cache.get('^VIX')
         if effective_date:
             if spy_df is not None:
-                spy_df = spy_df[spy_df.index <= effective_date]
+                spy_df = _truncate_df(spy_df, effective_date)
             if vix_df is not None:
-                vix_df = vix_df[vix_df.index <= effective_date]
+                vix_df = _truncate_df(vix_df, effective_date)
         if spy_df is not None and len(spy_df) > 0:
             market_stats['spy_price'] = round(float(spy_df.iloc[-1]['close']), 2)
         if vix_df is not None and len(vix_df) > 0:
@@ -1094,7 +1100,10 @@ def find_dwap_crossover_date(symbol: str, threshold_pct: float = 5.0, lookback_d
 
     # Time-travel: truncate to as_of_date
     if as_of_date:
-        df = df[df.index <= as_of_date]
+        as_of_ts = pd.Timestamp(as_of_date).normalize()
+        if hasattr(df.index, 'tz') and df.index.tz is not None:
+            as_of_ts = as_of_ts.tz_localize(df.index.tz)
+        df = df[df.index <= as_of_ts]
         if len(df) < 200:
             return None, None
 

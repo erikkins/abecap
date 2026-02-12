@@ -506,7 +506,10 @@ class ScannerService:
 
             # Time-travel: truncate to as_of_date after indicators computed on full df
             if as_of_date:
-                df = df[df.index <= pd.Timestamp(as_of_date).normalize()]
+                as_of_ts = pd.Timestamp(as_of_date).normalize()
+                if hasattr(df.index, 'tz') and df.index.tz is not None:
+                    as_of_ts = as_of_ts.tz_localize(df.index.tz)
+                df = df[df.index <= as_of_ts]
                 if len(df) < settings.LONG_MOMENTUM_DAYS + 20:
                     continue
 
@@ -601,7 +604,10 @@ class ScannerService:
 
         # Time-travel: truncate to as_of_date after indicators computed on full df
         if as_of_date:
-            df = df[df.index <= pd.Timestamp(as_of_date).normalize()]
+            as_of_ts = pd.Timestamp(as_of_date).normalize()
+            if hasattr(df.index, 'tz') and df.index.tz is not None:
+                as_of_ts = as_of_ts.tz_localize(df.index.tz)
+            df = df[df.index <= as_of_ts]
             if len(df) < 200:
                 return None
 
