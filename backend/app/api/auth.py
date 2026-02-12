@@ -1,5 +1,6 @@
 """Authentication API endpoints."""
 
+import time
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.database import get_db, User, Subscription
+from app.core.config import settings
 from app.core.security import (
     get_password_hash,
     verify_password,
@@ -18,6 +20,70 @@ from app.core.security import (
 )
 from app.services.turnstile import verify_turnstile
 from app.services.email_service import email_service
+
+# Apple JWKS cache
+_apple_jwks: Optional[dict] = None
+_apple_jwks_fetched_at: float = 0
+_APPLE_JWKS_TTL = 3600  # 1 hour
+
+
+async def _get_apple_public_keys() -> dict:
+    """Fetch and cache Apple's public signing keys (JWKS)."""
+    global _apple_jwks, _apple_jwks_fetched_at
+
+    if _apple_jwks and (time.time() - _apple_jwks_fetched_at) < _APPLE_JWKS_TTL:
+        return _apple_jwks
+
+    import httpx
+    async with httpx.AsyncClient() as client:
+        resp = await client.get("https://appleid.apple.com/auth/keys")
+        resp.raise_for_status()
+        _apple_jwks = resp.json()
+        _apple_jwks_fetched_at = time.time()
+        return _apple_jwks
+
+
+async def _verify_apple_token(id_token: str) -> dict:
+    """Verify an Apple Sign In JWT and return its claims."""
+    from jose import jwt, jwk, JWTError
+
+    # Get the key ID from the token header
+    unverified_header = jwt.get_unverified_header(id_token)
+    kid = unverified_header.get("kid")
+    if not kid:
+        raise ValueError("Token missing kid header")
+
+    # Find the matching public key from Apple's JWKS
+    jwks = await _get_apple_public_keys()
+    matching_key = None
+    for key_data in jwks.get("keys", []):
+        if key_data["kid"] == kid:
+            matching_key = key_data
+            break
+
+    if not matching_key:
+        # Key not found — maybe Apple rotated keys, clear cache and retry once
+        global _apple_jwks_fetched_at
+        _apple_jwks_fetched_at = 0
+        jwks = await _get_apple_public_keys()
+        for key_data in jwks.get("keys", []):
+            if key_data["kid"] == kid:
+                matching_key = key_data
+                break
+
+    if not matching_key:
+        raise ValueError("No matching Apple public key found")
+
+    # Construct the RSA public key and verify the token
+    public_key = jwk.construct(matching_key)
+    claims = jwt.decode(
+        id_token,
+        public_key,
+        algorithms=["RS256"],
+        audience=settings.APPLE_CLIENT_ID,
+        issuer="https://appleid.apple.com",
+    )
+    return claims
 
 router = APIRouter()
 
@@ -349,18 +415,17 @@ async def apple_auth(
     db: AsyncSession = Depends(get_db)
 ):
     """Authenticate with Apple Sign In."""
-    from jose import jwt
-
     try:
-        # Decode without verification (client already verified)
-        unverified = jwt.get_unverified_claims(request.id_token)
-        apple_id = unverified.get("sub")
-        email = unverified.get("email")
+        verified = await _verify_apple_token(request.id_token)
+        apple_id = verified.get("sub")
+        email = verified.get("email")
 
-        # Apple only sends email on first auth, use user_data if provided
+        # Apple only sends user info (name/email) on first auth, use user_data if provided
         if not email and request.user_data:
             email = request.user_data.get("email")
-            name = request.user_data.get("name", {})
+
+        if request.user_data and request.user_data.get("name"):
+            name = request.user_data["name"]
             full_name = f"{name.get('firstName', '')} {name.get('lastName', '')}".strip()
         else:
             full_name = None

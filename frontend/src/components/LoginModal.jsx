@@ -157,8 +157,44 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
   };
 
   const handleAppleLogin = async () => {
-    // In production, use Apple Sign-In SDK
-    setLocalError('Apple Sign-In requires configuration. Please use email/password.');
+    const APPLE_CLIENT_ID = import.meta.env.VITE_APPLE_CLIENT_ID;
+    if (!APPLE_CLIENT_ID) {
+      setLocalError('Apple Sign-In is not configured.');
+      return;
+    }
+
+    try {
+      if (!window.AppleID) {
+        setLocalError('Apple Sign-In SDK not loaded. Please refresh and try again.');
+        return;
+      }
+
+      window.AppleID.auth.init({
+        clientId: APPLE_CLIENT_ID,
+        scope: 'name email',
+        redirectURI: window.location.origin,
+        usePopup: true,
+      });
+
+      const response = await window.AppleID.auth.signIn();
+      const idToken = response.authorization.id_token;
+      const userData = response.user || null;
+
+      setLoading(true);
+      const result = await loginWithApple(idToken, userData);
+      setLoading(false);
+
+      if (result.success) {
+        onSuccess ? onSuccess() : onClose();
+      } else {
+        setLocalError(result.error || 'Apple login failed');
+      }
+    } catch (err) {
+      setLoading(false);
+      if (err.error === 'popup_closed_by_user') return;
+      console.error('Apple login error:', err);
+      setLocalError('Apple Sign-In failed. Please try again.');
+    }
   };
 
   if (!isOpen) return null;
