@@ -717,93 +717,158 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                 )}
                 <Area yAxisId="price" type="monotone" dataKey="close" stroke="#3B82F6" strokeWidth={2} fill="url(#priceGradient)" name="Price" />
 
-                {/* Entry price marker for positions and missed opportunities */}
-                {(type === 'position' || type === 'missed') && data?.entry_price && (
-                  <ReferenceLine
-                    yAxisId="price"
-                    y={data.entry_price}
-                    stroke="#10B981"
-                    strokeWidth={2}
-                    strokeDasharray="8 4"
-                    label={{
-                      value: `Buy $${data.entry_price.toFixed(2)}`,
-                      fill: '#10B981',
-                      fontWeight: 'bold',
-                      fontSize: 12,
-                      position: 'insideLeft'
-                    }}
-                  />
-                )}
+                {/* Reference lines with smart label placement to avoid overlaps */}
+                {(() => {
+                  // Collect all active reference lines with their y-values
+                  const lines = [];
+                  const entryPrice = data?.entry_price;
+                  const basePrice = entryPrice || data?.price;
 
-                {/* Exit/Sell price marker for missed opportunities */}
-                {type === 'missed' && data?.sell_price && (
-                  <ReferenceLine
-                    yAxisId="price"
-                    y={data.sell_price}
-                    stroke="#F59E0B"
-                    strokeWidth={2}
-                    strokeDasharray="8 4"
-                    label={{
-                      value: `Sell $${data.sell_price.toFixed(2)} (+20%)`,
-                      fill: '#F59E0B',
-                      fontWeight: 'bold',
-                      fontSize: 12,
-                      position: 'insideRight'
-                    }}
-                  />
-                )}
+                  if ((type === 'position' || type === 'missed') && entryPrice) {
+                    lines.push({ id: 'buy', y: entryPrice });
+                  }
+                  if (type === 'missed' && data?.sell_price) {
+                    lines.push({ id: 'sell', y: data.sell_price });
+                  }
+                  if (data?.trailing_stop_level) {
+                    lines.push({ id: 'stop', y: data.trailing_stop_level });
+                  }
+                  if (data?.high_water_mark && entryPrice && data.high_water_mark > entryPrice * 1.01) {
+                    lines.push({ id: 'high', y: data.high_water_mark });
+                  }
+                  if (basePrice && (type === 'position' || type === 'signal')) {
+                    lines.push({ id: 'gain20', y: basePrice * 1.20 });
+                  }
 
-                {/* Trailing stop line (current strategy) */}
-                {data?.trailing_stop_level && (
-                  <ReferenceLine
-                    yAxisId="price"
-                    y={data.trailing_stop_level}
-                    stroke="#EF4444"
-                    strokeWidth={1.5}
-                    strokeDasharray="4 4"
-                    label={{
-                      value: `Trailing Stop $${data.trailing_stop_level.toFixed(2)}`,
-                      fill: '#EF4444',
-                      fontSize: 10,
-                      position: 'insideBottomRight'
-                    }}
-                  />
-                )}
+                  // For each line, check if its default label position would be
+                  // intersected by another line. If so, flip to the other side.
+                  // "Close" = within 3% of the line's price (label height zone).
+                  const closenessThreshold = 0.03;
 
-                {/* High water mark line */}
-                {data?.high_water_mark && data?.entry_price && data.high_water_mark > data.entry_price * 1.01 && (
-                  <ReferenceLine
-                    yAxisId="price"
-                    y={data.high_water_mark}
-                    stroke="#8B5CF6"
-                    strokeWidth={1}
-                    strokeDasharray="3 3"
-                    label={{
-                      value: `High $${data.high_water_mark.toFixed(2)}`,
-                      fill: '#8B5CF6',
-                      fontSize: 10,
-                      position: 'insideTopRight'
-                    }}
-                  />
-                )}
+                  const otherLinesNear = (myY, myId, side) => {
+                    // side: 'above' or 'below' — check if another line sits in that zone
+                    return lines.some(l => {
+                      if (l.id === myId) return false;
+                      const diff = (l.y - myY) / myY;
+                      if (side === 'above') return diff > 0 && diff < closenessThreshold;
+                      return diff < 0 && diff > -closenessThreshold;
+                    });
+                  };
 
-                {/* +20% gain reference line */}
-                {(data?.entry_price || data?.price) && (type === 'position' || type === 'signal') && (() => {
-                  const basePrice = data?.entry_price || data?.price;
+                  // Default positions and their flip logic
+                  // Buy: label above (insideTopLeft), flip to below if another line is just above
+                  const buyAbove = !otherLinesNear(entryPrice, 'buy', 'above');
+                  const buyPos = buyAbove ? 'insideTopLeft' : 'insideBottomLeft';
+
+                  // High: label above (insideTopRight), flip to below if crowded
+                  const highY = data?.high_water_mark;
+                  const highAbove = !otherLinesNear(highY, 'high', 'above');
+                  const highPos = highAbove ? 'insideTopRight' : 'insideBottomRight';
+
+                  // Stop: label below (insideBottomRight), flip to above if crowded
+                  const stopY = data?.trailing_stop_level;
+                  const stopBelow = !otherLinesNear(stopY, 'stop', 'below');
+                  const stopPos = stopBelow ? 'insideBottomRight' : 'insideTopRight';
+
+                  // +20%: label above (insideTopRight), flip to below if crowded
+                  const gain20Y = basePrice ? basePrice * 1.20 : 0;
+                  const gain20Above = !otherLinesNear(gain20Y, 'gain20', 'above');
+                  const gain20Pos = gain20Above ? 'insideTopRight' : 'insideBottomRight';
+
+                  // Sell (missed): label above (insideTopRight), flip if crowded
+                  const sellY = data?.sell_price;
+                  const sellAbove = !otherLinesNear(sellY, 'sell', 'above');
+                  const sellPos = sellAbove ? 'insideTopRight' : 'insideBottomRight';
+
                   return (
-                    <ReferenceLine
-                      yAxisId="price"
-                      y={basePrice * 1.20}
-                      stroke="#10B981"
-                      strokeWidth={1}
-                      strokeDasharray="6 4"
-                      label={{
-                        value: `+20% $${(basePrice * 1.20).toFixed(2)}`,
-                        fill: '#10B981',
-                        fontSize: 10,
-                        position: 'insideTopRight'
-                      }}
-                    />
+                    <>
+                      {/* Entry/Buy price */}
+                      {(type === 'position' || type === 'missed') && entryPrice && (
+                        <ReferenceLine
+                          yAxisId="price"
+                          y={entryPrice}
+                          stroke="#10B981"
+                          strokeWidth={2}
+                          strokeDasharray="8 4"
+                          label={{
+                            value: `Buy $${entryPrice.toFixed(2)}`,
+                            fill: '#10B981',
+                            fontWeight: 'bold',
+                            fontSize: 12,
+                            position: buyPos
+                          }}
+                        />
+                      )}
+
+                      {/* Exit/Sell price (missed opportunities) */}
+                      {type === 'missed' && sellY && (
+                        <ReferenceLine
+                          yAxisId="price"
+                          y={sellY}
+                          stroke="#F59E0B"
+                          strokeWidth={2}
+                          strokeDasharray="8 4"
+                          label={{
+                            value: `Sell $${sellY.toFixed(2)} (+20%)`,
+                            fill: '#F59E0B',
+                            fontWeight: 'bold',
+                            fontSize: 12,
+                            position: sellPos
+                          }}
+                        />
+                      )}
+
+                      {/* Trailing stop */}
+                      {stopY && (
+                        <ReferenceLine
+                          yAxisId="price"
+                          y={stopY}
+                          stroke="#EF4444"
+                          strokeWidth={1.5}
+                          strokeDasharray="4 4"
+                          label={{
+                            value: `Trailing Stop $${stopY.toFixed(2)}`,
+                            fill: '#EF4444',
+                            fontSize: 10,
+                            position: stopPos
+                          }}
+                        />
+                      )}
+
+                      {/* High water mark */}
+                      {highY && entryPrice && highY > entryPrice * 1.01 && (
+                        <ReferenceLine
+                          yAxisId="price"
+                          y={highY}
+                          stroke="#8B5CF6"
+                          strokeWidth={1}
+                          strokeDasharray="3 3"
+                          label={{
+                            value: `High $${highY.toFixed(2)}`,
+                            fill: '#8B5CF6',
+                            fontSize: 10,
+                            position: highPos
+                          }}
+                        />
+                      )}
+
+                      {/* +20% gain reference */}
+                      {basePrice && (type === 'position' || type === 'signal') && (
+                        <ReferenceLine
+                          yAxisId="price"
+                          y={gain20Y}
+                          stroke="#10B981"
+                          strokeWidth={1}
+                          strokeDasharray="6 4"
+                          label={{
+                            value: `+20% $${gain20Y.toFixed(2)}`,
+                            fill: '#10B981',
+                            fontSize: 10,
+                            position: gain20Pos
+                          }}
+                        />
+                      )}
+                    </>
                   );
                 })()}
 
