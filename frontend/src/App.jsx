@@ -1394,6 +1394,7 @@ function Dashboard() {
   const [timeTravelOpen, setTimeTravelOpen] = useState(false);
   const [timeTravelEmailPending, setTimeTravelEmailPending] = useState(false);
   const [timeTravelEmailStatus, setTimeTravelEmailStatus] = useState(null); // null | 'sending' | 'sent' | 'failed'
+  const [timeTravelPresets, setTimeTravelPresets] = useState([]); // Computed once from live dashboard data
 
   // Live quotes polling - updates prices every 30 seconds during market hours
   useEffect(() => {
@@ -1445,6 +1446,41 @@ function Dashboard() {
         setDashboardData(data);
         if (data.missed_opportunities?.length > 0) {
           setMissedOpportunities(data.missed_opportunities);
+        }
+        // Build time-travel presets from live data (only when not time-traveling)
+        if (!timeTravelDate) {
+          const presets = [];
+          // Source 1: missed opportunities (best — confirmed profitable trades)
+          if (data.missed_opportunities?.length > 0) {
+            const grouped = {};
+            data.missed_opportunities.forEach(m => {
+              const d = m.entry_date;
+              if (!grouped[d]) grouped[d] = [];
+              grouped[d].push(m);
+            });
+            Object.entries(grouped).forEach(([date, opps]) => {
+              const symbols = opps.map(o => o.symbol).join(', ');
+              const avgRet = Math.round(opps.reduce((s, o) => s + (o.would_be_return || 0), 0) / opps.length);
+              presets.push({ date, symbols, detail: `+${avgRet}%`, source: 'missed' });
+            });
+          }
+          // Source 2: buy signals' crossover dates (fallback — when the signal first fired)
+          if (data.buy_signals?.length > 0) {
+            const grouped = {};
+            data.buy_signals.filter(s => s.dwap_crossover_date).forEach(s => {
+              const d = s.dwap_crossover_date;
+              if (!grouped[d]) grouped[d] = [];
+              grouped[d].push(s);
+            });
+            Object.entries(grouped).forEach(([date, sigs]) => {
+              if (presets.some(p => p.date === date)) return; // Skip if already from missed opps
+              const symbols = sigs.map(s => s.symbol).join(', ');
+              const topScore = Math.max(...sigs.map(s => s.ensemble_score || 0));
+              presets.push({ date, symbols, detail: `Score ${topScore}`, source: 'signal' });
+            });
+          }
+          presets.sort((a, b) => b.date.localeCompare(a.date));
+          setTimeTravelPresets(presets);
         }
       } catch (err) {
         console.log('Dashboard data fetch failed:', err);
@@ -1853,48 +1889,32 @@ function Dashboard() {
                       onChange={e => { setTimeTravelDate(e.target.value || null); setTimeTravelOpen(false); }}
                       className="w-full mb-3 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                     />
-                    {(() => {
-                      // Group missed opportunities by entry_date → dynamic presets
-                      const grouped = {};
-                      missedOpportunities.forEach(m => {
-                        const d = m.entry_date;
-                        if (!grouped[d]) grouped[d] = [];
-                        grouped[d].push(m);
-                      });
-                      const presets = Object.entries(grouped)
-                        .sort(([a], [b]) => b.localeCompare(a))
-                        .map(([date, opps]) => {
-                          const symbols = opps.map(o => o.symbol).join(', ');
-                          const avgRet = Math.round(opps.reduce((s, o) => s + (o.would_be_return || 0), 0) / opps.length);
-                          return { date, label: symbols, detail: `+${avgRet}%` };
-                        });
-                      return presets.length > 0 ? (
-                        <>
-                          <div className="text-xs font-medium text-gray-500 mb-2">Signal Dates</div>
-                          <div className="space-y-1.5 mb-3 max-h-48 overflow-y-auto">
-                            {presets.map(({ date, label, detail }) => (
-                              <button
-                                key={date}
-                                onClick={() => { setTimeTravelDate(date); setTimeTravelEmailPending(true); setTimeTravelOpen(false); }}
-                                className={`w-full px-2.5 py-2 text-xs rounded-lg border transition-all text-left flex items-center justify-between gap-2 ${
-                                  timeTravelDate === date
-                                    ? 'bg-purple-100 border-purple-300 text-purple-700'
-                                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                                }`}
-                              >
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{new Date(date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                  <span className="text-gray-400 truncate max-w-[140px]">{label}</span>
-                                </div>
-                                <span className="text-green-600 font-semibold whitespace-nowrap">{detail}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="text-xs text-gray-400 mb-3">No signal dates available yet. Load the live dashboard first.</div>
-                      );
-                    })()}
+                    {timeTravelPresets.length > 0 ? (
+                      <>
+                        <div className="text-xs font-medium text-gray-500 mb-2">Signal Dates</div>
+                        <div className="space-y-1.5 mb-3 max-h-48 overflow-y-auto">
+                          {timeTravelPresets.map(({ date, symbols, detail, source }) => (
+                            <button
+                              key={date}
+                              onClick={() => { setTimeTravelDate(date); setTimeTravelEmailPending(true); setTimeTravelOpen(false); }}
+                              className={`w-full px-2.5 py-2 text-xs rounded-lg border transition-all text-left flex items-center justify-between gap-2 ${
+                                timeTravelDate === date
+                                  ? 'bg-purple-100 border-purple-300 text-purple-700'
+                                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                              }`}
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">{new Date(date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                <span className="text-gray-400 truncate max-w-[140px]">{symbols}</span>
+                              </div>
+                              <span className={`font-semibold whitespace-nowrap ${source === 'missed' ? 'text-green-600' : 'text-purple-600'}`}>{detail}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-gray-400 mb-3">Loading signal dates...</div>
+                    )}
                     {timeTravelDate && (
                       <button
                         onClick={() => { setTimeTravelDate(null); setTimeTravelOpen(false); }}
