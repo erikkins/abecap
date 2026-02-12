@@ -586,8 +586,7 @@ async def get_dashboard_data(
                 ensemble_score = dwap_score + rank_score
 
                 crossover_date, days_since = find_dwap_crossover_date(symbol, as_of_date=effective_date)
-                # In time-travel mode, all ensemble signals are "the signals of the day"
-                is_fresh = bool(effective_date) or (days_since is not None and days_since <= fresh_days)
+                is_fresh = days_since is not None and days_since <= fresh_days
 
                 buy_signals.append({
                     'symbol': symbol,
