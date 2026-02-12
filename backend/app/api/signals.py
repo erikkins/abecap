@@ -690,6 +690,7 @@ async def get_dashboard_data(
 
     # --- Missed opportunities (from nightly WF cache, with on-the-fly fallback) ---
     missed_opportunities = []
+    TRAILING_STOP_PCT = 0.15  # 15% trailing stop for missed-opportunity simulation
     try:
         from app.core.database import WalkForwardSimulation
         import json as _json
@@ -714,38 +715,90 @@ async def get_dashboard_data(
                 open_syms.add(pg.get('symbol', ''))
 
             for trade in trades:
-                pnl_pct = trade.get('pnl_pct', 0)
                 symbol = trade.get('symbol', '')
-
-                # Only profitable closed trades (>5% return), exclude open positions
-                if pnl_pct <= 5.0 or symbol in open_syms:
+                if symbol in open_syms:
                     continue
 
-                entry_date = trade.get('entry_date', '')
-                exit_date = trade.get('exit_date', '')
-                entry_price = trade.get('entry_price', 0)
-                exit_price = trade.get('exit_price', 0)
-                days_held = trade.get('days_held', 0)
+                exit_reason = trade.get('exit_reason', '')
+                entry_price = float(trade.get('entry_price', 0))
+                entry_date_str = str(trade.get('entry_date', ''))[:10]
 
-                missed_opportunities.append({
-                    'symbol': symbol,
-                    'entry_date': str(entry_date)[:10],
-                    'entry_price': round(float(entry_price), 2),
-                    'sell_date': str(exit_date)[:10],
-                    'sell_price': round(float(exit_price), 2),
-                    'would_be_return': round(float(pnl_pct), 1),
-                    'would_be_pnl': round((float(exit_price) - float(entry_price)) * 100, 0),
-                    'days_held': int(days_held),
-                    'strategy_name': trade.get('strategy_name', 'Ensemble'),
-                    'exit_reason': trade.get('exit_reason', ''),
-                })
+                # For simulation_end trades, re-simulate with trailing stop
+                # using all available price data (the sim ended early, but we
+                # have more data — find where the 15% trailing stop would hit)
+                if exit_reason == 'simulation_end':
+                    df = scanner_service.data_cache.get(symbol)
+                    if df is None or len(df) < 50 or entry_price <= 0:
+                        continue
+
+                    # Find entry date in price data and simulate forward
+                    entry_ts = pd.Timestamp(entry_date_str)
+                    mask = df.index >= entry_ts
+                    if not mask.any():
+                        continue
+                    post_entry = df.loc[mask]
+
+                    high_water = entry_price
+                    sell_price = None
+                    sell_date = None
+                    for idx, row in post_entry.iterrows():
+                        price_j = float(row['close'])
+                        high_water = max(high_water, price_j)
+                        trailing_stop = high_water * (1 - TRAILING_STOP_PCT)
+                        if price_j <= trailing_stop:
+                            sell_price = price_j
+                            sell_date = idx
+                            break
+
+                    if sell_price is None:
+                        continue  # Trailing stop never hit — position still alive
+
+                    pnl_pct = (sell_price / entry_price - 1) * 100
+                    if pnl_pct <= 5.0:
+                        continue
+
+                    days_held = (sell_date - entry_ts).days
+
+                    missed_opportunities.append({
+                        'symbol': symbol,
+                        'entry_date': entry_date_str,
+                        'entry_price': round(entry_price, 2),
+                        'sell_date': sell_date.strftime('%Y-%m-%d') if hasattr(sell_date, 'strftime') else str(sell_date)[:10],
+                        'sell_price': round(sell_price, 2),
+                        'would_be_return': round(pnl_pct, 1),
+                        'would_be_pnl': round((sell_price - entry_price) * 100, 0),
+                        'days_held': int(days_held),
+                        'strategy_name': trade.get('strategy_name', 'Ensemble'),
+                        'exit_reason': 'trailing_stop',
+                    })
+                else:
+                    # Normal exit (trailing_stop, regime, etc.) — keep as-is
+                    pnl_pct = trade.get('pnl_pct', 0)
+                    if pnl_pct <= 5.0:
+                        continue
+
+                    exit_date = trade.get('exit_date', '')
+                    exit_price = trade.get('exit_price', 0)
+                    days_held = trade.get('days_held', 0)
+
+                    missed_opportunities.append({
+                        'symbol': symbol,
+                        'entry_date': entry_date_str,
+                        'entry_price': round(float(entry_price), 2),
+                        'sell_date': str(exit_date)[:10],
+                        'sell_price': round(float(exit_price), 2),
+                        'would_be_return': round(float(pnl_pct), 1),
+                        'would_be_pnl': round((float(exit_price) - float(entry_price)) * 100, 0),
+                        'days_held': int(days_held),
+                        'strategy_name': trade.get('strategy_name', 'Ensemble'),
+                        'exit_reason': exit_reason,
+                    })
 
             missed_opportunities.sort(key=lambda x: x['would_be_return'], reverse=True)
             missed_opportunities = missed_opportunities[:5]
         else:
             # Fallback: compute on-the-fly from price data
             lookback = 90
-            trailing_stop_pct = 0.15
             min_price = settings.MIN_PRICE
             min_volume = settings.MIN_VOLUME
 
@@ -792,15 +845,15 @@ async def get_dashboard_data(
                         for j in range(i + 1, len(recent)):
                             price_j = float(closes[j])
                             high_water = max(high_water, price_j)
-                            trailing_stop = high_water * (1 - trailing_stop_pct)
+                            trailing_stop = high_water * (1 - TRAILING_STOP_PCT)
                             if price_j <= trailing_stop:
                                 sell_price = price_j
                                 sell_date = dates[j]
                                 break
 
+                        # Skip if trailing stop never hit — position still alive
                         if sell_price is None:
-                            sell_price = float(closes[-1])
-                            sell_date = dates[-1]
+                            break
 
                         pnl_pct = (sell_price / entry_price - 1) * 100
                         days_held = (sell_date - entry_date).days
