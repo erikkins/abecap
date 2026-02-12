@@ -557,10 +557,12 @@ async def get_dashboard_data(
     buy_signals = []
     try:
         # Get DWAP signals and momentum rankings
-        dwap_signals = await scanner_service.scan(refresh_data=False, apply_market_filter=True, as_of_date=effective_date)
+        # In time-travel mode, disable market filter — it checks TODAY's SPY, not the historical date's
+        use_market_filter = not bool(effective_date)
+        dwap_signals = await scanner_service.scan(refresh_data=False, apply_market_filter=use_market_filter, as_of_date=effective_date)
         dwap_by_symbol = {s.symbol: s for s in dwap_signals}
 
-        momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True, as_of_date=effective_date)
+        momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=use_market_filter, as_of_date=effective_date)
         momentum_by_symbol = {
             r.symbol: {'rank': i + 1, 'data': r}
             for i, r in enumerate(momentum_rankings[:momentum_top_n])
