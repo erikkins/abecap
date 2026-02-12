@@ -1547,8 +1547,9 @@ async def get_positions(user: User = Depends(get_current_user), db: AsyncSession
         high_water_mark = adjusted_entry
         if pos.symbol in scanner_service.data_cache:
             df = scanner_service.data_cache[pos.symbol]
-            # Filter to dates after entry
-            entry_ts = pd.Timestamp(pos.entry_date)
+            # Filter to dates on or after entry (normalize to midnight so
+            # the entry day itself is included regardless of time-of-day)
+            entry_ts = pd.Timestamp(pos.entry_date).normalize()
             if hasattr(df.index, 'tz') and df.index.tz is not None:
                 entry_ts = entry_ts.tz_localize(df.index.tz)
             mask = df.index >= entry_ts
