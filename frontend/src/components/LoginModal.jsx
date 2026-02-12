@@ -172,7 +172,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
       window.AppleID.auth.init({
         clientId: APPLE_CLIENT_ID,
         scope: 'name email',
-        redirectURI: window.location.origin,
+        redirectURI: `${window.location.origin}/auth/apple/callback`,
         usePopup: true,
       });
 
