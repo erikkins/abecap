@@ -1915,6 +1915,29 @@ function Dashboard() {
                     ) : (
                       <div className="text-xs text-gray-400 mb-3">Loading signal dates...</div>
                     )}
+                    <div className="text-xs font-medium text-gray-500 mb-2">Market Events</div>
+                    <div className="grid grid-cols-2 gap-1.5 mb-3">
+                      {[
+                        ['2025-08-05', 'VIX Spike (45+)'],
+                        ['2025-04-07', 'Tariff Crash'],
+                        ['2025-06-15', 'Summer Rally'],
+                        ['2025-10-27', 'Q3 Earnings'],
+                        ['2024-10-28', 'Election Run'],
+                        ['2024-08-05', 'Yen Carry Unwind'],
+                      ].map(([date, label]) => (
+                        <button
+                          key={date}
+                          onClick={() => { setTimeTravelDate(date); setTimeTravelOpen(false); }}
+                          className={`px-2 py-1.5 text-xs rounded-lg border transition-all text-left ${
+                            timeTravelDate === date
+                              ? 'bg-purple-100 border-purple-300 text-purple-700'
+                              : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                     {timeTravelDate && (
                       <button
                         onClick={() => { setTimeTravelDate(null); setTimeTravelOpen(false); }}
