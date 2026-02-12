@@ -1390,9 +1390,13 @@ function Dashboard() {
   const [liveQuotes, setLiveQuotes] = useState({});
   const [quotesLastUpdate, setQuotesLastUpdate] = useState(null);
   const [viewMode, setViewMode] = useState(() => localStorage.getItem(CACHE_KEYS.VIEW_MODE) || 'simple');
+  const [timeTravelDate, setTimeTravelDate] = useState(null); // "YYYY-MM-DD" or null
+  const [timeTravelOpen, setTimeTravelOpen] = useState(false);
 
   // Live quotes polling - updates prices every 30 seconds during market hours
   useEffect(() => {
+    if (timeTravelDate) return; // No live quotes in time-travel mode
+
     const fetchLiveQuotes = async () => {
       // Get symbols from positions and signals
       const positionSymbols = positions.map(p => p.symbol);
@@ -1421,7 +1425,7 @@ function Dashboard() {
     const interval = setInterval(fetchLiveQuotes, 30000);
 
     return () => clearInterval(interval);
-  }, [positions.length, signals.length]); // Re-run when positions or signals change
+  }, [positions.length, signals.length, timeTravelDate]); // Re-run when positions or signals change
 
   // Persist view mode to localStorage
   useEffect(() => {
@@ -1432,7 +1436,10 @@ function Dashboard() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const data = await api.get('/api/signals/dashboard');
+        const url = timeTravelDate
+          ? `/api/signals/dashboard?as_of_date=${timeTravelDate}`
+          : '/api/signals/dashboard';
+        const data = await api.get(url);
         setDashboardData(data);
         if (data.missed_opportunities?.length > 0) {
           setMissedOpportunities(data.missed_opportunities);
@@ -1443,9 +1450,12 @@ function Dashboard() {
     };
 
     fetchDashboard();
-    const interval = setInterval(fetchDashboard, 60000); // Refresh every 60 seconds
-    return () => clearInterval(interval);
-  }, []);
+    // Disable auto-refresh in time-travel mode (historical data doesn't change)
+    if (!timeTravelDate) {
+      const interval = setInterval(fetchDashboard, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [timeTravelDate]);
 
   // Merge live quotes into positions for display
   const positionsWithLiveQuotes = positions.map(p => {
@@ -1792,6 +1802,68 @@ function Dashboard() {
               {viewMode === 'simple' ? <Eye size={14} /> : <Settings size={14} />}
               {viewMode === 'simple' ? 'Simple' : 'Advanced'}
             </button>
+            {isAdmin && (
+              <div className="relative">
+                <button
+                  onClick={() => setTimeTravelOpen(o => !o)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
+                    timeTravelDate
+                      ? 'bg-purple-100 text-purple-700 border-purple-300 hover:bg-purple-200'
+                      : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                  }`}
+                  title="Time Travel"
+                >
+                  <Clock size={14} />
+                  {timeTravelDate ? new Date(timeTravelDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Time Travel'}
+                </button>
+                {timeTravelOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200 p-4 z-50">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-800">Time Travel</h3>
+                      <button onClick={() => setTimeTravelOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                    </div>
+                    <input
+                      type="date"
+                      value={timeTravelDate || ''}
+                      max={new Date().toISOString().split('T')[0]}
+                      onChange={e => { setTimeTravelDate(e.target.value || null); setTimeTravelOpen(false); }}
+                      className="w-full mb-3 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    />
+                    <div className="text-xs font-medium text-gray-500 mb-2">Preset Dates</div>
+                    <div className="grid grid-cols-2 gap-1.5 mb-3">
+                      {[
+                        ['2025-08-05', 'VIX Spike (45+)'],
+                        ['2025-04-07', 'Tariff Crash'],
+                        ['2025-06-15', 'Summer Rally'],
+                        ['2025-10-27', 'Q3 Earnings'],
+                        ['2024-10-28', 'Election Run'],
+                        ['2024-08-05', 'Yen Carry Unwind'],
+                      ].map(([date, label]) => (
+                        <button
+                          key={date}
+                          onClick={() => { setTimeTravelDate(date); setTimeTravelOpen(false); }}
+                          className={`px-2 py-1.5 text-xs rounded-lg border transition-all text-left ${
+                            timeTravelDate === date
+                              ? 'bg-purple-100 border-purple-300 text-purple-700'
+                              : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {timeTravelDate && (
+                      <button
+                        onClick={() => { setTimeTravelDate(null); setTimeTravelOpen(false); }}
+                        className="w-full px-3 py-2 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-all"
+                      >
+                        Back to Live
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="text-right text-sm">
               <span className="text-gray-500">Last scan: </span>
               <span className="text-gray-700 font-medium">{lastScan ? lastScan.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : 'Never'}</span>
@@ -1824,6 +1896,24 @@ function Dashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-6">
+        {/* Time Travel Banner */}
+        {timeTravelDate && (
+          <div className="mb-4 p-3 bg-purple-600 text-white rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock size={16} />
+              <span className="text-sm font-medium">
+                Time Travel: Viewing dashboard as of {new Date(timeTravelDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+              </span>
+            </div>
+            <button
+              onClick={() => setTimeTravelDate(null)}
+              className="text-sm font-medium text-purple-200 hover:text-white flex items-center gap-1 transition-colors"
+            >
+              Back to Live <ChevronRight size={14} />
+            </button>
+          </div>
+        )}
+
         {/* Subscription Banner */}
         {isAuthenticated && <SubscriptionBanner />}
 
