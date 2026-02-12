@@ -775,7 +775,27 @@ async def get_dashboard_data(
                                 break
 
                         if sell_price is None:
-                            continue  # Trailing stop never hit — position still alive
+                            # Trailing stop never hit — position still alive
+                            # Show unrealized gain if significant
+                            current_price = float(post_entry.iloc[-1]['close'])
+                            pnl_pct = (current_price / entry_price - 1) * 100
+                            if pnl_pct <= 5.0:
+                                continue
+                            last_date = post_entry.index[-1]
+                            days_held = (last_date - entry_ts).days
+                            missed_opportunities.append({
+                                'symbol': symbol,
+                                'entry_date': entry_date_str,
+                                'entry_price': round(entry_price, 2),
+                                'sell_date': last_date.strftime('%Y-%m-%d') if hasattr(last_date, 'strftime') else str(last_date)[:10],
+                                'sell_price': round(current_price, 2),
+                                'would_be_return': round(pnl_pct, 1),
+                                'would_be_pnl': round((current_price - entry_price) * 100, 0),
+                                'days_held': int(days_held),
+                                'strategy_name': trade.get('strategy_name', 'Ensemble'),
+                                'exit_reason': 'still_open',
+                            })
+                            continue
 
                         pnl_pct = (sell_price / entry_price - 1) * 100
                         if pnl_pct <= 5.0:
@@ -875,8 +895,22 @@ async def get_dashboard_data(
                                     sell_date = dates[j]
                                     break
 
-                            # Skip if trailing stop never hit — position still alive
                             if sell_price is None:
+                                # Trailing stop never hit — show unrealized gain
+                                current_price = float(closes[-1])
+                                pnl_pct = (current_price / entry_price - 1) * 100
+                                if pnl_pct > 5.0:
+                                    missed_opportunities.append({
+                                        'symbol': symbol,
+                                        'entry_date': entry_date.strftime('%Y-%m-%d') if hasattr(entry_date, 'strftime') else str(entry_date)[:10],
+                                        'entry_price': round(entry_price, 2),
+                                        'sell_date': dates[-1].strftime('%Y-%m-%d') if hasattr(dates[-1], 'strftime') else str(dates[-1])[:10],
+                                        'sell_price': round(current_price, 2),
+                                        'would_be_return': round(pnl_pct, 1),
+                                        'would_be_pnl': round((current_price - entry_price) * 100, 0),
+                                        'days_held': int((dates[-1] - entry_date).days),
+                                        'exit_reason': 'still_open',
+                                    })
                                 break
 
                             pnl_pct = (sell_price / entry_price - 1) * 100
