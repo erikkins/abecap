@@ -75,22 +75,31 @@ const isCacheValid = (key, maxAge) => {
 };
 
 const api = {
+  _authHeaders() {
+    const token = localStorage.getItem('accessToken');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  },
   async get(endpoint) {
-    const res = await fetch(`${API_BASE}${endpoint}`);
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      headers: { ...this._authHeaders() }
+    });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     return res.json();
   },
   async post(endpoint, data) {
     const res = await fetch(`${API_BASE}${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...this._authHeaders() },
       body: JSON.stringify(data)
     });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     return res.json();
   },
   async delete(endpoint) {
-    const res = await fetch(`${API_BASE}${endpoint}`, { method: 'DELETE' });
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'DELETE',
+      headers: { ...this._authHeaders() }
+    });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     return res.json();
   }
