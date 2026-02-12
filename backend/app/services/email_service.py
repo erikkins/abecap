@@ -474,7 +474,8 @@ class EmailService:
         positions: List[Dict] = None,
         missed_opportunities: List[Dict] = None,
         watchlist: List[Dict] = None,
-        regime_forecast: Dict = None
+        regime_forecast: Dict = None,
+        date: Optional[datetime] = None
     ) -> bool:
         """
         Send daily summary email to a subscriber
@@ -487,6 +488,7 @@ class EmailService:
             missed_opportunities: Recent missed opportunities
             watchlist: Stocks approaching trigger
             regime_forecast: Regime forecast data
+            date: Date for the summary (default: today). Used for time-travel emails.
 
         Returns:
             True if sent successfully
@@ -496,12 +498,15 @@ class EmailService:
         watchlist = watchlist or []
 
         fresh_count = len([s for s in signals if s.get('is_fresh')])
+        # Include date in subject for historical (time-travel) emails
+        is_historical = date and date.date() != datetime.now().date()
+        date_label = f" [{date.strftime('%b %d, %Y')}]" if is_historical else ""
         if fresh_count > 0:
-            subject = f"📊 RigaCap Daily: {fresh_count} Ensemble Signal{'s' if fresh_count != 1 else ''}"
+            subject = f"📊 RigaCap Daily{date_label}: {fresh_count} Ensemble Signal{'s' if fresh_count != 1 else ''}"
         elif watchlist:
-            subject = f"📊 Market Update — {len(watchlist)} on Watchlist"
+            subject = f"📊 Market Update{date_label} — {len(watchlist)} on Watchlist"
         else:
-            subject = "📊 RigaCap Daily: Market Update"
+            subject = f"📊 RigaCap Daily{date_label}: Market Update"
 
         html = self.generate_daily_summary_html(
             signals=signals,
@@ -509,10 +514,11 @@ class EmailService:
             positions=positions,
             missed_opportunities=missed_opportunities,
             watchlist=watchlist,
-            regime_forecast=regime_forecast
+            regime_forecast=regime_forecast,
+            date=date
         )
 
-        text = self.generate_plain_text(signals, market_regime, watchlist=watchlist)
+        text = self.generate_plain_text(signals, market_regime, date=date, watchlist=watchlist)
 
         return await self.send_email(to_email, subject, html, text)
 

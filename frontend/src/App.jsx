@@ -1392,6 +1392,8 @@ function Dashboard() {
   const [viewMode, setViewMode] = useState(() => localStorage.getItem(CACHE_KEYS.VIEW_MODE) || 'simple');
   const [timeTravelDate, setTimeTravelDate] = useState(null); // "YYYY-MM-DD" or null
   const [timeTravelOpen, setTimeTravelOpen] = useState(false);
+  const [timeTravelEmailPending, setTimeTravelEmailPending] = useState(false);
+  const [timeTravelEmailStatus, setTimeTravelEmailStatus] = useState(null); // null | 'sending' | 'sent' | 'failed'
 
   // Live quotes polling - updates prices every 30 seconds during market hours
   useEffect(() => {
@@ -1456,6 +1458,28 @@ function Dashboard() {
       return () => clearInterval(interval);
     }
   }, [timeTravelDate]);
+
+  // Send time-travel email when dashboard data loads after preset click
+  useEffect(() => {
+    if (!timeTravelEmailPending || !timeTravelDate || !dashboardData) return;
+    if (dashboardData.as_of_date !== timeTravelDate) return; // Wait for correct data
+
+    setTimeTravelEmailPending(false);
+    setTimeTravelEmailStatus('sending');
+    api.post('/api/email/time-travel', {
+      email: user?.email,
+      as_of_date: timeTravelDate,
+      buy_signals: dashboardData.buy_signals || [],
+      regime_forecast: dashboardData.regime_forecast || null,
+      watchlist: dashboardData.watchlist || [],
+    }).then(() => {
+      setTimeTravelEmailStatus('sent');
+      setTimeout(() => setTimeTravelEmailStatus(null), 4000);
+    }).catch(() => {
+      setTimeTravelEmailStatus('failed');
+      setTimeout(() => setTimeTravelEmailStatus(null), 4000);
+    });
+  }, [timeTravelEmailPending, dashboardData, timeTravelDate]);
 
   // Merge live quotes into positions for display
   const positionsWithLiveQuotes = positions.map(p => {
@@ -1851,7 +1875,7 @@ function Dashboard() {
                             {presets.map(({ date, label, detail }) => (
                               <button
                                 key={date}
-                                onClick={() => { setTimeTravelDate(date); setTimeTravelOpen(false); }}
+                                onClick={() => { setTimeTravelDate(date); setTimeTravelEmailPending(true); setTimeTravelOpen(false); }}
                                 className={`w-full px-2.5 py-2 text-xs rounded-lg border transition-all text-left flex items-center justify-between gap-2 ${
                                   timeTravelDate === date
                                     ? 'bg-purple-100 border-purple-300 text-purple-700'
@@ -1923,6 +1947,9 @@ function Dashboard() {
               <span className="text-sm font-medium">
                 Time Travel: Viewing dashboard as of {new Date(timeTravelDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
               </span>
+              {timeTravelEmailStatus === 'sending' && <span className="text-xs text-purple-200 ml-2">Sending email...</span>}
+              {timeTravelEmailStatus === 'sent' && <span className="text-xs text-green-300 ml-2">Email sent</span>}
+              {timeTravelEmailStatus === 'failed' && <span className="text-xs text-red-300 ml-2">Email failed</span>}
             </div>
             <button
               onClick={() => setTimeTravelDate(null)}

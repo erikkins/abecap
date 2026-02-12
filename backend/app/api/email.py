@@ -18,6 +18,14 @@ class TestEmailRequest(BaseModel):
     email: EmailStr
 
 
+class TimeTravelEmailRequest(BaseModel):
+    email: EmailStr
+    as_of_date: str  # YYYY-MM-DD
+    buy_signals: list = []
+    regime_forecast: Optional[dict] = None
+    watchlist: list = []
+
+
 class EmailPreviewResponse(BaseModel):
     subject: str
     html: str
@@ -162,3 +170,51 @@ async def trigger_daily_emails(background_tasks: BackgroundTasks):
         "success": True,
         "message": "Daily email job triggered in background"
     }
+
+
+@router.post("/time-travel")
+async def send_time_travel_email(request: TimeTravelEmailRequest):
+    """
+    Send the daily summary email as it would have appeared on a historical date.
+
+    Accepts pre-computed dashboard data from the frontend (admin time-travel mode)
+    and sends the email with the historical date in the header/subject.
+    """
+    try:
+        email_date = datetime.strptime(request.as_of_date, "%Y-%m-%d")
+
+        # Map regime_forecast to the market_regime format the email template expects
+        regime = {}
+        if request.regime_forecast:
+            regime = {
+                'regime': request.regime_forecast.get('current_regime', 'unknown'),
+                'spy_price': request.regime_forecast.get('spy_price'),
+                'vix_level': request.regime_forecast.get('vix_level'),
+            }
+
+        success = await email_service.send_daily_summary(
+            to_email=request.email,
+            signals=request.buy_signals,
+            market_regime=regime,
+            watchlist=request.watchlist,
+            regime_forecast=request.regime_forecast,
+            date=email_date
+        )
+
+        if success:
+            fresh = len([s for s in request.buy_signals if s.get('is_fresh')])
+            return {
+                "success": True,
+                "message": f"Time-travel email sent for {request.as_of_date}",
+                "signals_count": len(request.buy_signals),
+                "fresh_signals": fresh
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to send email. Check SMTP configuration."
+            )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid date format: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
