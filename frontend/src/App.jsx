@@ -1464,11 +1464,11 @@ function Dashboard() {
               presets.push({ date, symbols, detail: `+${avgRet}%`, source: 'missed' });
             });
           }
-          // Source 2: buy signals' crossover dates (fallback — when the signal first fired)
+          // Source 2: ensemble entry dates — when stocks first qualified (DWAP + momentum top 20)
           if (data.buy_signals?.length > 0) {
             const grouped = {};
-            data.buy_signals.filter(s => s.dwap_crossover_date).forEach(s => {
-              const d = s.dwap_crossover_date;
+            data.buy_signals.filter(s => s.ensemble_entry_date).forEach(s => {
+              const d = s.ensemble_entry_date;
               if (!grouped[d]) grouped[d] = [];
               grouped[d].push(s);
             });

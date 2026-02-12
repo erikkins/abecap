@@ -574,6 +574,9 @@ async def get_dashboard_data(
             for i, r in enumerate(momentum_rankings[:momentum_top_n])
         }
 
+        # Get the top-N threshold score for ensemble entry date computation
+        mom_threshold = momentum_rankings[momentum_top_n - 1].composite_score if len(momentum_rankings) >= momentum_top_n else 0
+
         for symbol in dwap_by_symbol:
             if symbol in momentum_by_symbol:
                 dwap = dwap_by_symbol[symbol]
@@ -587,6 +590,11 @@ async def get_dashboard_data(
 
                 crossover_date, days_since = find_dwap_crossover_date(symbol, as_of_date=effective_date)
                 is_fresh = days_since is not None and days_since <= fresh_days
+
+                # Find when stock first qualified for ensemble (DWAP + momentum)
+                entry_date = None
+                if crossover_date:
+                    entry_date = find_ensemble_entry_date(symbol, crossover_date, mom_threshold, as_of_date=effective_date)
 
                 buy_signals.append({
                     'symbol': symbol,
@@ -602,6 +610,7 @@ async def get_dashboard_data(
                     'long_momentum': round(float(mom_data.long_momentum), 2),
                     'ensemble_score': round(float(ensemble_score), 1),
                     'dwap_crossover_date': crossover_date,
+                    'ensemble_entry_date': entry_date,
                     'days_since_crossover': int(days_since) if days_since is not None else None,
                     'is_fresh': bool(is_fresh),
                 })
@@ -1085,6 +1094,79 @@ class DoubleSignalsResponse(BaseModel):
     fresh_threshold_days: int  # Days threshold for "fresh" (e.g., 5)
     market_filter_active: bool
     generated_at: str
+
+
+def find_ensemble_entry_date(symbol: str, dwap_crossover_date_str: str, momentum_threshold: float, as_of_date=None) -> Optional[str]:
+    """
+    Find when a stock first qualified for the ensemble (DWAP +5% AND momentum top-N).
+    Walks forward from DWAP crossover date checking composite score against threshold.
+    Returns date string or None.
+    """
+    import pandas as pd
+    from app.core.config import settings
+
+    df = scanner_service.data_cache.get(symbol)
+    if df is None or len(df) < 200:
+        return None
+
+    # Ensure momentum indicators exist
+    df = scanner_service._ensure_momentum_indicators(df)
+
+    # Truncate for time-travel
+    if as_of_date:
+        as_of_ts = pd.Timestamp(as_of_date).normalize()
+        if hasattr(df.index, 'tz') and df.index.tz is not None:
+            as_of_ts = as_of_ts.tz_localize(df.index.tz)
+        df = df[df.index <= as_of_ts]
+
+    # Start from DWAP crossover date
+    start_ts = pd.Timestamp(dwap_crossover_date_str).normalize()
+    if hasattr(df.index, 'tz') and df.index.tz is not None:
+        start_ts = start_ts.tz_localize(df.index.tz)
+
+    subset = df[df.index >= start_ts]
+    if len(subset) == 0:
+        return None
+
+    for idx in range(len(subset)):
+        row = subset.iloc[idx]
+        price = row['close']
+        dwap = row.get('dwap', 0)
+        if pd.isna(dwap) or dwap <= 0:
+            continue
+
+        # Check DWAP +5%
+        pct_above = (price / dwap - 1) * 100
+        if pct_above < 5.0:
+            continue
+
+        # Check momentum quality filters
+        ma_20 = row.get('ma_20', 0)
+        ma_50 = row.get('ma_50', 0)
+        dist_from_high = row.get('dist_from_50d_high', -100)
+        if not (price > ma_20 > 0 and price > ma_50 > 0):
+            continue
+        if dist_from_high < -settings.NEAR_50D_HIGH_PCT:
+            continue
+
+        # Check composite score against threshold
+        short_mom = row.get('short_mom', 0)
+        long_mom = row.get('long_mom', 0)
+        vol = row.get('volatility', 0)
+        if pd.isna(short_mom) or pd.isna(long_mom) or pd.isna(vol):
+            continue
+        composite = (
+            short_mom * settings.SHORT_MOM_WEIGHT +
+            long_mom * settings.LONG_MOM_WEIGHT -
+            vol * settings.VOLATILITY_PENALTY
+        )
+        if composite >= momentum_threshold:
+            entry_date = subset.index[idx]
+            if hasattr(entry_date, 'tz') and entry_date.tz is not None:
+                entry_date = entry_date.tz_localize(None)
+            return entry_date.strftime('%Y-%m-%d')
+
+    return None
 
 
 def find_dwap_crossover_date(symbol: str, threshold_pct: float = 5.0, lookback_days: int = 60, as_of_date=None) -> tuple:
