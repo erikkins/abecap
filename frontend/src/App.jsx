@@ -1466,10 +1466,10 @@ function Dashboard() {
               presets.push({ date, symbols, detail: `+${avgRet}%`, source: 'missed' });
             });
           }
-          // Source 2: ensemble entry dates — when stocks first qualified (DWAP + momentum top 20)
+          // Source 2: ensemble entry dates — only fresh signals (what user would have acted on)
           if (data.buy_signals?.length > 0) {
             const grouped = {};
-            data.buy_signals.filter(s => s.ensemble_entry_date).forEach(s => {
+            data.buy_signals.filter(s => s.ensemble_entry_date && s.is_fresh).forEach(s => {
               const d = s.ensemble_entry_date;
               if (!grouped[d]) grouped[d] = [];
               grouped[d].push(s);
@@ -1478,7 +1478,7 @@ function Dashboard() {
               if (presets.some(p => p.date === date)) return; // Skip if already from missed opps
               const symbols = sigs.map(s => s.symbol).join(', ');
               const topScore = Math.max(...sigs.map(s => s.ensemble_score || 0));
-              presets.push({ date, symbols, detail: `Score ${topScore}`, source: 'signal' });
+              presets.push({ date, symbols, detail: `Score ${Math.round(topScore)}`, source: 'signal' });
             });
           }
           presets.sort((a, b) => b.date.localeCompare(a.date));
