@@ -123,6 +123,25 @@ async def _run_walk_forward_job(job_config: dict):
             return {"status": "failed", "job_id": job_id, "error": str(e)}
 
 
+async def _export_dashboard_cache():
+    """Export pre-computed dashboard data to S3."""
+    from app.core.database import async_session
+    from app.api.signals import compute_shared_dashboard_data
+    from app.services.data_export import data_export_service
+
+    try:
+        async with async_session() as db:
+            data = await compute_shared_dashboard_data(db)
+            result = data_export_service.export_dashboard_json(data)
+            print(f"📦 Dashboard cache export: {result}")
+            return {"status": "success", **result}
+    except Exception as e:
+        import traceback
+        print(f"❌ Dashboard cache export failed: {e}")
+        traceback.print_exc()
+        return {"status": "failed", "error": str(e)}
+
+
 def handler(event, context):
     """
     Lambda handler that supports:
@@ -137,6 +156,12 @@ def handler(event, context):
             "statusCode": 200,
             "body": '{"status": "warm"}'
         }
+
+    # Handle dashboard cache export
+    if event.get("export_dashboard_cache"):
+        print("📦 Dashboard cache export requested")
+        result = asyncio.get_event_loop().run_until_complete(_export_dashboard_cache())
+        return result
 
     # Handle async walk-forward jobs
     if event.get("walk_forward_job"):
