@@ -787,6 +787,8 @@ async def get_dashboard_data(
 
                         # Find entry date in price data and simulate forward
                         entry_ts = pd.Timestamp(entry_date_str)
+                        if hasattr(df.index, 'tz') and df.index.tz is not None and entry_ts.tz is None:
+                            entry_ts = entry_ts.tz_localize(df.index.tz)
                         mask = df.index >= entry_ts
                         if not mask.any():
                             continue
