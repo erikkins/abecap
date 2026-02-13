@@ -628,6 +628,10 @@ async def get_dashboard_data(
                     'is_fresh': bool(is_fresh),
                 })
 
+        # In time-travel mode, only show fresh signals (simulate what user would have acted on)
+        if effective_date:
+            buy_signals = [s for s in buy_signals if s['is_fresh']]
+
         # Sort: fresh first by recency, then stale by ensemble score
         buy_signals.sort(key=lambda x: (
             0 if x['is_fresh'] else 1,
