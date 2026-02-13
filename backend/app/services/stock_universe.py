@@ -29,14 +29,27 @@ LOCAL_CACHE_FILE = LOCAL_CACHE_DIR / "symbols_cache.json"
 # S3 key for universe cache
 S3_UNIVERSE_KEY = "universe/symbols_cache.json"
 
-# Excluded symbols (leveraged ETFs, volatility products, etc.)
+# Excluded symbols (leveraged ETFs, commodity ETFs, sector ETFs, etc.)
 EXCLUDED_PATTERNS = [
     # Leveraged/Inverse ETFs
     'TQQQ', 'SQQQ', 'QLD', 'QID', 'SPXU', 'SPXS', 'UPRO', 'SSO', 'SDS', 'SH',
     'TNA', 'TZA', 'FAS', 'FAZ', 'LABU', 'LABD', 'NUGT', 'DUST', 'JNUG', 'JDST',
     'UVXY', 'SVXY', 'VXX', 'VIXY', 'TVIX',
+    # Silver ETFs/ETPs
+    'SLV', 'SIVR', 'SLVR', 'SLVP', 'AGQ', 'ZSL',
+    # Gold ETFs/ETPs
+    'GLD', 'IAU', 'SGOL', 'GLDM', 'OUNZ', 'AAUC', 'BAR', 'UGL', 'GLL',
+    # Mining ETFs
+    'GDX', 'GDXJ', 'SIL', 'SILJ', 'RING', 'GOAU',
+    # Broad/sector ETFs
+    'SPY', 'QQQ', 'IWM', 'DIA', 'VOO', 'VTI', 'IVV',
+    'XLK', 'XLV', 'XLF', 'XLY', 'XLP', 'XLE', 'XLU', 'XLI', 'XLB', 'XLRE', 'XLC',
+    # Commodity ETFs
+    'DBC', 'GSG', 'USO', 'UNG', 'PDBC', 'COPJ',
+    # Bond/fixed income ETFs
+    'TLT', 'IEF', 'SHY', 'BND', 'AGG', 'LQD', 'HYG', 'JNK',
     # Other problematic symbols
-    'DWAC', 'PHUN',  # Highly volatile meme stocks
+    'DWAC', 'PHUN',
 ]
 
 # Must-include symbols (major stocks that bypass all filters)

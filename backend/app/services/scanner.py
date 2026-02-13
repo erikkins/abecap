@@ -24,8 +24,12 @@ except ImportError:
     YFINANCE_AVAILABLE = False
 
 from app.core.config import settings, get_universe
+from app.services.stock_universe import EXCLUDED_PATTERNS
 
 logger = logging.getLogger(__name__)
+
+# Fast set lookup for excluded symbols (ETFs, leveraged products, etc.)
+_EXCLUDED_SET = set(EXCLUDED_PATTERNS)
 
 
 @dataclass
@@ -496,6 +500,9 @@ class ScannerService:
         candidates = []
 
         for symbol in self.data_cache:
+            if symbol in _EXCLUDED_SET:
+                continue
+
             df = self.data_cache[symbol]
             if len(df) < settings.LONG_MOMENTUM_DAYS + 20:
                 continue
@@ -568,6 +575,20 @@ class ScannerService:
 
         # Sort by composite score (highest first), prioritizing quality filter pass
         candidates.sort(key=lambda x: (not x.passes_quality_filter, -x.composite_score))
+
+        # Apply sector cap — max N stocks per sector to prevent concentration
+        from app.services.stock_universe import stock_universe_service
+        sector_counts: Dict[str, int] = {}
+        capped = []
+        for c in candidates:
+            info = stock_universe_service.get_symbol_info(c.symbol)
+            sector = (info.get('sector', '') if info else '') or 'Unknown'
+            c.sector = sector
+            count = sector_counts.get(sector, 0)
+            if count < settings.MOMENTUM_SECTOR_CAP:
+                capped.append(c)
+                sector_counts[sector] = count + 1
+        candidates = capped
 
         # Assign ranks
         for i, c in enumerate(candidates):
@@ -740,6 +761,8 @@ class ScannerService:
         self.signals = []
 
         for symbol in self.data_cache:
+            if symbol in _EXCLUDED_SET:
+                continue
             signal = self.analyze_stock(symbol, as_of_date=as_of_date)
             if not signal:
                 continue

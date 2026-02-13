@@ -748,7 +748,7 @@ class SchedulerService:
             dwap_by_symbol = {s.symbol: s for s in dwap_signals}
 
             momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True)
-            momentum_top_n = 20
+            momentum_top_n = 30
             fresh_days = 5
             momentum_by_symbol = {
                 r.symbol: {'rank': i + 1, 'data': r}

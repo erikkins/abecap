@@ -1392,6 +1392,7 @@ function Dashboard() {
   const [viewMode, setViewMode] = useState(() => localStorage.getItem(CACHE_KEYS.VIEW_MODE) || 'simple');
   const [timeTravelDate, setTimeTravelDate] = useState(null); // "YYYY-MM-DD" or null
   const [timeTravelOpen, setTimeTravelOpen] = useState(false);
+  const [timeTravelLoading, setTimeTravelLoading] = useState(false);
   const [timeTravelEmailPending, setTimeTravelEmailPending] = useState(false);
   const [timeTravelEmailStatus, setTimeTravelEmailStatus] = useState(null); // null | 'sending' | 'sent' | 'failed'
   const [timeTravelPresets, setTimeTravelPresets] = useState([]); // Computed once from live dashboard data
@@ -1438,6 +1439,7 @@ function Dashboard() {
   // Fetch unified dashboard data (regime forecast, buy signals, sell guidance, watchlist)
   useEffect(() => {
     const fetchDashboard = async () => {
+      if (timeTravelDate) setTimeTravelLoading(true);
       try {
         const url = timeTravelDate
           ? `/api/signals/dashboard?as_of_date=${timeTravelDate}`
@@ -1484,6 +1486,8 @@ function Dashboard() {
         }
       } catch (err) {
         console.log('Dashboard data fetch failed:', err);
+      } finally {
+        setTimeTravelLoading(false);
       }
     };
 
@@ -1986,9 +1990,12 @@ function Dashboard() {
         {timeTravelDate && (
           <div className="mb-4 p-3 bg-purple-600 text-white rounded-xl flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Clock size={16} />
+              {timeTravelLoading ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />}
               <span className="text-sm font-medium">
-                Time Travel: Viewing dashboard as of {new Date(timeTravelDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                {timeTravelLoading
+                  ? `Loading data for ${new Date(timeTravelDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}...`
+                  : `Time Travel: Viewing dashboard as of ${new Date(timeTravelDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}`
+                }
               </span>
               {timeTravelEmailStatus === 'sending' && <span className="text-xs text-purple-200 ml-2">Sending email...</span>}
               {timeTravelEmailStatus === 'sent' && <span className="text-xs text-green-300 ml-2">Email sent</span>}
@@ -2204,7 +2211,15 @@ function Dashboard() {
                   <span className="text-xs text-gray-500">Ensemble: DWAP + Momentum</span>
                 </div>
 
-                <div className="max-h-[500px] overflow-y-auto">
+                <div className="max-h-[500px] overflow-y-auto relative">
+                  {timeTravelLoading && (
+                    <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
+                        <span className="text-xs text-purple-600 font-medium">Loading signals...</span>
+                      </div>
+                    </div>
+                  )}
                   {(dashboardData?.buy_signals || []).length > 0 ? (
                     viewMode === 'simple' ? (
                       /* Simple mode: list items with confidence dots */
@@ -2229,9 +2244,9 @@ function Dashboard() {
                                 </div>
                               </div>
                               {s.is_fresh && (
-                                <span className={`text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium ${s.days_since_crossover === 0 ? 'animate-pulse' : ''}`}>BUY</span>
+                                <span className={`text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium ${((s.days_since_entry ?? s.days_since_crossover) === 0) ? 'animate-pulse' : ''}`}>BUY</span>
                               )}
-                              {s.is_fresh && s.days_since_crossover === 0 && (
+                              {s.is_fresh && (s.days_since_entry ?? s.days_since_crossover) === 0 && (
                                 <span className="text-xs text-green-700 font-semibold">New!</span>
                               )}
                             </div>
@@ -2269,8 +2284,8 @@ function Dashboard() {
                                   {s.is_strong && <ArrowUpRight className="w-3 h-3 text-green-500" />}
                                 </div>
                                 {s.is_fresh ? (
-                                  <span className={`text-xs ${s.days_since_crossover === 0 ? 'text-green-700 font-semibold' : 'text-green-600'}`}>
-                                    {s.days_since_crossover === 0 ? 'New today!' : `${s.days_since_crossover}d ago`}
+                                  <span className={`text-xs ${(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'text-green-700 font-semibold' : 'text-green-600'}`}>
+                                    {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'New today!' : `${Math.min(s.days_since_entry ?? 999, s.days_since_crossover ?? 999)}d ago`}
                                   </span>
                                 ) : (
                                   <span className="text-xs text-gray-400">Watching</span>
@@ -2292,7 +2307,7 @@ function Dashboard() {
                                     }}
                                     className={`text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium hover:bg-green-700 ${s.days_since_crossover === 0 ? 'animate-pulse' : ''}`}
                                   >
-                                    {s.days_since_crossover === 0 ? 'BUY NOW' : 'BUY'}
+                                    {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'BUY NOW' : 'BUY'}
                                   </button>
                                 ) : (
                                   <span className="text-xs text-gray-400">

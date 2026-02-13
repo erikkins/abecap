@@ -507,7 +507,7 @@ class DashboardResponse(BaseModel):
 async def get_dashboard_data(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user_optional),
-    momentum_top_n: int = 20,
+    momentum_top_n: int = 30,
     fresh_days: int = 5,
     as_of_date: Optional[str] = None,
 ):
@@ -574,8 +574,11 @@ async def get_dashboard_data(
             for i, r in enumerate(momentum_rankings[:momentum_top_n])
         }
 
-        # Get the top-N threshold score for ensemble entry date computation
-        mom_threshold = momentum_rankings[momentum_top_n - 1].composite_score if len(momentum_rankings) >= momentum_top_n else 0
+        # Get threshold for ensemble entry date computation
+        # Use the median rank's score (not the bottom) — more robust across historical dates
+        # because the actual Nth-ranked stock's score varies day-to-day
+        threshold_rank = momentum_top_n // 2  # 15th for top-30
+        mom_threshold = momentum_rankings[threshold_rank - 1].composite_score if len(momentum_rankings) >= threshold_rank else 0
 
         for symbol in dwap_by_symbol:
             if symbol in momentum_by_symbol:
@@ -589,12 +592,21 @@ async def get_dashboard_data(
                 ensemble_score = dwap_score + rank_score
 
                 crossover_date, days_since = find_dwap_crossover_date(symbol, as_of_date=effective_date)
-                is_fresh = days_since is not None and days_since <= fresh_days
 
                 # Find when stock first qualified for ensemble (DWAP + momentum)
                 entry_date = None
+                days_since_entry = None
                 if crossover_date:
                     entry_date = find_ensemble_entry_date(symbol, crossover_date, mom_threshold, as_of_date=effective_date)
+                    if entry_date:
+                        today = pd.Timestamp.now().normalize() if not effective_date else effective_date
+                        entry_ts = pd.Timestamp(entry_date).normalize()
+                        days_since_entry = (today - entry_ts).days
+
+                # Fresh if DWAP crossover is recent OR ensemble entry is recent
+                fresh_by_crossover = days_since is not None and days_since <= fresh_days
+                fresh_by_entry = days_since_entry is not None and days_since_entry <= fresh_days
+                is_fresh = fresh_by_crossover or fresh_by_entry
 
                 buy_signals.append({
                     'symbol': symbol,
@@ -612,6 +624,7 @@ async def get_dashboard_data(
                     'dwap_crossover_date': crossover_date,
                     'ensemble_entry_date': entry_date,
                     'days_since_crossover': int(days_since) if days_since is not None else None,
+                    'days_since_entry': int(days_since_entry) if days_since_entry is not None else None,
                     'is_fresh': bool(is_fresh),
                 })
 
@@ -1131,8 +1144,13 @@ def find_ensemble_entry_date(symbol: str, dwap_crossover_date_str: str, momentum
     for idx in range(len(subset)):
         row = subset.iloc[idx]
         price = row['close']
+        volume = row.get('volume', 0)
         dwap = row.get('dwap', 0)
         if pd.isna(dwap) or dwap <= 0:
+            continue
+
+        # Check volume and price filters (must match scan/ranking filters)
+        if price < settings.MIN_PRICE or volume < settings.MIN_VOLUME:
             continue
 
         # Check DWAP +5%
@@ -1261,9 +1279,10 @@ class ApproachingTriggerResponse(BaseModel):
     generated_at: str
 
 
+
 @router.get("/approaching-trigger", response_model=ApproachingTriggerResponse)
 async def get_approaching_trigger(
-    momentum_top_n: int = 20,
+    momentum_top_n: int = 30,
     min_pct: float = 3.0,
     max_pct: float = 5.0
 ):
@@ -1339,7 +1358,7 @@ async def get_approaching_trigger(
 
 @router.get("/double-signals", response_model=DoubleSignalsResponse)
 async def get_double_signals(
-    momentum_top_n: int = 20,
+    momentum_top_n: int = 30,
     fresh_days: int = 5
 ):
     """
