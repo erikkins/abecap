@@ -1411,7 +1411,9 @@ function Dashboard() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('checkout') === 'success') {
       setCheckoutSuccess(true);
-      refreshUser(); // Reload subscription status
+      refreshUser(); // Reload subscription status immediately
+      // Retry after 5s to catch webhook-updated subscription status
+      setTimeout(() => refreshUser(), 5000);
       // Clean up URL
       const url = new URL(window.location);
       url.searchParams.delete('checkout');
@@ -2147,7 +2149,7 @@ function Dashboard() {
             <button onClick={() => setCheckoutSuccess(false)} className="p-1 text-green-400 hover:text-green-600"><X size={18} /></button>
           </div>
         )}
-        {isAuthenticated && <SubscriptionBanner />}
+        {isAuthenticated && !checkoutSuccess && <SubscriptionBanner />}
 
         {/* Admin Dashboard */}
         {activeTab === 'admin' && isAdmin && (
