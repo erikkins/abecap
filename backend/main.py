@@ -571,6 +571,124 @@ def handler(event, context):
             traceback.print_exc()
             return {"status": "failed", "error": str(e)}
 
+    # Handle intraday position monitor (manual trigger for testing)
+    if event.get("intraday_monitor"):
+        print(f"📡 Intraday position monitor requested - {len(scanner_service.data_cache)} symbols in cache")
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _run_intraday_monitor():
+            from app.core.database import async_session as async_sess, Position as DBPosition, User as DBUser
+            from app.services.email_service import email_service
+            from app.services.data_export import data_export_service as des
+            from app.services.scheduler import scheduler_service as sched
+            from sqlalchemy import select
+            from datetime import date
+            import yfinance as yf
+
+            async with async_sess() as db:
+                # Query all open positions with user email
+                result = await db.execute(
+                    select(DBPosition, DBUser.email, DBUser.full_name)
+                    .join(DBUser, DBPosition.user_id == DBUser.id)
+                    .where(DBPosition.status == 'open')
+                )
+                rows = result.all()
+
+                if not rows:
+                    return {"status": "success", "positions_checked": 0, "alerts_sent": 0, "message": "No open positions"}
+
+                # Fetch live prices
+                symbols = list({row[0].symbol for row in rows})
+                live_prices = {}
+                tickers = yf.Tickers(' '.join(symbols))
+                for sym in symbols:
+                    try:
+                        ticker = tickers.tickers.get(sym)
+                        if ticker:
+                            live_prices[sym] = ticker.fast_info.last_price
+                    except Exception:
+                        continue
+
+                # Get regime forecast
+                regime_forecast = None
+                dashboard_data = des.read_dashboard_json()
+                if dashboard_data:
+                    regime_forecast = dashboard_data.get('regime_forecast')
+
+                # Check positions
+                alerts_sent = 0
+                today = date.today()
+                details = []
+
+                for position, user_email, user_name in rows:
+                    sym = position.symbol
+                    if sym not in live_prices:
+                        details.append({"symbol": sym, "status": "no_price"})
+                        continue
+
+                    live_price = live_prices[sym]
+
+                    if live_price > (position.highest_price or position.entry_price):
+                        position.highest_price = live_price
+
+                    guidance = sched._check_sell_trigger(position, live_price, regime_forecast)
+
+                    if guidance and guidance['action'] in ('sell', 'warning'):
+                        dedup_key = f"{position.id}_{guidance['action']}_{today}"
+                        if dedup_key not in sched._alerted_sell_positions:
+                            try:
+                                await email_service.send_sell_alert(
+                                    to_email=user_email,
+                                    user_name=user_name or "",
+                                    symbol=sym,
+                                    action=guidance['action'],
+                                    reason=guidance['reason'],
+                                    current_price=live_price,
+                                    entry_price=position.entry_price,
+                                    stop_price=guidance.get('stop_price'),
+                                )
+                                sched._alerted_sell_positions.add(dedup_key)
+                                alerts_sent += 1
+                            except Exception as e:
+                                print(f"Failed to send alert for {sym}: {e}")
+
+                        details.append({
+                            "symbol": sym,
+                            "price": live_price,
+                            "action": guidance['action'],
+                            "reason": guidance['reason'],
+                        })
+                    else:
+                        details.append({
+                            "symbol": sym,
+                            "price": live_price,
+                            "action": "hold",
+                        })
+
+                await db.commit()
+
+                return {
+                    "status": "success",
+                    "positions_checked": len(rows),
+                    "symbols_priced": len(live_prices),
+                    "alerts_sent": alerts_sent,
+                    "regime": regime_forecast.get("recommended_action") if regime_forecast else None,
+                    "details": details,
+                }
+
+        try:
+            result = loop.run_until_complete(_run_intraday_monitor())
+            print(f"📡 Intraday monitor: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Intraday monitor failed: {e}")
+            traceback.print_exc()
+            return {"status": "failed", "error": str(e)}
+
     # Handle async walk-forward jobs
     if event.get("walk_forward_job"):
         print(f"📊 Walk-forward async job received - {len(scanner_service.data_cache)} symbols in cache, SPY={'SPY' in scanner_service.data_cache}")

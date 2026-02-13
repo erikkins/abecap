@@ -1021,6 +1021,192 @@ Unsubscribe: https://rigacap.com/unsubscribe
         )
 
 
+    async def send_sell_alert(
+        self,
+        to_email: str,
+        user_name: str,
+        symbol: str,
+        action: str,
+        reason: str,
+        current_price: float,
+        entry_price: float,
+        stop_price: float = None,
+    ) -> bool:
+        """
+        Send a sell or warning alert for an open position.
+
+        Args:
+            to_email: Subscriber email
+            user_name: User's full name
+            symbol: Stock symbol
+            action: "sell" or "warning"
+            reason: Human-readable reason for the alert
+            current_price: Current live price
+            entry_price: Position entry price
+            stop_price: Trailing stop price (if applicable)
+
+        Returns:
+            True if sent successfully
+        """
+        first_name = user_name.split()[0] if user_name else "there"
+        pnl_pct = ((current_price - entry_price) / entry_price) * 100 if entry_price > 0 else 0
+        pnl_color = "#059669" if pnl_pct >= 0 else "#dc2626"
+        pnl_sign = "+" if pnl_pct >= 0 else ""
+
+        is_sell = action.lower() == "sell"
+        subject_prefix = "SELL ALERT" if is_sell else "WARNING"
+        header_gradient = "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)" if is_sell else "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
+        header_icon = "🚨" if is_sell else "⚠️"
+        action_label = "SELL" if is_sell else "WATCH"
+
+        stop_row = ""
+        if stop_price is not None:
+            stop_row = f"""
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280;">Trailing Stop</td>
+                            <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #dc2626;">${stop_price:.2f}</td>
+                        </tr>"""
+
+        subject = f"[RigaCap] {subject_prefix}: {symbol} — {reason}"
+
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <tr>
+            <td style="background: {header_gradient}; padding: 32px 24px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 12px;">{header_icon}</div>
+                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
+                    {subject_prefix}: {symbol}
+                </h1>
+                <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
+                    {reason}
+                </p>
+            </td>
+        </tr>
+
+        <!-- Greeting -->
+        <tr>
+            <td style="padding: 24px 24px 0;">
+                <p style="margin: 0; font-size: 16px; color: #374151;">
+                    Hey {first_name}, your position in <strong>{symbol}</strong> needs attention.
+                </p>
+            </td>
+        </tr>
+
+        <!-- Position Details -->
+        <tr>
+            <td style="padding: 24px;">
+                <div style="background-color: #f9fafb; border-radius: 12px; padding: 20px;">
+                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280;">Symbol</td>
+                            <td style="padding: 8px 0; text-align: right; font-weight: 700; font-size: 18px; color: #111827;">{symbol}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; color: #6b7280;">Current Price</td>
+                            <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: #111827;">${current_price:.2f}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; color: #6b7280;">Entry Price</td>
+                            <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; text-align: right; color: #6b7280;">${entry_price:.2f}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; color: #6b7280;">P&L</td>
+                            <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: {pnl_color};">{pnl_sign}{pnl_pct:.1f}%</td>
+                        </tr>{stop_row}
+                    </table>
+                </div>
+            </td>
+        </tr>
+
+        <!-- Action Box -->
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <div style="background-color: {'#fef2f2' if is_sell else '#fef3c7'}; border-radius: 12px; padding: 20px; border-left: 4px solid {'#dc2626' if is_sell else '#f59e0b'};">
+                    <div style="font-weight: 700; color: {'#dc2626' if is_sell else '#92400e'}; font-size: 16px; margin-bottom: 8px;">
+                        {'Recommended: Sell this position' if is_sell else 'Monitor closely'}
+                    </div>
+                    <div style="color: #374151; font-size: 14px;">
+                        {reason}
+                    </div>
+                </div>
+            </td>
+        </tr>
+
+        <!-- CTA -->
+        <tr>
+            <td style="padding: 0 24px 24px; text-align: center;">
+                <a href="https://rigacap.com/app"
+                   style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; font-size: 16px; font-weight: 600; padding: 16px 40px; border-radius: 12px; text-decoration: none;">
+                    View Dashboard →
+                </a>
+            </td>
+        </tr>
+
+        <!-- Disclaimer -->
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <p style="margin: 0; font-size: 12px; color: #6b7280; text-align: center;">
+                    This is not financial advice. Always do your own research before trading.
+                    Past performance does not guarantee future results.
+                </p>
+            </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+                    <a href="https://rigacap.com/app" style="color: #4f46e5; text-decoration: none;">Dashboard</a>
+                    &nbsp;&bull;&nbsp;
+                    <a href="#" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
+                </p>
+                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+        text_lines = [
+            f"{subject_prefix}: {symbol}",
+            "=" * 40,
+            f"Reason: {reason}",
+            "",
+            f"Symbol: {symbol}",
+            f"Current Price: ${current_price:.2f}",
+            f"Entry Price: ${entry_price:.2f}",
+            f"P&L: {pnl_sign}{pnl_pct:.1f}%",
+        ]
+        if stop_price is not None:
+            text_lines.append(f"Trailing Stop: ${stop_price:.2f}")
+        text_lines.extend([
+            "",
+            f"Action: {'SELL this position' if is_sell else 'Monitor closely'}",
+            "",
+            "View dashboard: https://rigacap.com/app",
+            "",
+            "---",
+            "This is not financial advice. Past performance does not guarantee future results.",
+        ])
+
+        return await self.send_email(
+            to_email=to_email,
+            subject=subject,
+            html_content=html,
+            text_content="\n".join(text_lines)
+        )
+
     async def send_double_signal_alert(
         self,
         to_email: str,

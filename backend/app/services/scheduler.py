@@ -46,6 +46,8 @@ class SchedulerService:
         self.callbacks: List[Callable] = []
         # Track alerted double signals to avoid duplicate alerts
         self._alerted_double_signals: set = set()
+        # Track alerted sell positions to avoid duplicate intraday alerts
+        self._alerted_sell_positions: set = set()
 
     def add_callback(self, callback: Callable):
         """Add a callback to be called after each scheduled run"""
@@ -342,6 +344,197 @@ class SchedulerService:
         """
         return dt.weekday() < 5  # 0-4 = Mon-Fri
 
+    def _check_sell_trigger(
+        self,
+        position,
+        live_price: float,
+        regime_forecast: dict = None,
+        trailing_stop_pct: float = 12.0,
+    ) -> dict:
+        """
+        Check if a single position triggers a sell or warning signal.
+
+        Args:
+            position: DB Position object (has entry_price, highest_price)
+            live_price: Current live price
+            regime_forecast: Regime forecast dict from dashboard cache (optional)
+            trailing_stop_pct: Trailing stop percentage (ensemble uses 12%)
+
+        Returns:
+            Dict with action/reason/stop_price if triggered, or None
+        """
+        entry_price = position.entry_price or 0
+        high_water_mark = max(
+            entry_price,
+            position.highest_price or entry_price,
+            live_price,
+        )
+
+        trailing_stop_level = high_water_mark * (1 - trailing_stop_pct / 100)
+        distance_to_stop_pct = (
+            (live_price - trailing_stop_level) / trailing_stop_level * 100
+            if trailing_stop_level > 0 else 100
+        )
+
+        action = None
+        reason = None
+
+        # Check regime-based exits first
+        if regime_forecast:
+            rec = regime_forecast.get("recommended_action", "stay_invested")
+            if rec == "go_to_cash":
+                action = "sell"
+                reason = f"Market regime exit — {regime_forecast.get('outlook_detail', 'high risk detected')}"
+            elif rec == "reduce_exposure":
+                action = "warning"
+                reason = "Regime deteriorating — consider reducing exposure"
+            elif rec == "tighten_stops":
+                action = "warning"
+                reason = f"Tighten stops — {regime_forecast.get('outlook_detail', 'risk increasing')}"
+
+        # Check trailing stop (overrides regime warning)
+        if live_price <= trailing_stop_level:
+            action = "sell"
+            reason = f"Trailing stop hit — price ${live_price:.2f} below stop ${trailing_stop_level:.2f}"
+
+        # Check proximity to trailing stop (warning zone)
+        elif distance_to_stop_pct < 3 and action != "sell":
+            action = "warning"
+            if not reason:
+                reason = f"Within {distance_to_stop_pct:.1f}% of trailing stop ${trailing_stop_level:.2f}"
+
+        if action:
+            return {
+                "action": action,
+                "reason": reason,
+                "stop_price": round(trailing_stop_level, 2),
+            }
+        return None
+
+    async def _intraday_position_monitor(self):
+        """
+        Check live prices for all open positions across all users.
+        Send sell/warning alert emails when trailing stop or regime exit triggers.
+
+        Runs every 5 minutes during market hours (Mon-Fri 9:00-15:59 ET).
+        """
+        logger.info("📡 Starting intraday position monitor...")
+
+        try:
+            now = datetime.now(ET)
+            if not self._is_trading_day(now):
+                logger.info("📅 Not a trading day, skipping intraday monitor")
+                return
+
+            from app.core.database import async_session, Position as DBPosition, User as DBUser
+            from sqlalchemy import select
+            from datetime import date
+            import yfinance as yf
+
+            async with async_session() as db:
+                # 1. Query all open positions with user email
+                result = await db.execute(
+                    select(DBPosition, DBUser.email, DBUser.full_name)
+                    .join(DBUser, DBPosition.user_id == DBUser.id)
+                    .where(DBPosition.status == 'open')
+                )
+                rows = result.all()
+
+                if not rows:
+                    logger.info("📡 No open positions to monitor")
+                    return
+
+                logger.info(f"📡 Monitoring {len(rows)} open position(s)")
+
+                # 2. Collect unique symbols and fetch live quotes in batch
+                symbols = list({row[0].symbol for row in rows})
+                live_prices = {}
+                try:
+                    tickers = yf.Tickers(' '.join(symbols))
+                    for sym in symbols:
+                        try:
+                            ticker = tickers.tickers.get(sym)
+                            if ticker:
+                                live_prices[sym] = ticker.fast_info.last_price
+                        except Exception:
+                            continue
+                except Exception as e:
+                    logger.error(f"📡 Failed to fetch live prices: {e}")
+                    return
+
+                logger.info(f"📡 Got live prices for {len(live_prices)}/{len(symbols)} symbols")
+
+                # 3. Get regime forecast from cached dashboard data
+                regime_forecast = None
+                try:
+                    dashboard_data = data_export_service.read_dashboard_json()
+                    if dashboard_data:
+                        regime_forecast = dashboard_data.get('regime_forecast')
+                except Exception as e:
+                    logger.warning(f"📡 Could not read regime forecast: {e}")
+
+                # 4. Check each position for sell triggers
+                alerts_sent = 0
+                today = date.today()
+
+                for position, user_email, user_name in rows:
+                    sym = position.symbol
+                    if sym not in live_prices:
+                        continue
+
+                    live_price = live_prices[sym]
+
+                    # Update high water mark if new high
+                    if live_price > (position.highest_price or position.entry_price):
+                        position.highest_price = live_price
+
+                    # Check sell trigger
+                    guidance = self._check_sell_trigger(
+                        position, live_price, regime_forecast
+                    )
+
+                    if guidance and guidance['action'] in ('sell', 'warning'):
+                        dedup_key = f"{position.id}_{guidance['action']}_{today}"
+                        if dedup_key not in self._alerted_sell_positions:
+                            try:
+                                await email_service.send_sell_alert(
+                                    to_email=user_email,
+                                    user_name=user_name or "",
+                                    symbol=sym,
+                                    action=guidance['action'],
+                                    reason=guidance['reason'],
+                                    current_price=live_price,
+                                    entry_price=position.entry_price,
+                                    stop_price=guidance.get('stop_price'),
+                                )
+                                self._alerted_sell_positions.add(dedup_key)
+                                alerts_sent += 1
+                                logger.info(
+                                    f"📡 {guidance['action'].upper()} alert sent for {sym} "
+                                    f"to {user_email}: {guidance['reason']}"
+                                )
+                            except Exception as e:
+                                logger.error(f"📡 Failed to send alert for {sym}: {e}")
+
+                # Persist high water mark updates
+                await db.commit()
+
+                # Trim dedup set to prevent unbounded growth
+                if len(self._alerted_sell_positions) > 200:
+                    self._alerted_sell_positions = set(
+                        list(self._alerted_sell_positions)[-100:]
+                    )
+
+                logger.info(
+                    f"📡 Intraday monitor complete: {len(rows)} positions checked, "
+                    f"{alerts_sent} alert(s) sent"
+                )
+
+        except Exception as e:
+            logger.error(f"❌ Intraday position monitor failed: {e}")
+            import traceback
+            traceback.print_exc()
+
     def start(self):
         """Start the scheduler"""
         if self.is_running:
@@ -433,6 +626,21 @@ class SchedulerService:
             ),
             id='nightly_walk_forward',
             name='Nightly Walk-Forward + Social Content',
+            replace_existing=True
+        )
+
+        # Intraday position monitor - every 5 minutes during market hours
+        # Checks live prices for open positions and sends sell/warning alerts
+        self.scheduler.add_job(
+            self._intraday_position_monitor,
+            CronTrigger(
+                day_of_week='mon-fri',
+                hour='9-15',
+                minute='*/5',
+                timezone=ET
+            ),
+            id='intraday_position_monitor',
+            name='Intraday Position Monitor',
             replace_existing=True
         )
 
