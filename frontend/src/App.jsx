@@ -2076,7 +2076,7 @@ function Dashboard() {
                         <p className="text-sm font-medium text-gray-900 truncate">{user.name || user.email}</p>
                         <p className="text-xs text-gray-500 truncate">{user.email}</p>
                       </div>
-                      {user.subscription?.status === 'active' && user.subscription?.has_stripe_subscription && (
+                      {(user.subscription?.has_stripe_subscription || checkoutSuccess || ['active', 'past_due'].includes(user.subscription?.status)) && (
                         <button
                           onClick={async () => {
                             setShowUserMenu(false);
