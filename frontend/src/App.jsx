@@ -1446,6 +1446,8 @@ function Dashboard() {
   // Fetch unified dashboard data (regime forecast, buy signals, sell guidance, watchlist)
   // CDN-first strategy: localStorage → CDN (~200ms) → API (positions only)
   useEffect(() => {
+    let cancelled = false; // Prevents stale fetches from overwriting newer data
+
     const buildTimeTravelPresets = (data) => {
       const presets = [];
       if (data.missed_opportunities?.length > 0) {
@@ -1485,6 +1487,7 @@ function Dashboard() {
         setTimeTravelLoading(true);
         try {
           const data = await api.get(`/api/signals/dashboard?as_of_date=${timeTravelDate}`);
+          if (cancelled) return;
           setDashboardData(data);
           if (data.missed_opportunities?.length > 0) {
             setMissedOpportunities(data.missed_opportunities);
@@ -1492,7 +1495,7 @@ function Dashboard() {
         } catch (err) {
           console.log('Dashboard time-travel fetch failed:', err);
         } finally {
-          setTimeTravelLoading(false);
+          if (!cancelled) setTimeTravelLoading(false);
         }
         return;
       }
@@ -1500,6 +1503,7 @@ function Dashboard() {
       // Step 1: Show localStorage cache immediately (instant)
       const cached = getCache(CACHE_KEYS.DASHBOARD);
       if (cached) {
+        if (cancelled) return;
         setDashboardData(cached);
         if (cached.missed_opportunities?.length > 0) {
           setMissedOpportunities(cached.missed_opportunities);
@@ -1510,11 +1514,11 @@ function Dashboard() {
       // Step 2: Fetch shared dashboard data from CDN (~200ms)
       try {
         const cdnRes = await fetch(DASHBOARD_CDN_URL);
+        if (cancelled) return;
         if (cdnRes.ok) {
           const cdnData = await cdnRes.json();
-          // Merge CDN shared data with any existing positions from API
+          if (cancelled) return;
           const merged = { ...cdnData };
-          // Preserve positions from previous dashboardData (API will refresh below)
           if (dashboardData?.positions_with_guidance?.length > 0) {
             merged.positions_with_guidance = dashboardData.positions_with_guidance;
           }
@@ -1532,6 +1536,7 @@ function Dashboard() {
       // Step 3: Fetch from API in background (adds user positions with sell guidance)
       try {
         const data = await api.get('/api/signals/dashboard');
+        if (cancelled) return;
         setDashboardData(data);
         if (data.missed_opportunities?.length > 0) {
           setMissedOpportunities(data.missed_opportunities);
@@ -1547,8 +1552,9 @@ function Dashboard() {
     // Disable auto-refresh in time-travel mode (historical data doesn't change)
     if (!timeTravelDate) {
       const interval = setInterval(fetchDashboard, 60000);
-      return () => clearInterval(interval);
+      return () => { cancelled = true; clearInterval(interval); };
     }
+    return () => { cancelled = true; };
   }, [timeTravelDate]);
 
   // Send time-travel email when dashboard data loads after preset click
