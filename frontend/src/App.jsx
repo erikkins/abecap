@@ -2310,8 +2310,8 @@ function Dashboard() {
                                     {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'BUY NOW' : 'BUY'}
                                   </button>
                                 ) : (
-                                  <span className="text-xs text-gray-400">
-                                    Watching
+                                  <span className="text-xs bg-gray-200 text-gray-600 px-2.5 py-1 rounded font-medium">
+                                    Active
                                   </span>
                                 )}
                               </td>
@@ -2616,7 +2616,7 @@ function Dashboard() {
                   <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
                     <Clock className="w-5 h-5 text-amber-500" />
                     <h2 className="text-lg font-semibold text-gray-900">Missed Opportunities</h2>
-                    <span className="text-xs text-gray-500 ml-2">Signals that hit +20% profit target</span>
+                    <span className="text-xs text-gray-500 ml-2">Profitable trades using trailing stop exits</span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
