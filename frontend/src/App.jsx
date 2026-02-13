@@ -529,7 +529,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
               )}
               {type === 'missed' && (
                 <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full flex items-center gap-1">
-                  <Clock size={12} /> MISSED +20%
+                  <Clock size={12} /> MISSED +{data?.would_be_return?.toFixed(0) || '?'}%
                 </span>
               )}
               {data?.signal_strength > 0 && (
