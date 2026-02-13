@@ -29,25 +29,17 @@ LOCAL_CACHE_FILE = LOCAL_CACHE_DIR / "symbols_cache.json"
 # S3 key for universe cache
 S3_UNIVERSE_KEY = "universe/symbols_cache.json"
 
-# Excluded symbols (leveraged ETFs, commodity ETFs, sector ETFs, etc.)
+# Excluded symbols - only leveraged/inverse products (genuinely dangerous)
+# Regular ETFs (SLV, GLD, SPY, etc.) are allowed — the sector cap in
+# scanner.py prevents concentration (max 5 per sector)
 EXCLUDED_PATTERNS = [
-    # Leveraged/Inverse ETFs
+    # Leveraged/Inverse ETFs (2x/3x products with daily decay)
     'TQQQ', 'SQQQ', 'QLD', 'QID', 'SPXU', 'SPXS', 'UPRO', 'SSO', 'SDS', 'SH',
     'TNA', 'TZA', 'FAS', 'FAZ', 'LABU', 'LABD', 'NUGT', 'DUST', 'JNUG', 'JDST',
+    # Leveraged commodity ETFs (2x/inverse)
+    'AGQ', 'ZSL', 'UGL', 'GLL',
+    # Volatility products (contango decay)
     'UVXY', 'SVXY', 'VXX', 'VIXY', 'TVIX',
-    # Silver ETFs/ETPs
-    'SLV', 'SIVR', 'SLVR', 'SLVP', 'AGQ', 'ZSL',
-    # Gold ETFs/ETPs
-    'GLD', 'IAU', 'SGOL', 'GLDM', 'OUNZ', 'AAUC', 'BAR', 'UGL', 'GLL',
-    # Mining ETFs
-    'GDX', 'GDXJ', 'SIL', 'SILJ', 'RING', 'GOAU',
-    # Broad/sector ETFs
-    'SPY', 'QQQ', 'IWM', 'DIA', 'VOO', 'VTI', 'IVV',
-    'XLK', 'XLV', 'XLF', 'XLY', 'XLP', 'XLE', 'XLU', 'XLI', 'XLB', 'XLRE', 'XLC',
-    # Commodity ETFs
-    'DBC', 'GSG', 'USO', 'UNG', 'PDBC', 'COPJ',
-    # Bond/fixed income ETFs
-    'TLT', 'IEF', 'SHY', 'BND', 'AGG', 'LQD', 'HYG', 'JNK',
     # Other problematic symbols
     'DWAC', 'PHUN',
 ]
