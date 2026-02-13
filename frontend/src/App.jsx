@@ -1523,7 +1523,8 @@ function Dashboard() {
           }
         } catch (err) {
           if (err.name === 'AbortError') return; // Expected on cleanup
-          console.log('Dashboard time-travel fetch failed:', err);
+          console.error('Dashboard time-travel fetch failed:', err);
+          setError(`Time-travel failed: ${err.message}`);
         } finally {
           if (!signal.aborted) setTimeTravelLoading(false);
         }
@@ -2352,7 +2353,7 @@ function Dashboard() {
                 </div>
 
                 <div className="max-h-[500px] overflow-y-auto relative">
-                  {(timeTravelLoading || (timeTravelDate && dashboardData?.as_of_date !== timeTravelDate)) && (
+                  {timeTravelLoading && (
                     <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
                       <div className="flex flex-col items-center gap-2">
                         <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
