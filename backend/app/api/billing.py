@@ -73,37 +73,48 @@ async def create_checkout_session(
     import stripe
     stripe.api_key = settings.STRIPE_SECRET_KEY
 
-    # Create or get Stripe customer
-    if not user.stripe_customer_id:
-        customer = stripe.Customer.create(
-            email=user.email,
-            name=user.name,
-            metadata={"user_id": str(user.id)}
+    try:
+        # Create or get Stripe customer
+        if not user.stripe_customer_id:
+            customer = stripe.Customer.create(
+                email=user.email,
+                name=user.name,
+                metadata={"user_id": str(user.id)}
+            )
+            user.stripe_customer_id = customer.id
+            await db.commit()
+
+        # Create checkout session
+        session = stripe.checkout.Session.create(
+            customer=user.stripe_customer_id,
+            mode="subscription",
+            line_items=[{
+                "price": price_id,
+                "quantity": 1
+            }],
+            success_url=f"{settings.FRONTEND_URL}/dashboard?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{settings.FRONTEND_URL}/pricing?checkout=canceled",
+            allow_promotion_codes=True,
+            automatic_payment_methods={"enabled": True},
         )
-        user.stripe_customer_id = customer.id
-        await db.commit()
 
-    # Create checkout session
-    session = stripe.checkout.Session.create(
-        customer=user.stripe_customer_id,
-        payment_method_types=["card", "link"],  # Link enables Apple/Google Pay
-        mode="subscription",
-        line_items=[{
-            "price": price_id,
-            "quantity": 1
-        }],
-        success_url=f"{settings.FRONTEND_URL}/dashboard?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=f"{settings.FRONTEND_URL}/pricing?checkout=canceled",
-        subscription_data={
-            "trial_period_days": 0  # No trial in Stripe since we handle it ourselves
-        },
-        allow_promotion_codes=True,
-    )
+        return CheckoutResponse(
+            checkout_url=session.url,
+            session_id=session.id
+        )
 
-    return CheckoutResponse(
-        checkout_url=session.url,
-        session_id=session.id
-    )
+    except stripe.StripeError as e:
+        print(f"❌ Stripe error in create-checkout: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Payment service error: {str(e)}"
+        )
+    except Exception as e:
+        print(f"❌ Unexpected error in create-checkout: {type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Checkout error: {type(e).__name__}"
+        )
 
 
 @router.post("/portal", response_model=PortalResponse)
@@ -127,12 +138,18 @@ async def create_portal_session(
     import stripe
     stripe.api_key = settings.STRIPE_SECRET_KEY
 
-    session = stripe.billing_portal.Session.create(
-        customer=user.stripe_customer_id,
-        return_url=f"{settings.FRONTEND_URL}/dashboard"
-    )
-
-    return PortalResponse(portal_url=session.url)
+    try:
+        session = stripe.billing_portal.Session.create(
+            customer=user.stripe_customer_id,
+            return_url=f"{settings.FRONTEND_URL}/dashboard"
+        )
+        return PortalResponse(portal_url=session.url)
+    except stripe.StripeError as e:
+        print(f"❌ Stripe error in portal: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Payment service error: {str(e)}"
+        )
 
 
 @router.get("/subscription", response_model=SubscriptionResponse)

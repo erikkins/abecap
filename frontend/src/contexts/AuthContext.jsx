@@ -288,6 +288,23 @@ export function AuthProvider({ children }) {
   // Check if user is admin
   const isAdmin = user?.role === 'admin' && user?.email === 'erik@rigacap.com';
 
+  // Refresh user data from API (e.g., after checkout to update subscription status)
+  const refreshUser = useCallback(async () => {
+    const { accessToken } = getTokens();
+    if (!accessToken) return;
+    try {
+      const response = await fetch(`${API_URL}/api/auth/me`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      });
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+      }
+    } catch (err) {
+      console.error('Failed to refresh user:', err);
+    }
+  }, [getTokens]);
+
   // Check if subscription is valid
   const hasValidSubscription = user?.subscription?.is_valid ?? false;
 
@@ -308,6 +325,7 @@ export function AuthProvider({ children }) {
     loginWithApple,
     logout,
     fetchWithAuth,
+    refreshUser,
     clearError: () => setError(null),
   };
 

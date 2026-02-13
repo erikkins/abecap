@@ -441,6 +441,7 @@ class Subscription(Base):
             "current_period_start": self.current_period_start.isoformat() if self.current_period_start else None,
             "current_period_end": self.current_period_end.isoformat() if self.current_period_end else None,
             "cancel_at_period_end": self.cancel_at_period_end,
+            "has_stripe_subscription": bool(self.stripe_subscription_id),
         }
 
 

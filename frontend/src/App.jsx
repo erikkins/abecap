@@ -8,7 +8,7 @@ import {
   TrendingUp, TrendingDown, RefreshCw, Settings, Bell, User, LogOut,
   DollarSign, Target, Shield, Activity, PieChart as PieIcon, History,
   ArrowUpRight, ArrowDownRight, Clock, Zap, X, ChevronRight, Eye,
-  Calendar, BarChart3, Wallet, LogIn, AlertCircle, Loader2
+  Calendar, BarChart3, Wallet, LogIn, AlertCircle, Loader2, CreditCard
 } from 'lucide-react';
 import LandingPage from './LandingPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -1378,7 +1378,8 @@ const PositionRow = ({ position, onClick }) => {
 // ============================================================================
 
 function Dashboard() {
-  const { user, logout, isAdmin, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, logout, isAdmin, isAuthenticated, loading: authLoading, refreshUser } = useAuth();
+  const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [signals, setSignals] = useState([]);
   const [positions, setPositions] = useState([]);
   const [trades, setTrades] = useState([]);
@@ -1391,6 +1392,7 @@ function Dashboard() {
   const [activeTab, setActiveTab] = useState('signals');
   const [dashboardData, setDashboardData] = useState(null); // Unified dashboard data
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [chartModal, setChartModal] = useState(null);
   const [dataStatus, setDataStatus] = useState({ loaded: 0, status: 'loading' });
   const [marketRegime, setMarketRegime] = useState(null);
@@ -1413,6 +1415,22 @@ function Dashboard() {
     prevTimeTravelDate.current = timeTravelDate;
     dashboardFetchVersion.current++;
   }
+
+  // Handle post-checkout redirect from Stripe
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('checkout') === 'success') {
+      setCheckoutSuccess(true);
+      refreshUser(); // Reload subscription status
+      // Clean up URL
+      const url = new URL(window.location);
+      url.searchParams.delete('checkout');
+      url.searchParams.delete('session_id');
+      window.history.replaceState({}, '', url.pathname);
+      // Auto-dismiss after 8 seconds
+      setTimeout(() => setCheckoutSuccess(false), 8000);
+    }
+  }, [refreshUser]);
 
   // Live quotes polling - updates prices every 30 seconds during market hours
   useEffect(() => {
@@ -2043,11 +2061,49 @@ function Dashboard() {
               {scanning ? 'Scanning...' : 'Scan'}
             </button>
             {user ? (
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium hover:bg-blue-700 transition-colors"
+                >
                   {(user.name || user.email || 'U')[0].toUpperCase()}
-                </div>
-                <button onClick={logout} className="p-2 text-gray-400 hover:text-gray-600"><LogOut size={18} /></button>
+                </button>
+                {showUserMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                    <div className="absolute right-0 top-10 w-56 bg-white rounded-lg shadow-lg border z-50 py-1">
+                      <div className="px-4 py-2 border-b">
+                        <p className="text-sm font-medium text-gray-900 truncate">{user.name || user.email}</p>
+                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                      </div>
+                      {user.subscription?.status === 'active' && user.subscription?.has_stripe_subscription && (
+                        <button
+                          onClick={async () => {
+                            setShowUserMenu(false);
+                            try {
+                              const data = await api.post('/api/billing/portal', {});
+                              window.location.href = data.portal_url;
+                            } catch (err) {
+                              console.error('Portal error:', err);
+                              alert('Failed to open billing portal.');
+                            }
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          <CreditCard size={14} />
+                          Manage Subscription
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { setShowUserMenu(false); logout(); }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <LogOut size={14} />
+                        Sign Out
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <button onClick={() => setShowLoginModal(true)} className="px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 flex items-center gap-2">
@@ -2084,6 +2140,15 @@ function Dashboard() {
         )}
 
         {/* Subscription Banner */}
+        {checkoutSuccess && (
+          <div className="border border-green-200 bg-green-50 rounded-lg p-4 mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Zap className="text-green-600 flex-shrink-0" size={24} />
+              <p className="font-medium text-green-800">Welcome to RigaCap! Your subscription is now active.</p>
+            </div>
+            <button onClick={() => setCheckoutSuccess(false)} className="p-1 text-green-400 hover:text-green-600"><X size={18} /></button>
+          </div>
+        )}
         {isAuthenticated && <SubscriptionBanner />}
 
         {/* Admin Dashboard */}
