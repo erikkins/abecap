@@ -1532,7 +1532,7 @@ function Dashboard() {
 
       // Step 1: Show localStorage cache immediately (instant)
       const cached = getCache(CACHE_KEYS.DASHBOARD);
-      if (cached) {
+      if (cached && !signal.aborted) {
         setDashboardData(cached);
         if (cached.missed_opportunities?.length > 0) {
           setMissedOpportunities(cached.missed_opportunities);
@@ -1543,8 +1543,9 @@ function Dashboard() {
       // Step 2: Fetch shared dashboard data from CDN (~200ms)
       try {
         const cdnRes = await fetch(DASHBOARD_CDN_URL, { signal });
-        if (cdnRes.ok) {
+        if (cdnRes.ok && !signal.aborted) {
           const cdnData = await cdnRes.json();
+          if (signal.aborted) return;
           const merged = { ...cdnData };
           if (dashboardData?.positions_with_guidance?.length > 0) {
             merged.positions_with_guidance = dashboardData.positions_with_guidance;
@@ -1569,6 +1570,7 @@ function Dashboard() {
         });
         if (!res.ok) throw new Error(`API error: ${res.status}`);
         const data = await res.json();
+        if (signal.aborted) return;
         setDashboardData(data);
         if (data.missed_opportunities?.length > 0) {
           setMissedOpportunities(data.missed_opportunities);
@@ -2350,7 +2352,7 @@ function Dashboard() {
                 </div>
 
                 <div className="max-h-[500px] overflow-y-auto relative">
-                  {timeTravelLoading && (
+                  {(timeTravelLoading || (timeTravelDate && dashboardData?.as_of_date !== timeTravelDate)) && (
                     <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
                       <div className="flex flex-col items-center gap-2">
                         <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
