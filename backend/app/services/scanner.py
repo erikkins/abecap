@@ -577,17 +577,21 @@ class ScannerService:
         candidates.sort(key=lambda x: (not x.passes_quality_filter, -x.composite_score))
 
         # Apply sector cap — max N stocks per sector to prevent concentration
+        # Only cap sectors we actually have data for; skip cap for unknown sectors
         from app.services.stock_universe import stock_universe_service
         sector_counts: Dict[str, int] = {}
         capped = []
         for c in candidates:
             info = stock_universe_service.get_symbol_info(c.symbol)
-            sector = (info.get('sector', '') if info else '') or 'Unknown'
+            sector = (info.get('sector', '') if info else '') or ''
             c.sector = sector
-            count = sector_counts.get(sector, 0)
-            if count < settings.MOMENTUM_SECTOR_CAP:
+            if not sector:
                 capped.append(c)
-                sector_counts[sector] = count + 1
+            else:
+                count = sector_counts.get(sector, 0)
+                if count < settings.MOMENTUM_SECTOR_CAP:
+                    capped.append(c)
+                    sector_counts[sector] = count + 1
         candidates = capped
 
         # Assign ranks

@@ -2288,7 +2288,7 @@ function Dashboard() {
                                     {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'New today!' : `${Math.min(s.days_since_entry ?? 999, s.days_since_crossover ?? 999)}d ago`}
                                   </span>
                                 ) : (
-                                  <span className="text-xs text-gray-400">Watching</span>
+                                  <span className="text-xs text-gray-400">Crossed {s.days_since_crossover}d ago</span>
                                 )}
                               </td>
                               <td className="px-3 py-2.5 text-right">${s.price?.toFixed(2)}</td>
