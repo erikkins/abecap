@@ -688,6 +688,69 @@ class DataExportService:
             logger.error(f"Failed to export signals: {e}")
             return {"success": False, "message": str(e), "count": 0}
 
+    def export_dashboard_json(self, dashboard_data: dict) -> Dict:
+        """
+        Export pre-computed dashboard data to S3/local for CDN delivery.
+
+        Called by the scheduler after scans and nightly walk-forward.
+        Frontend fetches this for instant dashboard loading.
+        """
+        try:
+            json_content = json.dumps(dashboard_data, default=str)
+
+            if self._use_s3():
+                s3 = self._get_s3_client()
+                s3.put_object(
+                    Bucket=S3_BUCKET,
+                    Key='signals/dashboard.json',
+                    Body=json_content.encode('utf-8'),
+                    ContentType='application/json',
+                    CacheControl='public, max-age=300'  # 5 min cache
+                )
+                logger.info(f"Exported dashboard JSON to S3 ({len(json_content)} bytes)")
+                return {"success": True, "storage": "s3", "bucket": S3_BUCKET}
+            else:
+                signals_dir = LOCAL_DATA_DIR.parent / "signals"
+                signals_dir.mkdir(parents=True, exist_ok=True)
+                filepath = signals_dir / "dashboard.json"
+                with open(filepath, 'w') as f:
+                    f.write(json_content)
+                logger.info(f"Exported dashboard JSON to {filepath}")
+                return {"success": True, "storage": "local", "path": str(filepath)}
+
+        except Exception as e:
+            logger.error(f"Failed to export dashboard JSON: {e}")
+            return {"success": False, "message": str(e)}
+
+    def read_dashboard_json(self) -> Optional[dict]:
+        """
+        Read pre-computed dashboard data from S3/local.
+
+        Returns the cached dashboard dict, or None if not available.
+        """
+        try:
+            if self._use_s3():
+                s3 = self._get_s3_client()
+                response = s3.get_object(Bucket=S3_BUCKET, Key='signals/dashboard.json')
+                content = response['Body'].read().decode('utf-8')
+                return json.loads(content)
+            else:
+                filepath = LOCAL_DATA_DIR.parent / "signals" / "dashboard.json"
+                if filepath.exists():
+                    with open(filepath, 'r') as f:
+                        return json.load(f)
+                return None
+        except Exception as e:
+            logger.warning(f"Failed to read dashboard JSON: {e}")
+            return None
+
+    def get_dashboard_url(self) -> str:
+        """Get the public URL for the dashboard JSON."""
+        if self._use_s3():
+            return f"https://{S3_BUCKET}.s3.amazonaws.com/signals/dashboard.json"
+        else:
+            return "/api/signals/dashboard.json"
+
     def get_signals_url(self) -> str:
         """
         Get the public URL for the latest signals JSON.

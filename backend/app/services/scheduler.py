@@ -136,6 +136,12 @@ class SchedulerService:
                 logger.error(f"⚠️ Walk-forward simulation failed: {wf_err}")
                 # Don't fail the whole update if walk-forward fails
 
+            # Export pre-computed dashboard data to S3 for instant frontend loading
+            try:
+                await self._export_dashboard_cache()
+            except Exception as cache_err:
+                logger.error(f"⚠️ Dashboard cache export failed: {cache_err}")
+
             # Update status
             self.last_run = datetime.now(ET)
             self.last_run_status = "success"
@@ -291,6 +297,12 @@ class SchedulerService:
 
                 logger.info(f"[NIGHTLY-WF] Complete: {result.total_return_pct:.1f}% return, "
                            f"{result.num_strategy_switches} switches")
+
+                # Re-export dashboard cache with updated missed opportunities
+                try:
+                    await self._export_dashboard_cache()
+                except Exception as cache_err:
+                    logger.error(f"[NIGHTLY-WF] Dashboard cache re-export failed: {cache_err}")
 
                 # Generate social content from trades
                 try:
@@ -478,6 +490,12 @@ class SchedulerService:
             export_result = data_export_service.export_consolidated(scanner_service.data_cache)
             if export_result.get("success"):
                 logger.info(f"💾 Saved to {export_result.get('storage', 'storage')}")
+
+            # Export dashboard cache for instant frontend loading
+            try:
+                await self._export_dashboard_cache()
+            except Exception as cache_err:
+                logger.error(f"⚠️ Dashboard cache export failed: {cache_err}")
         except Exception as e:
             logger.error(f"❌ Pre-market refresh failed: {e}")
 
@@ -882,6 +900,30 @@ class SchedulerService:
         """Manually trigger the daily update (for testing)"""
         logger.info("🚀 Manual trigger: running daily update now")
         await self.daily_update()
+
+    async def _export_dashboard_cache(self):
+        """
+        Pre-compute shared dashboard data and export to S3 for CDN delivery.
+
+        Called after scans and nightly walk-forward so the frontend
+        can load dashboard data instantly from CDN.
+        """
+        try:
+            from app.core.database import async_session
+            from app.api.signals import compute_shared_dashboard_data
+
+            async with async_session() as db:
+                logger.info("📦 Computing shared dashboard data for S3 cache...")
+                data = await compute_shared_dashboard_data(db)
+                result = data_export_service.export_dashboard_json(data)
+                if result.get("success"):
+                    logger.info(f"✅ Dashboard cache exported to {result.get('storage', 'storage')}")
+                else:
+                    logger.warning(f"⚠️ Dashboard cache export failed: {result.get('message', 'unknown')}")
+        except Exception as e:
+            logger.error(f"❌ Dashboard cache export failed: {e}")
+            import traceback
+            traceback.print_exc()
 
     async def _strategy_auto_analysis(self):
         """

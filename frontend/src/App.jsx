@@ -26,12 +26,16 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 // CDN URL for static signals (same bucket as price data, publicly accessible)
 const SIGNALS_CDN_URL = 'https://rigacap-prod-price-data-149218244179.s3.amazonaws.com/signals/latest.json';
 
+// CDN URL for pre-computed dashboard data (buy signals, missed opps, watchlist, regime)
+const DASHBOARD_CDN_URL = 'https://rigacap-prod-price-data-149218244179.s3.amazonaws.com/signals/dashboard.json';
+
 // localStorage cache keys
 const CACHE_KEYS = {
   SIGNALS: 'rigacap_signals_cache',
   POSITIONS: 'rigacap_positions_cache',
   MISSED: 'rigacap_missed_cache',
   BACKTEST: 'rigacap_backtest_cache',
+  DASHBOARD: 'rigacap_dashboard_cache',
   VIEW_MODE: 'rigacap_view_mode',
   CACHE_TIME: 'rigacap_cache_time'
 };
@@ -1437,57 +1441,102 @@ function Dashboard() {
   }, [viewMode]);
 
   // Fetch unified dashboard data (regime forecast, buy signals, sell guidance, watchlist)
+  // CDN-first strategy: localStorage → CDN (~200ms) → API (positions only)
   useEffect(() => {
+    const buildTimeTravelPresets = (data) => {
+      const presets = [];
+      if (data.missed_opportunities?.length > 0) {
+        const grouped = {};
+        data.missed_opportunities.forEach(m => {
+          const d = m.entry_date;
+          if (!grouped[d]) grouped[d] = [];
+          grouped[d].push(m);
+        });
+        Object.entries(grouped).forEach(([date, opps]) => {
+          const symbols = opps.map(o => o.symbol).join(', ');
+          const avgRet = Math.round(opps.reduce((s, o) => s + (o.would_be_return || 0), 0) / opps.length);
+          presets.push({ date, symbols, detail: `+${avgRet}%`, source: 'missed' });
+        });
+      }
+      if (data.buy_signals?.length > 0) {
+        const grouped = {};
+        data.buy_signals.filter(s => s.ensemble_entry_date && s.is_fresh).forEach(s => {
+          const d = s.ensemble_entry_date;
+          if (!grouped[d]) grouped[d] = [];
+          grouped[d].push(s);
+        });
+        Object.entries(grouped).forEach(([date, sigs]) => {
+          if (presets.some(p => p.date === date)) return;
+          const symbols = sigs.map(s => s.symbol).join(', ');
+          const topScore = Math.max(...sigs.map(s => s.ensemble_score || 0));
+          presets.push({ date, symbols, detail: `Score ${Math.round(topScore)}`, source: 'signal' });
+        });
+      }
+      presets.sort((a, b) => b.date.localeCompare(a.date));
+      return presets;
+    };
+
     const fetchDashboard = async () => {
-      if (timeTravelDate) setTimeTravelLoading(true);
+      // Time-travel mode: always call API directly (unchanged)
+      if (timeTravelDate) {
+        setTimeTravelLoading(true);
+        try {
+          const data = await api.get(`/api/signals/dashboard?as_of_date=${timeTravelDate}`);
+          setDashboardData(data);
+          if (data.missed_opportunities?.length > 0) {
+            setMissedOpportunities(data.missed_opportunities);
+          }
+        } catch (err) {
+          console.log('Dashboard time-travel fetch failed:', err);
+        } finally {
+          setTimeTravelLoading(false);
+        }
+        return;
+      }
+
+      // Step 1: Show localStorage cache immediately (instant)
+      const cached = getCache(CACHE_KEYS.DASHBOARD);
+      if (cached) {
+        setDashboardData(cached);
+        if (cached.missed_opportunities?.length > 0) {
+          setMissedOpportunities(cached.missed_opportunities);
+        }
+        setTimeTravelPresets(buildTimeTravelPresets(cached));
+      }
+
+      // Step 2: Fetch shared dashboard data from CDN (~200ms)
       try {
-        const url = timeTravelDate
-          ? `/api/signals/dashboard?as_of_date=${timeTravelDate}`
-          : '/api/signals/dashboard';
-        const data = await api.get(url);
+        const cdnRes = await fetch(DASHBOARD_CDN_URL);
+        if (cdnRes.ok) {
+          const cdnData = await cdnRes.json();
+          // Merge CDN shared data with any existing positions from API
+          const merged = { ...cdnData };
+          // Preserve positions from previous dashboardData (API will refresh below)
+          if (dashboardData?.positions_with_guidance?.length > 0) {
+            merged.positions_with_guidance = dashboardData.positions_with_guidance;
+          }
+          setDashboardData(merged);
+          if (cdnData.missed_opportunities?.length > 0) {
+            setMissedOpportunities(cdnData.missed_opportunities);
+          }
+          setCache(CACHE_KEYS.DASHBOARD, cdnData);
+          setTimeTravelPresets(buildTimeTravelPresets(cdnData));
+        }
+      } catch (cdnErr) {
+        console.log('Dashboard CDN fetch failed, falling back to API:', cdnErr);
+      }
+
+      // Step 3: Fetch from API in background (adds user positions with sell guidance)
+      try {
+        const data = await api.get('/api/signals/dashboard');
         setDashboardData(data);
         if (data.missed_opportunities?.length > 0) {
           setMissedOpportunities(data.missed_opportunities);
         }
-        // Build time-travel presets from live data (only when not time-traveling)
-        if (!timeTravelDate) {
-          const presets = [];
-          // Source 1: missed opportunities (best — confirmed profitable trades)
-          if (data.missed_opportunities?.length > 0) {
-            const grouped = {};
-            data.missed_opportunities.forEach(m => {
-              const d = m.entry_date;
-              if (!grouped[d]) grouped[d] = [];
-              grouped[d].push(m);
-            });
-            Object.entries(grouped).forEach(([date, opps]) => {
-              const symbols = opps.map(o => o.symbol).join(', ');
-              const avgRet = Math.round(opps.reduce((s, o) => s + (o.would_be_return || 0), 0) / opps.length);
-              presets.push({ date, symbols, detail: `+${avgRet}%`, source: 'missed' });
-            });
-          }
-          // Source 2: ensemble entry dates — only fresh signals (what user would have acted on)
-          if (data.buy_signals?.length > 0) {
-            const grouped = {};
-            data.buy_signals.filter(s => s.ensemble_entry_date && s.is_fresh).forEach(s => {
-              const d = s.ensemble_entry_date;
-              if (!grouped[d]) grouped[d] = [];
-              grouped[d].push(s);
-            });
-            Object.entries(grouped).forEach(([date, sigs]) => {
-              if (presets.some(p => p.date === date)) return; // Skip if already from missed opps
-              const symbols = sigs.map(s => s.symbol).join(', ');
-              const topScore = Math.max(...sigs.map(s => s.ensemble_score || 0));
-              presets.push({ date, symbols, detail: `Score ${Math.round(topScore)}`, source: 'signal' });
-            });
-          }
-          presets.sort((a, b) => b.date.localeCompare(a.date));
-          setTimeTravelPresets(presets);
-        }
+        setCache(CACHE_KEYS.DASHBOARD, data);
+        setTimeTravelPresets(buildTimeTravelPresets(data));
       } catch (err) {
-        console.log('Dashboard data fetch failed:', err);
-      } finally {
-        setTimeTravelLoading(false);
+        console.log('Dashboard API fetch failed:', err);
       }
     };
 
