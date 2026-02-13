@@ -544,6 +544,32 @@ def handler(event, context):
             "body": f'{{"status": "warm", "symbols_loaded": {len(scanner_service.data_cache)}}}'
         }
 
+    # Handle dashboard cache export
+    if event.get("export_dashboard_cache"):
+        print("📦 Dashboard cache export requested")
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _export_dashboard():
+            from app.api.signals import compute_shared_dashboard_data
+            from app.services.data_export import data_export_service
+            async with async_session() as db:
+                data = await compute_shared_dashboard_data(db)
+                result = data_export_service.export_dashboard_json(data)
+                return {"status": "success", **result}
+
+        try:
+            result = loop.run_until_complete(_export_dashboard())
+            print(f"📦 Dashboard cache export: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Dashboard cache export failed: {e}")
+            traceback.print_exc()
+            return {"status": "failed", "error": str(e)}
+
     # Handle async walk-forward jobs
     if event.get("walk_forward_job"):
         print(f"📊 Walk-forward async job received - {len(scanner_service.data_cache)} symbols in cache, SPY={'SPY' in scanner_service.data_cache}")
