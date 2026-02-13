@@ -95,7 +95,6 @@ async def create_checkout_session(
             success_url=f"{settings.FRONTEND_URL}/dashboard?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{settings.FRONTEND_URL}/pricing?checkout=canceled",
             allow_promotion_codes=True,
-            automatic_payment_methods={"enabled": True},
         )
 
         return CheckoutResponse(
