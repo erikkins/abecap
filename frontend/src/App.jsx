@@ -191,7 +191,7 @@ const ErrorDisplay = ({ message, onRetry }) => (
 // LoginModal is now imported from ./components/LoginModal
 
 // Buy Modal Component
-const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy, viewMode = 'advanced' }) => {
+const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy, viewMode = 'advanced', timeTravelDate = null }) => {
   const [shares, setShares] = useState(Math.floor(10000 / price)); // Default ~$10k position
   const [entryPrice, setEntryPrice] = useState(price);
   const [submitting, setSubmitting] = useState(false);
@@ -205,7 +205,8 @@ const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy, viewMode = 'advanc
       await api.post('/api/portfolio/positions', {
         symbol,
         shares,
-        price: entryPrice
+        price: entryPrice,
+        ...(timeTravelDate && { entry_date: timeTravelDate }),
       });
       onBuy();
       onClose();
@@ -223,6 +224,7 @@ const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy, viewMode = 'advanc
         <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-emerald-500 to-green-600">
           <h2 className="text-xl font-bold text-white">Buy {symbol}</h2>
           {stockInfo?.name && <p className="text-emerald-100 text-sm">{stockInfo.name}</p>}
+          {timeTravelDate && <p className="text-emerald-200 text-xs mt-1">Entry date: {timeTravelDate}</p>}
         </div>
 
         <div className="p-6 space-y-4">
@@ -386,7 +388,7 @@ const SellModal = ({ symbol, position, currentPrice, stockInfo, onClose, onSell 
 };
 
 // Stock Chart Modal
-const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, viewMode = 'advanced' }) => {
+const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, viewMode = 'advanced', timeTravelDate = null }) => {
   const [timeRange, setTimeRange] = useState('1Y');
   const [priceData, setPriceData] = useState([]);
   const [stockInfo, setStockInfo] = useState(null);
@@ -1184,6 +1186,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
           price={currentPrice}
           stockInfo={stockInfo}
           viewMode={viewMode}
+          timeTravelDate={timeTravelDate}
           onClose={() => setShowBuyModal(false)}
           onBuy={() => {
             onAction && onAction();
@@ -2791,7 +2794,7 @@ function Dashboard() {
       </main>
 
       {showLoginModal && <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />}
-      {chartModal && <StockChartModal {...chartModal} viewMode={viewMode} liveQuote={liveQuotes[chartModal.symbol]} onClose={() => setChartModal(null)} onAction={() => { setChartModal(null); reloadPositions(); }} />}
+      {chartModal && <StockChartModal {...chartModal} viewMode={viewMode} liveQuote={liveQuotes[chartModal.symbol]} timeTravelDate={timeTravelDate} onClose={() => setChartModal(null)} onAction={() => { setChartModal(null); reloadPositions(); }} />}
     </div>
   );
 }

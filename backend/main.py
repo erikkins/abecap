@@ -121,6 +121,7 @@ class OpenPositionRequest(BaseModel):
     symbol: str
     shares: Optional[float] = None
     price: Optional[float] = None
+    entry_date: Optional[str] = None  # YYYY-MM-DD, for time-travel mode
 
 
 class EquityPoint(BaseModel):
@@ -1658,10 +1659,16 @@ async def open_position(request: OpenPositionRequest, user: User = Depends(get_c
 
     shares = request.shares or (10000 / price)  # Default ~$10k position
 
+    # Use provided entry_date (time-travel mode) or default to now
+    if request.entry_date:
+        entry_date = datetime.strptime(request.entry_date, '%Y-%m-%d')
+    else:
+        entry_date = datetime.now()
+
     position = DBPosition(
         user_id=user.id,
         symbol=symbol,
-        entry_date=datetime.now(),
+        entry_date=entry_date,
         entry_price=price,
         shares=round(shares, 2),
         stop_loss=round(price * (1 - settings.STOP_LOSS_PCT / 100), 2),
