@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import {
   LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -1406,16 +1406,6 @@ function Dashboard() {
   const [timeTravelEmailStatus, setTimeTravelEmailStatus] = useState(null); // null | 'sending' | 'sent' | 'failed'
   const [timeTravelPresets, setTimeTravelPresets] = useState([]); // Computed once from live dashboard data
 
-  // Ref tracks the current timeTravelDate synchronously during render.
-  // In-flight fetches from previous effects read this ref to detect staleness
-  // BEFORE React runs effect cleanup (closes the race window).
-  const dashboardFetchVersion = useRef(0);
-  const prevTimeTravelDate = useRef(timeTravelDate);
-  if (prevTimeTravelDate.current !== timeTravelDate) {
-    prevTimeTravelDate.current = timeTravelDate;
-    dashboardFetchVersion.current++;
-  }
-
   // Handle post-checkout redirect from Stripe
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1474,13 +1464,12 @@ function Dashboard() {
   // Fetch unified dashboard data (regime forecast, buy signals, sell guidance, watchlist)
   // CDN-first strategy: localStorage → CDN (~200ms) → API (positions only)
   //
-  // Race condition protection: dashboardFetchVersion ref (updated synchronously in
-  // render body above) detects when timeTravelDate changes BEFORE React runs effect
-  // cleanup. This closes the gap where in-flight CDN/API fetches from the previous
-  // normal-mode effect could overwrite time-travel data.
+  // Race condition protection: AbortController cancels ALL in-flight HTTP requests
+  // when timeTravelDate changes. This is bulletproof — the browser itself aborts the
+  // requests, so no stale response can ever call setDashboardData.
   useEffect(() => {
-    const myVersion = dashboardFetchVersion.current;
-    const isStale = () => dashboardFetchVersion.current !== myVersion;
+    const abortController = new AbortController();
+    const signal = abortController.signal;
 
     const buildTimeTravelPresets = (data) => {
       const presets = [];
@@ -1520,16 +1509,21 @@ function Dashboard() {
       if (timeTravelDate) {
         setTimeTravelLoading(true);
         try {
-          const data = await api.get(`/api/signals/dashboard?as_of_date=${timeTravelDate}`);
-          if (isStale()) return;
+          const res = await fetch(`${API_BASE}/api/signals/dashboard?as_of_date=${timeTravelDate}`, {
+            headers: api._authHeaders(),
+            signal,
+          });
+          if (!res.ok) throw new Error(`API error: ${res.status}`);
+          const data = await res.json();
           setDashboardData(data);
           if (data.missed_opportunities?.length > 0) {
             setMissedOpportunities(data.missed_opportunities);
           }
         } catch (err) {
+          if (err.name === 'AbortError') return; // Expected on cleanup
           console.log('Dashboard time-travel fetch failed:', err);
         } finally {
-          if (!isStale()) setTimeTravelLoading(false);
+          if (!signal.aborted) setTimeTravelLoading(false);
         }
         return;
       }
@@ -1537,7 +1531,6 @@ function Dashboard() {
       // Step 1: Show localStorage cache immediately (instant)
       const cached = getCache(CACHE_KEYS.DASHBOARD);
       if (cached) {
-        if (isStale()) return;
         setDashboardData(cached);
         if (cached.missed_opportunities?.length > 0) {
           setMissedOpportunities(cached.missed_opportunities);
@@ -1547,11 +1540,9 @@ function Dashboard() {
 
       // Step 2: Fetch shared dashboard data from CDN (~200ms)
       try {
-        const cdnRes = await fetch(DASHBOARD_CDN_URL);
-        if (isStale()) return;
+        const cdnRes = await fetch(DASHBOARD_CDN_URL, { signal });
         if (cdnRes.ok) {
           const cdnData = await cdnRes.json();
-          if (isStale()) return;
           const merged = { ...cdnData };
           if (dashboardData?.positions_with_guidance?.length > 0) {
             merged.positions_with_guidance = dashboardData.positions_with_guidance;
@@ -1564,13 +1555,18 @@ function Dashboard() {
           setTimeTravelPresets(buildTimeTravelPresets(cdnData));
         }
       } catch (cdnErr) {
+        if (cdnErr.name === 'AbortError') return;
         console.log('Dashboard CDN fetch failed, falling back to API:', cdnErr);
       }
 
       // Step 3: Fetch from API in background (adds user positions with sell guidance)
       try {
-        const data = await api.get('/api/signals/dashboard');
-        if (isStale()) return;
+        const res = await fetch(`${API_BASE}/api/signals/dashboard`, {
+          headers: api._authHeaders(),
+          signal,
+        });
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        const data = await res.json();
         setDashboardData(data);
         if (data.missed_opportunities?.length > 0) {
           setMissedOpportunities(data.missed_opportunities);
@@ -1578,6 +1574,7 @@ function Dashboard() {
         setCache(CACHE_KEYS.DASHBOARD, data);
         setTimeTravelPresets(buildTimeTravelPresets(data));
       } catch (err) {
+        if (err.name === 'AbortError') return;
         console.log('Dashboard API fetch failed:', err);
       }
     };
@@ -1586,8 +1583,9 @@ function Dashboard() {
     // Disable auto-refresh in time-travel mode (historical data doesn't change)
     if (!timeTravelDate) {
       const interval = setInterval(fetchDashboard, 60000);
-      return () => clearInterval(interval);
+      return () => { abortController.abort(); clearInterval(interval); };
     }
+    return () => abortController.abort();
   }, [timeTravelDate]);
 
   // Send time-travel email when dashboard data loads after preset click
