@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import {
   LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -1404,6 +1404,16 @@ function Dashboard() {
   const [timeTravelEmailStatus, setTimeTravelEmailStatus] = useState(null); // null | 'sending' | 'sent' | 'failed'
   const [timeTravelPresets, setTimeTravelPresets] = useState([]); // Computed once from live dashboard data
 
+  // Ref tracks the current timeTravelDate synchronously during render.
+  // In-flight fetches from previous effects read this ref to detect staleness
+  // BEFORE React runs effect cleanup (closes the race window).
+  const dashboardFetchVersion = useRef(0);
+  const prevTimeTravelDate = useRef(timeTravelDate);
+  if (prevTimeTravelDate.current !== timeTravelDate) {
+    prevTimeTravelDate.current = timeTravelDate;
+    dashboardFetchVersion.current++;
+  }
+
   // Live quotes polling - updates prices every 30 seconds during market hours
   useEffect(() => {
     if (timeTravelDate) return; // No live quotes in time-travel mode
@@ -1445,8 +1455,14 @@ function Dashboard() {
 
   // Fetch unified dashboard data (regime forecast, buy signals, sell guidance, watchlist)
   // CDN-first strategy: localStorage → CDN (~200ms) → API (positions only)
+  //
+  // Race condition protection: dashboardFetchVersion ref (updated synchronously in
+  // render body above) detects when timeTravelDate changes BEFORE React runs effect
+  // cleanup. This closes the gap where in-flight CDN/API fetches from the previous
+  // normal-mode effect could overwrite time-travel data.
   useEffect(() => {
-    let cancelled = false; // Prevents stale fetches from overwriting newer data
+    const myVersion = dashboardFetchVersion.current;
+    const isStale = () => dashboardFetchVersion.current !== myVersion;
 
     const buildTimeTravelPresets = (data) => {
       const presets = [];
@@ -1482,12 +1498,12 @@ function Dashboard() {
     };
 
     const fetchDashboard = async () => {
-      // Time-travel mode: always call API directly (unchanged)
+      // Time-travel mode: always call API directly
       if (timeTravelDate) {
         setTimeTravelLoading(true);
         try {
           const data = await api.get(`/api/signals/dashboard?as_of_date=${timeTravelDate}`);
-          if (cancelled) return;
+          if (isStale()) return;
           setDashboardData(data);
           if (data.missed_opportunities?.length > 0) {
             setMissedOpportunities(data.missed_opportunities);
@@ -1495,7 +1511,7 @@ function Dashboard() {
         } catch (err) {
           console.log('Dashboard time-travel fetch failed:', err);
         } finally {
-          if (!cancelled) setTimeTravelLoading(false);
+          if (!isStale()) setTimeTravelLoading(false);
         }
         return;
       }
@@ -1503,7 +1519,7 @@ function Dashboard() {
       // Step 1: Show localStorage cache immediately (instant)
       const cached = getCache(CACHE_KEYS.DASHBOARD);
       if (cached) {
-        if (cancelled) return;
+        if (isStale()) return;
         setDashboardData(cached);
         if (cached.missed_opportunities?.length > 0) {
           setMissedOpportunities(cached.missed_opportunities);
@@ -1514,10 +1530,10 @@ function Dashboard() {
       // Step 2: Fetch shared dashboard data from CDN (~200ms)
       try {
         const cdnRes = await fetch(DASHBOARD_CDN_URL);
-        if (cancelled) return;
+        if (isStale()) return;
         if (cdnRes.ok) {
           const cdnData = await cdnRes.json();
-          if (cancelled) return;
+          if (isStale()) return;
           const merged = { ...cdnData };
           if (dashboardData?.positions_with_guidance?.length > 0) {
             merged.positions_with_guidance = dashboardData.positions_with_guidance;
@@ -1536,7 +1552,7 @@ function Dashboard() {
       // Step 3: Fetch from API in background (adds user positions with sell guidance)
       try {
         const data = await api.get('/api/signals/dashboard');
-        if (cancelled) return;
+        if (isStale()) return;
         setDashboardData(data);
         if (data.missed_opportunities?.length > 0) {
           setMissedOpportunities(data.missed_opportunities);
@@ -1552,9 +1568,8 @@ function Dashboard() {
     // Disable auto-refresh in time-travel mode (historical data doesn't change)
     if (!timeTravelDate) {
       const interval = setInterval(fetchDashboard, 60000);
-      return () => { cancelled = true; clearInterval(interval); };
+      return () => clearInterval(interval);
     }
-    return () => { cancelled = true; };
   }, [timeTravelDate]);
 
   // Send time-travel email when dashboard data loads after preset click
