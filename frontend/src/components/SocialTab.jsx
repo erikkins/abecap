@@ -60,7 +60,7 @@ export default function SocialTab({ fetchWithAuth }) {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetchWithAuth(`${API_URL}/api/social/stats`);
+      const res = await fetchWithAuth(`${API_URL}/api/admin/social/stats`);
       if (res.ok) setStats(await res.json());
     } catch (err) {
       console.error('Failed to fetch social stats:', err);
@@ -75,7 +75,7 @@ export default function SocialTab({ fetchWithAuth }) {
       if (status !== 'all') params.set('status', status);
       if (postType !== 'all') params.set('post_type', postType);
 
-      const res = await fetchWithAuth(`${API_URL}/api/social/posts?${params}`);
+      const res = await fetchWithAuth(`${API_URL}/api/admin/social/posts?${params}`);
       if (res.ok) {
         const data = await res.json();
         setPosts(data.posts || []);
@@ -89,7 +89,7 @@ export default function SocialTab({ fetchWithAuth }) {
 
   const fetchPreview = useCallback(async (postId) => {
     try {
-      const res = await fetchWithAuth(`${API_URL}/api/social/posts/${postId}/preview`);
+      const res = await fetchWithAuth(`${API_URL}/api/admin/social/posts/${postId}/preview`);
       if (res.ok) {
         const data = await res.json();
         setPreviews(prev => ({ ...prev, [postId]: data }));
@@ -117,7 +117,7 @@ export default function SocialTab({ fetchWithAuth }) {
     if (confirmMsg && !window.confirm(confirmMsg)) return;
     setActionLoading(prev => ({ ...prev, [postId]: action }));
     try {
-      const res = await fetchWithAuth(`${API_URL}/api/social/${action}`, { method });
+      const res = await fetchWithAuth(`${API_URL}/api/admin/social/${action}`, { method });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         alert(`Action failed: ${err.detail || res.statusText}`);
@@ -139,7 +139,7 @@ export default function SocialTab({ fetchWithAuth }) {
   const generateChart = async (id) => {
     setActionLoading(prev => ({ ...prev, [id]: 'generate-chart' }));
     try {
-      const res = await fetchWithAuth(`${API_URL}/api/social/generate-chart/${id}`, { method: 'POST' });
+      const res = await fetchWithAuth(`${API_URL}/api/admin/social/generate-chart/${id}`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         setPreviews(prev => ({ ...prev, [id]: { ...prev[id], image_url: data.image_url } }));
