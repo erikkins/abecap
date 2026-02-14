@@ -1524,7 +1524,11 @@ function Dashboard() {
         } catch (err) {
           if (err.name === 'AbortError') return; // Expected on cleanup
           console.error('Dashboard time-travel fetch failed:', err);
-          setError(`Time-travel failed: ${err.message}`);
+          if (err.message?.includes('503')) {
+            setError('Time-travel: Price data is loading on the server. Please try again in ~30 seconds.');
+          } else {
+            setError(`Time-travel failed: ${err.message}`);
+          }
         } finally {
           if (!signal.aborted) setTimeTravelLoading(false);
         }

@@ -260,12 +260,13 @@ def _ensure_lambda_data_loaded():
             if cached_data:
                 scanner_service.data_cache = cached_data
                 print(f"✅ Loaded {len(cached_data)} symbols from S3")
+                _lambda_data_loaded = True
             else:
-                print("⚠️ No cached data found in S3")
+                print("⚠️ No cached data found in S3 — will retry next request")
         except Exception as e:
-            print(f"⚠️ Failed to load data from S3: {e}")
-
-    _lambda_data_loaded = True
+            print(f"⚠️ Failed to load data from S3: {e} — will retry next request")
+    else:
+        _lambda_data_loaded = True
 
 
 async def _run_walk_forward_job(job_config: dict):
