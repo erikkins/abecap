@@ -214,18 +214,21 @@ async def sync_subscription(
                 "unpaid": "past_due",
                 "trialing": "trial",
             }
+            period_start, period_end = _get_period_dates(stripe_sub)
             subscription.status = status_map.get(stripe_sub.status, stripe_sub.status)
             subscription.stripe_subscription_id = stripe_sub.id
             subscription.stripe_price_id = stripe_sub.items.data[0].price.id if stripe_sub.items.data else None
-            subscription.current_period_start = datetime.fromtimestamp(stripe_sub.current_period_start)
-            subscription.current_period_end = datetime.fromtimestamp(stripe_sub.current_period_end)
+            if period_start:
+                subscription.current_period_start = datetime.fromtimestamp(period_start)
+            if period_end:
+                subscription.current_period_end = datetime.fromtimestamp(period_end)
             subscription.cancel_at_period_end = stripe_sub.cancel_at_period_end
             await db.commit()
 
             return {
                 "synced": True,
                 "status": subscription.status,
-                "current_period_end": subscription.current_period_end.isoformat(),
+                "current_period_end": subscription.current_period_end.isoformat() if subscription.current_period_end else None,
             }
 
         return {"synced": True, "status": subscription.status, "message": "No Stripe subscription found"}
@@ -261,20 +264,49 @@ async def stripe_webhook(
         )
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.error.SignatureVerificationError:
-        raise HTTPException(status_code=400, detail="Invalid signature")
+    except Exception as sig_err:
+        if "Signature" in type(sig_err).__name__ or "signature" in str(sig_err).lower():
+            raise HTTPException(status_code=400, detail="Invalid signature")
+        raise
 
     # Handle the event
-    if event.type == "customer.subscription.created":
-        await handle_subscription_created(event.data.object, db)
-    elif event.type == "customer.subscription.updated":
-        await handle_subscription_updated(event.data.object, db)
-    elif event.type == "customer.subscription.deleted":
-        await handle_subscription_deleted(event.data.object, db)
-    elif event.type == "invoice.payment_failed":
-        await handle_payment_failed(event.data.object, db)
+    try:
+        if event.type == "customer.subscription.created":
+            await handle_subscription_created(event.data.object, db)
+        elif event.type == "customer.subscription.updated":
+            await handle_subscription_updated(event.data.object, db)
+        elif event.type == "customer.subscription.deleted":
+            await handle_subscription_deleted(event.data.object, db)
+        elif event.type == "invoice.payment_failed":
+            await handle_payment_failed(event.data.object, db)
+    except Exception as e:
+        print(f"❌ Webhook handler error for {event.type}: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail=f"Webhook handler error: {type(e).__name__}")
 
     return {"received": True}
+
+
+def _get_period_dates(stripe_sub):
+    """Extract current_period_start/end from subscription.
+
+    Stripe API 2026-01-28+ moved these to items.data[0].
+    """
+    # Try top-level first (older API versions)
+    start = getattr(stripe_sub, 'current_period_start', None)
+    end = getattr(stripe_sub, 'current_period_end', None)
+    # Fall back to items.data[0] (newer API versions)
+    if not start or not end:
+        try:
+            item = stripe_sub.items.data[0] if hasattr(stripe_sub, 'items') else (stripe_sub.get('items', {}).get('data', [None])[0])
+            if item:
+                start = start or getattr(item, 'current_period_start', None) or item.get('current_period_start')
+                end = end or getattr(item, 'current_period_end', None) or item.get('current_period_end')
+        except (IndexError, KeyError, TypeError):
+            pass
+    # Fall back to start_date / created
+    if not start:
+        start = getattr(stripe_sub, 'start_date', None) or getattr(stripe_sub, 'created', None)
+    return start, end
 
 
 async def handle_subscription_created(stripe_sub, db: AsyncSession):
@@ -302,14 +334,18 @@ async def handle_subscription_created(stripe_sub, db: AsyncSession):
         db.add(subscription)
 
     # Update subscription details
+    period_start, period_end = _get_period_dates(stripe_sub)
     subscription.status = "active"
     subscription.stripe_subscription_id = stripe_sub.id
     subscription.stripe_price_id = stripe_sub.items.data[0].price.id if stripe_sub.items.data else None
-    subscription.current_period_start = datetime.fromtimestamp(stripe_sub.current_period_start)
-    subscription.current_period_end = datetime.fromtimestamp(stripe_sub.current_period_end)
+    if period_start:
+        subscription.current_period_start = datetime.fromtimestamp(period_start)
+    if period_end:
+        subscription.current_period_end = datetime.fromtimestamp(period_end)
     subscription.cancel_at_period_end = stripe_sub.cancel_at_period_end
 
     await db.commit()
+    print(f"✅ Webhook: subscription created for user {user.id}, status=active")
 
 
 async def handle_subscription_updated(stripe_sub, db: AsyncSession):
@@ -347,13 +383,17 @@ async def handle_subscription_updated(stripe_sub, db: AsyncSession):
         "trialing": "trial",
     }
 
+    period_start, period_end = _get_period_dates(stripe_sub)
     subscription.status = status_map.get(stripe_sub.status, stripe_sub.status)
     subscription.stripe_subscription_id = stripe_sub.id
-    subscription.current_period_start = datetime.fromtimestamp(stripe_sub.current_period_start)
-    subscription.current_period_end = datetime.fromtimestamp(stripe_sub.current_period_end)
+    if period_start:
+        subscription.current_period_start = datetime.fromtimestamp(period_start)
+    if period_end:
+        subscription.current_period_end = datetime.fromtimestamp(period_end)
     subscription.cancel_at_period_end = stripe_sub.cancel_at_period_end
 
     await db.commit()
+    print(f"✅ Webhook: subscription updated, status={subscription.status}")
 
 
 async def handle_subscription_deleted(stripe_sub, db: AsyncSession):
