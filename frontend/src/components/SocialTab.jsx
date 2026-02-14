@@ -454,8 +454,9 @@ function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRe
   const imageUrl = preview?.image_url || null;
   const hasImage = !!post.image_s3_key || !!imageUrl;
   const chartLoading = actionLoading === 'generate-chart';
+  const canGenerateChart = post.post_type === 'trade_result' || post.post_type === 'missed_opportunity';
 
-  const generateChartButton = !hasImage && (
+  const generateChartButton = canGenerateChart && !hasImage && (
     <button
       onClick={() => onGenerateChart(post.id)}
       disabled={!!actionLoading}
@@ -495,7 +496,7 @@ function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRe
               <Image size={40} className="text-gray-300" />
               {post.image_s3_key ? (
                 <span className="text-xs text-gray-400">Image loading...</span>
-              ) : (
+              ) : canGenerateChart ? (
                 <button
                   onClick={() => onGenerateChart(post.id)}
                   disabled={!!actionLoading}
@@ -507,6 +508,8 @@ function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRe
                     'Generate Chart'
                   )}
                 </button>
+              ) : (
+                <span className="text-xs text-gray-400">No chart available for this post type</span>
               )}
             </div>
           )}
