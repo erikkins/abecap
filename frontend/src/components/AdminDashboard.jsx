@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw, Beaker, Bot, Settings } from 'lucide-react';
+import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw, Beaker, Bot, Settings, Share2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import StrategyGenerator from './StrategyGenerator';
 import WalkForwardSimulator from './WalkForwardSimulator';
 import AutoSwitchConfig from './AutoSwitchConfig';
 import StrategyEditor from './StrategyEditor';
 import FlexibleBacktest from './FlexibleBacktest';
+import SocialTab from './SocialTab';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -14,6 +15,7 @@ const TABS = [
   { id: 'strategies', label: 'Strategies', icon: TrendingUp },
   { id: 'lab', label: 'Strategy Lab', icon: Beaker },
   { id: 'autopilot', label: 'Auto-Pilot', icon: Bot },
+  { id: 'social', label: 'Social', icon: Share2 },
   { id: 'users', label: 'Users', icon: Users },
 ];
 
@@ -328,6 +330,10 @@ export default function AdminDashboard() {
 
       {activeTab === 'autopilot' && (
         <AutoPilotTab fetchWithAuth={fetchWithAuth} />
+      )}
+
+      {activeTab === 'social' && (
+        <SocialTab fetchWithAuth={fetchWithAuth} />
       )}
 
       {activeTab === 'users' && (
