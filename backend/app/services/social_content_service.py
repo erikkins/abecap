@@ -204,6 +204,21 @@ class SocialContentService:
 
         return posts
 
+    @staticmethod
+    def _calc_days_held(trade: dict) -> int:
+        """Calculate days held from entry/exit dates, falling back to days_held field."""
+        entry = str(trade.get("entry_date", ""))[:10]
+        exit_ = str(trade.get("exit_date", ""))[:10]
+        if entry and exit_:
+            try:
+                d1 = datetime.strptime(entry, "%Y-%m-%d")
+                d2 = datetime.strptime(exit_, "%Y-%m-%d")
+                days = (d2 - d1).days
+                return max(days, 1)
+            except (ValueError, TypeError):
+                pass
+        return trade.get("days_held", 1)
+
     def _make_trade_result_twitter(self, trade: dict) -> SocialPost:
         """Create a Twitter-format trade result post (280 chars max)."""
         symbol = trade.get("symbol", "???")
@@ -213,7 +228,7 @@ class SocialContentService:
         entry_date = str(trade.get("entry_date", ""))[:10]
         exit_date = str(trade.get("exit_date", ""))[:10]
         exit_reason = trade.get("exit_reason", "trailing_stop")
-        days_held = trade.get("days_held", 0)
+        days_held = self._calc_days_held(trade)
 
         # Format exit reason for display
         exit_display = exit_reason.replace("_", " ").title() if exit_reason else "Exit"
@@ -243,7 +258,7 @@ class SocialContentService:
         entry_date = str(trade.get("entry_date", ""))[:10]
         exit_date = str(trade.get("exit_date", ""))[:10]
         exit_reason = trade.get("exit_reason", "trailing_stop")
-        days_held = trade.get("days_held", 0)
+        days_held = self._calc_days_held(trade)
         strategy_name = trade.get("strategy_name", "Ensemble")
 
         exit_display = exit_reason.replace("_", " ").title() if exit_reason else "Exit"
@@ -285,7 +300,7 @@ class SocialContentService:
         symbol = trade.get("symbol", "???")
         pnl_pct = trade.get("pnl_pct", 0)
         entry_date = str(trade.get("entry_date", ""))[:10]
-        days_held = trade.get("days_held", 0)
+        days_held = self._calc_days_held(trade)
 
         text = (
             f"Did you catch ${symbol}?\n"
@@ -311,7 +326,7 @@ class SocialContentService:
         pnl_pct = trade.get("pnl_pct", 0)
         entry_date = str(trade.get("entry_date", ""))[:10]
         exit_date = str(trade.get("exit_date", ""))[:10]
-        days_held = trade.get("days_held", 0)
+        days_held = self._calc_days_held(trade)
 
         text = (
             f"Missed Opportunity\n\n"
