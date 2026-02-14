@@ -178,6 +178,63 @@ async def get_subscription(
     )
 
 
+@router.post("/sync")
+async def sync_subscription(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Sync subscription status directly from Stripe (doesn't rely on webhooks)."""
+    if not settings.STRIPE_SECRET_KEY or not user.stripe_customer_id:
+        raise HTTPException(status_code=400, detail="No Stripe customer found")
+
+    import stripe
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+    try:
+        # List active subscriptions for this customer
+        subs = stripe.Subscription.list(
+            customer=user.stripe_customer_id,
+            status="all",
+            limit=1,
+        )
+
+        result = await db.execute(
+            select(Subscription).where(Subscription.user_id == user.id)
+        )
+        subscription = result.scalar_one_or_none()
+        if not subscription:
+            raise HTTPException(status_code=404, detail="No subscription record")
+
+        if subs.data:
+            stripe_sub = subs.data[0]
+            status_map = {
+                "active": "active",
+                "past_due": "past_due",
+                "canceled": "canceled",
+                "unpaid": "past_due",
+                "trialing": "trial",
+            }
+            subscription.status = status_map.get(stripe_sub.status, stripe_sub.status)
+            subscription.stripe_subscription_id = stripe_sub.id
+            subscription.stripe_price_id = stripe_sub.items.data[0].price.id if stripe_sub.items.data else None
+            subscription.current_period_start = datetime.fromtimestamp(stripe_sub.current_period_start)
+            subscription.current_period_end = datetime.fromtimestamp(stripe_sub.current_period_end)
+            subscription.cancel_at_period_end = stripe_sub.cancel_at_period_end
+            await db.commit()
+
+            return {
+                "synced": True,
+                "status": subscription.status,
+                "current_period_end": subscription.current_period_end.isoformat(),
+            }
+
+        return {"synced": True, "status": subscription.status, "message": "No Stripe subscription found"}
+
+    except stripe.StripeError as e:
+        print(f"❌ Stripe error in sync: {e}")
+        raise HTTPException(status_code=502, detail=f"Stripe error: {str(e)}")
+
+
 @router.post("/webhook")
 async def stripe_webhook(
     request: Request,

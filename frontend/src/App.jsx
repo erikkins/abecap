@@ -1411,9 +1411,12 @@ function Dashboard() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('checkout') === 'success') {
       setCheckoutSuccess(true);
-      refreshUser(); // Reload subscription status immediately
-      // Retry after 5s to catch webhook-updated subscription status
-      setTimeout(() => refreshUser(), 5000);
+      // Sync subscription status directly from Stripe, then refresh user
+      api.post('/api/billing/sync', {}).catch(() => {}).finally(() => refreshUser());
+      // Retry after 5s in case sync was slow
+      setTimeout(() => {
+        api.post('/api/billing/sync', {}).catch(() => {}).finally(() => refreshUser());
+      }, 5000);
       // Clean up URL
       const url = new URL(window.location);
       url.searchParams.delete('checkout');
