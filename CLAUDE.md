@@ -284,6 +284,10 @@ cat /tmp/result.json | python3 -m json.tool
 - `ai_optimization_job`: AI parameter optimization
 
 ### Deployment
+
+**CI/CD handles deployment automatically** — pushing to `main` triggers GitHub Actions which builds and deploys the Lambda container. Do NOT run `scripts/deploy-container.sh` manually unless CI/CD is broken.
+
+**Terraform** (infrastructure changes only — not needed for code deploys):
 ```bash
 cd infrastructure/terraform
 terraform init
