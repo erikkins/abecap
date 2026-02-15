@@ -1172,6 +1172,33 @@ def handler(event, context):
 
             triggered = [c for c in all_crossovers if c['crossed']]
 
+            # If force_example is set and no real crossovers found, create a
+            # synthetic one using a specified symbol for email template testing
+            example_symbol = config.get("force_example")
+            if example_symbol and not triggered:
+                df = scanner_service.data_cache.get(example_symbol)
+                if df is not None and len(df) >= 200:
+                    df_today = _truncate(df, effective_date)
+                    if len(df_today) >= 2:
+                        today_row = df_today.iloc[-1]
+                        prev_row = df_today.iloc[-2]
+                        today_dwap = today_row.get('dwap')
+                        if not pd.isna(today_dwap) and today_dwap > 0:
+                            info = stock_universe_service.symbol_info.get(example_symbol, {})
+                            triggered.append({
+                                'symbol': example_symbol,
+                                'prev_day_price': round(float(prev_row['close']), 2),
+                                'prev_day_pct_above': round((float(prev_row['close']) / float(prev_row.get('dwap', today_dwap)) - 1) * 100, 2),
+                                'as_of_date_price': round(float(today_row['close']), 2),
+                                'as_of_date_dwap': round(float(today_dwap), 2),
+                                'as_of_date_pct_above': round((float(today_row['close']) / float(today_dwap) - 1) * 100, 2),
+                                'crossed': True,
+                                'was_on_watchlist': False,
+                                'momentum_rank': 20,
+                                'sector': info.get('sector', ''),
+                                'synthetic': True,
+                            })
+
             emails_sent = []
             if do_send_email and triggered:
                 admin_email = config.get("email", "erik@rigacap.com")
@@ -1211,6 +1238,144 @@ def handler(event, context):
         except Exception as e:
             import traceback
             print(f"❌ Intraday simulation failed: {e}")
+            traceback.print_exc()
+            return {"status": "failed", "error": str(e)}
+
+    # Handle email template preview — send all templates to a given email
+    if event.get("send_all_email_templates"):
+        config = event["send_all_email_templates"]
+        to_email = config.get("email", "erik@rigacap.com")
+        print(f"📧 Sending all email templates to {to_email}")
+
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _send_all_templates():
+            from app.services.email_service import email_service
+            results = []
+
+            # 1. Welcome email
+            try:
+                ok = await email_service.send_welcome_email(to_email, "Erik")
+                results.append({"template": "welcome", "success": ok})
+            except Exception as e:
+                results.append({"template": "welcome", "error": str(e)})
+
+            # 2. Daily summary
+            try:
+                sample_signals = [
+                    {'symbol': 'NVDA', 'price': 142.50, 'pct_above_dwap': 8.2, 'is_strong': True,
+                     'momentum_rank': 1, 'ensemble_score': 85.0, 'dwap_crossover_date': '2026-02-13',
+                     'days_since_crossover': 0, 'is_fresh': True},
+                    {'symbol': 'AVT', 'price': 58.30, 'pct_above_dwap': 5.4, 'is_strong': False,
+                     'momentum_rank': 20, 'ensemble_score': 52.0, 'dwap_crossover_date': '2026-02-12',
+                     'days_since_crossover': 1, 'is_fresh': True},
+                ]
+                ok = await email_service.send_daily_summary(
+                    to_email=to_email,
+                    signals=sample_signals,
+                    market_regime={'regime': 'strong_bull', 'spy_price': 605.20},
+                    watchlist=[{'symbol': 'KLAC', 'price': 810.50, 'pct_above_dwap': 4.2, 'distance_to_trigger': 0.8}],
+                )
+                results.append({"template": "daily_summary", "success": ok})
+            except Exception as e:
+                results.append({"template": "daily_summary", "error": str(e)})
+
+            # 3. Double signal alert (breakout)
+            try:
+                ok = await email_service.send_double_signal_alert(
+                    to_email=to_email,
+                    new_signals=[
+                        {'symbol': 'NVDA', 'price': 142.50, 'pct_above_dwap': 8.2,
+                         'momentum_rank': 1, 'short_momentum': 12.5, 'dwap_crossover_date': '2026-02-13',
+                         'days_since_crossover': 0},
+                    ],
+                    approaching=[
+                        {'symbol': 'KLAC', 'price': 810.50, 'pct_above_dwap': 4.2, 'distance_to_trigger': 0.8},
+                    ],
+                    market_regime={'regime': 'strong_bull', 'spy_price': 605.20},
+                )
+                results.append({"template": "double_signal_alert", "success": ok})
+            except Exception as e:
+                results.append({"template": "double_signal_alert", "error": str(e)})
+
+            # 4. Sell alert
+            try:
+                ok = await email_service.send_sell_alert(
+                    to_email=to_email,
+                    user_name="Erik",
+                    symbol="TSLA",
+                    action="sell",
+                    reason="Trailing stop hit: price dropped 15% from high",
+                    current_price=245.80,
+                    entry_price=220.00,
+                    stop_price=238.50,
+                )
+                results.append({"template": "sell_alert", "success": ok})
+            except Exception as e:
+                results.append({"template": "sell_alert", "error": str(e)})
+
+            # 5. Sell warning
+            try:
+                ok = await email_service.send_sell_alert(
+                    to_email=to_email,
+                    user_name="Erik",
+                    symbol="AAPL",
+                    action="warning",
+                    reason="Approaching trailing stop: 2% away",
+                    current_price=198.50,
+                    entry_price=185.00,
+                    stop_price=195.00,
+                )
+                results.append({"template": "sell_warning", "success": ok})
+            except Exception as e:
+                results.append({"template": "sell_warning", "error": str(e)})
+
+            # 6. Trial ending
+            try:
+                ok = await email_service.send_trial_ending_email(
+                    to_email=to_email,
+                    name="Erik",
+                    days_remaining=3,
+                )
+                results.append({"template": "trial_ending", "success": ok})
+            except Exception as e:
+                results.append({"template": "trial_ending", "error": str(e)})
+
+            # 7. Goodbye
+            try:
+                ok = await email_service.send_goodbye_email(to_email, "Erik")
+                results.append({"template": "goodbye", "success": ok})
+            except Exception as e:
+                results.append({"template": "goodbye", "error": str(e)})
+
+            # 8. Intraday signal alert (NEW)
+            try:
+                ok = await email_service.send_intraday_signal_alert(
+                    to_email=to_email,
+                    user_name="Erik",
+                    symbol="AVT",
+                    live_price=58.30,
+                    dwap=55.20,
+                    pct_above_dwap=5.6,
+                    momentum_rank=20,
+                    sector="Technology",
+                )
+                results.append({"template": "intraday_signal_alert", "success": ok})
+            except Exception as e:
+                results.append({"template": "intraday_signal_alert", "error": str(e)})
+
+            return {"emails_sent_to": to_email, "results": results}
+
+        try:
+            result = loop.run_until_complete(_send_all_templates())
+            print(f"📧 All templates sent: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Template send failed: {e}")
             traceback.print_exc()
             return {"status": "failed", "error": str(e)}
 
