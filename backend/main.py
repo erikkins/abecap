@@ -1112,7 +1112,11 @@ def handler(event, context):
                 for i, r in enumerate(momentum_rankings[:30])
             }
 
-            prev_watchlist = []
+            # Check ALL top-30 momentum stocks: below +5% prev day → above +5% today
+            # This is broader than the narrow 3-5% watchlist to catch gap-ups
+            prev_watchlist = []  # narrow 3-5% watchlist
+            all_crossovers = []  # any stock that crossed +5% that day
+
             for symbol, mom in top_momentum.items():
                 df = scanner_service.data_cache.get(symbol)
                 if df is None or len(df) < 200:
@@ -1121,55 +1125,52 @@ def handler(event, context):
                 if len(df_prev) < 1:
                     continue
                 row = df_prev.iloc[-1]
-                price = row['close']
+                price = float(row['close'])
                 dwap_val = row.get('dwap')
                 if pd.isna(dwap_val) or dwap_val <= 0:
                     continue
-                pct = (price / dwap_val - 1) * 100
-                if 3.0 <= pct < 5.0:
+                prev_pct = (price / dwap_val - 1) * 100
+
+                # Track narrow watchlist (3-5%)
+                if 3.0 <= prev_pct < 5.0:
                     prev_watchlist.append({
                         'symbol': symbol,
-                        'prev_day_price': round(float(price), 2),
+                        'prev_day_price': round(price, 2),
                         'dwap': round(float(dwap_val), 2),
-                        'prev_day_pct_above': round(float(pct), 2),
-                        'distance_to_trigger': round(float(5.0 - pct), 2),
+                        'prev_day_pct_above': round(prev_pct, 2),
+                        'distance_to_trigger': round(5.0 - prev_pct, 2),
                         'momentum_rank': mom['rank'],
+                    })
+
+                # Check if crossed +5% on as_of_date (broad check)
+                if prev_pct < 5.0:
+                    df_today = _truncate(df, effective_date)
+                    if len(df_today) < 1:
+                        continue
+                    today_row = df_today.iloc[-1]
+                    today_price = float(today_row['close'])
+                    today_dwap = today_row.get('dwap')
+                    if pd.isna(today_dwap) or today_dwap <= 0:
+                        today_dwap = dwap_val
+                    today_pct = (today_price / float(today_dwap) - 1) * 100
+                    info = stock_universe_service.symbol_info.get(symbol, {})
+                    all_crossovers.append({
+                        'symbol': symbol,
+                        'prev_day_price': round(price, 2),
+                        'prev_day_pct_above': round(prev_pct, 2),
+                        'as_of_date_price': round(today_price, 2),
+                        'as_of_date_dwap': round(float(today_dwap), 2),
+                        'as_of_date_pct_above': round(today_pct, 2),
+                        'crossed': today_pct >= 5.0,
+                        'was_on_watchlist': 3.0 <= prev_pct < 5.0,
+                        'momentum_rank': mom['rank'],
+                        'sector': info.get('sector', ''),
                     })
 
             prev_watchlist.sort(key=lambda x: x['distance_to_trigger'])
             prev_watchlist = prev_watchlist[:5]
 
-            # Check crossovers on as_of_date
-            crossovers = []
-            for w in prev_watchlist:
-                symbol = w['symbol']
-                df = scanner_service.data_cache.get(symbol)
-                if df is None:
-                    continue
-                df_today = _truncate(df, effective_date)
-                if len(df_today) < 1:
-                    continue
-                today_row = df_today.iloc[-1]
-                today_price = float(today_row['close'])
-                today_dwap = today_row.get('dwap')
-                if pd.isna(today_dwap) or today_dwap <= 0:
-                    today_dwap = w['dwap']
-                pct = (today_price / float(today_dwap) - 1) * 100
-                crossed = pct >= 5.0
-                info = stock_universe_service.symbol_info.get(symbol, {})
-                crossovers.append({
-                    'symbol': symbol,
-                    'prev_day_price': w['prev_day_price'],
-                    'prev_day_pct_above': w['prev_day_pct_above'],
-                    'as_of_date_price': round(today_price, 2),
-                    'as_of_date_dwap': round(float(today_dwap), 2),
-                    'as_of_date_pct_above': round(pct, 2),
-                    'crossed': crossed,
-                    'momentum_rank': w['momentum_rank'],
-                    'sector': info.get('sector', ''),
-                })
-
-            triggered = [c for c in crossovers if c['crossed']]
+            triggered = [c for c in all_crossovers if c['crossed']]
 
             emails_sent = []
             if do_send_email and triggered:
@@ -1195,8 +1196,11 @@ def handler(event, context):
                 'simulation_date': as_of_date,
                 'prev_trading_day': prev_ts.strftime('%Y-%m-%d'),
                 'watchlist_prev_day': prev_watchlist,
-                'crossover_results': crossovers,
+                'all_crossovers': all_crossovers,
+                'triggered': triggered,
                 'triggered_count': len(triggered),
+                'from_watchlist_count': len([t for t in triggered if t.get('was_on_watchlist')]),
+                'gap_up_count': len([t for t in triggered if not t.get('was_on_watchlist')]),
                 'emails_sent': emails_sent or None,
             }
 
