@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import {
   LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -1655,6 +1655,25 @@ function Dashboard() {
     return s;
   });
 
+  // Group buy signals by sector for display
+  const signalsBySector = useMemo(() => {
+    const signals = dashboardData?.buy_signals || [];
+    if (signals.length === 0) return [];
+    const grouped = {};
+    signals.forEach(s => {
+      const sector = s.sector || 'Other';
+      (grouped[sector] ??= []).push(s);
+    });
+    const entries = Object.entries(grouped);
+    // Skip sector headers when all signals are in one group
+    if (entries.length <= 1) return null;
+    return entries.sort(([a, aSigs], [b, bSigs]) => {
+      if (a === 'Other') return 1;
+      if (b === 'Other') return -1;
+      return bSigs.length - aSigs.length;
+    });
+  }, [dashboardData?.buy_signals]);
+
   // Initial data load - HYBRID APPROACH for instant dashboard display
   // 1. Show cached data immediately (no loading state for returning users)
   // 2. Fetch signals from CDN (same for all users, instant)
@@ -2370,39 +2389,60 @@ function Dashboard() {
                   )}
                   {(dashboardData?.buy_signals || []).length > 0 ? (
                     viewMode === 'simple' ? (
-                      /* Simple mode: list items with confidence dots */
+                      /* Simple mode: list items with confidence dots, optionally grouped by sector */
                       <div className="divide-y divide-gray-100">
-                        {dashboardData.buy_signals.map((s) => {
-                          const confidenceDots = Math.min(5, Math.max(1, Math.round((s.ensemble_score || 0) / 20)));
-                          return (
-                            <div
-                              key={s.symbol}
-                              className={`px-4 py-3 flex items-center justify-between cursor-pointer transition-colors ${
-                                s.is_fresh ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500' : 'hover:bg-gray-50'
-                              }`}
-                              onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
-                            >
-                              <div className="flex items-center gap-3">
-                                <span className={`font-semibold text-base ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>{s.symbol}</span>
-                                <span className="text-gray-500 text-sm">${s.price?.toFixed(2)}</span>
-                                <div className="flex gap-0.5">
-                                  {[1,2,3,4,5].map(i => (
-                                    <div key={i} className={`w-2 h-2 rounded-full ${i <= confidenceDots ? 'bg-emerald-500' : 'bg-gray-200'}`} />
-                                  ))}
+                        {(() => {
+                          const renderSimpleSignal = (s) => {
+                            const confidenceDots = Math.min(5, Math.max(1, Math.round((s.ensemble_score || 0) / 20)));
+                            return (
+                              <div
+                                key={s.symbol}
+                                className={`px-4 py-3 flex items-center justify-between cursor-pointer transition-colors ${
+                                  s.is_fresh ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500' : 'hover:bg-gray-50'
+                                }`}
+                                onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span className={`font-semibold text-base ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>{s.symbol}</span>
+                                  {s.is_intraday && (
+                                    <span className="inline-flex items-center gap-0.5 text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full font-semibold animate-pulse">
+                                      <Clock className="w-3 h-3" />
+                                      LIVE
+                                    </span>
+                                  )}
+                                  <span className="text-gray-500 text-sm">${s.price?.toFixed(2)}</span>
+                                  <div className="flex gap-0.5">
+                                    {[1,2,3,4,5].map(i => (
+                                      <div key={i} className={`w-2 h-2 rounded-full ${i <= confidenceDots ? 'bg-emerald-500' : 'bg-gray-200'}`} />
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {s.is_fresh && (
+                                    <span className={`text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium ${((s.days_since_entry ?? s.days_since_crossover) === 0) ? 'animate-pulse' : ''}`}>BUY</span>
+                                  )}
+                                  {s.is_fresh && (s.days_since_entry ?? s.days_since_crossover) === 0 && (
+                                    <span className="text-xs text-green-700 font-semibold">New!</span>
+                                  )}
                                 </div>
                               </div>
-                              {s.is_fresh && (
-                                <span className={`text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium ${((s.days_since_entry ?? s.days_since_crossover) === 0) ? 'animate-pulse' : ''}`}>BUY</span>
-                              )}
-                              {s.is_fresh && (s.days_since_entry ?? s.days_since_crossover) === 0 && (
-                                <span className="text-xs text-green-700 font-semibold">New!</span>
-                              )}
-                            </div>
-                          );
-                        })}
+                            );
+                          };
+                          if (signalsBySector) {
+                            return signalsBySector.map(([sector, sigs]) => (
+                              <div key={sector}>
+                                <div className="px-4 py-2 bg-gray-50 border-b text-sm font-medium text-gray-600">
+                                  {sector} <span className="text-gray-400">({sigs.length})</span>
+                                </div>
+                                {sigs.map(renderSimpleSignal)}
+                              </div>
+                            ));
+                          }
+                          return dashboardData.buy_signals.map(renderSimpleSignal);
+                        })()}
                       </div>
                     ) : (
-                      /* Advanced mode: full table */
+                      /* Advanced mode: full table, optionally grouped by sector */
                       <table className="w-full text-sm">
                         <thead className="bg-gray-50 text-gray-600 sticky top-0">
                           <tr>
@@ -2414,57 +2454,78 @@ function Dashboard() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {dashboardData.buy_signals.map((s) => (
-                            <tr
-                              key={s.symbol}
-                              className={`cursor-pointer transition-colors ${
-                                s.is_fresh
-                                  ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500'
-                                  : 'hover:bg-gray-50'
-                              }`}
-                              onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
-                            >
-                              <td className="px-3 py-2.5">
-                                <div className="flex items-center gap-1.5">
-                                  <span className={`font-semibold ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>
-                                    {s.symbol}
+                          {(() => {
+                            const renderAdvancedSignal = (s) => (
+                              <tr
+                                key={s.symbol}
+                                className={`cursor-pointer transition-colors ${
+                                  s.is_fresh
+                                    ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500'
+                                    : 'hover:bg-gray-50'
+                                }`}
+                                onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
+                              >
+                                <td className="px-3 py-2.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`font-semibold ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>
+                                      {s.symbol}
+                                    </span>
+                                    {s.is_strong && <ArrowUpRight className="w-3 h-3 text-green-500" />}
+                                    {s.is_intraday && (
+                                      <span className="inline-flex items-center gap-0.5 text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full font-semibold animate-pulse">
+                                        <Clock className="w-3 h-3" />
+                                        LIVE
+                                      </span>
+                                    )}
+                                  </div>
+                                  {s.is_fresh ? (
+                                    <span className={`text-xs ${(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'text-green-700 font-semibold' : 'text-green-600'}`}>
+                                      {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'New today!' : `${Math.min(s.days_since_entry ?? 999, s.days_since_crossover ?? 999)}d ago`}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-gray-400">Crossed {s.days_since_crossover}d ago</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2.5 text-right">${s.price?.toFixed(2)}</td>
+                                <td className="px-3 py-2.5 text-right text-green-600 font-medium">+{s.pct_above_dwap?.toFixed(1)}%</td>
+                                <td className="px-3 py-2.5 text-right">
+                                  <span className={`font-medium ${s.momentum_rank <= 5 ? 'text-green-600' : 'text-gray-600'}`}>
+                                    #{s.momentum_rank}
                                   </span>
-                                  {s.is_strong && <ArrowUpRight className="w-3 h-3 text-green-500" />}
-                                </div>
-                                {s.is_fresh ? (
-                                  <span className={`text-xs ${(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'text-green-700 font-semibold' : 'text-green-600'}`}>
-                                    {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'New today!' : `${Math.min(s.days_since_entry ?? 999, s.days_since_crossover ?? 999)}d ago`}
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-gray-400">Crossed {s.days_since_crossover}d ago</span>
-                                )}
-                              </td>
-                              <td className="px-3 py-2.5 text-right">${s.price?.toFixed(2)}</td>
-                              <td className="px-3 py-2.5 text-right text-green-600 font-medium">+{s.pct_above_dwap?.toFixed(1)}%</td>
-                              <td className="px-3 py-2.5 text-right">
-                                <span className={`font-medium ${s.momentum_rank <= 5 ? 'text-green-600' : 'text-gray-600'}`}>
-                                  #{s.momentum_rank}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2.5 text-center">
-                                {s.is_fresh ? (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setChartModal({ type: 'signal', data: s, symbol: s.symbol });
-                                    }}
-                                    className={`text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium hover:bg-green-700 ${s.days_since_crossover === 0 ? 'animate-pulse' : ''}`}
-                                  >
-                                    {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'BUY NOW' : 'BUY'}
-                                  </button>
-                                ) : (
-                                  <span className="text-xs bg-gray-200 text-gray-600 px-2.5 py-1 rounded font-medium">
-                                    Active
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                                <td className="px-3 py-2.5 text-center">
+                                  {s.is_fresh ? (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setChartModal({ type: 'signal', data: s, symbol: s.symbol });
+                                      }}
+                                      className={`text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium hover:bg-green-700 ${s.days_since_crossover === 0 ? 'animate-pulse' : ''}`}
+                                    >
+                                      {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'BUY NOW' : 'BUY'}
+                                    </button>
+                                  ) : (
+                                    <span className="text-xs bg-gray-200 text-gray-600 px-2.5 py-1 rounded font-medium">
+                                      Active
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                            if (signalsBySector) {
+                              return signalsBySector.map(([sector, sigs]) => (
+                                <React.Fragment key={sector}>
+                                  <tr className="bg-gray-50">
+                                    <td colSpan={5} className="px-3 py-1.5 text-xs font-medium text-gray-500 uppercase">
+                                      {sector} ({sigs.length})
+                                    </td>
+                                  </tr>
+                                  {sigs.map(renderAdvancedSignal)}
+                                </React.Fragment>
+                              ));
+                            }
+                            return dashboardData.buy_signals.map(renderAdvancedSignal);
+                          })()}
                         </tbody>
                       </table>
                     )

@@ -1068,6 +1068,148 @@ def handler(event, context):
             traceback.print_exc()
             return {"status": "failed", "error": str(e)}
 
+    # Handle intraday crossover simulation (direct Lambda invoke for testing)
+    if event.get("simulate_intraday_crossover"):
+        config = event["simulate_intraday_crossover"]
+        as_of_date = config.get("as_of_date")
+        do_send_email = config.get("send_email", False)
+        print(f"📡 Simulating intraday crossover for {as_of_date}")
+
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _run_simulation():
+            import pandas as pd
+            from app.services.stock_universe import stock_universe_service
+            from app.services.email_service import email_service
+
+            effective_date = pd.Timestamp(as_of_date).normalize()
+
+            def _truncate(df, ts):
+                if hasattr(df.index, 'tz') and df.index.tz is not None and ts.tz is None:
+                    ts = ts.tz_localize(df.index.tz)
+                return df[df.index <= ts]
+
+            spy_df = scanner_service.data_cache.get('SPY')
+            if spy_df is None:
+                return {"error": "SPY data not available"}
+
+            spy_trunc = _truncate(spy_df, effective_date)
+            if len(spy_trunc) < 2:
+                return {"error": "Not enough data for this date"}
+
+            prev_trading_day = spy_trunc.index[-2]
+            prev_ts = prev_trading_day.tz_localize(None) if hasattr(prev_trading_day, 'tz') and prev_trading_day.tz else prev_trading_day
+
+            # Watchlist as of previous trading day
+            momentum_rankings = scanner_service.rank_stocks_momentum(
+                apply_market_filter=True, as_of_date=prev_ts
+            )
+            top_momentum = {
+                r.symbol: {'rank': i + 1, 'data': r}
+                for i, r in enumerate(momentum_rankings[:30])
+            }
+
+            prev_watchlist = []
+            for symbol, mom in top_momentum.items():
+                df = scanner_service.data_cache.get(symbol)
+                if df is None or len(df) < 200:
+                    continue
+                df_prev = _truncate(df, prev_ts)
+                if len(df_prev) < 1:
+                    continue
+                row = df_prev.iloc[-1]
+                price = row['close']
+                dwap_val = row.get('dwap')
+                if pd.isna(dwap_val) or dwap_val <= 0:
+                    continue
+                pct = (price / dwap_val - 1) * 100
+                if 3.0 <= pct < 5.0:
+                    prev_watchlist.append({
+                        'symbol': symbol,
+                        'prev_day_price': round(float(price), 2),
+                        'dwap': round(float(dwap_val), 2),
+                        'prev_day_pct_above': round(float(pct), 2),
+                        'distance_to_trigger': round(float(5.0 - pct), 2),
+                        'momentum_rank': mom['rank'],
+                    })
+
+            prev_watchlist.sort(key=lambda x: x['distance_to_trigger'])
+            prev_watchlist = prev_watchlist[:5]
+
+            # Check crossovers on as_of_date
+            crossovers = []
+            for w in prev_watchlist:
+                symbol = w['symbol']
+                df = scanner_service.data_cache.get(symbol)
+                if df is None:
+                    continue
+                df_today = _truncate(df, effective_date)
+                if len(df_today) < 1:
+                    continue
+                today_row = df_today.iloc[-1]
+                today_price = float(today_row['close'])
+                today_dwap = today_row.get('dwap')
+                if pd.isna(today_dwap) or today_dwap <= 0:
+                    today_dwap = w['dwap']
+                pct = (today_price / float(today_dwap) - 1) * 100
+                crossed = pct >= 5.0
+                info = stock_universe_service.symbol_info.get(symbol, {})
+                crossovers.append({
+                    'symbol': symbol,
+                    'prev_day_price': w['prev_day_price'],
+                    'prev_day_pct_above': w['prev_day_pct_above'],
+                    'as_of_date_price': round(today_price, 2),
+                    'as_of_date_dwap': round(float(today_dwap), 2),
+                    'as_of_date_pct_above': round(pct, 2),
+                    'crossed': crossed,
+                    'momentum_rank': w['momentum_rank'],
+                    'sector': info.get('sector', ''),
+                })
+
+            triggered = [c for c in crossovers if c['crossed']]
+
+            emails_sent = []
+            if do_send_email and triggered:
+                admin_email = config.get("email", "erik@rigacap.com")
+                for sig in triggered:
+                    success = await email_service.send_intraday_signal_alert(
+                        to_email=admin_email,
+                        user_name="Erik",
+                        symbol=sig['symbol'],
+                        live_price=sig['as_of_date_price'],
+                        dwap=sig['as_of_date_dwap'],
+                        pct_above_dwap=sig['as_of_date_pct_above'],
+                        momentum_rank=sig['momentum_rank'],
+                        sector=sig['sector'],
+                    )
+                    emails_sent.append({
+                        'symbol': sig['symbol'],
+                        'sent_to': admin_email,
+                        'success': success,
+                    })
+
+            return {
+                'simulation_date': as_of_date,
+                'prev_trading_day': prev_ts.strftime('%Y-%m-%d'),
+                'watchlist_prev_day': prev_watchlist,
+                'crossover_results': crossovers,
+                'triggered_count': len(triggered),
+                'emails_sent': emails_sent or None,
+            }
+
+        try:
+            result = loop.run_until_complete(_run_simulation())
+            print(f"📡 Simulation result: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Intraday simulation failed: {e}")
+            traceback.print_exc()
+            return {"status": "failed", "error": str(e)}
+
     # For API Gateway events, use Mangum
     # Create a fresh Mangum handler to avoid event loop issues on warm Lambdas
     global _mangum_handler

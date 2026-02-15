@@ -1455,6 +1455,184 @@ Unsubscribe: https://rigacap.com/unsubscribe
         )
 
 
+    async def send_intraday_signal_alert(
+        self,
+        to_email: str,
+        user_name: str,
+        symbol: str,
+        live_price: float,
+        dwap: float,
+        pct_above_dwap: float,
+        momentum_rank: int = None,
+        sector: str = None,
+    ) -> bool:
+        """
+        Send alert when a watchlist stock crosses DWAP +5% intraday.
+
+        Distinct amber/orange styling to differentiate from daily buy/sell emails.
+        """
+        mom_html = f"""
+                <tr>
+                    <td style="padding: 8px 16px; color: #6b7280; font-size: 14px;">Momentum Rank</td>
+                    <td style="padding: 8px 16px; text-align: right; font-weight: 600;">
+                        <span style="background-color: #fef3c7; color: #92400e; font-size: 14px; font-weight: 600; padding: 4px 12px; border-radius: 99px; display: inline-block;">
+                            #{momentum_rank}
+                        </span>
+                    </td>
+                </tr>""" if momentum_rank else ""
+
+        sector_html = f"""
+                <tr>
+                    <td style="padding: 8px 16px; color: #6b7280; font-size: 14px;">Sector</td>
+                    <td style="padding: 8px 16px; text-align: right; font-weight: 600; color: #374151;">{sector}</td>
+                </tr>""" if sector else ""
+
+        greeting = f"Hi {user_name}," if user_name else "Hi,"
+
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <tr>
+            <td style="background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); padding: 32px 24px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 12px;">🔔</div>
+                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
+                    LIVE: {symbol} Crossed DWAP +{pct_above_dwap:.1f}%
+                </h1>
+                <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
+                    Intraday breakout detected during market hours
+                </p>
+            </td>
+        </tr>
+
+        <!-- Greeting -->
+        <tr>
+            <td style="padding: 24px 24px 8px;">
+                <p style="margin: 0; font-size: 15px; color: #374151;">{greeting}</p>
+                <p style="margin: 8px 0 0 0; font-size: 14px; color: #6b7280;">
+                    <strong>{symbol}</strong> just crossed the DWAP +5% threshold during market hours.
+                    This stock was on your watchlist and has now triggered a buy signal.
+                </p>
+            </td>
+        </tr>
+
+        <!-- Signal Details -->
+        <tr>
+            <td style="padding: 16px 24px 24px;">
+                <table cellpadding="0" cellspacing="0" style="width: 100%; border: 1px solid #fde68a; border-radius: 8px; overflow: hidden;">
+                    <tr style="background-color: #fffbeb;">
+                        <th colspan="2" style="padding: 12px 16px; text-align: left; font-size: 14px; color: #92400e; font-weight: 600;">
+                            ⚡ {symbol} — Live Signal
+                        </th>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 16px; color: #6b7280; font-size: 14px;">Live Price</td>
+                        <td style="padding: 8px 16px; text-align: right; font-size: 18px; font-weight: 700; color: #059669;">${live_price:.2f}</td>
+                    </tr>
+                    <tr style="background-color: #fefce8;">
+                        <td style="padding: 8px 16px; color: #6b7280; font-size: 14px;">DWAP (200-day)</td>
+                        <td style="padding: 8px 16px; text-align: right; font-weight: 600; color: #374151;">${dwap:.2f}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 16px; color: #6b7280; font-size: 14px;">% Above DWAP</td>
+                        <td style="padding: 8px 16px; text-align: right; font-weight: 700; color: #d97706;">+{pct_above_dwap:.1f}%</td>
+                    </tr>{mom_html}{sector_html}
+                </table>
+            </td>
+        </tr>
+
+        <!-- Explanation -->
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <div style="background-color: #fffbeb; border-radius: 12px; padding: 16px; border-left: 4px solid #d97706;">
+                    <p style="margin: 0; font-size: 14px; color: #92400e;">
+                        <strong>Intraday Signal</strong> — This crossover was detected during market hours,
+                        before the end-of-day scan. The signal will be confirmed in tonight's full analysis.
+                        Check your dashboard for the latest details.
+                    </p>
+                </div>
+            </td>
+        </tr>
+
+        <!-- CTA -->
+        <tr>
+            <td style="padding: 0 24px 24px; text-align: center;">
+                <a href="https://rigacap.com/app"
+                   style="display: inline-block; background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); color: #ffffff; font-size: 16px; font-weight: 600; padding: 16px 40px; border-radius: 12px; text-decoration: none;">
+                    View in Dashboard →
+                </a>
+            </td>
+        </tr>
+
+        <!-- Disclaimer -->
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <p style="margin: 0; font-size: 12px; color: #6b7280; text-align: center;">
+                    This is not financial advice. Always do your own research before trading.
+                    Past performance does not guarantee future results.
+                </p>
+            </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+                    <a href="https://rigacap.com/app" style="color: #4f46e5; text-decoration: none;">Dashboard</a>
+                    &nbsp;•&nbsp;
+                    <a href="#" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
+                </p>
+                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+        # Plain text version
+        text_lines = [
+            f"🔔 LIVE SIGNAL: {symbol} just crossed DWAP +{pct_above_dwap:.1f}%",
+            "=" * 40,
+            "",
+            greeting,
+            "",
+            f"{symbol} just crossed the DWAP +5% threshold during market hours.",
+            "",
+            f"  Live Price: ${live_price:.2f}",
+            f"  DWAP: ${dwap:.2f}",
+            f"  % Above: +{pct_above_dwap:.1f}%",
+        ]
+        if momentum_rank:
+            text_lines.append(f"  Momentum Rank: #{momentum_rank}")
+        if sector:
+            text_lines.append(f"  Sector: {sector}")
+        text_lines.extend([
+            "",
+            "This signal was detected intraday and will be confirmed in tonight's full scan.",
+            "",
+            "View dashboard: https://rigacap.com/app",
+            "",
+            "---",
+            "This is not financial advice. Past performance does not guarantee future results.",
+        ])
+
+        return await self.send_email(
+            to_email=to_email,
+            subject=f"🔔 LIVE SIGNAL: {symbol} just crossed DWAP +{pct_above_dwap:.1f}%",
+            html_content=html,
+            text_content="\n".join(text_lines)
+        )
+
+
 # Singleton instance
 email_service = EmailService()
 

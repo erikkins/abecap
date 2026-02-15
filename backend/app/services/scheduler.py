@@ -519,6 +519,131 @@ class SchedulerService:
                 # Persist high water mark updates
                 await db.commit()
 
+                # --- 5. Intraday DWAP crossover check (watchlist stocks) ---
+                intraday_signals_added = 0
+                try:
+                    from app.services.stock_universe import stock_universe_service
+
+                    watchlist = []
+                    if dashboard_data:
+                        watchlist = dashboard_data.get('watchlist', [])
+
+                    if watchlist:
+                        # Fetch live prices for watchlist stocks not already fetched
+                        wl_symbols = [w['symbol'] for w in watchlist if w['symbol'] not in live_prices]
+                        if wl_symbols:
+                            try:
+                                wl_tickers = yf.Tickers(' '.join(wl_symbols))
+                                for sym in wl_symbols:
+                                    try:
+                                        ticker = wl_tickers.tickers.get(sym)
+                                        if ticker:
+                                            live_prices[sym] = ticker.fast_info.last_price
+                                    except Exception:
+                                        continue
+                            except Exception as e:
+                                logger.warning(f"📡 Failed to fetch watchlist prices: {e}")
+
+                        # Check each watchlist stock for DWAP crossover
+                        new_intraday_signals = []
+                        for w in watchlist:
+                            sym = w['symbol']
+                            if sym not in live_prices:
+                                continue
+
+                            lp = live_prices[sym]
+                            dwap_val = w.get('dwap', 0)
+                            if dwap_val <= 0:
+                                continue
+
+                            pct_above = (lp / dwap_val - 1) * 100
+                            if pct_above >= 5.0:
+                                dedup_key = f"intraday_signal_{sym}_{today}"
+                                if dedup_key not in self._alerted_sell_positions:
+                                    info = stock_universe_service.symbol_info.get(sym, {})
+                                    sector = info.get('sector', '')
+                                    mom_rank = w.get('momentum_rank')
+
+                                    new_intraday_signals.append({
+                                        'symbol': sym,
+                                        'live_price': lp,
+                                        'dwap': dwap_val,
+                                        'pct_above_dwap': round(pct_above, 2),
+                                        'momentum_rank': mom_rank,
+                                        'sector': sector,
+                                    })
+                                    self._alerted_sell_positions.add(dedup_key)
+
+                        if new_intraday_signals:
+                            # Send email alerts to subscribed users
+                            user_result = await db.execute(
+                                select(DBUser.email, DBUser.name)
+                                .where(DBUser.is_active == True)
+                            )
+                            active_users = user_result.all()
+
+                            for sig in new_intraday_signals:
+                                # Send to all active users
+                                for user_email, user_name in active_users:
+                                    try:
+                                        await email_service.send_intraday_signal_alert(
+                                            to_email=user_email,
+                                            user_name=user_name or "",
+                                            symbol=sig['symbol'],
+                                            live_price=sig['live_price'],
+                                            dwap=sig['dwap'],
+                                            pct_above_dwap=sig['pct_above_dwap'],
+                                            momentum_rank=sig['momentum_rank'],
+                                            sector=sig['sector'],
+                                        )
+                                    except Exception as e:
+                                        logger.error(f"📡 Failed to send intraday alert for {sig['symbol']} to {user_email}: {e}")
+
+                                logger.info(
+                                    f"📡 INTRADAY CROSSOVER: {sig['symbol']} at ${sig['live_price']:.2f} "
+                                    f"(DWAP +{sig['pct_above_dwap']:.1f}%)"
+                                )
+
+                            # Update dashboard.json in S3 with new intraday signals
+                            try:
+                                current_dashboard = data_export_service.read_dashboard_json()
+                                if current_dashboard:
+                                    existing_signals = current_dashboard.get('buy_signals', [])
+                                    existing_symbols = {s['symbol'] for s in existing_signals}
+
+                                    for sig in new_intraday_signals:
+                                        if sig['symbol'] not in existing_symbols:
+                                            existing_signals.insert(0, {
+                                                'symbol': sig['symbol'],
+                                                'price': sig['live_price'],
+                                                'dwap': sig['dwap'],
+                                                'pct_above_dwap': sig['pct_above_dwap'],
+                                                'momentum_rank': sig['momentum_rank'],
+                                                'sector': sig['sector'],
+                                                'is_fresh': True,
+                                                'is_intraday': True,
+                                                'days_since_crossover': 0,
+                                                'ensemble_score': 0,
+                                            })
+                                            intraday_signals_added += 1
+
+                                    current_dashboard['buy_signals'] = existing_signals
+                                    # Remove crossed stocks from watchlist
+                                    crossed = {s['symbol'] for s in new_intraday_signals}
+                                    current_dashboard['watchlist'] = [
+                                        w for w in current_dashboard.get('watchlist', [])
+                                        if w['symbol'] not in crossed
+                                    ]
+                                    data_export_service.export_dashboard_json(current_dashboard)
+                                    logger.info(f"📡 Updated dashboard.json with {intraday_signals_added} intraday signal(s)")
+                            except Exception as e:
+                                logger.error(f"📡 Failed to update dashboard.json: {e}")
+
+                except Exception as e:
+                    logger.error(f"📡 Intraday DWAP crossover check failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+
                 # Trim dedup set to prevent unbounded growth
                 if len(self._alerted_sell_positions) > 200:
                     self._alerted_sell_positions = set(
@@ -527,7 +652,7 @@ class SchedulerService:
 
                 logger.info(
                     f"📡 Intraday monitor complete: {len(rows)} positions checked, "
-                    f"{alerts_sent} alert(s) sent"
+                    f"{alerts_sent} alert(s) sent, {intraday_signals_added} intraday signal(s) added"
                 )
 
         except Exception as e:

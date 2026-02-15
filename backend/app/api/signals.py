@@ -583,6 +583,9 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                 fresh_by_entry = days_since_entry is not None and days_since_entry <= fresh_days
                 is_fresh = fresh_by_crossover or fresh_by_entry
 
+                info = stock_universe_service.symbol_info.get(symbol, {})
+                sector = info.get('sector', '')
+
                 buy_signals.append({
                     'symbol': symbol,
                     'price': float(dwap.price),
@@ -601,6 +604,7 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                     'days_since_crossover': int(days_since) if days_since is not None else None,
                     'days_since_entry': int(days_since_entry) if days_since_entry is not None else None,
                     'is_fresh': bool(is_fresh),
+                    'sector': sector,
                 })
 
         buy_signals.sort(key=lambda x: (
@@ -626,6 +630,7 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
 
             if 3.0 <= pct_above < 5.0:
                 mom_data = mom['data']
+                info = stock_universe_service.symbol_info.get(symbol, {})
                 watchlist.append({
                     'symbol': symbol,
                     'price': round(float(price), 2),
@@ -634,6 +639,7 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                     'distance_to_trigger': round(float(5.0 - pct_above), 2),
                     'momentum_rank': int(mom['rank']),
                     'momentum_score': round(float(mom_data.composite_score), 2),
+                    'sector': info.get('sector', ''),
                 })
 
         watchlist.sort(key=lambda x: x['distance_to_trigger'])
@@ -1091,6 +1097,8 @@ async def _compute_dashboard_live(
                 fresh_by_entry = days_since_entry is not None and days_since_entry <= fresh_days
                 is_fresh = fresh_by_crossover or fresh_by_entry
 
+                info = stock_universe_service.symbol_info.get(symbol, {})
+
                 buy_signals.append({
                     'symbol': symbol,
                     'price': float(dwap.price),
@@ -1109,6 +1117,7 @@ async def _compute_dashboard_live(
                     'days_since_crossover': int(days_since) if days_since is not None else None,
                     'days_since_entry': int(days_since_entry) if days_since_entry is not None else None,
                     'is_fresh': bool(is_fresh),
+                    'sector': info.get('sector', ''),
                 })
 
         # Time-travel: only show fresh signals
@@ -1151,6 +1160,7 @@ async def _compute_dashboard_live(
 
             if 3.0 <= pct_above < 5.0:
                 mom_data = mom['data']
+                info = stock_universe_service.symbol_info.get(symbol, {})
                 watchlist.append({
                     'symbol': symbol,
                     'price': round(float(price), 2),
@@ -1159,6 +1169,7 @@ async def _compute_dashboard_live(
                     'distance_to_trigger': round(float(5.0 - pct_above), 2),
                     'momentum_rank': int(mom['rank']),
                     'momentum_score': round(float(mom_data.composite_score), 2),
+                    'sector': info.get('sector', ''),
                 })
 
         watchlist.sort(key=lambda x: x['distance_to_trigger'])
@@ -1656,3 +1667,185 @@ async def get_double_signals(
         market_filter_active=settings.MARKET_FILTER_ENABLED,
         generated_at=datetime.now().isoformat()
     )
+
+
+@router.get("/simulate-intraday-crossover")
+async def simulate_intraday_crossover(
+    as_of_date: str,
+    send_email: bool = False,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_optional),
+):
+    """
+    Simulate intraday DWAP crossover detection for a historical date.
+
+    Shows what the intraday monitor would have detected and emailed.
+
+    - Computes the watchlist as of the previous trading day
+    - Checks which watchlist stocks crossed DWAP +5% on as_of_date
+    - Optionally sends the intraday alert email to the requesting user
+
+    Admin-only. Example: /simulate-intraday-crossover?as_of_date=2026-01-28
+    """
+    import pandas as pd
+
+    if not user or not user.is_admin():
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    if not scanner_service.data_cache:
+        raise HTTPException(status_code=503, detail="Price data not loaded")
+
+    effective_date = pd.Timestamp(as_of_date).normalize()
+
+    def _truncate_df(df, ts):
+        if hasattr(df.index, 'tz') and df.index.tz is not None and ts.tz is None:
+            ts = ts.tz_localize(df.index.tz)
+        return df[df.index <= ts]
+
+    # Find previous trading day
+    spy_df = scanner_service.data_cache.get('SPY')
+    if spy_df is None:
+        raise HTTPException(status_code=503, detail="SPY data not available")
+
+    spy_trunc = _truncate_df(spy_df, effective_date)
+    if len(spy_trunc) < 2:
+        raise HTTPException(status_code=400, detail="Not enough data for this date")
+
+    prev_trading_day = spy_trunc.index[-2]
+    prev_date_ts = prev_trading_day.tz_localize(None) if hasattr(prev_trading_day, 'tz') and prev_trading_day.tz else prev_trading_day
+
+    # Step 1: Compute watchlist as of previous trading day
+    # (stocks 3-5% above DWAP in top-30 momentum)
+    momentum_top_n = 30
+    momentum_rankings = scanner_service.rank_stocks_momentum(
+        apply_market_filter=True, as_of_date=prev_date_ts
+    )
+    top_momentum = {
+        r.symbol: {'rank': i + 1, 'data': r}
+        for i, r in enumerate(momentum_rankings[:momentum_top_n])
+    }
+
+    prev_watchlist = []
+    for symbol, mom in top_momentum.items():
+        df = scanner_service.data_cache.get(symbol)
+        if df is None or len(df) < 200:
+            continue
+
+        df_prev = _truncate_df(df, prev_date_ts)
+        if len(df_prev) < 1:
+            continue
+
+        row = df_prev.iloc[-1]
+        price = row['close']
+        dwap_val = row.get('dwap')
+        if pd.isna(dwap_val) or dwap_val <= 0:
+            continue
+
+        pct_above = (price / dwap_val - 1) * 100
+        if 3.0 <= pct_above < 5.0:
+            prev_watchlist.append({
+                'symbol': symbol,
+                'prev_day_price': round(float(price), 2),
+                'dwap': round(float(dwap_val), 2),
+                'prev_day_pct_above': round(float(pct_above), 2),
+                'distance_to_trigger': round(float(5.0 - pct_above), 2),
+                'momentum_rank': mom['rank'],
+            })
+
+    prev_watchlist.sort(key=lambda x: x['distance_to_trigger'])
+    prev_watchlist = prev_watchlist[:5]
+
+    # Step 2: Check which watchlist stocks crossed +5% on as_of_date
+    crossovers = []
+    for w in prev_watchlist:
+        symbol = w['symbol']
+        df = scanner_service.data_cache.get(symbol)
+        if df is None:
+            continue
+
+        df_today = _truncate_df(df, effective_date)
+        if len(df_today) < 1:
+            continue
+
+        today_row = df_today.iloc[-1]
+        today_price = float(today_row['close'])
+        dwap_val = w['dwap']
+
+        # Use the as_of_date DWAP (it changes daily)
+        today_dwap = today_row.get('dwap')
+        if pd.isna(today_dwap) or today_dwap <= 0:
+            today_dwap = dwap_val  # fallback to prev day DWAP
+
+        pct_above = (today_price / float(today_dwap) - 1) * 100
+        crossed = pct_above >= 5.0
+
+        info = stock_universe_service.symbol_info.get(symbol, {})
+        sector = info.get('sector', '')
+
+        crossovers.append({
+            'symbol': symbol,
+            'prev_day_price': w['prev_day_price'],
+            'prev_day_pct_above': w['prev_day_pct_above'],
+            'as_of_date_price': round(today_price, 2),
+            'as_of_date_dwap': round(float(today_dwap), 2),
+            'as_of_date_pct_above': round(pct_above, 2),
+            'crossed': crossed,
+            'momentum_rank': w['momentum_rank'],
+            'sector': sector,
+        })
+
+    triggered = [c for c in crossovers if c['crossed']]
+
+    # Step 3: Optionally send the intraday alert email
+    emails_sent = []
+    if send_email and triggered and user:
+        from app.services.email_service import email_service
+
+        for sig in triggered:
+            success = await email_service.send_intraday_signal_alert(
+                to_email=user.email,
+                user_name=user.name or "",
+                symbol=sig['symbol'],
+                live_price=sig['as_of_date_price'],
+                dwap=sig['as_of_date_dwap'],
+                pct_above_dwap=sig['as_of_date_pct_above'],
+                momentum_rank=sig['momentum_rank'],
+                sector=sig['sector'],
+            )
+            emails_sent.append({
+                'symbol': sig['symbol'],
+                'sent_to': user.email,
+                'success': success,
+            })
+
+    # Step 4: Show what the dashboard update would contain
+    dashboard_additions = []
+    for sig in triggered:
+        dashboard_additions.append({
+            'symbol': sig['symbol'],
+            'price': sig['as_of_date_price'],
+            'dwap': sig['as_of_date_dwap'],
+            'pct_above_dwap': sig['as_of_date_pct_above'],
+            'momentum_rank': sig['momentum_rank'],
+            'sector': sig['sector'],
+            'is_fresh': True,
+            'is_intraday': True,
+            'days_since_crossover': 0,
+            'ensemble_score': 0,
+        })
+
+    return {
+        'simulation_date': as_of_date,
+        'prev_trading_day': prev_date_ts.strftime('%Y-%m-%d'),
+        'watchlist_prev_day': prev_watchlist,
+        'crossover_results': crossovers,
+        'triggered_count': len(triggered),
+        'dashboard_additions': dashboard_additions,
+        'emails_sent': emails_sent if emails_sent else None,
+        'note': (
+            'This simulates what the intraday monitor would have detected. '
+            'The prev_trading_day watchlist shows stocks that were 3-5% above DWAP. '
+            'crossover_results shows whether each crossed +5% on the simulation date. '
+            'Add ?send_email=true to receive the actual alert email.'
+        ),
+    }
