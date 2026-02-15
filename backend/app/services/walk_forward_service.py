@@ -431,13 +431,15 @@ class WalkForwardService:
         end_date: datetime,
         starting_capital: float,
         ticker_list: List[str] = None,
-        strategy_name: str = "AI-Optimized"
-    ) -> Tuple[float, float, str, List[PeriodTrade]]:
+        strategy_name: str = "AI-Optimized",
+        initial_positions: Optional[Dict[str, dict]] = None,
+        force_close_at_end: bool = True
+    ) -> Tuple[float, float, str, List[PeriodTrade], Dict[str, dict]]:
         """
         Simulate trading for a period using custom parameters (for AI-generated strategies).
 
         Returns:
-            Tuple of (ending_capital, period_return_pct, info_string, trades)
+            Tuple of (ending_capital, period_return_pct, info_string, trades, raw_positions)
         """
         try:
             strategy_params = StrategyParams(**params)
@@ -450,7 +452,8 @@ class WalkForwardService:
                 end_date=end_date,
                 strategy_type=strategy_type,
                 ticker_list=ticker_list,
-                force_close_at_end=True  # Close all positions at period end for accurate trade tracking
+                force_close_at_end=force_close_at_end,
+                initial_positions=initial_positions
             )
 
             ending_capital = starting_capital * (1 + result.total_return_pct / 100)
@@ -482,13 +485,13 @@ class WalkForwardService:
 
             # Always return info about the period for debugging
             info = (f"Period {start_date.strftime('%Y-%m-%d')}: {backtest_debug}")
-            return ending_capital, result.total_return_pct, info, period_trades
+            return ending_capital, result.total_return_pct, info, period_trades, result.raw_positions
         except Exception as e:
             error_msg = f"Period {start_date.strftime('%Y-%m-%d')}: ERROR {str(e)}"
             print(f"[WF-SIM] ERROR: {error_msg}")
             import traceback
             traceback.print_exc()
-            return starting_capital, 0.0, error_msg, []
+            return starting_capital, 0.0, error_msg, [], {}
 
     def _simulate_period_trading(
         self,
@@ -496,13 +499,15 @@ class WalkForwardService:
         start_date: datetime,
         end_date: datetime,
         starting_capital: float,
-        ticker_list: List[str] = None
-    ) -> Tuple[float, List[Dict], float, str, List[PeriodTrade]]:
+        ticker_list: List[str] = None,
+        initial_positions: Optional[Dict[str, dict]] = None,
+        force_close_at_end: bool = True
+    ) -> Tuple[float, List[Dict], float, str, List[PeriodTrade], Dict[str, dict]]:
         """
         Simulate trading for a single period using a specific strategy.
 
         Returns:
-            Tuple of (ending_capital, equity_points, period_return_pct, info, trades)
+            Tuple of (ending_capital, equity_points, period_return_pct, info, trades, raw_positions)
         """
         params = StrategyParams.from_json(strategy.parameters)
 
@@ -516,7 +521,8 @@ class WalkForwardService:
                 end_date=end_date,
                 strategy_type=strategy.strategy_type,
                 ticker_list=ticker_list,
-                force_close_at_end=True  # Close all positions at period end for accurate trade tracking
+                force_close_at_end=force_close_at_end,
+                initial_positions=initial_positions
             )
 
             ending_capital = starting_capital * (1 + result.total_return_pct / 100)
@@ -558,7 +564,7 @@ class WalkForwardService:
                 for t in result.trades
             ]
 
-            return ending_capital, equity_points, result.total_return_pct, info, period_trades
+            return ending_capital, equity_points, result.total_return_pct, info, period_trades, result.raw_positions
 
         except Exception as e:
             # If backtest fails, assume flat return
@@ -566,7 +572,7 @@ class WalkForwardService:
             print(f"[WF-SIM] ERROR: {error_msg}")
             import traceback
             traceback.print_exc()
-            return starting_capital, [], 0.0, error_msg, []
+            return starting_capital, [], 0.0, error_msg, [], {}
 
     async def run_walk_forward_simulation(
         self,
@@ -700,6 +706,12 @@ class WalkForwardService:
 
         # Track previous period's best AI params for warm-starting
         previous_best_params: Optional[Dict[str, Any]] = None
+
+        # Track carried positions between periods
+        carried_positions: Dict[str, dict] = {}
+        # Track previous period's active strategy for detecting switches
+        prev_active_strategy_id = None
+        prev_using_ai_params = False
 
         # Process each period
         print(f"[WF-SERVICE] Starting simulation loop: {len(periods)} periods, initial capital=${capital:,.2f}")
@@ -875,24 +887,59 @@ class WalkForwardService:
                     source="existing"
                 ))
 
+            # Determine if strategy changed (force-close carried positions on switch)
+            is_last_period = (i == len(periods) - 1)
+            current_strategy_id = active_strategy.id if active_strategy else None
+            strategy_changed = (i > 0 and (
+                current_strategy_id != prev_active_strategy_id or
+                using_ai_params != prev_using_ai_params
+            ))
+
+            if strategy_changed and carried_positions:
+                # Strategy switched: force-close carried positions (different exit rules)
+                force_close = True
+                carry_in = carried_positions
+                print(f"[WF-SERVICE] Strategy changed, force-closing {len(carried_positions)} carried positions")
+            else:
+                force_close = is_last_period  # Only force-close on final period
+                carry_in = carried_positions
+
             # Simulate trading for this period
             if using_ai_params and active_params:
-                new_capital, period_return, error, period_trades = self._simulate_period_with_params(
+                new_capital, period_return, error, period_trades, new_carried = self._simulate_period_with_params(
                     active_params, active_strategy_type, period_start, period_end,
-                    capital, ticker_list=top_symbols, strategy_name="AI-Optimized"
+                    capital, ticker_list=top_symbols, strategy_name="AI-Optimized",
+                    initial_positions=carry_in if carry_in else None,
+                    force_close_at_end=force_close
                 )
                 strategy_name = "AI-Optimized"
                 if error:
                     simulation_errors.append(error)
                 all_trades.extend(period_trades)
             else:
-                new_capital, period_equity, period_return, error, period_trades = self._simulate_period_trading(
-                    active_strategy, period_start, period_end, capital, ticker_list=top_symbols
+                new_capital, period_equity, period_return, error, period_trades, new_carried = self._simulate_period_trading(
+                    active_strategy, period_start, period_end, capital, ticker_list=top_symbols,
+                    initial_positions=carry_in if carry_in else None,
+                    force_close_at_end=force_close
                 )
                 strategy_name = active_strategy.name
                 if error:
                     simulation_errors.append(error)
                 all_trades.extend(period_trades)
+
+            # Update carried positions for next period
+            if force_close or strategy_changed:
+                carried_positions = {}
+            else:
+                carried_positions = new_carried if new_carried else {}
+
+            if carried_positions:
+                print(f"[WF-SERVICE] Carrying {len(carried_positions)} positions to next period: "
+                      f"{list(carried_positions.keys())}")
+
+            # Track for detecting strategy switches next period
+            prev_active_strategy_id = current_strategy_id
+            prev_using_ai_params = using_ai_params
 
             period_details.append(SimulationPeriod(
                 start_date=period_start,
@@ -1408,15 +1455,37 @@ class WalkForwardService:
             if period_ai_opt:
                 warm_start_params = period_ai_opt.best_params
 
+            # -- Determine position carry-over --
+            is_last_period = (period_index == state["total_periods"] - 1)
+            carried_positions = state.get("carried_positions") or {}
+            prev_strategy_id = state.get("prev_active_strategy_id")
+            prev_ai = state.get("prev_using_ai_params", False)
+
+            strategy_changed = (period_index > 0 and (
+                active_strategy_id != prev_strategy_id or
+                using_ai_params != prev_ai
+            ))
+
+            if strategy_changed and carried_positions:
+                force_close = True
+                carry_in = carried_positions
+                print(f"[WF-PERIOD] Strategy changed, force-closing {len(carried_positions)} carried positions")
+            else:
+                force_close = is_last_period
+                carry_in = carried_positions
+
             # -- Simulate trading --
             strategy_name = active_strategy_name
             period_trades = []
             equity_points = []
+            new_carried = {}
 
             if using_ai_params and active_params:
-                new_capital, period_return, info, period_trades = self._simulate_period_with_params(
+                new_capital, period_return, info, period_trades, new_carried = self._simulate_period_with_params(
                     active_params, active_strategy_type, period_start, period_end,
-                    capital, ticker_list=top_symbols, strategy_name="AI-Optimized"
+                    capital, ticker_list=top_symbols, strategy_name="AI-Optimized",
+                    initial_positions=carry_in if carry_in else None,
+                    force_close_at_end=force_close
                 )
                 strategy_name = "AI-Optimized"
                 if info:
@@ -1426,8 +1495,10 @@ class WalkForwardService:
                     {"date": period_end.strftime('%Y-%m-%d'), "equity": new_capital, "strategy": strategy_name}
                 ]
             elif active_strategy:
-                new_capital, eq_pts, period_return, info, period_trades = self._simulate_period_trading(
-                    active_strategy, period_start, period_end, capital, ticker_list=top_symbols
+                new_capital, eq_pts, period_return, info, period_trades, new_carried = self._simulate_period_trading(
+                    active_strategy, period_start, period_end, capital, ticker_list=top_symbols,
+                    initial_positions=carry_in if carry_in else None,
+                    force_close_at_end=force_close
                 )
                 strategy_name = active_strategy.name
                 if info:
@@ -1441,6 +1512,12 @@ class WalkForwardService:
                 new_capital = capital
                 period_return = 0.0
                 error_info = f"Period {period_start.strftime('%Y-%m-%d')}: No active strategy"
+
+            # Update carried positions for next period
+            if force_close or strategy_changed:
+                carried_positions_out = {}
+            else:
+                carried_positions_out = new_carried if new_carried else {}
 
             # Build parameter snapshot
             param_snapshot = None
@@ -1471,6 +1548,7 @@ class WalkForwardService:
             period_trades = []
             equity_points = []
             param_snapshot = None
+            carried_positions_out = {}
 
         # -- Write period result to DB --
         trades_data = json.dumps([
@@ -1537,6 +1615,9 @@ class WalkForwardService:
             "active_params": active_params,
             "using_ai_params": using_ai_params,
             "warm_start_params": warm_start_params,
+            "carried_positions": carried_positions_out,
+            "prev_active_strategy_id": active_strategy_id,
+            "prev_using_ai_params": using_ai_params,
             "config": config
         }
 

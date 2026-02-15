@@ -151,12 +151,15 @@ class BacktestResult:
     # Debug info
     debug_info: str = ""                # Diagnostic information for troubleshooting
 
+    # Raw position state for walk-forward carry-over (not serialized to API)
+    raw_positions: Dict = field(default_factory=dict)
+
     def to_dict(self):
-        return {
-            **asdict(self),
-            'positions': [p.to_dict() for p in self.positions],
-            'trades': [t.to_dict() for t in self.trades]
-        }
+        result = {**asdict(self)}
+        result.pop('raw_positions', None)  # Don't expose internal state
+        result['positions'] = [p.to_dict() for p in self.positions]
+        result['trades'] = [t.to_dict() for t in self.trades]
+        return result
 
 
 class BacktesterService:
@@ -531,7 +534,8 @@ class BacktesterService:
         ticker_list: Optional[List[str]] = None,
         exit_strategy: Optional[ExitStrategyConfig] = None,
         strategy_type: Optional[str] = None,  # "momentum", "dwap", "dwap_hybrid"
-        force_close_at_end: bool = False  # Close all positions at simulation end
+        force_close_at_end: bool = False,  # Close all positions at simulation end
+        initial_positions: Optional[Dict[str, dict]] = None  # Carry-over positions from previous period
     ) -> BacktestResult:
         """
         Run backtest over historical data
@@ -547,6 +551,8 @@ class BacktesterService:
                           If None, falls back to use_momentum_strategy for compatibility
             force_close_at_end: If True, close all open positions at simulation end
                                and record as trades with exit_reason="simulation_end"
+            initial_positions: Carry-over positions from a previous period (walk-forward).
+                              Dict mapping symbol -> position dict with entry_price, shares, etc.
 
         Returns:
             BacktestResult with positions, trades, and metrics
@@ -616,6 +622,15 @@ class BacktesterService:
         last_rebalance: Optional[pd.Timestamp] = None
         in_cash_mode = False  # True when market is unfavorable
 
+        # Seed carried positions from previous walk-forward period
+        if initial_positions:
+            positions = {k: dict(v) for k, v in initial_positions.items()}
+            position_id = max((p.get('id', 0) for p in positions.values()), default=0)
+            # Capital adjustment happens below after we determine the date range,
+            # so we can use period-start market prices.
+            print(f"[BACKTEST] Seeded {len(positions)} carried positions, "
+                  f"position_id starts at {position_id}")
+
         # Debug tracking
         debug_rebalance_days = 0
         debug_cash_mode_days = 0
@@ -646,6 +661,33 @@ class BacktesterService:
             print(f"[BACKTEST] Sample index tz: {sample_df.index.tz}")
             print(f"[BACKTEST] Requested: start_ts={start_ts} (tz={start_ts.tz}), end_ts={end_ts} (tz={end_ts.tz})")
             raise RuntimeError("No trading days in date range")
+
+        # Adjust capital for carried positions using period-start prices
+        if initial_positions and positions:
+            first_date = dates[0]
+            carried_value = 0.0
+            dropped = []
+            for sym, pos in positions.items():
+                if sym not in scanner_service.data_cache:
+                    dropped.append(sym)
+                    continue
+                row = self._get_row_for_date(scanner_service.data_cache[sym], first_date)
+                if row is None:
+                    dropped.append(sym)
+                    continue
+                carried_value += pos['shares'] * row['close']
+            # Remove symbols we can't price
+            for sym in dropped:
+                print(f"[BACKTEST] Dropping carried position {sym}: no data at period start")
+                del positions[sym]
+            # Cash = total equity - carried position value
+            capital = self.initial_capital - carried_value
+            if capital < 0:
+                # Shouldn't happen, but guard against it
+                print(f"[BACKTEST] WARNING: negative cash after carry-over ({capital:.2f}), clamping to 0")
+                capital = 0.0
+            print(f"[BACKTEST] Carried position value: ${carried_value:,.2f}, "
+                  f"cash: ${capital:,.2f}, total: ${self.initial_capital:,.2f}")
 
         # Simulate each trading day
         for i, date in enumerate(dates):
@@ -1067,6 +1109,9 @@ class BacktesterService:
                 'equity': capital + position_value
             })
 
+        # Snapshot raw positions BEFORE force close for walk-forward carry-over
+        raw_positions_snapshot = {k: dict(v) for k, v in positions.items()}
+
         # Force close remaining positions at simulation end if requested
         if force_close_at_end and positions:
             last_date = dates[-1]
@@ -1191,6 +1236,7 @@ class BacktesterService:
         return BacktestResult(
             positions=final_positions,
             trades=sorted(trades, key=lambda t: t.exit_date, reverse=True),
+            raw_positions=raw_positions_snapshot,
             total_return_pct=round(total_return_pct, 2),
             win_rate=round(win_rate, 1),
             total_trades=len(trades),
