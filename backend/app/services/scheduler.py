@@ -575,16 +575,24 @@ class SchedulerService:
                                     self._alerted_sell_positions.add(dedup_key)
 
                         if new_intraday_signals:
-                            # Send email alerts to subscribed users
+                            # Send email alerts to subscribed users,
+                            # skipping users who already hold the stock
                             user_result = await db.execute(
-                                select(DBUser.email, DBUser.name)
+                                select(DBUser.id, DBUser.email, DBUser.name)
                                 .where(DBUser.is_active == True)
                             )
                             active_users = user_result.all()
 
+                            # Build set of (user_id, symbol) for open positions
+                            held_positions = set()
+                            for pos, _, _ in rows:
+                                held_positions.add((pos.user_id, pos.symbol))
+
                             for sig in new_intraday_signals:
-                                # Send to all active users
-                                for user_email, user_name in active_users:
+                                for user_id, user_email, user_name in active_users:
+                                    if (user_id, sig['symbol']) in held_positions:
+                                        logger.info(f"📡 Skipping intraday alert for {sig['symbol']} to {user_email} (already holds position)")
+                                        continue
                                     try:
                                         await email_service.send_intraday_signal_alert(
                                             to_email=user_email,
