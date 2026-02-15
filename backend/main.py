@@ -991,6 +991,83 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # Handle snapshot backfill (direct Lambda invocation)
+    if event.get("snapshot_backfill_job"):
+        print(f"📸 Snapshot backfill job received - {len(scanner_service.data_cache)} symbols in cache")
+        job_config = event["snapshot_backfill_job"]
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _run_snapshot_backfill():
+            import pandas as pd
+            from app.services.data_export import data_export_service
+            from app.api.signals import _compute_dashboard_live
+
+            spy_df = scanner_service.data_cache.get('SPY')
+            if spy_df is None:
+                return {"status": "failed", "error": "SPY data not in cache"}
+
+            start_ts = pd.Timestamp(job_config["start_date"])
+            end_ts = pd.Timestamp(job_config["end_date"])
+
+            if hasattr(spy_df.index, 'tz') and spy_df.index.tz is not None:
+                start_ts = start_ts.tz_localize(spy_df.index.tz)
+                end_ts = end_ts.tz_localize(spy_df.index.tz)
+
+            trading_days = spy_df.loc[start_ts:end_ts].index
+            total = len(trading_days)
+            print(f"📸 Backfill: {total} trading days from {job_config['start_date']} to {job_config['end_date']}")
+
+            saved = 0
+            skipped = 0
+            errors = 0
+
+            async with async_session() as db:
+                for i, ts in enumerate(trading_days):
+                    date_str = ts.strftime('%Y-%m-%d')
+
+                    existing = data_export_service.read_snapshot(date_str)
+                    if existing:
+                        skipped += 1
+                        print(f"  [{i+1}/{total}] {date_str} — already exists, skipping")
+                        continue
+
+                    try:
+                        data = await _compute_dashboard_live(
+                            db=db, user=None, momentum_top_n=30,
+                            fresh_days=5, as_of_date=date_str,
+                        )
+                        result = data_export_service.export_snapshot(date_str, data)
+                        if result.get("success"):
+                            saved += 1
+                            print(f"  [{i+1}/{total}] {date_str} — saved")
+                        else:
+                            errors += 1
+                            print(f"  [{i+1}/{total}] {date_str} — export failed: {result.get('message')}")
+                    except Exception as e:
+                        errors += 1
+                        print(f"  [{i+1}/{total}] {date_str} — error: {e}")
+
+            return {
+                "status": "completed",
+                "total_trading_days": total,
+                "saved": saved,
+                "skipped": skipped,
+                "errors": errors,
+            }
+
+        try:
+            result = loop.run_until_complete(_run_snapshot_backfill())
+            print(f"📸 Snapshot backfill: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Snapshot backfill failed: {e}")
+            traceback.print_exc()
+            return {"status": "failed", "error": str(e)}
+
     # For API Gateway events, use Mangum
     # Create a fresh Mangum handler to avoid event loop issues on warm Lambdas
     global _mangum_handler
