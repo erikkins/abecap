@@ -683,7 +683,7 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                 entry_price = float(trade.get('entry_price', 0))
                 entry_date_str = str(trade.get('entry_date', ''))[:10]
 
-                if exit_reason == 'simulation_end':
+                if exit_reason == 'rebalance_exit':
                     df = scanner_service.data_cache.get(symbol)
                     if df is None or len(df) < 50 or entry_price <= 0:
                         continue

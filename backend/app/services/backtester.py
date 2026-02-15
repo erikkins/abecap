@@ -549,8 +549,8 @@ class BacktesterService:
             exit_strategy: Optional exit strategy configuration
             strategy_type: Strategy to use - "momentum", "dwap", or "dwap_hybrid"
                           If None, falls back to use_momentum_strategy for compatibility
-            force_close_at_end: If True, close all open positions at simulation end
-                               and record as trades with exit_reason="simulation_end"
+            force_close_at_end: If True, close all open positions at period end
+                               and record as trades with exit_reason="rebalance_exit"
             initial_positions: Carry-over positions from a previous period (walk-forward).
                               Dict mapping symbol -> position dict with entry_price, shares, etc.
 
@@ -1112,11 +1112,11 @@ class BacktesterService:
         # Snapshot raw positions BEFORE force close for walk-forward carry-over
         raw_positions_snapshot = {k: dict(v) for k, v in positions.items()}
 
-        # Force close remaining positions at simulation end if requested
+        # Force close remaining positions at period/simulation end if requested
         if force_close_at_end and positions:
             last_date = dates[-1]
             last_date_str = last_date.strftime('%Y-%m-%d')
-            print(f"[BACKTEST] Force closing {len(positions)} positions at simulation end ({last_date_str})")
+            print(f"[BACKTEST] Force closing {len(positions)} positions at period end ({last_date_str})")
 
             for symbol, pos in positions.items():
                 df = scanner_service.data_cache.get(symbol)
@@ -1144,7 +1144,7 @@ class BacktesterService:
                     shares=pos['shares'],
                     pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
                     pnl_pct=round(pnl_pct * 100, 2),
-                    exit_reason='simulation_end',
+                    exit_reason='rebalance_exit',
                     days_held=self._days_between(last_date, pos['entry_date']),
                     dwap_at_entry=pos.get('dwap_at_entry', 0)
                 ))
