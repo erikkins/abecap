@@ -123,6 +123,79 @@ async def _run_walk_forward_job(job_config: dict):
             return {"status": "failed", "job_id": job_id, "error": str(e)}
 
 
+async def _run_snapshot_backfill(start_date: str, end_date: str):
+    """
+    Backfill daily dashboard snapshots for a date range.
+
+    Iterates trading days (from SPY index), computes dashboard data
+    for each date, and saves as a snapshot. Skips dates that already
+    have a snapshot (idempotent/resumable).
+    """
+    import pandas as pd
+    from app.services.scanner import scanner_service
+    from app.services.data_export import data_export_service
+    from app.api.signals import _compute_dashboard_live
+    from app.core.database import async_session
+
+    # Get trading days from SPY data
+    spy_df = scanner_service.data_cache.get('SPY')
+    if spy_df is None:
+        return {"status": "failed", "error": "SPY data not in cache"}
+
+    start_ts = pd.Timestamp(start_date)
+    end_ts = pd.Timestamp(end_date)
+
+    # Handle timezone-aware index
+    if hasattr(spy_df.index, 'tz') and spy_df.index.tz is not None:
+        start_ts = start_ts.tz_localize(spy_df.index.tz)
+        end_ts = end_ts.tz_localize(spy_df.index.tz)
+
+    trading_days = spy_df.loc[start_ts:end_ts].index
+    total = len(trading_days)
+    print(f"📸 Snapshot backfill: {total} trading days from {start_date} to {end_date}")
+
+    saved = 0
+    skipped = 0
+    errors = 0
+
+    async with async_session() as db:
+        for i, ts in enumerate(trading_days):
+            date_str = ts.strftime('%Y-%m-%d')
+
+            # Check if snapshot already exists (idempotent)
+            existing = data_export_service.read_snapshot(date_str)
+            if existing:
+                skipped += 1
+                print(f"  [{i+1}/{total}] {date_str} — already exists, skipping")
+                continue
+
+            try:
+                data = await _compute_dashboard_live(
+                    db=db, user=None, momentum_top_n=30,
+                    fresh_days=5, as_of_date=date_str,
+                )
+                result = data_export_service.export_snapshot(date_str, data)
+                if result.get("success"):
+                    saved += 1
+                    print(f"  [{i+1}/{total}] {date_str} — saved ({result.get('storage')})")
+                else:
+                    errors += 1
+                    print(f"  [{i+1}/{total}] {date_str} — export failed: {result.get('message')}")
+            except Exception as e:
+                errors += 1
+                print(f"  [{i+1}/{total}] {date_str} — error: {e}")
+
+    summary = {
+        "status": "completed",
+        "total_trading_days": total,
+        "saved": saved,
+        "skipped": skipped,
+        "errors": errors,
+    }
+    print(f"📸 Snapshot backfill complete: {summary}")
+    return summary
+
+
 async def _export_dashboard_cache():
     """Export pre-computed dashboard data to S3."""
     from app.core.database import async_session
@@ -161,6 +234,15 @@ def handler(event, context):
     if event.get("export_dashboard_cache"):
         print("📦 Dashboard cache export requested")
         result = asyncio.get_event_loop().run_until_complete(_export_dashboard_cache())
+        return result
+
+    # Handle snapshot backfill jobs
+    if event.get("snapshot_backfill_job"):
+        print("📸 Snapshot backfill job received")
+        job_config = event["snapshot_backfill_job"]
+        result = asyncio.get_event_loop().run_until_complete(
+            _run_snapshot_backfill(job_config["start_date"], job_config["end_date"])
+        )
         return result
 
     # Handle async walk-forward jobs
