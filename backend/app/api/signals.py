@@ -10,7 +10,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from app.core.database import get_db, Signal, Position, User
-from app.core.security import get_current_user_optional
+from app.core.security import get_current_user_optional, require_valid_subscription
 from app.services.scanner import scanner_service, SignalData
 from app.services.stock_universe import stock_universe_service
 from app.services.data_export import data_export_service
@@ -61,7 +61,8 @@ class WatchlistItem(BaseModel):
 @router.get("/scan", response_model=ScanResponse)
 async def run_scan(
     refresh: bool = True,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_valid_subscription),
 ):
     """
     Run market scan for buy signals
@@ -104,7 +105,8 @@ async def run_scan(
 async def get_latest_signals(
     limit: int = 20,
     strong_only: bool = False,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_valid_subscription),
 ):
     """
     Get latest signals from database
@@ -969,8 +971,26 @@ async def get_dashboard_data(
     adds user-specific positions with sell guidance (~200ms).
 
     Time-travel mode (admin-only): computes everything live.
+
+    Subscription enforcement: unauthenticated or expired users see a teaser
+    (regime, market stats, signal count) but not actual buy signals.
     """
     import pandas as pd
+    from sqlalchemy.orm import selectinload
+    from app.core.database import Subscription
+
+    # --- Check subscription status ---
+    has_valid_sub = False
+    if user:
+        if user.is_admin():
+            has_valid_sub = True
+        else:
+            # Load subscription if not already loaded
+            sub_result = await db.execute(
+                select(Subscription).where(Subscription.user_id == user.id)
+            )
+            subscription = sub_result.scalar_one_or_none()
+            has_valid_sub = subscription is not None and subscription.is_valid()
 
     # --- Time-travel mode (admin only) — always compute live ---
     if as_of_date:
@@ -987,6 +1007,21 @@ async def get_dashboard_data(
     if cached is None:
         # Fallback: compute live if S3 cache missing
         cached = await compute_shared_dashboard_data(db, momentum_top_n, fresh_days)
+
+    # --- Subscription gating ---
+    if not has_valid_sub:
+        # Teaser: show regime, market stats, signal count, but no actual signals
+        return {
+            'regime_forecast': cached.get('regime_forecast'),
+            'buy_signals': [],
+            'positions_with_guidance': [],
+            'watchlist': [],
+            'market_stats': cached.get('market_stats', {}),
+            'recent_signals': [],
+            'missed_opportunities': [],
+            'generated_at': cached.get('generated_at', datetime.now().isoformat()),
+            'subscription_required': True,
+        }
 
     # Add user-specific positions with sell guidance (~200ms)
     positions_with_guidance = await _get_positions_with_guidance(
@@ -1230,7 +1265,10 @@ class MomentumRankingsResponse(BaseModel):
 
 
 @router.get("/momentum-rankings", response_model=MomentumRankingsResponse)
-async def get_momentum_rankings(top_n: int = 20):
+async def get_momentum_rankings(
+    top_n: int = 20,
+    user: User = Depends(require_valid_subscription),
+):
     """
     Get current top stocks by momentum score.
 
@@ -1490,7 +1528,8 @@ class ApproachingTriggerResponse(BaseModel):
 async def get_approaching_trigger(
     momentum_top_n: int = 30,
     min_pct: float = 3.0,
-    max_pct: float = 5.0
+    max_pct: float = 5.0,
+    user: User = Depends(require_valid_subscription),
 ):
     """
     Get momentum stocks approaching the DWAP +5% trigger.
@@ -1565,7 +1604,8 @@ async def get_approaching_trigger(
 @router.get("/double-signals", response_model=DoubleSignalsResponse)
 async def get_double_signals(
     momentum_top_n: int = 30,
-    fresh_days: int = 5
+    fresh_days: int = 5,
+    user: User = Depends(require_valid_subscription),
 ):
     """
     Get stocks with BOTH DWAP trigger (+5% above DWAP) AND top momentum ranking.

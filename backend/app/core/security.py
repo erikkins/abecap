@@ -156,3 +156,67 @@ async def get_admin_user(user = Depends(get_current_user)):
             detail="Admin access required",
         )
     return user
+
+
+async def require_valid_subscription(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Require the user to have a valid subscription (trial or active).
+
+    Returns the User object if subscription is valid.
+    Raises 401 if not authenticated, 403 if subscription expired/missing.
+    Admins always pass.
+    """
+    from app.core.database import User, Subscription
+    from sqlalchemy.orm import selectinload
+
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = credentials.credentials
+    payload = decode_token(token)
+
+    if payload is None or payload.get("type") != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user_id = payload.get("sub")
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.subscription))
+        .where(User.id == uuid.UUID(user_id))
+    )
+    user = result.scalar_one_or_none()
+
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or disabled",
+        )
+
+    # Admins always pass
+    if user.is_admin():
+        return user
+
+    if not user.subscription or not user.subscription.is_valid():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="subscription_required",
+        )
+
+    return user
