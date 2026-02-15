@@ -983,6 +983,7 @@ class SchedulerService:
                 return
 
             import pandas as pd
+            from sqlalchemy import select
             from app.api.signals import find_dwap_crossover_date
 
             # Get momentum rankings (top 20)
@@ -1062,18 +1063,35 @@ class SchedulerService:
                 from app.services.market_analysis import market_analysis_service
                 regime = market_analysis_service.get_market_regime()
 
-                # Send email alert
-                success = await email_service.send_double_signal_alert(
-                    to_email=ADMIN_EMAIL,
-                    new_signals=new_signals,
-                    approaching=approaching,
-                    market_regime=regime
-                )
+                # Query subscribers with valid subscriptions
+                from app.core.database import async_session as async_sess, User as DBUser2, Subscription as DBSub2
+                from sqlalchemy.orm import selectinload as sel_load
 
-                if success:
-                    logger.info(f"📧 Double signal alert sent to {ADMIN_EMAIL}")
-                else:
-                    logger.warning("⚠️ Failed to send double signal alert email")
+                async with async_sess() as db2:
+                    sub_result = await db2.execute(
+                        select(DBUser2)
+                        .options(sel_load(DBUser2.subscription))
+                        .where(DBUser2.is_active == True)
+                    )
+                    sub_users = sub_result.scalars().all()
+
+                recipients = [u.email for u in sub_users if u.subscription and u.subscription.is_valid()]
+                # Always include admin
+                if ADMIN_EMAIL not in recipients:
+                    recipients.append(ADMIN_EMAIL)
+
+                sent = 0
+                for recipient in recipients:
+                    success = await email_service.send_double_signal_alert(
+                        to_email=recipient,
+                        new_signals=new_signals,
+                        approaching=approaching,
+                        market_regime=regime
+                    )
+                    if success:
+                        sent += 1
+
+                logger.info(f"📧 Double signal alert sent to {sent}/{len(recipients)} recipients")
             else:
                 logger.info(f"✅ No new double signals (checked {len(top_momentum)} momentum stocks)")
                 if approaching:
@@ -1173,23 +1191,43 @@ class SchedulerService:
             from app.services.market_analysis import market_analysis_service
             regime = market_analysis_service.get_market_regime()
 
-            # TODO: Get subscribers from database
-            # For now, just log what we would send
-            subscribers = []  # Would come from database User table
+            # Query subscribers with valid subscriptions (trial or active)
+            from app.core.database import async_session, User as DBUser, Subscription as DBSub
+            from sqlalchemy import select
+            from sqlalchemy.orm import selectinload
+
+            async with async_session() as db:
+                result = await db.execute(
+                    select(DBUser)
+                    .options(selectinload(DBUser.subscription))
+                    .where(DBUser.is_active == True)
+                )
+                all_users = result.scalars().all()
+
+            subscribers = []
+            for u in all_users:
+                if u.subscription and u.subscription.is_valid():
+                    subscribers.append({'email': u.email, 'name': u.name})
+
+            fresh_count = len([s for s in buy_signals if s.get('is_fresh')])
 
             if not subscribers:
-                logger.info("📧 No subscribers configured, skipping email send")
-                fresh_count = len([s for s in buy_signals if s.get('is_fresh')])
-                logger.info(f"📧 Would have sent email with {len(buy_signals)} ensemble signals ({fresh_count} fresh), {len(watchlist)} watchlist")
+                logger.info(
+                    f"📧 No active subscribers. Would have sent email with "
+                    f"{len(buy_signals)} ensemble signals ({fresh_count} fresh), "
+                    f"{len(watchlist)} watchlist"
+                )
                 return
+
+            logger.info(f"📧 Sending daily summary to {len(subscribers)} subscriber(s)")
 
             # Send emails to each subscriber
             sent = 0
             failed = 0
-            for sub_email in subscribers:
+            for sub in subscribers:
                 try:
                     success = await email_service.send_daily_summary(
-                        to_email=sub_email,
+                        to_email=sub['email'],
                         signals=buy_signals,
                         market_regime=regime,
                         watchlist=watchlist,
@@ -1199,10 +1237,10 @@ class SchedulerService:
                     else:
                         failed += 1
                 except Exception as e:
-                    logger.error(f"Failed to send to {sub_email}: {e}")
+                    logger.error(f"Failed to send to {sub['email']}: {e}")
                     failed += 1
 
-            logger.info(f"📧 Daily emails complete: {sent} sent, {failed} failed")
+            logger.info(f"📧 Daily emails complete: {sent}/{len(subscribers)} sent, {failed} failed")
 
         except Exception as e:
             logger.error(f"❌ Daily email job failed: {e}")
