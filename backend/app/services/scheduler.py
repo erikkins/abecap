@@ -1126,6 +1126,13 @@ class SchedulerService:
                 result = data_export_service.export_dashboard_json(data)
                 if result.get("success"):
                     logger.info(f"✅ Dashboard cache exported to {result.get('storage', 'storage')}")
+                    # Also save a date-keyed snapshot for time-travel
+                    today_str = datetime.now().strftime('%Y-%m-%d')
+                    snap_result = data_export_service.export_snapshot(today_str, data)
+                    if snap_result.get("success"):
+                        logger.info(f"✅ Snapshot saved for {today_str}")
+                    else:
+                        logger.warning(f"⚠️ Snapshot export failed: {snap_result.get('message', 'unknown')}")
                 else:
                     logger.warning(f"⚠️ Dashboard cache export failed: {result.get('message', 'unknown')}")
         except Exception as e:

@@ -744,6 +744,65 @@ class DataExportService:
             logger.warning(f"Failed to read dashboard JSON: {e}")
             return None
 
+    def export_snapshot(self, date_str: str, dashboard_data: dict) -> Dict:
+        """
+        Export a date-keyed dashboard snapshot for time-travel mode.
+
+        S3 key: snapshots/{date_str}/dashboard.json
+        Local: data/snapshots/{date_str}/dashboard.json
+        """
+        try:
+            json_content = json.dumps(dashboard_data, default=str)
+
+            if self._use_s3():
+                s3 = self._get_s3_client()
+                s3.put_object(
+                    Bucket=S3_BUCKET,
+                    Key=f'snapshots/{date_str}/dashboard.json',
+                    Body=json_content.encode('utf-8'),
+                    ContentType='application/json',
+                )
+                logger.info(f"Exported snapshot for {date_str} to S3 ({len(json_content)} bytes)")
+                return {"success": True, "storage": "s3", "date": date_str}
+            else:
+                snapshot_dir = LOCAL_DATA_DIR.parent / "snapshots" / date_str
+                snapshot_dir.mkdir(parents=True, exist_ok=True)
+                filepath = snapshot_dir / "dashboard.json"
+                with open(filepath, 'w') as f:
+                    f.write(json_content)
+                logger.info(f"Exported snapshot for {date_str} to {filepath}")
+                return {"success": True, "storage": "local", "path": str(filepath)}
+
+        except Exception as e:
+            logger.error(f"Failed to export snapshot for {date_str}: {e}")
+            return {"success": False, "message": str(e)}
+
+    def read_snapshot(self, date_str: str) -> Optional[dict]:
+        """
+        Read a date-keyed dashboard snapshot for time-travel mode.
+
+        Returns the snapshot dict, or None if not available.
+        """
+        try:
+            if self._use_s3():
+                s3 = self._get_s3_client()
+                response = s3.get_object(
+                    Bucket=S3_BUCKET,
+                    Key=f'snapshots/{date_str}/dashboard.json',
+                )
+                content = response['Body'].read().decode('utf-8')
+                return json.loads(content)
+            else:
+                filepath = LOCAL_DATA_DIR.parent / "snapshots" / date_str / "dashboard.json"
+                if filepath.exists():
+                    with open(filepath, 'r') as f:
+                        return json.load(f)
+                return None
+        except Exception as e:
+            if 'NoSuchKey' not in str(e):
+                logger.warning(f"Failed to read snapshot for {date_str}: {e}")
+            return None
+
     def get_dashboard_url(self) -> str:
         """Get the public URL for the dashboard JSON."""
         if self._use_s3():

@@ -1017,6 +1017,12 @@ async def _compute_dashboard_live(
     from app.services.market_regime import market_regime_service
     import pandas as pd
 
+    # Try snapshot first — instant, no memory/timeout issues
+    snapshot = data_export_service.read_snapshot(as_of_date)
+    if snapshot:
+        print(f"Time-travel {as_of_date}: loaded from snapshot")
+        return snapshot
+
     effective_date = pd.Timestamp(as_of_date).normalize()
 
     if not scanner_service.data_cache:
