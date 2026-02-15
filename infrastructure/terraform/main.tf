@@ -459,7 +459,7 @@ resource "aws_lambda_function" "api" {
   package_type  = "Image"
   image_uri     = "${aws_ecr_repository.api.repository_url}:${var.lambda_image_tag}"
   timeout       = 900  # 15 minutes (max for Lambda)
-  memory_size   = 3008  # Max memory for faster cold starts and large data loads
+  memory_size   = 6144  # 6GB for time-travel full-universe scan (data cache ~600MB + computation)
 
   environment {
     variables = {
