@@ -329,7 +329,7 @@ async def _run_walk_forward_job(job_config: dict):
                 existing_job_id=job_id,
                 fixed_strategy_id=job_config.get("strategy_id"),
                 n_trials=job_config.get("n_trials", 30),
-                carry_positions=job_config.get("carry_positions", True)
+                carry_positions=job_config.get("carry_positions", False)
             )
 
             print(f"[ASYNC-WF] Job {job_id} completed: return={sim_result.total_return_pct}%")

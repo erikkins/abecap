@@ -79,7 +79,7 @@ class Settings(BaseSettings):
 
     # Quality filters
     NEAR_50D_HIGH_PCT: float = 5.0  # Within 5% of 50-day high
-    MOMENTUM_SECTOR_CAP: int = 5  # Max stocks per sector in momentum top-N
+    MOMENTUM_SECTOR_CAP: int = 999  # Disabled for A/B test — was 5
     
     # Data
     DATA_LOOKBACK_DAYS: int = 252
