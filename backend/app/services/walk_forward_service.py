@@ -587,7 +587,7 @@ class WalkForwardService:
         existing_job_id: int = None,
         fixed_strategy_id: int = None,  # If set, use only this strategy (no switching)
         n_trials: int = 30,  # Number of Optuna optimization trials per period
-        carry_positions: bool = True  # Carry positions across periods (False = old behavior)
+        carry_positions: bool = False  # Carry positions across periods (default: force-close each period)
     ) -> WalkForwardResult:
         """
         Run walk-forward simulation with AI optimization over a historical period.
