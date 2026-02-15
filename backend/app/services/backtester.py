@@ -594,12 +594,12 @@ class BacktesterService:
                     profit_target_pct=self.profit_target_pct * 100
                 )
 
-        # Get symbols to use — no exclusion filter (leveraged ETFs allowed for backtesting)
-        # A/B test: removing _EXCLUDED_SET to match old behavior and test impact
-        available_symbols = list(scanner_service.data_cache.keys())
+        # Get symbols to use (excluding ETFs/leveraged products)
+        from app.services.scanner import _EXCLUDED_SET
+        available_symbols = [s for s in scanner_service.data_cache.keys() if s not in _EXCLUDED_SET]
         if ticker_list:
             # Filter to only tickers in the provided list that we have data for
-            available_symbols = [s for s in ticker_list if s in scanner_service.data_cache]
+            available_symbols = [s for s in ticker_list if s in scanner_service.data_cache and s not in _EXCLUDED_SET]
 
         # Get all symbols with enough data
         symbols = []
