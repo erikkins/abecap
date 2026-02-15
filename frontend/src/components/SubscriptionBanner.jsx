@@ -18,8 +18,10 @@ export default function SubscriptionBanner() {
   const isTrialExpiring = subStatus === 'trial' && trialDaysRemaining <= 3 && trialDaysRemaining > 0;
 
   // Active subscribers: show nothing (manage subscription is in the user menu)
-  // Unless they have cancel_at_period_end set
-  const isCanceling = isActive && user.subscription?.cancel_at_period_end;
+  // Unless they have cancel_at_period_end set AND end date is within 30 days
+  const cancelEndDate = user.subscription?.current_period_end ? new Date(user.subscription.current_period_end) : null;
+  const daysUntilCancel = cancelEndDate ? Math.ceil((cancelEndDate - new Date()) / (1000 * 60 * 60 * 24)) : null;
+  const isCanceling = isActive && user.subscription?.cancel_at_period_end && daysUntilCancel !== null && daysUntilCancel <= 30;
 
   // Don't show banner for active (non-canceling) subscribers or dismissed
   if (dismissed || (isActive && !isCanceling)) return null;
@@ -132,13 +134,21 @@ export default function SubscriptionBanner() {
             <Clock className="text-orange-600 flex-shrink-0" size={24} />
             <p className={`font-medium ${getTextStyle()}`}>{getMessage()}</p>
           </div>
-          <button
-            onClick={handleManageSubscription}
-            disabled={loading}
-            className="px-4 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-all disabled:opacity-50"
-          >
-            {loading ? 'Loading...' : 'Resubscribe'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleManageSubscription}
+              disabled={loading}
+              className="px-4 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-all disabled:opacity-50"
+            >
+              {loading ? 'Loading...' : 'Resubscribe'}
+            </button>
+            <button
+              onClick={() => setDismissed(true)}
+              className="p-2 text-gray-400 hover:text-gray-600"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
       </div>
     );

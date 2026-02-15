@@ -8,7 +8,7 @@ import {
   TrendingUp, TrendingDown, RefreshCw, Settings, Bell, User, LogOut,
   DollarSign, Target, Shield, Activity, PieChart as PieIcon, History,
   ArrowUpRight, ArrowDownRight, Clock, Zap, X, ChevronRight, Eye,
-  Calendar, BarChart3, Wallet, LogIn, AlertCircle, Loader2, CreditCard
+  Calendar, BarChart3, Wallet, LogIn, AlertCircle, Loader2, CreditCard, Lock
 } from 'lucide-react';
 import LandingPage from './LandingPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -1405,6 +1405,7 @@ function Dashboard() {
   const [timeTravelEmailPending, setTimeTravelEmailPending] = useState(false);
   const [timeTravelEmailStatus, setTimeTravelEmailStatus] = useState(null); // null | 'sending' | 'sent' | 'failed'
   const [timeTravelPresets, setTimeTravelPresets] = useState([]); // Computed once from live dashboard data
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
 
   // Handle post-checkout redirect from Stripe
   useEffect(() => {
@@ -2387,7 +2388,80 @@ function Dashboard() {
                       </div>
                     </div>
                   )}
-                  {(dashboardData?.buy_signals || []).length > 0 ? (
+                  {dashboardData?.subscription_required ? (
+                    /* Upgrade prompt for users without valid subscription */
+                    <div className="p-6 text-center space-y-4">
+                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                        <Lock className="w-6 h-6 text-gray-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-semibold text-gray-900">Unlock Buy Signals</h3>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Subscribe to see real-time DWAP crossover signals, momentum rankings, and watchlist alerts.
+                        </p>
+                      </div>
+                      {dashboardData?.regime_forecast && (
+                        <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                          <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                            ['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-emerald-500' :
+                            ['rotating_bull', 'range_bound'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-amber-400' :
+                            'bg-red-500'
+                          }`} />
+                          <span>Current regime: <strong>{dashboardData.regime_forecast.current_regime_name}</strong></span>
+                        </div>
+                      )}
+                      <div className="pt-2 space-y-2">
+                        {user ? (
+                          <>
+                            <button
+                              onClick={async () => {
+                                setUpgradeLoading(true);
+                                try {
+                                  const data = await api.post('/api/billing/create-checkout', { plan: 'annual' });
+                                  window.location.href = data.checkout_url;
+                                } catch (err) {
+                                  console.error('Checkout error:', err);
+                                  alert('Failed to start checkout. Please try again.');
+                                } finally {
+                                  setUpgradeLoading(false);
+                                }
+                              }}
+                              disabled={upgradeLoading}
+                              className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+                            >
+                              {upgradeLoading ? 'Loading...' : 'Subscribe — $200/year (Save $40)'}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                setUpgradeLoading(true);
+                                try {
+                                  const data = await api.post('/api/billing/create-checkout', { plan: 'monthly' });
+                                  window.location.href = data.checkout_url;
+                                } catch (err) {
+                                  console.error('Checkout error:', err);
+                                  alert('Failed to start checkout. Please try again.');
+                                } finally {
+                                  setUpgradeLoading(false);
+                                }
+                              }}
+                              disabled={upgradeLoading}
+                              className="w-full px-4 py-2 text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                            >
+                              or $20/month
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => setShowLoginModal(true)}
+                            className="w-full px-4 py-2.5 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
+                          >
+                            <LogIn className="w-4 h-4" />
+                            Sign in to get started
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (dashboardData?.buy_signals || []).length > 0 ? (
                     viewMode === 'simple' ? (
                       /* Simple mode: list items with confidence dots, optionally grouped by sector */
                       <div className="divide-y divide-gray-100">
