@@ -507,9 +507,9 @@ const Footer = () => (
           <span className="text-xl font-bold text-white">RigaCap</span>
         </div>
         <div className="flex gap-8 text-sm">
-          <a href="#" className="hover:text-white transition-colors">Terms</a>
-          <a href="#" className="hover:text-white transition-colors">Privacy</a>
-          <a href="#" className="hover:text-white transition-colors">Contact</a>
+          <a href="/terms" className="hover:text-white transition-colors">Terms</a>
+          <a href="/privacy" className="hover:text-white transition-colors">Privacy</a>
+          <a href="/contact" className="hover:text-white transition-colors">Contact</a>
         </div>
         <div className="text-sm">
           &copy; {new Date().getFullYear()} RigaCap. All rights reserved.

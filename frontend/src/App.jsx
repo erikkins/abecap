@@ -11,6 +11,7 @@ import {
   Calendar, BarChart3, Wallet, LogIn, AlertCircle, Loader2, CreditCard, Lock
 } from 'lucide-react';
 import LandingPage from './LandingPage';
+import { PrivacyPage, TermsPage, ContactPage } from './LegalPages';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginModal from './components/LoginModal';
 import AdminDashboard from './components/AdminDashboard';
@@ -3089,6 +3090,9 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/contact" element={<ContactPage />} />
         <Route path="/app" element={
           <ProtectedRoute>
             <Dashboard />
