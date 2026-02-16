@@ -8,7 +8,8 @@ import {
   TrendingUp, TrendingDown, RefreshCw, Settings, Bell, User, LogOut,
   DollarSign, Target, Shield, Activity, PieChart as PieIcon, History,
   ArrowUpRight, ArrowDownRight, Clock, Zap, X, ChevronRight, Eye,
-  Calendar, BarChart3, Wallet, LogIn, AlertCircle, Loader2, CreditCard, Lock
+  Calendar, BarChart3, Wallet, LogIn, AlertCircle, Loader2, CreditCard, Lock,
+  Briefcase, Mail
 } from 'lucide-react';
 import LandingPage from './LandingPage';
 import { PrivacyPage, TermsPage, ContactPage } from './LegalPages';
@@ -38,7 +39,8 @@ const CACHE_KEYS = {
   BACKTEST: 'rigacap_backtest_cache',
   DASHBOARD: 'rigacap_dashboard_cache',
   VIEW_MODE: 'rigacap_view_mode',
-  CACHE_TIME: 'rigacap_cache_time'
+  CACHE_TIME: 'rigacap_cache_time',
+  WELCOME_SEEN: 'rigacap_welcome_seen'
 };
 
 // Cache duration: 5 minutes for signals, 1 hour for user data
@@ -1391,6 +1393,252 @@ const PositionRow = ({ position, onClick }) => {
 };
 
 // ============================================================================
+// Welcome Tour
+// ============================================================================
+
+const TOUR_STEPS = [
+  {
+    title: 'Your Buy Signals',
+    description: 'This is where the action is. When our ensemble finds a high-conviction trade, it shows up here. BUY means it\'s active. BUY NOW means it just crossed today — move fast.',
+    renderIllustration: () => (
+      <div className="flex flex-col items-center gap-3">
+        <Zap size={32} className="text-blue-600" />
+        <div className="w-full max-w-xs space-y-2">
+          <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm text-gray-800">NVDA</span>
+              <span className="text-xs text-gray-500">$142.50</span>
+            </div>
+            <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">BUY NOW</span>
+          </div>
+          <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm text-gray-800">AVGO</span>
+              <span className="text-xs text-gray-500">$198.30</span>
+            </div>
+            <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">BUY</span>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: 'Open Positions',
+    description: 'Once you buy a stock, it moves here. Track your P&L in real-time, and we\'ll tell you when our trailing stop says it\'s time to sell.',
+    renderIllustration: () => (
+      <div className="flex flex-col items-center gap-3">
+        <Briefcase size={32} className="text-blue-600" />
+        <div className="w-full max-w-xs bg-white rounded-lg px-3 py-2 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="font-semibold text-sm text-gray-800">AAPL</span>
+              <span className="text-xs text-gray-500 ml-2">50 shares</span>
+            </div>
+            <div className="text-right">
+              <span className="text-sm font-semibold text-green-600">+$1,240</span>
+              <span className="text-xs text-green-600 ml-1">+8.2%</span>
+            </div>
+          </div>
+          <div className="mt-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-green-500 rounded-full" style={{ width: '68%' }} />
+          </div>
+          <div className="flex justify-between mt-1">
+            <span className="text-[10px] text-gray-400">Entry $151.20</span>
+            <span className="text-[10px] text-gray-400">Stop $140.10</span>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: 'Missed Opportunities',
+    description: 'Didn\'t catch a signal in time? This section shows profitable trades you could have taken — so you know the system is working even when you\'re away.',
+    renderIllustration: () => (
+      <div className="flex flex-col items-center gap-3">
+        <TrendingUp size={32} className="text-blue-600" />
+        <div className="w-full max-w-xs space-y-2">
+          <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 shadow-sm opacity-70">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm text-gray-800">META</span>
+              <span className="text-xs text-gray-400">Signal: Jan 28</span>
+            </div>
+            <span className="text-sm font-semibold text-green-600">+14.3%</span>
+          </div>
+          <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 shadow-sm opacity-70">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm text-gray-800">AMZN</span>
+              <span className="text-xs text-gray-400">Signal: Jan 22</span>
+            </div>
+            <span className="text-sm font-semibold text-green-600">+9.7%</span>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: 'Simple vs Advanced',
+    description: 'Toggle between Simple (clean, just the essentials) and Advanced (momentum scores, DWAP %, Sharpe ratios — the full picture). Find it in the top-right corner.',
+    renderIllustration: () => (
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex items-center gap-4">
+          <div className="flex flex-col items-center gap-1">
+            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+              <Eye size={24} className="text-blue-600" />
+            </div>
+            <span className="text-xs font-medium text-gray-600">Simple</span>
+          </div>
+          <ChevronRight size={20} className="text-gray-300" />
+          <div className="flex flex-col items-center gap-1">
+            <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center">
+              <Settings size={24} className="text-indigo-600" />
+            </div>
+            <span className="text-xs font-medium text-gray-600">Advanced</span>
+          </div>
+        </div>
+        <div className="w-full max-w-xs bg-white rounded-lg px-3 py-2 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Momentum Score</span>
+            <span className="text-xs font-mono text-indigo-600">87.4</span>
+          </div>
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-xs text-gray-500">DWAP %</span>
+            <span className="text-xs font-mono text-indigo-600">+5.8%</span>
+          </div>
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-xs text-gray-500">Sharpe Ratio</span>
+            <span className="text-xs font-mono text-indigo-600">1.42</span>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: 'Nightly Emails',
+    description: 'Every evening, you\'ll get an email with today\'s signals, your portfolio status, and the current market regime. Here\'s what to expect.',
+    renderIllustration: () => (
+      <div className="flex items-center justify-center">
+        <div className="relative w-64 h-32">
+          {[
+            { rotate: '-rotate-6', offset: 'left-2 top-2', subject: '⚡ 3 New Breakout Signals' },
+            { rotate: 'rotate-0', offset: 'left-6 top-1', subject: '📊 Daily Summary — Strong Bull' },
+            { rotate: 'rotate-6', offset: 'left-10 top-2', subject: '🔔 LIVE SIGNAL: NVDA' },
+          ].map((card, i) => (
+            <div
+              key={i}
+              className={`absolute ${card.offset} ${card.rotate} w-44 bg-white rounded-lg shadow-md overflow-hidden`}
+              style={{ zIndex: i }}
+            >
+              <div className="bg-[#0f1729] px-3 py-1.5 flex items-center gap-1.5">
+                <Mail size={10} className="text-[#c9a84c]" />
+                <span className="text-[9px] font-medium text-[#c9a84c]">RigaCap</span>
+              </div>
+              <div className="px-3 py-2">
+                <p className="text-[10px] font-medium text-gray-800 truncate">{card.subject}</p>
+                <p className="text-[9px] text-gray-400 mt-0.5">Today at 6:00 PM ET</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+  },
+];
+
+function WelcomeTour() {
+  const [visible, setVisible] = useState(() => {
+    return localStorage.getItem(CACHE_KEYS.WELCOME_SEEN) !== 'true';
+  });
+  const [step, setStep] = useState(0);
+  const [fadeKey, setFadeKey] = useState(0);
+
+  const dismiss = useCallback(() => {
+    setVisible(false);
+    localStorage.setItem(CACHE_KEYS.WELCOME_SEEN, 'true');
+  }, []);
+
+  const next = useCallback(() => {
+    if (step < TOUR_STEPS.length - 1) {
+      setStep(s => s + 1);
+      setFadeKey(k => k + 1);
+    } else {
+      dismiss();
+    }
+  }, [step, dismiss]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const handler = (e) => {
+      if (e.key === 'Escape') dismiss();
+      if (e.key === 'ArrowRight') next();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [visible, next, dismiss]);
+
+  if (!visible) return null;
+
+  const current = TOUR_STEPS[step];
+  const isLast = step === TOUR_STEPS.length - 1;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4" onClick={dismiss}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Illustration area */}
+        <div className="relative h-48 bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center px-6">
+          <button
+            onClick={dismiss}
+            className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X size={20} />
+          </button>
+          <div key={fadeKey} className="animate-fade-in w-full">
+            {current.renderIllustration()}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="px-6 pt-5 pb-6">
+          <div key={`text-${fadeKey}`} className="animate-fade-in">
+            <h3 className="text-lg font-bold text-gray-900">{current.title}</h3>
+            <p className="mt-2 text-sm text-gray-600 leading-relaxed">{current.description}</p>
+          </div>
+
+          {/* Footer: dots + buttons */}
+          <div className="flex items-center justify-between mt-6">
+            <div className="flex gap-1.5">
+              {TOUR_STEPS.map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-2 h-2 rounded-full transition-colors ${
+                    i === step ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              {!isLast && (
+                <button onClick={dismiss} className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
+                  Skip
+                </button>
+              )}
+              <button
+                onClick={next}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                {isLast ? 'Get Started →' : 'Next →'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // Main Dashboard
 // ============================================================================
 
@@ -2194,6 +2442,7 @@ function Dashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-6">
+        <WelcomeTour />
         {/* Time Travel Banner */}
         {timeTravelDate && (
           <div className="mb-4 p-3 bg-purple-600 text-white rounded-xl flex items-center justify-between">
