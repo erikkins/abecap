@@ -1076,7 +1076,7 @@ function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRe
             <span className="font-semibold text-sm text-gray-900">rigacap</span>
           </div>
 
-          {/* Image Area */}
+          {/* Image Area — only show if there's an image or the post type supports chart generation */}
           {imageUrl ? (
             <img
               src={imageUrl}
@@ -1084,12 +1084,12 @@ function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRe
               className="w-full aspect-square object-cover bg-gray-100"
               onError={(e) => { e.target.style.display = 'none'; }}
             />
-          ) : (
+          ) : (canGenerateChart || post.image_s3_key) && (
             <div className="w-full aspect-square bg-gray-50 flex flex-col items-center justify-center gap-3">
               <Image size={40} className="text-gray-300" />
               {post.image_s3_key ? (
                 <span className="text-xs text-gray-400">Image loading...</span>
-              ) : canGenerateChart ? (
+              ) : (
                 <button
                   onClick={() => onGenerateChart(post.id)}
                   disabled={!!actionLoading}
@@ -1101,8 +1101,6 @@ function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRe
                     'Generate Chart'
                   )}
                 </button>
-              ) : (
-                <span className="text-xs text-gray-400">No chart available for this post type</span>
               )}
             </div>
           )}
