@@ -31,7 +31,7 @@ class SocialPostingService:
     TWITTER_MEDIA_UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json"
 
     # Instagram Graph API
-    INSTAGRAM_API_BASE = "https://graph.facebook.com/v19.0"
+    INSTAGRAM_API_BASE = "https://graph.facebook.com/v24.0"
 
     # ── Twitter ──────────────────────────────────────────────────────
 
