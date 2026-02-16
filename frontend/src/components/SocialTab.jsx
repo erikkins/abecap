@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Share2, Check, X, RefreshCw, Trash2, Image, MessageSquare, TrendingUp, BarChart3, Globe, Send, Plus, Edit3, Save } from 'lucide-react';
+import { Share2, Check, X, RefreshCw, Trash2, Image, MessageSquare, TrendingUp, BarChart3, Globe, Send, Plus, Edit3, Save, Power } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -73,6 +73,14 @@ export default function SocialTab({ fetchWithAuth }) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
   const [showCompose, setShowCompose] = useState(false);
+  const [publishingLive, setPublishingLive] = useState(() => localStorage.getItem('social_live') === 'true');
+
+  const toggleLive = () => {
+    const next = !publishingLive;
+    if (next && !window.confirm('Enable live publishing? Posts will be sent to Twitter/Instagram when you click Publish.')) return;
+    setPublishingLive(next);
+    localStorage.setItem('social_live', String(next));
+  };
 
   // Filters
   const [platform, setPlatform] = useState('all');
@@ -245,6 +253,37 @@ export default function SocialTab({ fetchWithAuth }) {
 
   return (
     <div className="space-y-6">
+      {/* Live Switch */}
+      <div className={`flex items-center justify-between rounded-xl border-2 px-5 py-3 transition-colors ${
+        publishingLive
+          ? 'bg-green-50 border-green-300'
+          : 'bg-amber-50 border-amber-300'
+      }`}>
+        <div className="flex items-center gap-3">
+          <Power size={18} className={publishingLive ? 'text-green-600' : 'text-amber-600'} />
+          <div>
+            <span className={`text-sm font-semibold ${publishingLive ? 'text-green-800' : 'text-amber-800'}`}>
+              {publishingLive ? 'Publishing is LIVE' : 'Publishing is OFF'}
+            </span>
+            <p className="text-xs text-gray-500">
+              {publishingLive
+                ? 'Publish buttons are active — posts will go live to Twitter/Instagram.'
+                : 'Publish buttons are hidden. Enable when ready to go live.'}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={toggleLive}
+          className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+            publishingLive ? 'bg-green-500' : 'bg-gray-300'
+          }`}
+        >
+          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+            publishingLive ? 'translate-x-6' : 'translate-x-1'
+          }`} />
+        </button>
+      </div>
+
       {/* Stats Bar */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -330,6 +369,7 @@ export default function SocialTab({ fetchWithAuth }) {
                   onDelete={deletePost}
                   onPublish={publish}
                   onEdit={editPost}
+                  publishingLive={publishingLive}
                 />
               ))
             )}
@@ -352,6 +392,7 @@ export default function SocialTab({ fetchWithAuth }) {
                   onPublish={publish}
                   onEdit={editPost}
                   onGenerateChart={generateChart}
+                  publishingLive={publishingLive}
                 />
               ))
             )}
@@ -606,13 +647,13 @@ function PostBadges({ post }) {
   );
 }
 
-function ActionButtons({ post, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, extraButtons }) {
+function ActionButtons({ post, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, publishingLive, extraButtons }) {
   const isLoading = !!actionLoading;
   const canModify = post.status === 'draft' || post.status === 'rejected';
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      {post.status === 'approved' && (
+      {post.status === 'approved' && publishingLive && (
         <button
           onClick={() => onPublish(post.id)}
           disabled={isLoading}
@@ -742,7 +783,7 @@ function InlineEditableText({ text, hashtags, postId, canEdit, onEdit }) {
   );
 }
 
-function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, onEdit }) {
+function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, onEdit, publishingLive }) {
   const { mainText, tags } = splitTextAndHashtags(post.text_content, post.hashtags);
   const fullText = tags ? `${mainText}\n\n${tags}` : mainText;
   const charCount = preview?.char_count ?? fullText.length;
@@ -789,6 +830,7 @@ function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRege
             onRegenerate={onRegenerate}
             onDelete={onDelete}
             onPublish={onPublish}
+            publishingLive={publishingLive}
           />
         </div>
       </div>
@@ -796,7 +838,7 @@ function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRege
   );
 }
 
-function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, onEdit, onGenerateChart }) {
+function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, onEdit, onGenerateChart, publishingLive }) {
   const { mainText, tags } = splitTextAndHashtags(post.text_content, post.hashtags);
   const imageUrl = preview?.image_url || null;
   const hasImage = !!post.image_s3_key || !!imageUrl;
@@ -885,6 +927,7 @@ function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRe
             onRegenerate={onRegenerate}
             onDelete={onDelete}
             onPublish={onPublish}
+            publishingLive={publishingLive}
             extraButtons={generateChartButton}
           />
         </div>
