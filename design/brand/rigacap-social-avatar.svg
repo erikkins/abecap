@@ -8,6 +8,38 @@
   <!-- Full bleed background for social crops -->
   <rect width="400" height="400" fill="#0f172a"/>
   <circle cx="200" cy="200" r="180" fill="url(#bg)"/>
-  <path d="M 200 54 L 186 136.8 Q 186 144, 176 144 L 164 144 Q 156 144, 156 152 L 156 160 Q 156 168, 164 168 L 176 168 Q 186 168, 186 176 L 172 252 Q 172 260, 160 260 L 144 260 Q 136 260, 136 268 L 136 280 Q 136 288, 144 288 L 160 288 Q 168 288, 168 296 L 168 340 L 232 340 L 232 296 Q 232 288, 240 288 L 256 288 Q 264 288, 264 280 L 264 268 Q 264 260, 256 260 L 240 260 Q 228 260, 228 252 L 214 176 Q 214 168, 224 168 L 236 168 Q 244 168, 244 160 L 244 152 Q 244 144, 236 144 L 224 144 Q 214 144, 214 136.8 Z" fill="#ffffff"/>
-  <circle cx="200" cy="54" r="11" fill="#f59e0b"/>
+  <!-- Bottom tier -->
+  <rect x="142.4" y="254" width="115.2" height="54" rx="10.8" ry="10.8" fill="#ffffff" opacity="0.2"/>
+  <!-- Middle tier -->
+  <rect x="164" y="192.8" width="72" height="61.2" rx="9" ry="9" fill="#ffffff" opacity="0.35"/>
+  <!-- Top tier -->
+  <rect x="180.2" y="128" width="39.6" height="64.8" rx="7.2" ry="7.2" fill="#ffffff" opacity="0.5"/>
+  <!-- Speed lines - bottom tier -->
+  <line x1="146" y1="272" x2="254" y2="272" stroke="#f59e0b" stroke-width="1.44" opacity="0.35"/>
+  <line x1="146" y1="290" x2="254" y2="290" stroke="#f59e0b" stroke-width="1.44" opacity="0.35"/>
+  <!-- Speed lines - middle tier -->
+  <line x1="167.6" y1="213.21" x2="232.4" y2="213.21" stroke="#f59e0b" stroke-width="1.44" opacity="0.35"/>
+  <line x1="167.6" y1="233.59" x2="232.4" y2="233.59" stroke="#f59e0b" stroke-width="1.44" opacity="0.35"/>
+  <!-- Speed lines - top tier -->
+  <line x1="183.8" y1="149.6" x2="216.2" y2="149.6" stroke="#f59e0b" stroke-width="1.44" opacity="0.35"/>
+  <line x1="183.8" y1="171.2" x2="216.2" y2="171.2" stroke="#f59e0b" stroke-width="1.44" opacity="0.35"/>
+  <!-- Gold shoulders - bottom tier -->
+  <path d="M 142.4 264.8 A 10.8 10.8 0 0 1 153.2 254 L 246.8 254 A 10.8 10.8 0 0 1 257.6 264.8" fill="none" stroke="#f59e0b" stroke-width="2.16" opacity="0.5"/>
+  <!-- Gold shoulders - middle tier -->
+  <path d="M 164 201.8 A 9 9 0 0 1 173 192.8 L 227 192.8 A 9 9 0 0 1 236 201.8" fill="none" stroke="#f59e0b" stroke-width="2.16" opacity="0.5"/>
+  <!-- Gold shoulders - top tier -->
+  <path d="M 180.2 135.2 A 7.2 7.2 0 0 1 187.4 128 L 212.6 128 A 7.2 7.2 0 0 1 219.8 135.2" fill="none" stroke="#f59e0b" stroke-width="2.16" opacity="0.5"/>
+  <!-- Antenna -->
+  <line x1="200" y1="128" x2="200" y2="92" stroke="#ffffff" stroke-width="4.32" stroke-linecap="round"/>
+  <!-- Wave arcs - pair 1 (r=18) -->
+  <path d="M 189.38 77.46 A 18 18 0 0 1 210.58 77.46" fill="none" stroke="#f59e0b" stroke-width="3.6" stroke-linecap="round" opacity="1"/>
+  <path d="M 210.58 106.54 A 18 18 0 0 1 189.38 106.54" fill="none" stroke="#f59e0b" stroke-width="3.6" stroke-linecap="round" opacity="1"/>
+  <!-- Wave arcs - pair 2 (r=36) -->
+  <path d="M 178.83 62.88 A 36 36 0 0 1 221.17 62.88" fill="none" stroke="#f59e0b" stroke-width="3.6" stroke-linecap="round" opacity="0.72"/>
+  <path d="M 221.17 121.12 A 36 36 0 0 1 178.83 121.12" fill="none" stroke="#f59e0b" stroke-width="3.6" stroke-linecap="round" opacity="0.72"/>
+  <!-- Wave arcs - pair 3 (r=54) -->
+  <path d="M 168.25 48.33 A 54 54 0 0 1 231.75 48.33" fill="none" stroke="#f59e0b" stroke-width="3.6" stroke-linecap="round" opacity="0.44"/>
+  <path d="M 231.75 135.67 A 54 54 0 0 1 168.25 135.67" fill="none" stroke="#f59e0b" stroke-width="3.6" stroke-linecap="round" opacity="0.44"/>
+  <!-- Tip dot -->
+  <circle cx="200" cy="92" r="6.48" fill="#f59e0b"/>
 </svg>
