@@ -452,60 +452,60 @@ const LAUNCH_POSTS = [
     id: 'launch-1',
     label: 'Launch Announcement',
     twitter: {
-      text: "We're live.\n\nRigaCap is an AI-powered ensemble trading system built on 5 years of walk-forward testing.\n\n3 factors. 7 market regimes. Zero hindsight bias.\n\nThe signal is clear.",
-      hashtags: '#trading #algotrading #stockmarket #fintech',
+      text: "We built a trading system, tested it across 5 years of real market data without peeking at the answers, and it returned +289%.\n\nSo we made it available to everyone.\n\nRigaCap is live. rigacap.com",
+      hashtags: '#trading #algotrading #stockmarket',
     },
     instagram: {
-      text: "We're live.\n\nRigaCap is an AI-powered ensemble trading system that combines DWAP timing, momentum quality, and adaptive regime detection into one institutional-grade platform.\n\nBuilt on 15 years of development. Validated across 5 years of walk-forward testing with zero hindsight bias.\n\nThe signal is clear.",
-      hashtags: '#trading #algotrading #stockmarket #fintech #investing #daytrading #momentum #rigacap',
+      text: "We built a trading system.\n\nThen we did something most people skip \u2014 we tested it honestly. Year by year, with no hindsight bias, across bull markets, bear markets, and everything in between.\n\n+289% over 5 years. 31% annualized. 80% of years profitable.\n\nWe didn't just backtest it. We walk-forward tested it \u2014 meaning the system never saw future data. It had to figure it out in real time, just like you do.\n\nNow it's available to everyone.\n\nRigaCap is live.",
+      hashtags: '#trading #algotrading #stockmarket #investing #rigacap',
     },
   },
   {
     id: 'launch-2',
     label: 'Performance Stats',
     twitter: {
-      text: "5-year walk-forward results (no hindsight bias):\n\n2021-22: +62.0%\n2022-23: -13.2%\n2023-24: +22.2%\n2024-25: +20.7%\n2025-26: +87.5%\n\nTotal: +289% | 31% annualized\n80% win rate across all market conditions.",
+      text: "Our 5-year walk-forward report card:\n\n2021-22: +62.0% \u2705\n2022-23: -13.2% \u274c (bear market, it happens)\n2023-24: +22.2% \u2705\n2024-25: +20.7% \u2705\n2025-26: +87.5% \u2705\n\nTotal: +289%\n\n4 out of 5 years positive. We show the bad year too \u2014 because that's how trust works.",
       hashtags: '#trading #performance #walkforward',
     },
     instagram: {
-      text: "5 years. No hindsight bias. Real walk-forward results.\n\n2021-2022: +62.0% (Sharpe 1.21)\n2022-2023: -13.2% (the bear year)\n2023-2024: +22.2% (Sharpe 1.02)\n2024-2025: +20.7% (Sharpe 0.89)\n2025-2026: +87.5% (Sharpe 2.32)\n\n5-Year Total: +289%\n31% annualized return\n80% win rate (4 of 5 years positive)\nMax drawdown: -15.1%\n\nEvery period tested independently. No curve-fitting. No cherry-picking.",
-      hashtags: '#trading #algotrading #performance #walkforward #stockmarket #investing #returns #rigacap',
+      text: "Let's talk numbers. Honestly.\n\n2021-2022: +62.0% (Sharpe 1.21)\n2022-2023: -13.2% (yes, we lost money in the bear market)\n2023-2024: +22.2% (Sharpe 1.02)\n2024-2025: +20.7% (Sharpe 0.89)\n2025-2026: +87.5% (Sharpe 2.32)\n\n5-Year Total: +289% | 31% annualized\nMax drawdown: -15.1%\n\nWe show the losing year because hiding it would make us like everyone else. Every period tested independently \u2014 no curve-fitting, no cherry-picking, no \"if you'd just bought here\" nonsense.\n\nPast performance doesn't guarantee future results. But honest testing is a good start.",
+      hashtags: '#trading #algotrading #performance #walkforward #stockmarket #investing #rigacap',
     },
   },
   {
     id: 'launch-3',
     label: 'How It Works',
     twitter: {
-      text: "How our Ensemble finds trades:\n\n1. DWAP Timing \u2014 catches breakouts early\n2. Momentum Quality \u2014 only top-ranked stocks\n3. Regime Filter \u2014 adapts across 7 market conditions\n\nAll 3 must align = high-conviction entry.\n12% trailing stops protect gains.",
+      text: "How we pick trades:\n\n1\uFE0F\u20E3 Timing \u2014 DWAP catches breakouts before the crowd\n2\uFE0F\u20E3 Quality \u2014 only top momentum stocks pass\n3\uFE0F\u20E3 Risk \u2014 7-regime detection adapts to the market\n\nAll 3 must agree. No shortcuts.\n\nIt's picky. That's the point.",
       hashtags: '#trading #ensemble #momentum #riskmanagement',
     },
     instagram: {
-      text: "The 3-factor Ensemble approach.\n\nFactor 1: DWAP Timing\nPrice > Daily Weighted Average Price catches early breakouts before the crowd sees them.\n\nFactor 2: Momentum Quality\nTop composite momentum ranking (10-day + 60-day) filtered for low volatility and volume confirmation.\n\nFactor 3: Regime Detection\n7 distinct market regimes detected daily. The system adapts position sizing and entry rules from Strong Bull all the way to Panic/Crash.\n\nAll 3 factors must align for entry. 12% trailing stops protect gains while letting winners run.",
-      hashtags: '#trading #algotrading #ensemble #momentum #dwap #riskmanagement #marketregime #rigacap',
+      text: "Why three factors instead of one? Because markets are complicated and anyone who says otherwise is selling you something.\n\nFactor 1: Timing (DWAP)\nOur proprietary Daily Weighted Average Price catches breakouts early \u2014 before they show up on everyone's screener.\n\nFactor 2: Momentum Quality\nNot all breakouts deserve your money. We rank by 10-day and 60-day momentum, filter for low volatility, and confirm with volume.\n\nFactor 3: Regime Detection\n7 market regimes detected daily. Because \"buy the dip\" is great advice in a bull market and terrible advice in a crash.\n\nAll 3 factors must align for a signal. Most days, nothing qualifies. That's not a bug \u2014 it's the whole point.",
+      hashtags: '#trading #algotrading #ensemble #momentum #riskmanagement #rigacap',
     },
   },
   {
     id: 'launch-4',
     label: '7 Market Regimes',
     twitter: {
-      text: "Most strategies have one mode. Ours has 7.\n\nStrong Bull \u2192 full exposure\nWeak Bull \u2192 selective entries\nRotating Bull \u2192 follow momentum\nRange Bound \u2192 reduce size\nWeak Bear \u2192 tighten stops\nPanic/Crash \u2192 exit all\nRecovery \u2192 scale back in\n\nAdapt or get left behind.",
+      text: "Your strategy probably has one mode.\n\nOurs has 7:\n\nStrong Bull \u2192 full send\nWeak Bull \u2192 be selective\nRotating Bull \u2192 follow the leaders\nRange Bound \u2192 sit tight\nWeak Bear \u2192 tighten up\nPanic/Crash \u2192 go home\nRecovery \u2192 start nibbling\n\nThe market adapts. Shouldn't your strategy?",
       hashtags: '#trading #marketregime #riskmanagement',
     },
     instagram: {
-      text: "Most strategies have one mode. Ours detects 7.\n\nOur AI analyzes SPY price action, market breadth, and volatility daily to classify the current environment:\n\nStrong Bull \u2014 Broad rally, high breadth. Full exposure.\nWeak Bull \u2014 Narrow leadership. Selective entries only.\nRotating Bull \u2014 Sector rotation active. Follow momentum leaders.\nRange Bound \u2014 Choppy, no trend. Reduce position size.\nWeak Bear \u2014 Drifting lower. Tighten trailing stops.\nPanic / Crash \u2014 Sharp sell-off. Exit all positions.\nRecovery \u2014 Bottom reversal confirmed. Scale back in.\n\nThe market changes. Your strategy should too.",
-      hashtags: '#trading #algotrading #marketregime #riskmanagement #investing #stockmarket #rigacap',
+      text: "\"Just buy the dip.\"\n\nOk, but which dip? The one that bounces 15%, or the one that keeps dipping for 6 months?\n\nThat's why we built a 7-regime detection system:\n\nStrong Bull \u2014 Broad rally. Full exposure. Let it ride.\nWeak Bull \u2014 Narrow leadership. Cherry-pick only the best.\nRotating Bull \u2014 Sectors taking turns. Follow the momentum.\nRange Bound \u2014 Choppy. Reduce size, wait for clarity.\nWeak Bear \u2014 Slow bleed. Tighten stops, protect capital.\nPanic/Crash \u2014 Exit. Ego is expensive.\nRecovery \u2014 The brave (and the algorithmic) start buying.\n\nDetected daily using SPY price action, breadth, and volatility. No vibes. Just math.",
+      hashtags: '#trading #algotrading #marketregime #riskmanagement #investing #rigacap',
     },
   },
   {
     id: 'launch-5',
     label: 'Signal Teaser',
     twitter: {
-      text: "Today's top Ensemble signals are in.\n\nReal-time buy signals. Momentum scores. Regime detection. Trailing stop alerts.\n\nSubscribers see the full list every evening.\n\nrigacap.com",
+      text: "Every evening we scan 6,500+ stocks and ask one question:\n\nDoes this stock pass all 3 filters in the current regime?\n\nMost don't. The ones that do land in your inbox.\n\nrigacap.com",
       hashtags: '#trading #signals #stockmarket',
     },
     instagram: {
-      text: "Today's top Ensemble signals are in.\n\nEvery evening, our system scans 6,500+ stocks and identifies the highest-conviction opportunities using our 3-factor ensemble approach.\n\nSubscribers get:\n\u2022 Real-time buy signals with entry levels\n\u2022 Composite momentum scores\n\u2022 Current market regime classification\n\u2022 Trailing stop alerts\n\u2022 Daily email digest\n\nWant to see today's signals?\n\nLink in bio.",
-      hashtags: '#trading #signals #stockmarket #algotrading #investing #daytrading #momentum #rigacap',
+      text: "Every evening, our system does what would take a human team all day.\n\nScan 6,500+ stocks. Rank by momentum. Filter for quality. Check the market regime. Score. Rank again. Apply trailing stops to existing positions.\n\nThe result? A short list of the highest-conviction opportunities, delivered to your inbox before the next market open.\n\nNo screeners to configure. No charts to stare at. No FOMO-scrolling Twitter at 2am.\n\nJust signals. Verified. Every single one.\n\nrigacap.com",
+      hashtags: '#trading #signals #stockmarket #algotrading #investing #rigacap',
     },
   },
 ];

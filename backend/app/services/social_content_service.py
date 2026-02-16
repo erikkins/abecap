@@ -135,15 +135,13 @@ class SocialContentService:
         posts = []
 
         # Twitter recap
-        twitter_text = (
-            f"Weekly Recap (Walk-Forward Verified)\n\n"
-            f"Trades: {total}\n"
-            f"Win Rate: {win_rate:.0f}%\n"
-            f"Avg Return: {avg_return:+.1f}%\n"
-        )
+        twitter_text = f"This week's scorecard:\n\n"
+        twitter_text += f"{wins}W-{total - wins}L"
+        twitter_text += f" | {win_rate:.0f}% win rate"
+        twitter_text += f" | {avg_return:+.1f}% avg\n"
         if best_trade:
-            twitter_text += f"Best: ${best_trade['symbol']} {best_trade.get('pnl_pct', 0):+.1f}%\n"
-        twitter_text += f"\nNo hindsight bias. Every signal verified."
+            twitter_text += f"\nMVP: ${best_trade['symbol']} at {best_trade.get('pnl_pct', 0):+.1f}%\n"
+        twitter_text += f"\nAll walk-forward verified. No cherry-picking."
 
         twitter_post = SocialPost(
             post_type="weekly_recap",
@@ -162,23 +160,18 @@ class SocialContentService:
         posts.append(twitter_post)
 
         # Instagram recap
-        insta_text = (
-            f"Weekly Walk-Forward Recap\n\n"
-            f"Total Trades: {total}\n"
-            f"Winning: {wins} | Losing: {total - wins}\n"
-            f"Win Rate: {win_rate:.0f}%\n"
-            f"Average Return: {avg_return:+.1f}%\n"
-        )
+        insta_text = f"Week in review.\n\n"
+        insta_text += f"{wins}W-{total - wins}L | {win_rate:.0f}% win rate\n"
+        insta_text += f"Average return: {avg_return:+.1f}%\n"
         if best_trade:
+            best_pct = best_trade.get('pnl_pct', 0)
             insta_text += (
-                f"\nTop Trade: ${best_trade['symbol']}\n"
-                f"  Entry: ${best_trade.get('entry_price', 0):.2f}\n"
-                f"  Exit: ${best_trade.get('exit_price', 0):.2f}\n"
-                f"  Return: {best_trade.get('pnl_pct', 0):+.1f}%\n"
+                f"\nStar of the week: ${best_trade['symbol']}\n"
+                f"${best_trade.get('entry_price', 0):.2f} \u2192 ${best_trade.get('exit_price', 0):.2f} ({best_pct:+.1f}%)\n"
             )
         insta_text += (
-            f"\nAll results walk-forward verified.\n"
-            f"No hindsight bias. No curve fitting.\n"
+            f"\nEvery signal walk-forward verified.\n"
+            f"No curve fitting. No look-ahead. Just math.\n"
             f"\nrigacap.com"
         )
 
@@ -219,25 +212,52 @@ class SocialContentService:
                 pass
         return trade.get("days_held", 1)
 
+    # Varied openers to avoid repetitive posts
+    _WIN_OPENERS = [
+        "This one worked out nicely.",
+        "The algo saw it coming.",
+        "Patience paid off on this one.",
+        "Another clean entry, clean exit.",
+        "Caught the move, locked in gains.",
+        "In and out. That's how it's done.",
+        "The Ensemble doesn't chase — it waits.",
+    ]
+
+    _MISS_OPENERS = [
+        "This one got away from most people.",
+        "Were you watching this?",
+        "The algo flagged it. Did you catch it?",
+        "Quietly, this happened.",
+        "Most people missed this.",
+    ]
+
+    _REGIME_FLAVORS = {
+        "Strong Bull": "Full send mode activated.",
+        "Weak Bull": "Bull market with fine print.",
+        "Rotating Bull": "Musical chairs, but with money.",
+        "Range Bound": "The market is thinking. So are we.",
+        "Weak Bear": "Death by a thousand paper cuts territory.",
+        "Panic Crash": "When the VIX spikes, we step aside. Ego is expensive.",
+        "Recovery": "The brave (and the algorithmic) start buying here.",
+    }
+
+    def _pick_opener(self, openers: list, trade: dict) -> str:
+        """Deterministically pick an opener based on symbol hash for consistency."""
+        idx = hash(trade.get("symbol", "")) % len(openers)
+        return openers[idx]
+
     def _make_trade_result_twitter(self, trade: dict) -> SocialPost:
         """Create a Twitter-format trade result post (280 chars max)."""
         symbol = trade.get("symbol", "???")
-        entry_price = trade.get("entry_price", 0)
-        exit_price = trade.get("exit_price", 0)
         pnl_pct = trade.get("pnl_pct", 0)
-        entry_date = str(trade.get("entry_date", ""))[:10]
-        exit_date = str(trade.get("exit_date", ""))[:10]
-        exit_reason = trade.get("exit_reason", "trailing_stop")
         days_held = self._calc_days_held(trade)
 
-        # Format exit reason for display
-        exit_display = exit_reason.replace("_", " ").title() if exit_reason else "Exit"
+        opener = self._pick_opener(self._WIN_OPENERS, trade)
 
         text = (
-            f"Signal fired on ${symbol} at ${entry_price:.2f} on {entry_date}.\n"
-            f"{exit_display} exit at ${exit_price:.2f} on {exit_date}.\n"
-            f"{pnl_pct:+.1f}% in {days_held} days.\n"
-            f"Walk-forward verified. No hindsight bias."
+            f"{opener}\n\n"
+            f"${symbol}: {pnl_pct:+.1f}% in {days_held} days.\n\n"
+            f"Walk-forward verified — not a backtest."
         )
 
         return SocialPost(
@@ -254,27 +274,21 @@ class SocialContentService:
         entry_price = trade.get("entry_price", 0)
         exit_price = trade.get("exit_price", 0)
         pnl_pct = trade.get("pnl_pct", 0)
-        pnl_dollars = trade.get("pnl_dollars", 0)
         entry_date = str(trade.get("entry_date", ""))[:10]
         exit_date = str(trade.get("exit_date", ""))[:10]
         exit_reason = trade.get("exit_reason", "trailing_stop")
         days_held = self._calc_days_held(trade)
-        strategy_name = trade.get("strategy_name", "Ensemble")
 
         exit_display = exit_reason.replace("_", " ").title() if exit_reason else "Exit"
+        opener = self._pick_opener(self._WIN_OPENERS, trade)
 
         text = (
-            f"Walk-forward verified trade result\n\n"
-            f"${symbol}\n"
-            f"Entry: ${entry_price:.2f} on {entry_date}\n"
-            f"Exit: ${exit_price:.2f} on {exit_date} ({exit_display.lower()})\n"
-            f"Return: {pnl_pct:+.1f}% in {days_held} days"
-        )
-        if pnl_dollars:
-            text += f" (${pnl_dollars:+,.0f})"
-        text += (
-            f"\n\nStrategy: {strategy_name}\n"
-            f"Walk-forward verified — no hindsight bias.\n"
+            f"{opener}\n\n"
+            f"${symbol} \u2014 {pnl_pct:+.1f}% in {days_held} days\n"
+            f"In at ${entry_price:.2f} \u2192 Out at ${exit_price:.2f}\n"
+            f"Exit: {exit_display.lower()}\n\n"
+            f"Walk-forward verified. Not a backtest, not hypothetical \u2014\n"
+            f"a real signal our system flagged in real time.\n"
             f"\nrigacap.com"
         )
 
@@ -299,14 +313,14 @@ class SocialContentService:
         """Create a Twitter missed opportunity post."""
         symbol = trade.get("symbol", "???")
         pnl_pct = trade.get("pnl_pct", 0)
-        entry_date = str(trade.get("entry_date", ""))[:10]
         days_held = self._calc_days_held(trade)
 
+        opener = self._pick_opener(self._MISS_OPENERS, trade)
+
         text = (
-            f"Did you catch ${symbol}?\n"
-            f"Our algo flagged it on {entry_date}.\n"
-            f"{pnl_pct:+.1f}% in {days_held} days.\n"
-            f"Walk-forward verified — not backtested."
+            f"{opener}\n\n"
+            f"${symbol}: {pnl_pct:+.1f}% in {days_held} days.\n\n"
+            f"Walk-forward verified \u2014 not a backtest."
         )
 
         return SocialPost(
@@ -328,14 +342,15 @@ class SocialContentService:
         exit_date = str(trade.get("exit_date", ""))[:10]
         days_held = self._calc_days_held(trade)
 
+        opener = self._pick_opener(self._MISS_OPENERS, trade)
+
         text = (
-            f"Missed Opportunity\n\n"
-            f"${symbol}\n"
-            f"Signal: {entry_date} at ${entry_price:.2f}\n"
-            f"Would-be exit: {exit_date} at ${exit_price:.2f}\n"
-            f"Return: {pnl_pct:+.1f}% in {days_held} days\n\n"
-            f"Walk-forward verified — this was a real-time signal,\n"
-            f"not a backtest.\n"
+            f"{opener}\n\n"
+            f"${symbol} \u2014 {pnl_pct:+.1f}% in {days_held} days\n"
+            f"Signal fired {entry_date} at ${entry_price:.2f}\n"
+            f"Exit {exit_date} at ${exit_price:.2f}\n\n"
+            f"This wasn't a backtest. Our system flagged it in real time.\n"
+            f"You just had to be subscribed.\n"
             f"\nrigacap.com"
         )
 
@@ -386,17 +401,12 @@ class SocialContentService:
             vix_level = round(float(vix_df.iloc[-1]["close"]), 2) if vix_df is not None and len(vix_df) > 0 else None
 
             # Twitter
-            twitter_text = (
-                f"Market Regime: {regime_name}\n\n"
-                f"SPY: ${spy_price}"
-            )
+            flavor = self._REGIME_FLAVORS.get(regime_name, "Adapting accordingly.")
+            twitter_text = f"Regime check: {regime_name}\n\n"
+            twitter_text += f"SPY ${spy_price}"
             if vix_level is not None:
-                twitter_text += f" | VIX: {vix_level}"
-            twitter_text += (
-                f"\nRisk: {risk_level.title()}\n\n"
-                f"Our 7-regime detector adapts position sizing\n"
-                f"and entry/exit rules automatically."
-            )
+                twitter_text += f" | VIX {vix_level}"
+            twitter_text += f"\n\n{flavor}"
 
             twitter_post = SocialPost(
                 post_type="regime_commentary",
@@ -415,19 +425,17 @@ class SocialContentService:
             posts.append(twitter_post)
 
             # Instagram
-            insta_text = (
-                f"Market Regime Update\n\n"
-                f"Current: {regime_name}\n"
-                f"SPY: ${spy_price}"
-            )
+            flavor = self._REGIME_FLAVORS.get(regime_name, "Adapting accordingly.")
+            insta_text = f"Regime check: {regime_name}\n\n"
+            insta_text += f"SPY ${spy_price}"
             if vix_level is not None:
-                insta_text += f" | VIX: {vix_level}"
+                insta_text += f" | VIX {vix_level}"
+            insta_text += f"\nRisk: {risk_level.title()}\n\n"
+            insta_text += f"{flavor}\n\n"
+            insta_text += f"{regime_desc}\n\n"
             insta_text += (
-                f"\nRisk Level: {risk_level.title()}\n\n"
-                f"{regime_desc}\n\n"
-                f"Our 7-regime market detector automatically adjusts\n"
-                f"position sizing, entry triggers, and exit rules\n"
-                f"based on current conditions.\n"
+                f"Most strategies have one mode. Ours detects 7 and\n"
+                f"adjusts position sizing, entries, and exits automatically.\n"
                 f"\nrigacap.com"
             )
 
