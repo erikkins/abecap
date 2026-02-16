@@ -83,29 +83,45 @@ const api = {
     const token = localStorage.getItem('accessToken');
     return token ? { 'Authorization': `Bearer ${token}` } : {};
   },
-  async get(endpoint) {
-    const res = await fetch(`${API_BASE}${endpoint}`, {
-      headers: { ...this._authHeaders() }
-    });
+  async _refreshToken() {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) return false;
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      localStorage.setItem('accessToken', data.access_token);
+      if (data.refresh_token) localStorage.setItem('refreshToken', data.refresh_token);
+      return true;
+    } catch { return false; }
+  },
+  async _fetchWithRetry(endpoint, options = {}) {
+    let res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers: { ...options.headers, ...this._authHeaders() } });
+    if (res.status === 401 && localStorage.getItem('refreshToken')) {
+      const refreshed = await this._refreshToken();
+      if (refreshed) {
+        res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers: { ...options.headers, ...this._authHeaders() } });
+      }
+    }
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     return res.json();
+  },
+  async get(endpoint) {
+    return this._fetchWithRetry(endpoint);
   },
   async post(endpoint, data) {
-    const res = await fetch(`${API_BASE}${endpoint}`, {
+    return this._fetchWithRetry(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...this._authHeaders() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
-    return res.json();
   },
   async delete(endpoint) {
-    const res = await fetch(`${API_BASE}${endpoint}`, {
-      method: 'DELETE',
-      headers: { ...this._authHeaders() }
-    });
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
-    return res.json();
+    return this._fetchWithRetry(endpoint, { method: 'DELETE' });
   }
 };
 
@@ -1433,6 +1449,9 @@ function Dashboard() {
     if (timeTravelDate) return; // No live quotes in time-travel mode
 
     const fetchLiveQuotes = async () => {
+      // Skip if not authenticated (CDN data doesn't need live quotes)
+      if (!localStorage.getItem('accessToken')) return;
+
       // Get symbols from positions and signals
       const positionSymbols = positions.map(p => p.symbol);
       const signalSymbols = signals.slice(0, 10).map(s => s.symbol); // Top 10 signals
@@ -1913,7 +1932,15 @@ function Dashboard() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <div className="relative mx-auto mb-4 w-16 h-16">
+            <svg width="64" height="64" viewBox="0 0 100 100" className="mx-auto">
+              <defs><linearGradient id="load-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#172554"/><stop offset="100%" stopColor="#1e3a5f"/></linearGradient></defs>
+              <circle cx="50" cy="50" r="50" fill="url(#load-bg)"/>
+              <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#ffffff"/>
+              <circle cx="50" cy="15" r="3" fill="#f59e0b"/>
+            </svg>
+            <Loader2 className="w-5 h-5 text-amber-500 animate-spin absolute -bottom-1 -right-1" />
+          </div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading RigaCap</h2>
           <p className="text-gray-500">Initializing your dashboard...</p>
         </div>
@@ -1951,12 +1978,15 @@ function Dashboard() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <TrendingUp className="text-white" size={24} />
-            </div>
+            <svg width="40" height="40" viewBox="0 0 100 100" className="shrink-0">
+              <defs><linearGradient id="logo-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#172554"/><stop offset="100%" stopColor="#1e3a5f"/></linearGradient></defs>
+              <circle cx="50" cy="50" r="50" fill="url(#logo-bg)"/>
+              <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#ffffff"/>
+              <circle cx="50" cy="15" r="3" fill="#f59e0b"/>
+            </svg>
             <div>
               <h1 className="text-xl font-bold text-gray-900">RigaCap</h1>
-              <p className="text-xs text-gray-500">DWAP Trading System</p>
+              <p className="text-xs text-gray-500">Ensemble Trading System</p>
             </div>
           </div>
 
@@ -2397,7 +2427,7 @@ function Dashboard() {
                       <div>
                         <h3 className="text-base font-semibold text-gray-900">Unlock Buy Signals</h3>
                         <p className="text-sm text-gray-500 mt-1">
-                          Subscribe to see real-time DWAP crossover signals, momentum rankings, and watchlist alerts.
+                          Subscribe to see real-time ensemble signals, momentum rankings, and watchlist alerts.
                         </p>
                       </div>
                       {dashboardData?.regime_forecast && (

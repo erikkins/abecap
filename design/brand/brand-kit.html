@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RigaCap Brand Kit</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f8fafc;
+    color: #0f172a;
+    line-height: 1.6;
+  }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #172554, #1e3a5f);
+    color: white;
+    padding: 80px 40px;
+    text-align: center;
+  }
+  .hero h1 { font-size: 36px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
+  .hero p { color: #94a3b8; font-size: 16px; }
+
+  /* Sections */
+  .section { max-width: 1000px; margin: 0 auto; padding: 60px 40px; }
+  .section + .section { border-top: 1px solid #e2e8f0; }
+  .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #64748b; font-weight: 600; margin-bottom: 8px; }
+  .section h2 { font-size: 24px; font-weight: 700; margin-bottom: 24px; }
+  .section p.desc { color: #64748b; font-size: 14px; margin-bottom: 24px; max-width: 600px; }
+
+  /* Grid helpers */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; }
+
+  /* Cards */
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid #e2e8f0;
+  }
+  .card-dark {
+    background: #0f172a;
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid #1e293b;
+  }
+  .card h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .card-dark h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #e2e8f0; }
+  .card .sub { font-size: 11px; color: #94a3b8; margin-bottom: 16px; }
+  .card-dark .sub { font-size: 11px; color: #64748b; margin-bottom: 16px; }
+
+  /* Logo display areas */
+  .logo-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  .logo-area-light { background: #f8fafc; border: 1px solid #e2e8f0; }
+  .logo-area-dark { background: #0f172a; }
+  .logo-area-checkerboard {
+    background-image:
+      linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+      linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+      linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    border: 1px solid #e2e8f0;
+  }
+
+  /* Wordmark areas */
+  .wordmark-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 24px;
+    border-radius: 8px;
+  }
+  .wm-text { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+
+  /* Size strip */
+  .size-strip {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 20px;
+    padding: 24px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+  .size-item { text-align: center; }
+  .size-label { font-size: 10px; color: #94a3b8; margin-top: 4px; }
+
+  /* Color swatches */
+  .swatch {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+  }
+  .swatch-color {
+    height: 80px;
+  }
+  .swatch-info {
+    padding: 12px;
+    background: white;
+  }
+  .swatch-name { font-size: 13px; font-weight: 600; }
+  .swatch-hex { font-size: 11px; color: #64748b; font-family: 'SF Mono', 'Fira Code', monospace; }
+
+  /* Do/Don't */
+  .do-dont { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .do-card, .dont-card {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+  }
+  .do-card .label {
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #166534;
+    background: #dcfce7;
+  }
+  .dont-card .label {
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #991b1b;
+    background: #fee2e2;
+  }
+  .do-card .example, .dont-card .example {
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    min-height: 100px;
+  }
+  .do-card .note, .dont-card .note {
+    padding: 8px 16px;
+    font-size: 11px;
+    color: #64748b;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  /* File list */
+  .file-list {
+    list-style: none;
+    padding: 0;
+  }
+  .file-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 13px;
+  }
+  .file-list li:last-child { border-bottom: none; }
+  .file-name { font-family: 'SF Mono', 'Fira Code', monospace; font-weight: 500; color: #0f172a; }
+  .file-desc { color: #64748b; }
+
+  /* Spacing */
+  .mt-16 { margin-top: 16px; }
+  .mt-24 { margin-top: 24px; }
+  .mb-8 { margin-bottom: 8px; }
+  .mb-16 { margin-bottom: 16px; }
+  .text-center { text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ==================== HERO ==================== -->
+<div class="hero">
+  <svg width="80" height="80" viewBox="0 0 100 100" style="margin-bottom: 24px;">
+    <defs><linearGradient id="hero-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs>
+    <circle cx="50" cy="50" r="50" fill="url(#hero-bg)"/>
+    <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#ffffff"/>
+    <circle cx="50" cy="15" r="3" fill="#f59e0b"/>
+  </svg>
+  <h1>RigaCap Brand Kit</h1>
+  <p>Logo, colors, and usage guidelines</p>
+</div>
+
+<!-- ==================== PRIMARY MARK ==================== -->
+<div class="section">
+  <p class="section-label">Primary Logo</p>
+  <h2>Navy + Gold Mark</h2>
+  <p class="desc">The primary logo is a stylized spire inspired by St. Peter's Church in Riga, Latvia, enclosed in a navy circle with a gold beacon dot at the peak. The stepped silhouette evokes both architectural heritage and upward market momentum.</p>
+
+  <div class="grid-2">
+    <div>
+      <div class="logo-area logo-area-light">
+        <svg width="120" height="120" viewBox="0 0 100 100">
+          <defs><linearGradient id="p-bg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs>
+          <circle cx="50" cy="50" r="50" fill="url(#p-bg1)"/>
+          <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#ffffff"/>
+          <circle cx="50" cy="15" r="3" fill="#f59e0b"/>
+        </svg>
+      </div>
+      <p style="font-size:11px;color:#94a3b8;text-align:center;">On light backgrounds</p>
+    </div>
+    <div>
+      <div class="logo-area logo-area-dark">
+        <svg width="120" height="120" viewBox="0 0 100 100">
+          <defs><linearGradient id="p-bg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs>
+          <circle cx="50" cy="50" r="50" fill="url(#p-bg2)"/>
+          <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#ffffff"/>
+          <circle cx="50" cy="15" r="3" fill="#fbbf24"/>
+        </svg>
+      </div>
+      <p style="font-size:11px;color:#94a3b8;text-align:center;">On dark backgrounds</p>
+    </div>
+  </div>
+
+  <h3 class="mt-24 mb-8" style="font-size:15px;">Size Reference</h3>
+  <div class="size-strip">
+    <div class="size-item">
+      <svg width="80" height="80" viewBox="0 0 100 100"><defs><linearGradient id="s1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#s1)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
+      <div class="size-label">80px</div>
+    </div>
+    <div class="size-item">
+      <svg width="48" height="48" viewBox="0 0 100 100"><defs><linearGradient id="s2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#s2)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3.5" fill="#f59e0b"/></svg>
+      <div class="size-label">48px</div>
+    </div>
+    <div class="size-item">
+      <svg width="32" height="32" viewBox="0 0 100 100"><defs><linearGradient id="s3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#s3)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="4" fill="#f59e0b"/></svg>
+      <div class="size-label">32px</div>
+    </div>
+    <div class="size-item">
+      <svg width="20" height="20" viewBox="0 0 100 100"><defs><linearGradient id="s4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#s4)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="5" fill="#f59e0b"/></svg>
+      <div class="size-label">20px</div>
+    </div>
+    <div class="size-item">
+      <svg width="16" height="16" viewBox="0 0 100 100"><defs><linearGradient id="s5" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#s5)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/></svg>
+      <div class="size-label">16px</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== WORDMARK ==================== -->
+<div class="section">
+  <p class="section-label">Wordmark</p>
+  <h2>Logo + Text Lockup</h2>
+  <p class="desc">Use the wordmark when space permits. Always keep the icon and text as a single unit — never separate or rearrange them.</p>
+
+  <div class="grid-2">
+    <div>
+      <div class="wordmark-area" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+        <svg width="40" height="40" viewBox="0 0 100 100"><defs><linearGradient id="wm1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#wm1)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
+        <span class="wm-text" style="color:#0f172a;">RigaCap</span>
+      </div>
+      <p style="font-size:11px;color:#94a3b8;text-align:center;margin-top:8px;">Light background</p>
+    </div>
+    <div>
+      <div class="wordmark-area" style="background:#0f172a;border-radius:8px;">
+        <svg width="40" height="40" viewBox="0 0 100 100"><defs><linearGradient id="wm2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#wm2)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#fbbf24"/></svg>
+        <span class="wm-text" style="color:#ffffff;">RigaCap</span>
+      </div>
+      <p style="font-size:11px;color:#94a3b8;text-align:center;margin-top:8px;">Dark background</p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MONOCHROME ==================== -->
+<div class="section">
+  <p class="section-label">Monochrome Variants</p>
+  <h2>Single-Color Usage</h2>
+  <p class="desc">For contexts where color isn't available: single-ink print, embossing, fax, watermarks. Use the dark variant on light backgrounds and the light variant on dark backgrounds.</p>
+
+  <div class="grid-3">
+    <div>
+      <div class="logo-area logo-area-light">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="50" fill="#0f172a"/>
+          <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#ffffff"/>
+        </svg>
+      </div>
+      <p style="font-size:11px;color:#94a3b8;text-align:center;">Dark on light</p>
+    </div>
+    <div>
+      <div class="logo-area logo-area-dark">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="50" fill="#ffffff"/>
+          <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#0f172a"/>
+        </svg>
+      </div>
+      <p style="font-size:11px;color:#94a3b8;text-align:center;">Light on dark</p>
+    </div>
+    <div>
+      <div class="logo-area logo-area-checkerboard">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="50" fill="#0f172a"/>
+          <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#ffffff"/>
+        </svg>
+      </div>
+      <p style="font-size:11px;color:#94a3b8;text-align:center;">On transparency</p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== COLORS ==================== -->
+<div class="section">
+  <p class="section-label">Brand Colors</p>
+  <h2>Color Palette</h2>
+  <p class="desc">The primary palette is navy + gold. Use the supporting colors sparingly for UI elements and status indicators.</p>
+
+  <div class="grid-4">
+    <div class="swatch">
+      <div class="swatch-color" style="background:linear-gradient(135deg,#172554,#1e3a5f);"></div>
+      <div class="swatch-info">
+        <div class="swatch-name">Navy (Primary)</div>
+        <div class="swatch-hex">#172554 &rarr; #1e3a5f</div>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#f59e0b;"></div>
+      <div class="swatch-info">
+        <div class="swatch-name">Gold (Accent)</div>
+        <div class="swatch-hex">#f59e0b</div>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#0f172a;"></div>
+      <div class="swatch-info">
+        <div class="swatch-name">Slate 900</div>
+        <div class="swatch-hex">#0f172a</div>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#ffffff;border-bottom:1px solid #e2e8f0;"></div>
+      <div class="swatch-info">
+        <div class="swatch-name">White</div>
+        <div class="swatch-hex">#ffffff</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="mt-24 mb-8" style="font-size:15px;">Supporting Colors</h3>
+  <div class="grid-4">
+    <div class="swatch">
+      <div class="swatch-color" style="background:#22c55e;"></div>
+      <div class="swatch-info">
+        <div class="swatch-name">Buy / Positive</div>
+        <div class="swatch-hex">#22c55e</div>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#ef4444;"></div>
+      <div class="swatch-info">
+        <div class="swatch-name">Sell / Negative</div>
+        <div class="swatch-hex">#ef4444</div>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#fbbf24;"></div>
+      <div class="swatch-info">
+        <div class="swatch-name">Gold (Dark BG)</div>
+        <div class="swatch-hex">#fbbf24</div>
+      </div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#64748b;"></div>
+      <div class="swatch-info">
+        <div class="swatch-name">Muted Text</div>
+        <div class="swatch-hex">#64748b</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SOCIAL ==================== -->
+<div class="section">
+  <p class="section-label">Social Media</p>
+  <h2>Profile Avatars</h2>
+  <p class="desc">Use the icon-only mark for social avatars (X, LinkedIn, Discord). The circle shape works natively in circular crops. The dark background behind the circle provides safe padding.</p>
+
+  <div class="grid-3">
+    <div class="card text-center">
+      <h3>X / Twitter</h3>
+      <p class="sub">400x400 circular crop</p>
+      <div class="logo-area logo-area-dark" style="border-radius:50%;width:120px;height:120px;margin:0 auto;">
+        <svg width="80" height="80" viewBox="0 0 100 100"><defs><linearGradient id="tw" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#tw)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
+      </div>
+    </div>
+    <div class="card text-center">
+      <h3>LinkedIn</h3>
+      <p class="sub">300x300 square</p>
+      <div class="logo-area logo-area-dark" style="width:120px;height:120px;margin:0 auto;border-radius:8px;">
+        <svg width="80" height="80" viewBox="0 0 100 100"><defs><linearGradient id="li" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#li)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
+      </div>
+    </div>
+    <div class="card text-center">
+      <h3>Favicon</h3>
+      <p class="sub">SVG, scales to any tab</p>
+      <div class="logo-area logo-area-light" style="width:120px;height:120px;margin:0 auto;">
+        <svg width="32" height="32" viewBox="0 0 100 100"><defs><linearGradient id="fav" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#fav)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="4" fill="#f59e0b"/></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== DO / DON'T ==================== -->
+<div class="section">
+  <p class="section-label">Usage Guidelines</p>
+  <h2>Do's and Don'ts</h2>
+
+  <div class="do-dont">
+    <div class="do-card">
+      <div class="label">DO</div>
+      <div class="example">
+        <svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="do1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#do1)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
+      </div>
+      <div class="note">Use the logo at its original proportions with adequate clear space.</div>
+    </div>
+    <div class="dont-card">
+      <div class="label">DON'T</div>
+      <div class="example">
+        <svg width="80" height="40" viewBox="0 0 100 100" preserveAspectRatio="none"><defs><linearGradient id="dont1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#dont1)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
+      </div>
+      <div class="note">Don't stretch, squish, or distort the proportions.</div>
+    </div>
+  </div>
+
+  <div class="do-dont mt-16">
+    <div class="do-card">
+      <div class="label">DO</div>
+      <div class="example" style="background:#0f172a;">
+        <svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="do2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#do2)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#fbbf24"/></svg>
+      </div>
+      <div class="note">Use brighter gold (#fbbf24) on very dark backgrounds for contrast.</div>
+    </div>
+    <div class="dont-card">
+      <div class="label">DON'T</div>
+      <div class="example" style="background:#f59e0b;">
+        <svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="dont2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#dont2)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
+      </div>
+      <div class="note">Don't place on backgrounds that clash with the gold beacon.</div>
+    </div>
+  </div>
+
+  <div class="do-dont mt-16">
+    <div class="do-card">
+      <div class="label">DO</div>
+      <div class="example" style="gap:24px;">
+        <svg width="40" height="40" viewBox="0 0 100 100"><defs><linearGradient id="do3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#do3)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
+        <span style="font-size:20px;font-weight:700;color:#0f172a;">RigaCap</span>
+      </div>
+      <div class="note">Keep consistent spacing between icon and text.</div>
+    </div>
+    <div class="dont-card">
+      <div class="label">DON'T</div>
+      <div class="example" style="gap:24px;">
+        <svg width="40" height="40" viewBox="0 0 100 100"><defs><linearGradient id="dont3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#dont3)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
+        <span style="font-size:20px;font-weight:700;color:#0f172a;font-style:italic;text-decoration:underline;">RIGACAP</span>
+      </div>
+      <div class="note">Don't alter the text styling, capitalization, or typeface.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== FILES ==================== -->
+<div class="section">
+  <p class="section-label">Assets</p>
+  <h2>File Reference</h2>
+  <p class="desc">All SVG files are in <code>design/brand/</code>. SVGs are resolution-independent and work at any size.</p>
+
+  <div class="card">
+    <ul class="file-list">
+      <li>
+        <span class="file-name">rigacap-icon-navy-gold.svg</span>
+        <span class="file-desc">Primary icon mark (Navy + Gold)</span>
+      </li>
+      <li>
+        <span class="file-name">rigacap-icon-monochrome-dark.svg</span>
+        <span class="file-desc">Dark circle, white spire (for light backgrounds)</span>
+      </li>
+      <li>
+        <span class="file-name">rigacap-icon-monochrome-light.svg</span>
+        <span class="file-desc">White circle, dark spire (for dark backgrounds)</span>
+      </li>
+      <li>
+        <span class="file-name">rigacap-wordmark-light-bg.svg</span>
+        <span class="file-desc">Icon + "RigaCap" text for light backgrounds</span>
+      </li>
+      <li>
+        <span class="file-name">rigacap-wordmark-dark-bg.svg</span>
+        <span class="file-desc">Icon + "RigaCap" text for dark backgrounds</span>
+      </li>
+      <li>
+        <span class="file-name">rigacap-social-avatar.svg</span>
+        <span class="file-desc">400x400 icon with dark bleed padding for social profiles</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div style="padding:40px;text-align:center;color:#94a3b8;font-size:12px;">
+  RigaCap Brand Kit &middot; February 2026
+</div>
+
+</body>
+</html>
