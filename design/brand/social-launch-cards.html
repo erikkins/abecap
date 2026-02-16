@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RigaCap Social Launch Cards</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #fff; padding: 40px; }
+  h1 { text-align: center; margin-bottom: 12px; font-size: 28px; }
+  p.subtitle { text-align: center; color: #888; margin-bottom: 40px; font-size: 14px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 32px; justify-content: center; }
+  .card-wrapper { text-align: center; }
+  .card-wrapper h3 { margin-bottom: 8px; font-size: 14px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+  .card-wrapper p.hint { margin-top: 8px; font-size: 12px; color: #666; }
+  canvas { border-radius: 12px; cursor: pointer; }
+  canvas:hover { box-shadow: 0 0 0 2px #f59e0b; }
+</style>
+</head>
+<body>
+<h1>RigaCap Launch Cards</h1>
+<p class="subtitle">Right-click any card and "Save Image As..." to download. All cards are 1080x1080.</p>
+<div class="grid">
+  <div class="card-wrapper">
+    <h3>1. Launch Announcement</h3>
+    <canvas id="card1" width="1080" height="1080"></canvas>
+    <p class="hint">We're Live</p>
+  </div>
+  <div class="card-wrapper">
+    <h3>2. Performance Stats</h3>
+    <canvas id="card2" width="1080" height="1080"></canvas>
+    <p class="hint">Walk-Forward Results</p>
+  </div>
+  <div class="card-wrapper">
+    <h3>3. How It Works</h3>
+    <canvas id="card3" width="1080" height="1080"></canvas>
+    <p class="hint">3-Factor Ensemble</p>
+  </div>
+  <div class="card-wrapper">
+    <h3>4. 7 Market Regimes</h3>
+    <canvas id="card4" width="1080" height="1080"></canvas>
+    <p class="hint">Regime Detection</p>
+  </div>
+  <div class="card-wrapper">
+    <h3>5. Signal Teaser</h3>
+    <canvas id="card5" width="1080" height="1080"></canvas>
+    <p class="hint">Subscribe CTA</p>
+  </div>
+</div>
+
+<script>
+const NAVY = '#172554';
+const NAVY_MID = '#1e3a5f';
+const GOLD = '#f59e0b';
+const GOLD_LIGHT = '#fbbf24';
+const WHITE = '#ffffff';
+const GRAY_LIGHT = '#94a3b8';
+const GRAY_DARK = '#334155';
+
+function drawLogo(ctx, cx, cy, size) {
+  const s = size / 100;
+  // Circle background
+  const grad = ctx.createLinearGradient(cx - size/2, cy - size/2, cx + size/2, cy + size/2);
+  grad.addColorStop(0, NAVY);
+  grad.addColorStop(1, NAVY_MID);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, size/2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Beacon path (simplified)
+  ctx.save();
+  ctx.translate(cx - size/2, cy - size/2);
+  ctx.scale(s, s);
+  ctx.fillStyle = WHITE;
+  ctx.beginPath();
+  ctx.moveTo(50, 15);
+  ctx.lineTo(46.5, 38);
+  ctx.quadraticCurveTo(46.5, 40, 44, 40);
+  ctx.lineTo(41, 40);
+  ctx.quadraticCurveTo(39, 40, 39, 42);
+  ctx.lineTo(39, 44);
+  ctx.quadraticCurveTo(39, 46, 41, 46);
+  ctx.lineTo(44, 46);
+  ctx.quadraticCurveTo(46.5, 46, 46.5, 48);
+  ctx.lineTo(43, 69);
+  ctx.quadraticCurveTo(43, 71, 40, 71);
+  ctx.lineTo(36, 71);
+  ctx.quadraticCurveTo(34, 71, 34, 73);
+  ctx.lineTo(34, 76);
+  ctx.quadraticCurveTo(34, 78, 36, 78);
+  ctx.lineTo(40, 78);
+  ctx.quadraticCurveTo(42, 78, 42, 80);
+  ctx.lineTo(42, 92);
+  ctx.lineTo(58, 92);
+  ctx.lineTo(58, 80);
+  ctx.quadraticCurveTo(58, 78, 60, 78);
+  ctx.lineTo(64, 78);
+  ctx.quadraticCurveTo(66, 78, 66, 76);
+  ctx.lineTo(66, 73);
+  ctx.quadraticCurveTo(66, 71, 64, 71);
+  ctx.lineTo(60, 71);
+  ctx.quadraticCurveTo(57, 71, 57, 69);
+  ctx.lineTo(53.5, 48);
+  ctx.quadraticCurveTo(53.5, 46, 56, 46);
+  ctx.lineTo(59, 46);
+  ctx.quadraticCurveTo(61, 46, 61, 44);
+  ctx.lineTo(61, 42);
+  ctx.quadraticCurveTo(61, 40, 59, 40);
+  ctx.lineTo(56, 40);
+  ctx.quadraticCurveTo(53.5, 40, 53.5, 38);
+  ctx.closePath();
+  ctx.fill();
+
+  // Gold dot
+  ctx.fillStyle = GOLD;
+  ctx.beginPath();
+  ctx.arc(50, 15, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function fillNavyGradient(ctx, w, h) {
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, NAVY);
+  grad.addColorStop(1, '#0f1b3d');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+}
+
+function drawGoldLine(ctx, y, w) {
+  ctx.strokeStyle = GOLD;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(100, y);
+  ctx.lineTo(w - 100, y);
+  ctx.stroke();
+}
+
+// ── Card 1: Launch Announcement ──
+(function() {
+  const c = document.getElementById('card1');
+  const ctx = c.getContext('2d');
+  const w = 1080, h = 1080;
+  fillNavyGradient(ctx, w, h);
+
+  // Subtle radial glow
+  const glow = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, 400);
+  glow.addColorStop(0, 'rgba(245, 158, 11, 0.08)');
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, w, h);
+
+  drawLogo(ctx, w/2, 340, 220);
+
+  ctx.fillStyle = WHITE;
+  ctx.font = 'bold 72px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText("We're Live.", w/2, 560);
+
+  ctx.fillStyle = GOLD;
+  ctx.font = '600 36px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('RigaCap Trading System', w/2, 620);
+
+  drawGoldLine(ctx, 670, w);
+
+  ctx.fillStyle = GRAY_LIGHT;
+  ctx.font = '28px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('AI-powered ensemble trading signals', w/2, 730);
+  ctx.fillText('built on 5 years of walk-forward testing.', w/2, 770);
+
+  ctx.fillStyle = GOLD;
+  ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('rigacap.com', w/2, 860);
+
+  // Decorative corners
+  ctx.strokeStyle = GOLD;
+  ctx.lineWidth = 3;
+  // Top-left
+  ctx.beginPath(); ctx.moveTo(40, 80); ctx.lineTo(40, 40); ctx.lineTo(80, 40); ctx.stroke();
+  // Top-right
+  ctx.beginPath(); ctx.moveTo(w-80, 40); ctx.lineTo(w-40, 40); ctx.lineTo(w-40, 80); ctx.stroke();
+  // Bottom-left
+  ctx.beginPath(); ctx.moveTo(40, h-80); ctx.lineTo(40, h-40); ctx.lineTo(80, h-40); ctx.stroke();
+  // Bottom-right
+  ctx.beginPath(); ctx.moveTo(w-80, h-40); ctx.lineTo(w-40, h-40); ctx.lineTo(w-40, h-80); ctx.stroke();
+})();
+
+// ── Card 2: Performance Stats ──
+(function() {
+  const c = document.getElementById('card2');
+  const ctx = c.getContext('2d');
+  const w = 1080, h = 1080;
+  fillNavyGradient(ctx, w, h);
+
+  // Header
+  drawLogo(ctx, 80, 80, 80);
+  ctx.fillStyle = WHITE;
+  ctx.font = 'bold 42px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Walk-Forward Results', 140, 92);
+
+  ctx.fillStyle = GRAY_LIGHT;
+  ctx.font = '24px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('5 years | No hindsight bias | Ensemble Strategy', 140, 130);
+
+  drawGoldLine(ctx, 170, w);
+
+  // Table
+  const rows = [
+    { period: '2021-2022', ret: '+62.0%', sharpe: '1.21', dd: '-14.8%', color: '#22c55e' },
+    { period: '2022-2023', ret: '-13.2%', sharpe: '-1.38', dd: '-15.1%', color: '#ef4444' },
+    { period: '2023-2024', ret: '+22.2%', sharpe: '1.02', dd: '-13.6%', color: '#22c55e' },
+    { period: '2024-2025', ret: '+20.7%', sharpe: '0.89', dd: '-13.7%', color: '#22c55e' },
+    { period: '2025-2026', ret: '+87.5%', sharpe: '2.32', dd: '-8.3%', color: '#22c55e' },
+  ];
+
+  const colX = [100, 380, 580, 750, 920];
+  const headers = ['Period', 'Return', 'Sharpe', 'Max DD'];
+  let y = 240;
+
+  // Table header
+  ctx.fillStyle = GOLD;
+  ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
+  headers.forEach((h, i) => {
+    ctx.textAlign = i === 0 ? 'left' : 'center';
+    ctx.fillText(h, colX[i], y);
+  });
+
+  ctx.strokeStyle = 'rgba(245, 158, 11, 0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(80, y + 16); ctx.lineTo(w - 80, y + 16); ctx.stroke();
+
+  // Table rows
+  y += 65;
+  rows.forEach(row => {
+    ctx.textAlign = 'left';
+    ctx.fillStyle = WHITE;
+    ctx.font = '30px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(row.period, colX[0], y);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = row.color;
+    ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(row.ret, colX[1], y);
+
+    ctx.fillStyle = WHITE;
+    ctx.font = '30px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(row.sharpe, colX[2], y);
+
+    ctx.fillStyle = GRAY_LIGHT;
+    ctx.fillText(row.dd, colX[3], y);
+
+    y += 65;
+  });
+
+  // Total row
+  ctx.strokeStyle = GOLD;
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(80, y - 20); ctx.lineTo(w - 80, y - 20); ctx.stroke();
+  y += 20;
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = GOLD;
+  ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('5-Year Total', colX[0], y);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = GOLD;
+  ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('+289%', colX[1], y);
+
+  ctx.fillStyle = WHITE;
+  ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('0.81', colX[2], y);
+
+  ctx.fillStyle = GRAY_LIGHT;
+  ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('-15.1%', colX[3], y);
+
+  // Bottom stats
+  y += 80;
+  const bottomStats = [
+    { label: 'Annualized', value: '31%', color: '#22c55e' },
+    { label: 'Win Rate', value: '80%', color: GOLD },
+    { label: 'Max Drawdown', value: '-15.1%', color: GRAY_LIGHT },
+  ];
+
+  const boxW = 260;
+  const startX = (w - boxW * 3 - 40 * 2) / 2;
+  bottomStats.forEach((stat, i) => {
+    const bx = startX + i * (boxW + 40);
+    const by = y;
+
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.beginPath();
+    ctx.roundRect(bx, by, boxW, 100, 12);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, boxW, 100, 12);
+    ctx.stroke();
+
+    ctx.fillStyle = stat.color;
+    ctx.font = 'bold 40px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(stat.value, bx + boxW/2, by + 50);
+
+    ctx.fillStyle = GRAY_LIGHT;
+    ctx.font = '20px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(stat.label, bx + boxW/2, by + 82);
+  });
+
+  // Footer
+  ctx.fillStyle = GRAY_LIGHT;
+  ctx.font = '20px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Walk-forward tested: no future data used in any period.', w/2, h - 60);
+})();
+
+// ── Card 3: How It Works (3-Factor) ──
+(function() {
+  const c = document.getElementById('card3');
+  const ctx = c.getContext('2d');
+  const w = 1080, h = 1080;
+  fillNavyGradient(ctx, w, h);
+
+  // Header
+  drawLogo(ctx, 80, 80, 80);
+  ctx.fillStyle = WHITE;
+  ctx.font = 'bold 42px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('How the Ensemble Works', 140, 92);
+
+  ctx.fillStyle = GRAY_LIGHT;
+  ctx.font = '24px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('3-factor entry system for high-conviction trades', 140, 130);
+
+  drawGoldLine(ctx, 170, w);
+
+  // Three factor cards
+  const factors = [
+    {
+      num: '1',
+      title: 'DWAP Timing',
+      desc: 'Price > Daily Weighted Average Price',
+      detail: 'Catches early breakouts before the crowd. 200-day weighted price anchors entry timing.',
+      icon: 'clock',
+    },
+    {
+      num: '2',
+      title: 'Momentum Quality',
+      desc: 'Top composite momentum ranking',
+      detail: '10-day + 60-day momentum score, filtered for low volatility and volume confirmation.',
+      icon: 'trend',
+    },
+    {
+      num: '3',
+      title: 'Regime Filter',
+      desc: '7-regime market detection',
+      detail: 'Adapts position sizing and entry rules across bull, bear, crash, and recovery regimes.',
+      icon: 'shield',
+    },
+  ];
+
+  let fy = 220;
+  factors.forEach((f, i) => {
+    const cardH = 220;
+    const cardY = fy + i * (cardH + 24);
+
+    // Card background
+    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    ctx.beginPath();
+    ctx.roundRect(80, cardY, w - 160, cardH, 16);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(80, cardY, w - 160, cardH, 16);
+    ctx.stroke();
+
+    // Number circle
+    ctx.fillStyle = GOLD;
+    ctx.beginPath();
+    ctx.arc(160, cardY + cardH/2, 36, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = NAVY;
+    ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(f.num, 160, cardY + cardH/2 + 13);
+
+    // Text
+    ctx.textAlign = 'left';
+    ctx.fillStyle = GOLD;
+    ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(f.title, 224, cardY + 60);
+
+    ctx.fillStyle = WHITE;
+    ctx.font = '26px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(f.desc, 224, cardY + 105);
+
+    ctx.fillStyle = GRAY_LIGHT;
+    ctx.font = '22px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(f.detail, 224, cardY + 150);
+  });
+
+  // Bottom connector
+  const arrowY = fy + 3 * 244 + 20;
+  ctx.strokeStyle = GOLD;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 4]);
+  ctx.beginPath(); ctx.moveTo(w/2, fy + 220); ctx.lineTo(w/2, arrowY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Result box
+  ctx.fillStyle = 'rgba(245, 158, 11, 0.1)';
+  ctx.beginPath();
+  ctx.roundRect(200, arrowY, w - 400, 80, 12);
+  ctx.fill();
+  ctx.strokeStyle = GOLD;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(200, arrowY, w - 400, 80, 12);
+  ctx.stroke();
+
+  ctx.fillStyle = GOLD;
+  ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('All 3 must align = High-conviction entry', w/2, arrowY + 50);
+
+  ctx.fillStyle = GRAY_LIGHT;
+  ctx.font = '20px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('rigacap.com', w/2, h - 50);
+})();
+
+// ── Card 4: 7 Market Regimes ──
+(function() {
+  const c = document.getElementById('card4');
+  const ctx = c.getContext('2d');
+  const w = 1080, h = 1080;
+  fillNavyGradient(ctx, w, h);
+
+  // Header
+  drawLogo(ctx, 80, 80, 80);
+  ctx.fillStyle = WHITE;
+  ctx.font = 'bold 42px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('7 Market Regimes', 140, 92);
+
+  ctx.fillStyle = GRAY_LIGHT;
+  ctx.font = '24px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('Adaptive strategy for every market condition', 140, 130);
+
+  drawGoldLine(ctx, 170, w);
+
+  const regimes = [
+    { name: 'Strong Bull', color: '#22c55e', desc: 'Broad rally, high breadth', action: 'Full exposure' },
+    { name: 'Weak Bull', color: '#86efac', desc: 'Narrow leadership', action: 'Selective entries' },
+    { name: 'Rotating Bull', color: '#a3e635', desc: 'Sector rotation active', action: 'Follow momentum' },
+    { name: 'Range Bound', color: '#facc15', desc: 'Choppy, no trend', action: 'Reduce size' },
+    { name: 'Weak Bear', color: '#fb923c', desc: 'Drifting lower', action: 'Tighten stops' },
+    { name: 'Panic / Crash', color: '#ef4444', desc: 'Sharp sell-off', action: 'Exit all' },
+    { name: 'Recovery', color: '#38bdf8', desc: 'Bottom reversal', action: 'Scale back in' },
+  ];
+
+  const rowH = 100;
+  let ry = 220;
+
+  regimes.forEach((r, i) => {
+    const rowY = ry + i * (rowH + 12);
+
+    // Row background
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'transparent';
+    ctx.fillRect(80, rowY, w - 160, rowH);
+
+    // Color bar
+    ctx.fillStyle = r.color;
+    ctx.beginPath();
+    ctx.roundRect(100, rowY + 15, 8, rowH - 30, 4);
+    ctx.fill();
+
+    // Regime name
+    ctx.fillStyle = r.color;
+    ctx.font = 'bold 30px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(r.name, 132, rowY + 42);
+
+    // Description
+    ctx.fillStyle = GRAY_LIGHT;
+    ctx.font = '22px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(r.desc, 132, rowY + 76);
+
+    // Action badge
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    const badgeW = ctx.measureText(r.action).width + 32;
+    ctx.beginPath();
+    ctx.roundRect(w - 120 - badgeW, rowY + 30, badgeW, 40, 8);
+    ctx.fill();
+
+    ctx.fillStyle = WHITE;
+    ctx.font = '600 22px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(r.action, w - 120 - badgeW/2, rowY + 56);
+  });
+
+  // Footer
+  ctx.fillStyle = GRAY_LIGHT;
+  ctx.font = '20px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Regime detected daily using SPY price action, breadth, and volatility.', w/2, h - 50);
+})();
+
+// ── Card 5: Signal Teaser ──
+(function() {
+  const c = document.getElementById('card5');
+  const ctx = c.getContext('2d');
+  const w = 1080, h = 1080;
+  fillNavyGradient(ctx, w, h);
+
+  // Simulated dashboard mockup (blurred/redacted)
+  // Header bar
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.fillRect(60, 60, w - 120, 70);
+
+  drawLogo(ctx, 110, 95, 44);
+  ctx.fillStyle = WHITE;
+  ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('RigaCap Dashboard', 148, 102);
+
+  // Fake nav tabs
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.beginPath(); ctx.roundRect(600, 78, 80, 32, 6); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(700, 78, 100, 32, 6); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(820, 78, 80, 32, 6); ctx.fill();
+
+  // Signal rows (blurred/redacted)
+  const signalY = 170;
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  ctx.beginPath(); ctx.roundRect(60, signalY, w - 120, 50, 8); ctx.fill();
+
+  // Header row text
+  ctx.fillStyle = GOLD;
+  ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('Symbol', 90, signalY + 32);
+  ctx.fillText('Score', 280, signalY + 32);
+  ctx.fillText('Signal', 430, signalY + 32);
+  ctx.fillText('Entry', 580, signalY + 32);
+  ctx.fillText('Regime', 730, signalY + 32);
+  ctx.fillText('Action', 900, signalY + 32);
+
+  // Fake data rows with blur effect
+  const fakeRows = [
+    { sym: 'NVDA', score: '94.2', signal: 'BUY', color: '#22c55e' },
+    { sym: 'AVGO', score: '91.8', signal: 'BUY', color: '#22c55e' },
+    { sym: 'CRWD', score: '88.5', signal: 'BUY', color: '#22c55e' },
+    { sym: 'META', score: '86.1', signal: 'BUY', color: '#22c55e' },
+    { sym: '????', score: '???.?', signal: '???', color: '#94a3b8' },
+    { sym: '????', score: '???.?', signal: '???', color: '#94a3b8' },
+  ];
+
+  fakeRows.forEach((row, i) => {
+    const ry = signalY + 60 + i * 56;
+    const isBlurred = i >= 2;
+
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'transparent';
+    ctx.fillRect(60, ry, w - 120, 52);
+
+    if (isBlurred) {
+      // Redacted bars
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.beginPath(); ctx.roundRect(90, ry + 16, 60, 20, 4); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(280, ry + 16, 50, 20, 4); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(430, ry + 16, 40, 20, 4); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(580, ry + 16, 70, 20, 4); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(730, ry + 16, 80, 20, 4); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(900, ry + 16, 60, 20, 4); ctx.fill();
+    } else {
+      ctx.fillStyle = WHITE;
+      ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(row.sym, 90, ry + 34);
+      ctx.fillText(row.score, 280, ry + 34);
+
+      ctx.fillStyle = row.color;
+      ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(row.signal, 430, ry + 34);
+
+      ctx.fillStyle = GRAY_LIGHT;
+      ctx.font = '20px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('$' + (Math.random() * 500 + 100).toFixed(2), 580, ry + 34);
+      ctx.fillText('Strong Bull', 730, ry + 34);
+
+      ctx.fillStyle = '#22c55e';
+      ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('ENTER', 900, ry + 34);
+    }
+  });
+
+  // Blur overlay gradient (bottom half fades out more)
+  const blurGrad = ctx.createLinearGradient(0, signalY + 170, 0, signalY + 420);
+  blurGrad.addColorStop(0, 'rgba(23, 37, 84, 0)');
+  blurGrad.addColorStop(0.3, 'rgba(23, 37, 84, 0.6)');
+  blurGrad.addColorStop(1, 'rgba(23, 37, 84, 0.95)');
+  ctx.fillStyle = blurGrad;
+  ctx.fillRect(60, signalY + 170, w - 120, 300);
+
+  // CTA area (centered on the blurred region)
+  const ctaY = 620;
+
+  // Lock icon (circle with keyhole)
+  ctx.strokeStyle = GOLD;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(w/2, ctaY, 40, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = GOLD;
+  ctx.beginPath();
+  ctx.arc(w/2, ctaY - 5, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(w/2 - 5, ctaY + 2);
+  ctx.lineTo(w/2 + 5, ctaY + 2);
+  ctx.lineTo(w/2 + 3, ctaY + 18);
+  ctx.lineTo(w/2 - 3, ctaY + 18);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = WHITE;
+  ctx.font = 'bold 48px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Want the full signal list?', w/2, ctaY + 100);
+
+  ctx.fillStyle = GRAY_LIGHT;
+  ctx.font = '28px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('Real-time buy signals, momentum scores,', w/2, ctaY + 155);
+  ctx.fillText('regime detection, and trailing stop alerts.', w/2, ctaY + 195);
+
+  // CTA button
+  ctx.fillStyle = GOLD;
+  const btnW = 360, btnH = 64;
+  ctx.beginPath();
+  ctx.roundRect(w/2 - btnW/2, ctaY + 240, btnW, btnH, 12);
+  ctx.fill();
+
+  ctx.fillStyle = NAVY;
+  ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('Subscribe Now', w/2, ctaY + 280);
+
+  ctx.fillStyle = GRAY_LIGHT;
+  ctx.font = '22px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('rigacap.com', w/2, h - 50);
+})();
+</script>
+</body>
+</html>

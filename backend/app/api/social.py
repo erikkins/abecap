@@ -9,11 +9,26 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, delete
 
 from app.core.database import get_db, SocialPost
 from app.core.security import get_admin_user
+
+
+class ComposeRequest(BaseModel):
+    platform: str  # "twitter" or "instagram"
+    text_content: str
+    hashtags: Optional[str] = None
+    post_type: str = "manual"
+    status: str = "draft"  # "draft" or "approved"
+    image_s3_key: Optional[str] = None
+
+
+class EditRequest(BaseModel):
+    text_content: Optional[str] = None
+    hashtags: Optional[str] = None
 
 router = APIRouter()
 
@@ -331,6 +346,106 @@ async def generate_chart_card(
         "s3_key": s3_key,
         "image_url": image_url,
     }
+
+
+@router.post("/posts/{post_id}/publish")
+async def publish_post(
+    post_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(get_admin_user),
+):
+    """Publish an approved post to its target platform (Twitter/Instagram)."""
+    result = await db.execute(
+        select(SocialPost).where(SocialPost.id == post_id)
+    )
+    post = result.scalar_one_or_none()
+
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.status != "approved":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Only approved posts can be published (current: '{post.status}')",
+        )
+
+    from app.services.social_posting_service import social_posting_service
+
+    pub_result = await social_posting_service.publish_post(post)
+
+    if "error" in pub_result:
+        raise HTTPException(status_code=502, detail=pub_result["error"])
+
+    await db.commit()
+
+    return {
+        "status": "posted",
+        "post_id": post_id,
+        "platform": post.platform,
+        **pub_result,
+    }
+
+
+@router.post("/posts/compose")
+async def compose_post(
+    body: ComposeRequest,
+    db: AsyncSession = Depends(get_db),
+    admin=Depends(get_admin_user),
+):
+    """Create a new manual social post."""
+    if body.platform not in ("twitter", "instagram"):
+        raise HTTPException(status_code=400, detail="Platform must be 'twitter' or 'instagram'")
+    if body.status not in ("draft", "approved"):
+        raise HTTPException(status_code=400, detail="Status must be 'draft' or 'approved'")
+
+    post = SocialPost(
+        platform=body.platform,
+        text_content=body.text_content,
+        hashtags=body.hashtags,
+        post_type=body.post_type,
+        status=body.status,
+        image_s3_key=body.image_s3_key,
+    )
+
+    if body.status == "approved":
+        post.reviewed_by = admin.email
+        post.reviewed_at = datetime.utcnow()
+
+    db.add(post)
+    await db.commit()
+    await db.refresh(post)
+
+    return {"status": post.status, "post": _post_to_dict(post)}
+
+
+@router.post("/posts/{post_id}/edit")
+async def edit_post(
+    post_id: int,
+    body: EditRequest,
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(get_admin_user),
+):
+    """Edit text content and/or hashtags of a draft or approved post."""
+    result = await db.execute(
+        select(SocialPost).where(SocialPost.id == post_id)
+    )
+    post = result.scalar_one_or_none()
+
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.status not in ("draft", "approved"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot edit post with status '{post.status}'",
+        )
+
+    if body.text_content is not None:
+        post.text_content = body.text_content
+    if body.hashtags is not None:
+        post.hashtags = body.hashtags
+
+    await db.commit()
+
+    return {"status": "updated", "post": _post_to_dict(post)}
 
 
 def _post_to_dict(post: SocialPost, include_source: bool = False) -> dict:

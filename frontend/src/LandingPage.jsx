@@ -503,7 +503,7 @@ const Footer = () => (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-8 h-8 text-indigo-400" />
+          <RigaCapLogo size={32} />
           <span className="text-xl font-bold text-white">RigaCap</span>
         </div>
         <div className="flex gap-8 text-sm">
@@ -525,12 +525,26 @@ const Footer = () => (
   </footer>
 );
 
+const RigaCapLogo = ({ size = 40, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100" className={className}>
+    <defs>
+      <linearGradient id="lp-logo-bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#172554"/>
+        <stop offset="100%" stopColor="#1e3a5f"/>
+      </linearGradient>
+    </defs>
+    <circle cx="50" cy="50" r="50" fill="url(#lp-logo-bg)"/>
+    <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#ffffff"/>
+    <circle cx="50" cy="15" r="3" fill="#f59e0b"/>
+  </svg>
+);
+
 const Navbar = ({ onGetStarted }) => (
   <nav className="absolute top-0 left-0 right-0 z-50">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-8 h-8 text-white" />
+          <RigaCapLogo size={36} />
           <span className="text-xl font-bold text-white">RigaCap</span>
         </div>
         <div className="hidden md:flex items-center gap-8 text-white/80">

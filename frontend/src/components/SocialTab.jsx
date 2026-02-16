@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Share2, Check, X, RefreshCw, Trash2, Image, MessageSquare, TrendingUp, BarChart3, Globe } from 'lucide-react';
+import { Share2, Check, X, RefreshCw, Trash2, Image, MessageSquare, TrendingUp, BarChart3, Globe, Send, Plus, Edit3, Save } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -23,6 +23,7 @@ const POST_TYPES = [
   { id: 'missed_opportunity', label: 'Missed Opportunity' },
   { id: 'weekly_recap', label: 'Weekly Recap' },
   { id: 'regime_commentary', label: 'Regime' },
+  { id: 'manual', label: 'Manual' },
 ];
 
 const STATUS_COLORS = {
@@ -37,6 +38,7 @@ const TYPE_COLORS = {
   missed_opportunity: 'bg-amber-100 text-amber-700',
   weekly_recap: 'bg-purple-100 text-purple-700',
   regime_commentary: 'bg-sky-100 text-sky-700',
+  manual: 'bg-indigo-100 text-indigo-700',
 };
 
 const TYPE_LABELS = {
@@ -44,7 +46,25 @@ const TYPE_LABELS = {
   missed_opportunity: 'Missed Opportunity',
   weekly_recap: 'Weekly Recap',
   regime_commentary: 'Regime',
+  manual: 'Manual',
 };
+
+// Navy+Gold logo SVG as inline component
+function RigaCapLogo({ size = 40, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" className={className}>
+      <defs>
+        <linearGradient id="social-logo-bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#172554"/>
+          <stop offset="100%" stopColor="#1e3a5f"/>
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="50" fill="url(#social-logo-bg)"/>
+      <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#ffffff"/>
+      <circle cx="50" cy="15" r="3" fill="#f59e0b"/>
+    </svg>
+  );
+}
 
 export default function SocialTab({ fetchWithAuth }) {
   const [stats, setStats] = useState(null);
@@ -52,6 +72,7 @@ export default function SocialTab({ fetchWithAuth }) {
   const [previews, setPreviews] = useState({});
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
+  const [showCompose, setShowCompose] = useState(false);
 
   // Filters
   const [platform, setPlatform] = useState('all');
@@ -136,6 +157,49 @@ export default function SocialTab({ fetchWithAuth }) {
   const regenerate = (id) => handleAction(id, `posts/${id}/regenerate`);
   const deletePost = (id) => handleAction(id, `posts/${id}`, 'DELETE', 'Delete this post? This cannot be undone.');
 
+  const publish = async (id) => {
+    if (!window.confirm('Publish this post live? This will post to the platform immediately.')) return;
+    setActionLoading(prev => ({ ...prev, [id]: 'publish' }));
+    try {
+      const res = await fetchWithAuth(`${API_URL}/api/admin/social/posts/${id}/publish`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        const url = data.tweet_url || data.permalink || '';
+        alert(`Published successfully!${url ? `\n${url}` : ''}`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Publish failed: ${err.detail || res.statusText}`);
+      }
+      await Promise.all([fetchStats(), fetchPosts()]);
+    } catch (err) {
+      console.error('Publish failed:', err);
+      alert(`Publish failed: ${err.message}`);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [id]: null }));
+    }
+  };
+
+  const editPost = async (id, textContent, hashtags) => {
+    try {
+      const res = await fetchWithAuth(`${API_URL}/api/admin/social/posts/${id}/edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text_content: textContent, hashtags }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Edit failed: ${err.detail || res.statusText}`);
+        return false;
+      }
+      await fetchPosts();
+      return true;
+    } catch (err) {
+      console.error('Edit failed:', err);
+      alert(`Edit failed: ${err.message}`);
+      return false;
+    }
+  };
+
   const generateChart = async (id) => {
     setActionLoading(prev => ({ ...prev, [id]: 'generate-chart' }));
     try {
@@ -153,6 +217,26 @@ export default function SocialTab({ fetchWithAuth }) {
       alert(`Chart generation failed: ${err.message}`);
     } finally {
       setActionLoading(prev => ({ ...prev, [id]: null }));
+    }
+  };
+
+  const handleCompose = async (composeData) => {
+    try {
+      const res = await fetchWithAuth(`${API_URL}/api/admin/social/posts/compose`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(composeData),
+      });
+      if (res.ok) {
+        setShowCompose(false);
+        await Promise.all([fetchStats(), fetchPosts()]);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Compose failed: ${err.detail || res.statusText}`);
+      }
+    } catch (err) {
+      console.error('Compose failed:', err);
+      alert(`Compose failed: ${err.message}`);
     }
   };
 
@@ -186,14 +270,28 @@ export default function SocialTab({ fetchWithAuth }) {
         />
       </div>
 
-      {/* Filters Row */}
+      {/* Filters Row + Compose Button */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-wrap gap-6">
+        <div className="flex flex-wrap items-end gap-6">
           <FilterGroup label="Platform" options={PLATFORMS} value={platform} onChange={setPlatform} />
           <FilterGroup label="Status" options={STATUSES} value={status} onChange={setStatus} />
           <FilterGroup label="Post Type" options={POST_TYPES} value={postType} onChange={setPostType} />
+          <div className="ml-auto">
+            <button
+              onClick={() => setShowCompose(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            >
+              <Plus size={16} />
+              New Post
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Compose Modal */}
+      {showCompose && (
+        <ComposeModal onClose={() => setShowCompose(false)} onSubmit={handleCompose} />
+      )}
 
       {/* Post Feed */}
       {loading ? (
@@ -204,7 +302,14 @@ export default function SocialTab({ fetchWithAuth }) {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
           <Share2 size={48} className="mx-auto text-gray-300 mb-4" />
           <h3 className="text-lg font-semibold text-gray-700 mb-2">No social posts yet</h3>
-          <p className="text-gray-500">Posts are auto-generated nightly at 8 PM ET from walk-forward simulation results.</p>
+          <p className="text-gray-500 mb-4">Posts are auto-generated nightly at 8 PM ET from walk-forward simulation results.</p>
+          <button
+            onClick={() => setShowCompose(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+          >
+            <Plus size={16} />
+            Create Your First Post
+          </button>
         </div>
       ) : platform === 'all' ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -223,6 +328,8 @@ export default function SocialTab({ fetchWithAuth }) {
                   onReject={reject}
                   onRegenerate={regenerate}
                   onDelete={deletePost}
+                  onPublish={publish}
+                  onEdit={editPost}
                 />
               ))
             )}
@@ -242,6 +349,8 @@ export default function SocialTab({ fetchWithAuth }) {
                   onReject={reject}
                   onRegenerate={regenerate}
                   onDelete={deletePost}
+                  onPublish={publish}
+                  onEdit={editPost}
                   onGenerateChart={generateChart}
                 />
               ))
@@ -262,6 +371,8 @@ export default function SocialTab({ fetchWithAuth }) {
                 onReject={reject}
                 onRegenerate={regenerate}
                 onDelete={deletePost}
+                onPublish={publish}
+                onEdit={editPost}
               />
             ))}
           </div>
@@ -280,12 +391,165 @@ export default function SocialTab({ fetchWithAuth }) {
                 onReject={reject}
                 onRegenerate={regenerate}
                 onDelete={deletePost}
+                onPublish={publish}
+                onEdit={editPost}
                 onGenerateChart={generateChart}
               />
             ))}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ComposeModal({ onClose, onSubmit }) {
+  const [composePlatform, setComposePlatform] = useState('twitter');
+  const [text, setText] = useState('');
+  const [hashtags, setHashtags] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const fullText = hashtags ? `${text}\n\n${hashtags}` : text;
+  const charCount = fullText.length;
+  const overLimit = composePlatform === 'twitter' && charCount > 280;
+
+  const handleSubmit = async (saveStatus) => {
+    if (!text.trim()) return;
+    setSaving(true);
+    await onSubmit({
+      platform: composePlatform,
+      text_content: text,
+      hashtags: hashtags || null,
+      post_type: 'manual',
+      status: saveStatus,
+    });
+    setSaving(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-900">New Post</h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {/* Platform Toggle */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Platform</label>
+            <div className="flex gap-2">
+              {['twitter', 'instagram'].map(p => (
+                <button
+                  key={p}
+                  onClick={() => setComposePlatform(p)}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    composePlatform === p
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {p === 'twitter' ? 'Twitter/X' : 'Instagram'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Text Area */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Post Text</label>
+            <textarea
+              value={text}
+              onChange={e => setText(e.target.value)}
+              rows={5}
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              placeholder={composePlatform === 'twitter' ? "What's happening?" : "Write a caption..."}
+            />
+          </div>
+
+          {/* Hashtags */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hashtags</label>
+            <input
+              type="text"
+              value={hashtags}
+              onChange={e => setHashtags(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="#trading #momentum #stocks"
+            />
+          </div>
+
+          {/* Preview */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Preview</label>
+            {composePlatform === 'twitter' ? (
+              <div className="border border-gray-200 rounded-xl p-4">
+                <div className="flex gap-3">
+                  <RigaCapLogo size={40} className="shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1">
+                      <span className="font-bold text-sm text-gray-900">RigaCap</span>
+                      <span className="text-sm text-gray-500">@rigacap</span>
+                    </div>
+                    <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap break-words">{text || 'Your post text here...'}</p>
+                    {hashtags && <p className="text-sm text-blue-500 mt-1 break-words">{hashtags}</p>}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-gray-100">
+                  <RigaCapLogo size={32} className="shrink-0" />
+                  <span className="font-semibold text-sm text-gray-900">rigacap</span>
+                </div>
+                <div className="w-full aspect-square bg-gray-50 flex items-center justify-center">
+                  <Image size={40} className="text-gray-300" />
+                </div>
+                <div className="px-3 py-2.5">
+                  <p className="text-sm text-gray-900">
+                    <span className="font-semibold">rigacap</span>{' '}
+                    <span className="whitespace-pre-wrap break-words">{text || 'Your caption here...'}</span>
+                  </p>
+                  {hashtags && <p className="text-sm text-blue-500 mt-1 break-words">{hashtags}</p>}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Char count for Twitter */}
+          {composePlatform === 'twitter' && (
+            <div className={`text-xs font-medium ${overLimit ? 'text-red-600' : 'text-gray-400'}`}>
+              {charCount}/280
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => handleSubmit('draft')}
+            disabled={!text.trim() || saving}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+          >
+            Save as Draft
+          </button>
+          <button
+            onClick={() => handleSubmit('approved')}
+            disabled={!text.trim() || saving || overLimit}
+            className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
+          >
+            Save & Approve
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -342,12 +606,23 @@ function PostBadges({ post }) {
   );
 }
 
-function ActionButtons({ post, actionLoading, onApprove, onReject, onRegenerate, onDelete, extraButtons }) {
+function ActionButtons({ post, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, extraButtons }) {
   const isLoading = !!actionLoading;
   const canModify = post.status === 'draft' || post.status === 'rejected';
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
+      {post.status === 'approved' && (
+        <button
+          onClick={() => onPublish(post.id)}
+          disabled={isLoading}
+          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+          title="Publish to platform"
+        >
+          {actionLoading === 'publish' ? <RefreshCw size={13} className="animate-spin" /> : <Send size={13} />}
+          Publish
+        </button>
+      )}
       {canModify && (
         <button
           onClick={() => onApprove(post.id)}
@@ -371,15 +646,17 @@ function ActionButtons({ post, actionLoading, onApprove, onReject, onRegenerate,
         </button>
       )}
       {extraButtons}
-      <button
-        onClick={() => onRegenerate(post.id)}
-        disabled={isLoading}
-        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-        title="Regenerate"
-      >
-        {actionLoading === 'regenerate' ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-        Regen
-      </button>
+      {post.status !== 'posted' && (
+        <button
+          onClick={() => onRegenerate(post.id)}
+          disabled={isLoading}
+          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+          title="Regenerate"
+        >
+          {actionLoading === 'regenerate' ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+          Regen
+        </button>
+      )}
       {(post.status === 'draft' || post.status === 'rejected') && (
         <button
           onClick={() => onDelete(post.id)}
@@ -400,11 +677,77 @@ function splitTextAndHashtags(text, hashtags) {
   return { mainText, tags };
 }
 
-function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRegenerate, onDelete }) {
+function InlineEditableText({ text, hashtags, postId, canEdit, onEdit }) {
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(text);
+  const [editHashtags, setEditHashtags] = useState(hashtags);
+  const [saving, setSaving] = useState(false);
+
+  if (!editing) {
+    return (
+      <div
+        className={`group relative ${canEdit ? 'cursor-pointer' : ''}`}
+        onClick={() => { if (canEdit) { setEditText(text); setEditHashtags(hashtags); setEditing(true); } }}
+      >
+        <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{text}</p>
+        {hashtags && <p className="text-sm text-blue-500 mt-1 break-words">{hashtags}</p>}
+        {canEdit && (
+          <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Edit3 size={12} className="text-gray-400" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const handleSave = async () => {
+    setSaving(true);
+    const ok = await onEdit(postId, editText, editHashtags);
+    setSaving(false);
+    if (ok) setEditing(false);
+  };
+
+  return (
+    <div className="space-y-2">
+      <textarea
+        value={editText}
+        onChange={e => setEditText(e.target.value)}
+        rows={3}
+        className="w-full border border-blue-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+        autoFocus
+      />
+      <input
+        type="text"
+        value={editHashtags}
+        onChange={e => setEditHashtags(e.target.value)}
+        className="w-full border border-blue-300 rounded-lg p-2 text-sm text-blue-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        placeholder="Hashtags"
+      />
+      <div className="flex gap-2">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+        >
+          <Save size={12} /> Save
+        </button>
+        <button
+          onClick={() => setEditing(false)}
+          className="px-2.5 py-1 text-xs font-medium text-gray-600 hover:text-gray-800"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, onEdit }) {
   const { mainText, tags } = splitTextAndHashtags(post.text_content, post.hashtags);
   const fullText = tags ? `${mainText}\n\n${tags}` : mainText;
   const charCount = preview?.char_count ?? fullText.length;
   const overLimit = preview?.over_limit ?? charCount > 280;
+  const canEdit = post.status === 'draft' || post.status === 'approved';
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -414,18 +757,21 @@ function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRege
         {/* Mock Tweet */}
         <div className="border border-gray-200 rounded-xl p-4">
           <div className="flex gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-sm">R</span>
-            </div>
+            <RigaCapLogo size={40} className="shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1">
                 <span className="font-bold text-sm text-gray-900">RigaCap</span>
                 <span className="text-sm text-gray-500">@rigacap</span>
               </div>
-              <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap break-words">{mainText}</p>
-              {tags && (
-                <p className="text-sm text-blue-500 mt-1 break-words">{tags}</p>
-              )}
+              <div className="mt-1">
+                <InlineEditableText
+                  text={mainText}
+                  hashtags={tags}
+                  postId={post.id}
+                  canEdit={canEdit}
+                  onEdit={onEdit}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -442,6 +788,7 @@ function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRege
             onReject={onReject}
             onRegenerate={onRegenerate}
             onDelete={onDelete}
+            onPublish={onPublish}
           />
         </div>
       </div>
@@ -449,12 +796,13 @@ function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRege
   );
 }
 
-function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRegenerate, onDelete, onGenerateChart }) {
+function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, onEdit, onGenerateChart }) {
   const { mainText, tags } = splitTextAndHashtags(post.text_content, post.hashtags);
   const imageUrl = preview?.image_url || null;
   const hasImage = !!post.image_s3_key || !!imageUrl;
   const chartLoading = actionLoading === 'generate-chart';
   const canGenerateChart = post.post_type === 'trade_result' || post.post_type === 'missed_opportunity';
+  const canEdit = post.status === 'draft' || post.status === 'approved';
 
   const generateChartButton = canGenerateChart && !hasImage && (
     <button
@@ -477,9 +825,7 @@ function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRe
         <div className="border border-gray-200 rounded-xl overflow-hidden">
           {/* IG Header */}
           <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-gray-100">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-xs">R</span>
-            </div>
+            <RigaCapLogo size={32} className="shrink-0" />
             <span className="font-semibold text-sm text-gray-900">rigacap</span>
           </div>
 
@@ -516,13 +862,16 @@ function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRe
 
           {/* Caption */}
           <div className="px-3 py-2.5">
-            <p className="text-sm text-gray-900">
+            <div className="text-sm text-gray-900">
               <span className="font-semibold">rigacap</span>{' '}
-              <span className="whitespace-pre-wrap break-words">{mainText}</span>
-            </p>
-            {tags && (
-              <p className="text-sm text-blue-500 mt-1 break-words">{tags}</p>
-            )}
+              <InlineEditableText
+                text={mainText}
+                hashtags={tags}
+                postId={post.id}
+                canEdit={canEdit}
+                onEdit={onEdit}
+              />
+            </div>
           </div>
         </div>
 
@@ -535,6 +884,7 @@ function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRe
             onReject={onReject}
             onRegenerate={onRegenerate}
             onDelete={onDelete}
+            onPublish={onPublish}
             extraButtons={generateChartButton}
           />
         </div>
