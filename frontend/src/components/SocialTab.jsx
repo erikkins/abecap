@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Share2, Check, X, RefreshCw, Trash2, Image, MessageSquare, TrendingUp, BarChart3, Globe, Send, Plus, Edit3, Save, Power } from 'lucide-react';
+import { Share2, Check, X, RefreshCw, Trash2, Image, MessageSquare, TrendingUp, BarChart3, Globe, Send, Plus, Edit3, Save, Power, Rocket, ChevronDown, ChevronUp } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -438,6 +438,211 @@ export default function SocialTab({ fetchWithAuth }) {
               />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Launch Queue Preview */}
+      <LaunchQueueSection fetchWithAuth={fetchWithAuth} onQueued={() => Promise.all([fetchStats(), fetchPosts()])} />
+    </div>
+  );
+}
+
+const LAUNCH_POSTS = [
+  {
+    id: 'launch-1',
+    label: 'Launch Announcement',
+    twitter: {
+      text: "We're live.\n\nRigaCap is an AI-powered ensemble trading system built on 5 years of walk-forward testing.\n\n3 factors. 7 market regimes. Zero hindsight bias.\n\nThe signal is clear.",
+      hashtags: '#trading #algotrading #stockmarket #fintech',
+    },
+    instagram: {
+      text: "We're live.\n\nRigaCap is an AI-powered ensemble trading system that combines DWAP timing, momentum quality, and adaptive regime detection into one institutional-grade platform.\n\nBuilt on 15 years of development. Validated across 5 years of walk-forward testing with zero hindsight bias.\n\nThe signal is clear.",
+      hashtags: '#trading #algotrading #stockmarket #fintech #investing #daytrading #momentum #rigacap',
+    },
+  },
+  {
+    id: 'launch-2',
+    label: 'Performance Stats',
+    twitter: {
+      text: "5-year walk-forward results (no hindsight bias):\n\n2021-22: +62.0%\n2022-23: -13.2%\n2023-24: +22.2%\n2024-25: +20.7%\n2025-26: +87.5%\n\nTotal: +289% | 31% annualized\n80% win rate across all market conditions.",
+      hashtags: '#trading #performance #walkforward',
+    },
+    instagram: {
+      text: "5 years. No hindsight bias. Real walk-forward results.\n\n2021-2022: +62.0% (Sharpe 1.21)\n2022-2023: -13.2% (the bear year)\n2023-2024: +22.2% (Sharpe 1.02)\n2024-2025: +20.7% (Sharpe 0.89)\n2025-2026: +87.5% (Sharpe 2.32)\n\n5-Year Total: +289%\n31% annualized return\n80% win rate (4 of 5 years positive)\nMax drawdown: -15.1%\n\nEvery period tested independently. No curve-fitting. No cherry-picking.",
+      hashtags: '#trading #algotrading #performance #walkforward #stockmarket #investing #returns #rigacap',
+    },
+  },
+  {
+    id: 'launch-3',
+    label: 'How It Works',
+    twitter: {
+      text: "How our Ensemble finds trades:\n\n1. DWAP Timing \u2014 catches breakouts early\n2. Momentum Quality \u2014 only top-ranked stocks\n3. Regime Filter \u2014 adapts across 7 market conditions\n\nAll 3 must align = high-conviction entry.\n12% trailing stops protect gains.",
+      hashtags: '#trading #ensemble #momentum #riskmanagement',
+    },
+    instagram: {
+      text: "The 3-factor Ensemble approach.\n\nFactor 1: DWAP Timing\nPrice > Daily Weighted Average Price catches early breakouts before the crowd sees them.\n\nFactor 2: Momentum Quality\nTop composite momentum ranking (10-day + 60-day) filtered for low volatility and volume confirmation.\n\nFactor 3: Regime Detection\n7 distinct market regimes detected daily. The system adapts position sizing and entry rules from Strong Bull all the way to Panic/Crash.\n\nAll 3 factors must align for entry. 12% trailing stops protect gains while letting winners run.",
+      hashtags: '#trading #algotrading #ensemble #momentum #dwap #riskmanagement #marketregime #rigacap',
+    },
+  },
+  {
+    id: 'launch-4',
+    label: '7 Market Regimes',
+    twitter: {
+      text: "Most strategies have one mode. Ours has 7.\n\nStrong Bull \u2192 full exposure\nWeak Bull \u2192 selective entries\nRotating Bull \u2192 follow momentum\nRange Bound \u2192 reduce size\nWeak Bear \u2192 tighten stops\nPanic/Crash \u2192 exit all\nRecovery \u2192 scale back in\n\nAdapt or get left behind.",
+      hashtags: '#trading #marketregime #riskmanagement',
+    },
+    instagram: {
+      text: "Most strategies have one mode. Ours detects 7.\n\nOur AI analyzes SPY price action, market breadth, and volatility daily to classify the current environment:\n\nStrong Bull \u2014 Broad rally, high breadth. Full exposure.\nWeak Bull \u2014 Narrow leadership. Selective entries only.\nRotating Bull \u2014 Sector rotation active. Follow momentum leaders.\nRange Bound \u2014 Choppy, no trend. Reduce position size.\nWeak Bear \u2014 Drifting lower. Tighten trailing stops.\nPanic / Crash \u2014 Sharp sell-off. Exit all positions.\nRecovery \u2014 Bottom reversal confirmed. Scale back in.\n\nThe market changes. Your strategy should too.",
+      hashtags: '#trading #algotrading #marketregime #riskmanagement #investing #stockmarket #rigacap',
+    },
+  },
+  {
+    id: 'launch-5',
+    label: 'Signal Teaser',
+    twitter: {
+      text: "Today's top Ensemble signals are in.\n\nReal-time buy signals. Momentum scores. Regime detection. Trailing stop alerts.\n\nSubscribers see the full list every evening.\n\nrigacap.com",
+      hashtags: '#trading #signals #stockmarket',
+    },
+    instagram: {
+      text: "Today's top Ensemble signals are in.\n\nEvery evening, our system scans 6,500+ stocks and identifies the highest-conviction opportunities using our 3-factor ensemble approach.\n\nSubscribers get:\n\u2022 Real-time buy signals with entry levels\n\u2022 Composite momentum scores\n\u2022 Current market regime classification\n\u2022 Trailing stop alerts\n\u2022 Daily email digest\n\nWant to see today's signals?\n\nLink in bio.",
+      hashtags: '#trading #signals #stockmarket #algotrading #investing #daytrading #momentum #rigacap',
+    },
+  },
+];
+
+function LaunchQueueSection({ fetchWithAuth, onQueued }) {
+  const [expanded, setExpanded] = useState(true);
+  const [queueing, setQueueing] = useState(false);
+  const [queued, setQueued] = useState(false);
+
+  const noop = () => {};
+
+  const queueAllPosts = async () => {
+    if (!window.confirm('Queue all 10 launch posts (5 Twitter + 5 Instagram) as drafts?')) return;
+    setQueueing(true);
+    let success = 0;
+    for (const lp of LAUNCH_POSTS) {
+      for (const platform of ['twitter', 'instagram']) {
+        const content = platform === 'twitter' ? lp.twitter : lp.instagram;
+        try {
+          const res = await fetchWithAuth(`${API_URL}/api/admin/social/posts/compose`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              platform,
+              text_content: content.text,
+              hashtags: content.hashtags,
+              post_type: 'manual',
+              status: 'draft',
+            }),
+          });
+          if (res.ok) success++;
+        } catch (err) {
+          console.error(`Failed to queue ${lp.label} (${platform}):`, err);
+        }
+      }
+    }
+    setQueueing(false);
+    setQueued(true);
+    alert(`Queued ${success} of 10 launch posts as drafts.`);
+    if (onQueued) onQueued();
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <Rocket size={18} className="text-amber-500" />
+          <span className="text-sm font-semibold text-gray-800">Launch Posts Preview</span>
+          <span className="text-xs text-gray-400">5 concepts &times; 2 platforms = 10 posts</span>
+        </div>
+        {expanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+      </button>
+
+      {expanded && (
+        <div className="border-t border-gray-200 p-6 space-y-8">
+          {/* Queue button */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">Preview how launch posts will look. When ready, queue them all as drafts to review and approve individually.</p>
+            <button
+              onClick={queueAllPosts}
+              disabled={queueing || queued}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                queued
+                  ? 'bg-green-100 text-green-700 cursor-default'
+                  : 'bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50'
+              }`}
+            >
+              {queueing ? (
+                <><RefreshCw size={14} className="animate-spin" /> Queueing...</>
+              ) : queued ? (
+                <><Check size={14} /> Queued!</>
+              ) : (
+                <><Plus size={14} /> Queue All as Drafts</>
+              )}
+            </button>
+          </div>
+
+          {LAUNCH_POSTS.map((lp, idx) => {
+            const twitterPost = {
+              id: lp.id + '-tw',
+              post_type: 'manual',
+              platform: 'twitter',
+              status: 'draft',
+              text_content: lp.twitter.text,
+              hashtags: lp.twitter.hashtags,
+              created_at: new Date().toISOString(),
+            };
+            const instagramPost = {
+              id: lp.id + '-ig',
+              post_type: 'manual',
+              platform: 'instagram',
+              status: 'draft',
+              text_content: lp.instagram.text,
+              hashtags: lp.instagram.hashtags,
+              created_at: new Date().toISOString(),
+            };
+
+            return (
+              <div key={lp.id}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">{idx + 1}</span>
+                  <h4 className="text-sm font-semibold text-gray-700">{lp.label}</h4>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <TwitterCard
+                    post={twitterPost}
+                    preview={null}
+                    actionLoading={null}
+                    onApprove={noop}
+                    onReject={noop}
+                    onRegenerate={noop}
+                    onDelete={noop}
+                    onPublish={noop}
+                    onEdit={noop}
+                    publishingLive={false}
+                  />
+                  <InstagramCard
+                    post={instagramPost}
+                    preview={null}
+                    actionLoading={null}
+                    onApprove={noop}
+                    onReject={noop}
+                    onRegenerate={noop}
+                    onDelete={noop}
+                    onPublish={noop}
+                    onEdit={noop}
+                    onGenerateChart={noop}
+                    publishingLive={false}
+                  />
+                </div>
+                {idx < LAUNCH_POSTS.length - 1 && <hr className="mt-6 border-gray-100" />}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
