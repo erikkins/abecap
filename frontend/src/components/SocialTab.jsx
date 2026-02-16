@@ -472,60 +472,65 @@ const LAUNCH_POSTS = [
   {
     id: 'launch-1',
     label: 'Launch Announcement',
+    imageUrl: '/launch-cards/launch-1.png',
     twitter: {
-      text: "We built a trading system, tested it across 5 years of real market data without peeking at the answers, and it returned +289%.\n\nSo we made it available to everyone.\n\nRigaCap is live. rigacap.com",
+      text: "We built a trading system. Tested it across 5 years of real data without peeking at the answers. +289%.\n\n~15 buy signals per month. No hindsight. No hand-waving. Just math.\n\nRigaCap is live. rigacap.com",
       hashtags: '#trading #algotrading #stockmarket',
     },
     instagram: {
-      text: "We built a trading system.\n\nThen we did something most people skip \u2014 we tested it honestly. Year by year, with no hindsight bias, across bull markets, bear markets, and everything in between.\n\n+289% over 5 years. 31% annualized. 80% of years profitable.\n\nWe didn't just backtest it. We walk-forward tested it \u2014 meaning the system never saw future data. It had to figure it out in real time, just like you do.\n\nNow it's available to everyone.\n\nRigaCap is live.",
+      text: "We built a trading system.\n\nThen we did something most people skip \u2014 we tested it honestly. Year by year, no hindsight bias, across bull markets, bear markets, and everything in between.\n\n+289% over 5 years. 31% annualized. 80% of years profitable.\n\nBut here's the part that actually matters: it generates ~15 buy signals per month. 6\u20138 high-conviction picks every two weeks, delivered before the market opens.\n\nWe didn't backtest it and call it a day. We walk-forward tested it \u2014 the system never saw future data. It had to figure it out in real time, just like you do.\n\nNo hand-waving. No vibes. Just math.\n\nRigaCap is live.",
       hashtags: '#trading #algotrading #stockmarket #investing #rigacap',
     },
   },
   {
     id: 'launch-2',
     label: 'Performance Stats',
+    imageUrl: '/launch-cards/launch-2.png',
     twitter: {
-      text: "Our 5-year walk-forward report card:\n\n2021-22: +62.0% \u2705\n2022-23: -13.2% \u274c (bear market, it happens)\n2023-24: +22.2% \u2705\n2024-25: +20.7% \u2705\n2025-26: +87.5% \u2705\n\nTotal: +289%\n\n4 out of 5 years positive. We show the bad year too \u2014 because that's how trust works.",
+      text: "Our 5-year walk-forward report card:\n\n2021-22: +62.0% \u2705\n2022-23: -13.2% \u274c (bear market, it happens)\n2023-24: +22.2% \u2705\n2024-25: +20.7% \u2705\n2025-26: +87.5% \u2705\n\nTotal: +289% | 718 trades | ~15 signals/month\n\nWe show the bad year too. That's how trust works.",
       hashtags: '#trading #performance #walkforward',
     },
     instagram: {
-      text: "Let's talk numbers. Honestly.\n\n2021-2022: +62.0% (Sharpe 1.21)\n2022-2023: -13.2% (yes, we lost money in the bear market)\n2023-2024: +22.2% (Sharpe 1.02)\n2024-2025: +20.7% (Sharpe 0.89)\n2025-2026: +87.5% (Sharpe 2.32)\n\n5-Year Total: +289% | 31% annualized\nMax drawdown: -15.1%\n\nWe show the losing year because hiding it would make us like everyone else. Every period tested independently \u2014 no curve-fitting, no cherry-picking, no \"if you'd just bought here\" nonsense.\n\nPast performance doesn't guarantee future results. But honest testing is a good start.",
+      text: "Let's talk numbers. All of them.\n\n2021-2022: +62.0% (Sharpe 1.21)\n2022-2023: -13.2% (yes, we lost money in the bear market)\n2023-2024: +22.2% (Sharpe 1.02)\n2024-2025: +20.7% (Sharpe 0.89)\n2025-2026: +87.5% (Sharpe 2.32)\n\n5-Year Total: +289% | 31% annualized\n718 total trades | ~15 signals per month\nMax drawdown: -15.1%\n\nWe show the losing year because hiding it would make us like everyone else. Every period tested independently \u2014 no curve-fitting, no cherry-picking, no \"if you'd just bought here\" nonsense.\n\nAnd when the market went sideways in 2022? Zero signals for 5 months. The system said \"nah\" and sat on its hands. That's not a bug. That's risk management.\n\nPast performance doesn't guarantee future results. But honest testing beats a screenshot of someone's best week.",
       hashtags: '#trading #algotrading #performance #walkforward #stockmarket #investing #rigacap',
     },
   },
   {
     id: 'launch-3',
     label: 'How It Works',
+    imageUrl: '/launch-cards/launch-3.png',
     twitter: {
-      text: "How we pick trades:\n\n1\uFE0F\u20E3 Timing \u2014 DWAP catches breakouts before the crowd\n2\uFE0F\u20E3 Quality \u2014 only top momentum stocks pass\n3\uFE0F\u20E3 Risk \u2014 7-regime detection adapts to the market\n\nAll 3 must agree. No shortcuts.\n\nIt's picky. That's the point.",
+      text: "How we pick trades:\n\n1\uFE0F\u20E3 Timing \u2014 DWAP catches breakouts before the crowd\n2\uFE0F\u20E3 Quality \u2014 only top-ranked momentum stocks pass\n3\uFE0F\u20E3 Risk \u2014 7 market regimes, adapted daily\n\nAll 3 must agree. Most stocks fail. That's the point.\n\n~6\u20138 make the cut every 2 weeks.",
       hashtags: '#trading #ensemble #momentum #riskmanagement',
     },
     instagram: {
-      text: "Why three factors instead of one? Because markets are complicated and anyone who says otherwise is selling you something.\n\nFactor 1: Timing (DWAP)\nOur proprietary Daily Weighted Average Price catches breakouts early \u2014 before they show up on everyone's screener.\n\nFactor 2: Momentum Quality\nNot all breakouts deserve your money. We rank by 10-day and 60-day momentum, filter for low volatility, and confirm with volume.\n\nFactor 3: Regime Detection\n7 market regimes detected daily. Because \"buy the dip\" is great advice in a bull market and terrible advice in a crash.\n\nAll 3 factors must align for a signal. Most days, nothing qualifies. That's not a bug \u2014 it's the whole point.",
+      text: "Why three factors instead of one? Because markets are complicated and anyone who says otherwise is selling you something.\n\nFactor 1: Timing (DWAP)\nOur proprietary Daily Weighted Average Price catches breakouts early \u2014 before they show up on everyone's screener.\n\nFactor 2: Momentum Quality\nNot all breakouts deserve your money. We rank by 10-day and 60-day momentum, filter for volatility, and confirm with volume.\n\nFactor 3: Regime Detection\n7 market regimes detected daily. Because \"buy the dip\" is great advice in a bull market and terrible advice in a crash.\n\nAll 3 factors must align for a signal. Out of thousands of stocks, only 6\u20138 make the cut every two weeks. Most days, nothing qualifies.\n\nThat's not a bug \u2014 it's the whole point. Picky systems make money. Trigger-happy ones don't.",
       hashtags: '#trading #algotrading #ensemble #momentum #riskmanagement #rigacap',
     },
   },
   {
     id: 'launch-4',
     label: '7 Market Regimes',
+    imageUrl: '/launch-cards/launch-4.png',
     twitter: {
-      text: "Your strategy probably has one mode.\n\nOurs has 7:\n\nStrong Bull \u2192 full send\nWeak Bull \u2192 be selective\nRotating Bull \u2192 follow the leaders\nRange Bound \u2192 sit tight\nWeak Bear \u2192 tighten up\nPanic/Crash \u2192 go home\nRecovery \u2192 start nibbling\n\nThe market adapts. Shouldn't your strategy?",
+      text: "Your strategy probably has one mode.\n\nOurs has 7:\n\nStrong Bull \u2192 full send\nWeak Bull \u2192 be picky\nRotating Bull \u2192 follow the leaders\nRange Bound \u2192 sit on hands\nWeak Bear \u2192 tighten up\nPanic/Crash \u2192 go home\nRecovery \u2192 start nibbling\n\nIn 2022 it said \"go home\" for 5 months. No signals. No losses.\n\nThe market adapts. Your strategy should too.",
       hashtags: '#trading #marketregime #riskmanagement',
     },
     instagram: {
-      text: "\"Just buy the dip.\"\n\nOk, but which dip? The one that bounces 15%, or the one that keeps dipping for 6 months?\n\nThat's why we built a 7-regime detection system:\n\nStrong Bull \u2014 Broad rally. Full exposure. Let it ride.\nWeak Bull \u2014 Narrow leadership. Cherry-pick only the best.\nRotating Bull \u2014 Sectors taking turns. Follow the momentum.\nRange Bound \u2014 Choppy. Reduce size, wait for clarity.\nWeak Bear \u2014 Slow bleed. Tighten stops, protect capital.\nPanic/Crash \u2014 Exit. Ego is expensive.\nRecovery \u2014 The brave (and the algorithmic) start buying.\n\nDetected daily using SPY price action, breadth, and volatility. No vibes. Just math.",
+      text: "\"Just buy the dip.\"\n\nOk, but which dip? The one that bounces 15%, or the one that keeps dipping for 6 months?\n\nThat's why we built a 7-regime detection system:\n\nStrong Bull \u2014 Broad rally. Full exposure. Let it ride.\nWeak Bull \u2014 Narrow leadership. Cherry-pick the best.\nRotating Bull \u2014 Sectors taking turns. Follow the momentum.\nRange Bound \u2014 Choppy. Reduce size, wait for clarity.\nWeak Bear \u2014 Slow bleed. Tighten stops, protect capital.\nPanic/Crash \u2014 Exit everything. Ego is expensive.\nRecovery \u2014 The brave (and the algorithmic) start buying.\n\nFun fact: in the 2022 bear market, the system went quiet for 5 consecutive months. Zero signals. It literally refused to trade. That saved our walk-forward from what would've been a brutal drawdown.\n\nNo vibes. No gut feelings. Just math, updated daily.",
       hashtags: '#trading #algotrading #marketregime #riskmanagement #investing #rigacap',
     },
   },
   {
     id: 'launch-5',
     label: 'Signal Teaser',
+    imageUrl: '/launch-cards/launch-5.png',
     twitter: {
-      text: "Every evening we scan 6,500+ stocks and ask one question:\n\nDoes this stock pass all 3 filters in the current regime?\n\nMost don't. The ones that do land in your inbox.\n\nrigacap.com",
+      text: "Every two weeks we scan thousands of stocks through a 3-factor gauntlet.\n\nMost fail. 6\u20138 survive.\n\nThose land in your inbox before the market opens. ~15 signals per month when conditions are right. Zero when they're not.\n\nrigacap.com",
       hashtags: '#trading #signals #stockmarket',
     },
     instagram: {
-      text: "Every evening, our system does what would take a human team all day.\n\nScan 6,500+ stocks. Rank by momentum. Filter for quality. Check the market regime. Score. Rank again. Apply trailing stops to existing positions.\n\nThe result? A short list of the highest-conviction opportunities, delivered to your inbox before the next market open.\n\nNo screeners to configure. No charts to stare at. No FOMO-scrolling Twitter at 2am.\n\nJust signals. Verified. Every single one.\n\nrigacap.com",
+      text: "Here's what happens every two weeks inside RigaCap:\n\nScan thousands of stocks. Rank by momentum. Filter for quality. Check the market regime. Score them. Rank again. Throw out anything that doesn't pass all 3 factors.\n\nThe result? 6\u20138 high-conviction buy signals, delivered to your inbox before the market opens.\n\nThat's ~15 signals per month when conditions are healthy. And when the market is ugly? The system goes quiet. No forced trades. No \"well, this one looks okay I guess.\" Just silence \u2014 which is exactly what you want when everyone else is panicking.\n\nNo screeners to configure. No charts to stare at. No FOMO-scrolling at 2am.\n\nJust signals. Walk-forward verified. Every single one.\n\nrigacap.com",
       hashtags: '#trading #signals #stockmarket #algotrading #investing #rigacap',
     },
   },
@@ -648,7 +653,7 @@ function LaunchQueueSection({ fetchWithAuth, onQueued }) {
                   />
                   <InstagramCard
                     post={instagramPost}
-                    preview={null}
+                    preview={lp.imageUrl ? { image_url: lp.imageUrl } : null}
                     actionLoading={null}
                     onApprove={noop}
                     onReject={noop}

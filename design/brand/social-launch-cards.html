@@ -68,55 +68,65 @@ function drawLogo(ctx, cx, cy, size) {
   ctx.arc(cx, cy, size/2, 0, Math.PI * 2);
   ctx.fill();
 
-  // Beacon path (simplified)
+  // Deco Streamline tower
   ctx.save();
   ctx.translate(cx - size/2, cy - size/2);
   ctx.scale(s, s);
-  ctx.fillStyle = WHITE;
-  ctx.beginPath();
-  ctx.moveTo(50, 15);
-  ctx.lineTo(46.5, 38);
-  ctx.quadraticCurveTo(46.5, 40, 44, 40);
-  ctx.lineTo(41, 40);
-  ctx.quadraticCurveTo(39, 40, 39, 42);
-  ctx.lineTo(39, 44);
-  ctx.quadraticCurveTo(39, 46, 41, 46);
-  ctx.lineTo(44, 46);
-  ctx.quadraticCurveTo(46.5, 46, 46.5, 48);
-  ctx.lineTo(43, 69);
-  ctx.quadraticCurveTo(43, 71, 40, 71);
-  ctx.lineTo(36, 71);
-  ctx.quadraticCurveTo(34, 71, 34, 73);
-  ctx.lineTo(34, 76);
-  ctx.quadraticCurveTo(34, 78, 36, 78);
-  ctx.lineTo(40, 78);
-  ctx.quadraticCurveTo(42, 78, 42, 80);
-  ctx.lineTo(42, 92);
-  ctx.lineTo(58, 92);
-  ctx.lineTo(58, 80);
-  ctx.quadraticCurveTo(58, 78, 60, 78);
-  ctx.lineTo(64, 78);
-  ctx.quadraticCurveTo(66, 78, 66, 76);
-  ctx.lineTo(66, 73);
-  ctx.quadraticCurveTo(66, 71, 64, 71);
-  ctx.lineTo(60, 71);
-  ctx.quadraticCurveTo(57, 71, 57, 69);
-  ctx.lineTo(53.5, 48);
-  ctx.quadraticCurveTo(53.5, 46, 56, 46);
-  ctx.lineTo(59, 46);
-  ctx.quadraticCurveTo(61, 46, 61, 44);
-  ctx.lineTo(61, 42);
-  ctx.quadraticCurveTo(61, 40, 59, 40);
-  ctx.lineTo(56, 40);
-  ctx.quadraticCurveTo(53.5, 40, 53.5, 38);
-  ctx.closePath();
-  ctx.fill();
 
-  // Gold dot
-  ctx.fillStyle = GOLD;
-  ctx.beginPath();
-  ctx.arc(50, 15, 3, 0, Math.PI * 2);
-  ctx.fill();
+  // Three smooth tiers with rounded shoulders
+  const tiers = [
+    { y: 65, w: 16, h: 15, r: 3, opacity: 0.2 },
+    { y: 48, w: 10, h: 17, r: 2.5, opacity: 0.35 },
+    { y: 30, w: 5.5, h: 18, r: 2, opacity: 0.5 },
+  ];
+
+  tiers.forEach(t => {
+    ctx.beginPath();
+    ctx.roundRect(50 - t.w, t.y, t.w * 2, t.h, [t.r, t.r, 0, 0]);
+    ctx.fillStyle = WHITE;
+    ctx.globalAlpha = t.opacity;
+    ctx.fill();
+
+    // Horizontal speed lines
+    ctx.strokeStyle = GOLD; ctx.lineWidth = 0.4; ctx.globalAlpha = 0.35;
+    for (let j = 1; j <= 2; j++) {
+      const ly = t.y + t.h * (j / 3);
+      ctx.beginPath();
+      ctx.moveTo(50 - t.w + 1, ly);
+      ctx.lineTo(50 + t.w - 1, ly);
+      ctx.stroke();
+    }
+
+    // Gold shoulder highlights
+    ctx.strokeStyle = GOLD; ctx.lineWidth = 0.6; ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(50 - t.w, t.y + t.r);
+    ctx.arcTo(50 - t.w, t.y, 50 - t.w + t.r, t.y, t.r);
+    ctx.lineTo(50 + t.w - t.r, t.y);
+    ctx.arcTo(50 + t.w, t.y, 50 + t.w, t.y + t.r, t.r);
+    ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+
+  // Smooth antenna
+  const spireTop = 20;
+  ctx.strokeStyle = WHITE; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(50, 30); ctx.lineTo(50, spireTop); ctx.stroke();
+
+  // Soft wave arcs
+  for (let i = 1; i <= 3; i++) {
+    const r = 5 * i;
+    ctx.strokeStyle = GOLD; ctx.lineWidth = 1; ctx.lineCap = 'round';
+    ctx.globalAlpha = 1 - (i - 1) * 0.28;
+    ctx.beginPath(); ctx.arc(50, spireTop, r, -Math.PI * 0.7, -Math.PI * 0.3); ctx.stroke();
+    ctx.beginPath(); ctx.arc(50, spireTop, r, Math.PI * 0.3, Math.PI * 0.7); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // Tip dot
+  ctx.beginPath(); ctx.arc(50, spireTop, 1.8, 0, Math.PI * 2);
+  ctx.fillStyle = GOLD; ctx.fill();
+
   ctx.restore();
 }
 
@@ -156,18 +166,22 @@ function drawGoldLine(ctx, y, w) {
   ctx.fillStyle = WHITE;
   ctx.font = 'bold 72px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText("We're Live.", w/2, 560);
+  ctx.fillText("We're Live.", w/2, 540);
 
   ctx.fillStyle = GOLD;
   ctx.font = '600 36px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText('RigaCap Trading System', w/2, 620);
+  ctx.fillText('RigaCap Trading System', w/2, 600);
 
-  drawGoldLine(ctx, 670, w);
+  drawGoldLine(ctx, 645, w);
+
+  ctx.fillStyle = WHITE;
+  ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('~15 buy signals per month.', w/2, 710);
 
   ctx.fillStyle = GRAY_LIGHT;
   ctx.font = '28px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText('AI-powered ensemble trading signals', w/2, 730);
-  ctx.fillText('built on 5 years of walk-forward testing.', w/2, 770);
+  ctx.fillText('Walk-forward verified across 5 years.', w/2, 760);
+  ctx.fillText('No hindsight. No hand-waving. Just math.', w/2, 800);
 
   ctx.fillStyle = GOLD;
   ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
@@ -346,22 +360,22 @@ function drawGoldLine(ctx, y, w) {
       num: '1',
       title: 'DWAP Timing',
       desc: 'Price > Daily Weighted Average Price',
-      detail: 'Catches early breakouts before the crowd. 200-day weighted price anchors entry timing.',
-      icon: 'clock',
+      detail1: 'Catches early breakouts before the crowd.',
+      detail2: '200-day weighted price anchors entry timing.',
     },
     {
       num: '2',
       title: 'Momentum Quality',
       desc: 'Top composite momentum ranking',
-      detail: '10-day + 60-day momentum score, filtered for low volatility and volume confirmation.',
-      icon: 'trend',
+      detail1: '10-day + 60-day momentum score, filtered',
+      detail2: 'for low volatility and volume confirmation.',
     },
     {
       num: '3',
       title: 'Regime Filter',
       desc: '7-regime market detection',
-      detail: 'Adapts position sizing and entry rules across bull, bear, crash, and recovery regimes.',
-      icon: 'shield',
+      detail1: 'Adapts position sizing and entry rules across',
+      detail2: 'bull, bear, crash, and recovery regimes.',
     },
   ];
 
@@ -396,23 +410,39 @@ function drawGoldLine(ctx, y, w) {
     ctx.textAlign = 'left';
     ctx.fillStyle = GOLD;
     ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText(f.title, 224, cardY + 60);
+    ctx.fillText(f.title, 224, cardY + 55);
 
     ctx.fillStyle = WHITE;
     ctx.font = '26px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText(f.desc, 224, cardY + 105);
+    ctx.fillText(f.desc, 224, cardY + 100);
 
     ctx.fillStyle = GRAY_LIGHT;
     ctx.font = '22px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillText(f.detail, 224, cardY + 150);
+    ctx.fillText(f.detail1, 224, cardY + 145);
+    ctx.fillText(f.detail2, 224, cardY + 175);
   });
 
-  // Bottom connector
+  // Dashed line connecting the three number circles and down to result box
+  const lineX = 160;
+  const circleR = 36;
+  const cardH = 220;
+  const cardGap = 24;
+  // Circle centers: fy + cardH/2, fy + (cardH+cardGap) + cardH/2, fy + 2*(cardH+cardGap) + cardH/2
+  const cy1 = fy + cardH/2;                       // 330
+  const cy2 = fy + (cardH + cardGap) + cardH/2;   // 574
+  const cy3 = fy + 2*(cardH + cardGap) + cardH/2; // 818
   const arrowY = fy + 3 * 244 + 20;
+  const resultMidY = arrowY + 40;
+
   ctx.strokeStyle = GOLD;
   ctx.lineWidth = 2;
   ctx.setLineDash([8, 4]);
-  ctx.beginPath(); ctx.moveTo(w/2, fy + 220); ctx.lineTo(w/2, arrowY); ctx.stroke();
+  // Segment 1: bottom of circle 1 → top of circle 2
+  ctx.beginPath(); ctx.moveTo(lineX, cy1 + circleR); ctx.lineTo(lineX, cy2 - circleR); ctx.stroke();
+  // Segment 2: bottom of circle 2 → top of circle 3
+  ctx.beginPath(); ctx.moveTo(lineX, cy2 + circleR); ctx.lineTo(lineX, cy3 - circleR); ctx.stroke();
+  // Segment 3: bottom of circle 3 → middle of result box
+  ctx.beginPath(); ctx.moveTo(lineX, cy3 + circleR); ctx.lineTo(lineX, resultMidY); ctx.stroke();
   ctx.setLineDash([]);
 
   // Result box
@@ -432,8 +462,8 @@ function drawGoldLine(ctx, y, w) {
   ctx.fillText('All 3 must align = High-conviction entry', w/2, arrowY + 50);
 
   ctx.fillStyle = GRAY_LIGHT;
-  ctx.font = '20px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText('rigacap.com', w/2, h - 50);
+  ctx.font = '18px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('rigacap.com', w/2, arrowY + 80 + 18);
 })();
 
 // ── Card 4: 7 Market Regimes ──
@@ -635,8 +665,8 @@ function drawGoldLine(ctx, y, w) {
 
   ctx.fillStyle = GRAY_LIGHT;
   ctx.font = '28px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText('Real-time buy signals, momentum scores,', w/2, ctaY + 155);
-  ctx.fillText('regime detection, and trailing stop alerts.', w/2, ctaY + 195);
+  ctx.fillText('6\u20138 high-conviction signals every 2 weeks.', w/2, ctaY + 155);
+  ctx.fillText('Momentum scores, regime alerts, trailing stops.', w/2, ctaY + 195);
 
   // CTA button
   ctx.fillStyle = GOLD;
