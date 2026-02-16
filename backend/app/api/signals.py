@@ -610,8 +610,9 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                 })
 
         buy_signals.sort(key=lambda x: (
+            0 if (x.get('days_since_entry') or 999) == 0 else 1,  # BUY NOW first
             0 if x['is_fresh'] else 1,
-            x.get('days_since_crossover') or 999,
+            x.get('days_since_entry') if x.get('days_since_entry') is not None else 999,
             -x['ensemble_score']
         ))
 
@@ -1159,8 +1160,9 @@ async def _compute_dashboard_live(
         buy_signals = [s for s in buy_signals if s['is_fresh']]
 
         buy_signals.sort(key=lambda x: (
+            0 if (x.get('days_since_entry') or 999) == 0 else 1,  # BUY NOW first
             0 if x['is_fresh'] else 1,
-            x.get('days_since_crossover') or 999,
+            x.get('days_since_entry') if x.get('days_since_entry') is not None else 999,
             -x['ensemble_score']
         ))
     except Exception as e:
