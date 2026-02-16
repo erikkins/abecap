@@ -134,14 +134,20 @@ class SocialContentService:
 
         posts = []
 
+        # Deterministic pick using date-based hash
+        date_key = str(datetime.utcnow().date())
+
         # Twitter recap
-        twitter_text = f"This week's scorecard:\n\n"
+        opener = self._RECAP_OPENERS_TWITTER[hash(date_key) % len(self._RECAP_OPENERS_TWITTER)]
+        closer = self._RECAP_CLOSERS_TWITTER[hash(date_key + "closer") % len(self._RECAP_CLOSERS_TWITTER)]
+
+        twitter_text = f"{opener}\n\n"
         twitter_text += f"{wins}W-{total - wins}L"
         twitter_text += f" | {win_rate:.0f}% win rate"
         twitter_text += f" | {avg_return:+.1f}% avg\n"
         if best_trade:
             twitter_text += f"\nMVP: ${best_trade['symbol']} at {best_trade.get('pnl_pct', 0):+.1f}%\n"
-        twitter_text += f"\nAll walk-forward verified. No cherry-picking."
+        twitter_text += f"\n{closer}"
 
         twitter_post = SocialPost(
             post_type="weekly_recap",
@@ -160,7 +166,10 @@ class SocialContentService:
         posts.append(twitter_post)
 
         # Instagram recap
-        insta_text = f"Week in review.\n\n"
+        ig_opener = self._RECAP_OPENERS_INSTA[hash(date_key + "ig") % len(self._RECAP_OPENERS_INSTA)]
+        ig_closer = self._RECAP_CLOSERS_INSTA[hash(date_key + "ig_closer") % len(self._RECAP_CLOSERS_INSTA)]
+
+        insta_text = f"{ig_opener}\n\n"
         insta_text += f"{wins}W-{total - wins}L | {win_rate:.0f}% win rate\n"
         insta_text += f"Average return: {avg_return:+.1f}%\n"
         if best_trade:
@@ -170,8 +179,7 @@ class SocialContentService:
                 f"${best_trade.get('entry_price', 0):.2f} \u2192 ${best_trade.get('exit_price', 0):.2f} ({best_pct:+.1f}%)\n"
             )
         insta_text += (
-            f"\nEvery signal walk-forward verified.\n"
-            f"No curve fitting. No look-ahead. Just math.\n"
+            f"\n{ig_closer}\n"
             f"\nrigacap.com"
         )
 
@@ -212,15 +220,91 @@ class SocialContentService:
                 pass
         return trade.get("days_held", 1)
 
-    # Varied openers to avoid repetitive posts
+    # ── Massive variety pools ────────────────────────────────────────
+    # Openers, body templates, and closers mix-and-match for hundreds
+    # of unique posts. Deterministic selection via symbol+date hash.
+
     _WIN_OPENERS = [
+        # Confident
         "This one worked out nicely.",
         "The algo saw it coming.",
         "Patience paid off on this one.",
         "Another clean entry, clean exit.",
         "Caught the move, locked in gains.",
         "In and out. That's how it's done.",
-        "The Ensemble doesn't chase — it waits.",
+        "The Ensemble doesn't chase \u2014 it waits.",
+        "Textbook setup. Textbook result.",
+        "When all 3 factors agree, good things happen.",
+        "The math worked.",
+        "Boring? Maybe. Profitable? Definitely.",
+        "Sometimes the best trades are the quiet ones.",
+        "No drama. Just returns.",
+        "Let the trailing stop do its job.",
+        "Entered with conviction, exited with profits.",
+        # Conversational
+        "Not bad for a robot.",
+        "We'll take it.",
+        "The algo doesn't celebrate. But we do.",
+        "Another one for the walk-forward record.",
+        "Add it to the pile.",
+        "Rinse and repeat.",
+        "Momentum is a beautiful thing.",
+        "The system keeps receipts.",
+        "When the setup is there, you take it.",
+        "Some trades just work.",
+        "No hot tips. No gut feelings. Just signal.",
+        "The kind of trade you don't lose sleep over.",
+        "Risk managed. Gains banked.",
+        "This is what disciplined trading looks like.",
+        "Clean signal. Clean execution.",
+        # Witty
+        "Meanwhile, the algo was quietly making money.",
+        "While everyone was arguing on Twitter, we were trading.",
+        "Another day, another walk-forward-verified exit.",
+        "The market gave, the trailing stop took.",
+        "No FOMO required.",
+        "This trade didn't need a hot take.",
+        "The algo doesn't read the news. It reads the data.",
+        "Regime-aware, momentum-confirmed, and profitable.",
+        "Three filters said yes. They were right.",
+        "The boring part is the profitable part.",
+        "This one paid its own subscription for the month.",
+        "Signals in, gains out. Simple as that.",
+        "You know what's better than a prediction? A verified result.",
+        "One more for the highlight reel.",
+        "The algo's win column just got longer.",
+        # Understated
+        "Quiet entry. Quiet exit. Not-so-quiet return.",
+        "Nothing flashy. Just math doing math things.",
+        "Filed under: things that worked.",
+        "It's not luck when you can show the receipts.",
+        "This is what walk-forward tested looks like in practice.",
+    ]
+
+    _WIN_CLOSERS_TWITTER = [
+        "Walk-forward verified \u2014 not a backtest.",
+        "Verified. Not hypothetical.",
+        "Real signal, real result.",
+        "No hindsight. No curve fitting.",
+        "Walk-forward tested. Every. Single. Trade.",
+        "The receipts are public.",
+        "Every signal verified in real time.",
+        "Not backtested. Walk-forward proven.",
+        "All signals tested without future data.",
+        "Results you can verify.",
+    ]
+
+    _WIN_CLOSERS_INSTA = [
+        "Walk-forward verified. Not a backtest, not hypothetical \u2014 a real signal our system flagged in real time.",
+        "This wasn't a hypothesis. Our system flagged it, we traded it, and here are the results.",
+        "Every trade we post was a real-time signal. No cherry-picking. No Monday morning quarterbacking.",
+        "Not a backtest. Not a \"what if.\" A real signal, verified by walk-forward testing.",
+        "Our system doesn't get to peek at future data. It has to figure it out live \u2014 just like you.",
+        "We show winners and losers. This one happened to be a winner.",
+        "Verified in real time by our walk-forward engine. No look-ahead bias. Just math.",
+        "The algo doesn't know it won. It just moves on to the next signal.",
+        "This is what honest testing looks like. Every trade verified without future information.",
+        "Real-time signal. Walk-forward verified. We don't post the trades that didn't happen.",
     ]
 
     _MISS_OPENERS = [
@@ -229,22 +313,222 @@ class SocialContentService:
         "The algo flagged it. Did you catch it?",
         "Quietly, this happened.",
         "Most people missed this.",
+        "While you were sleeping on this one...",
+        "This flew under the radar.",
+        "Our system noticed. Did yours?",
+        "Nobody was talking about this one.",
+        "The kind of move you only see in hindsight \u2014 unless your algo caught it.",
+        "This wasn't on anyone's watchlist. Except ours.",
+        "Silent mover.",
+        "Not on CNBC. Still made money.",
+        "The market whispered. The algo heard.",
+        "You won't find this on a screener.",
+        "Funny how the best trades get no hype.",
+        "No one tweeted about this entry. That was the point.",
+        "This is the trade no one brags about missing.",
+        "While fintwit was debating, this was running.",
+        "The algo doesn't need consensus.",
+        "No catalyst. No headline. Just momentum.",
+        "Sometimes the best opportunities are the boring ones.",
+        "Screener didn't catch it. Scanner did.",
+        "The crowd was looking somewhere else.",
+        "This is what systematic beats discretionary looks like.",
+        "Not trending. Just profiting.",
+        "You had to be subscribed to see this one.",
+        "This wasn't on anyone's radar. Well, almost anyone's.",
+        "The algo doesn't have FOMO. It has a process.",
+        "Another one the market forgot to tell people about.",
+        "Zero buzz. All signal.",
+        "This was a walk-forward signal, not a water cooler tip.",
+        "If you blinked, you missed it.",
+        "This trade was boring. The return wasn't.",
+        "Nobody rings a bell at the top \u2014 but the algo sends an email.",
+        "The signal fired. Did you act?",
+        "This is why we don't rely on gut feelings.",
+        "Not sexy. Very profitable.",
+        "The kind of trade that only shows up in systematic screens.",
+        "Filed under: opportunities most people scrolled past.",
+        "This move started quietly and ended loudly.",
+        "Our subscribers saw this coming. The rest saw it going.",
+        "This is what happens when you let data lead.",
+        "The headlines came after the move. The signal came before.",
+        "Not a rumor. Not a tip. A verified signal.",
+        "When momentum and timing align, you get this.",
+        "The algo doesn't have a Twitter account. It has results.",
+        "This one was hiding in plain sight.",
+        "Sometimes the market hands you a gift. You just have to be looking.",
+        "Not every winner gets a victory lap. This one deserves one.",
+    ]
+
+    _MISS_CLOSERS_TWITTER = [
+        "Walk-forward verified \u2014 not a backtest.",
+        "Our system flagged it in real time.",
+        "Real signal. Real-time. Real result.",
+        "Subscribers saw it. Did you?",
+        "Not hindsight. Foresight.",
+        "The algo doesn't do FOMO. It does math.",
+        "Walk-forward proven. Zero look-ahead bias.",
+        "Next time, let the algo tell you.",
+        "This is why systematic beats gut feeling.",
+        "Verified signal \u2014 not a hot take.",
+    ]
+
+    _MISS_CLOSERS_INSTA = [
+        "This wasn't a backtest. Our system flagged it in real time. You just had to be subscribed.",
+        "The signal was there. The opportunity was real. The question is whether you were paying attention.",
+        "We don't post these to brag. We post them so you know what systematic trading actually looks like.",
+        "Next time this setup appears, our subscribers will see it first. That's the whole point.",
+        "Real-time signal, walk-forward verified. No one told us this trade would work. The data did.",
+        "The algo doesn't feel bad about the ones you miss. But you might.",
+        "Every trade we post was flagged before it happened. Not after. That's the difference.",
+        "You can't go back in time. But you can subscribe before the next one.",
+        "This is what you miss when you rely on screeners and gut feelings instead of a system.",
+        "Walk-forward tested. Every signal verified without future data. The algo plays fair.",
+    ]
+
+    _RECAP_OPENERS_TWITTER = [
+        "This week's scorecard:",
+        "Weekly results are in.",
+        "Another week in the books.",
+        "End-of-week report card:",
+        "Let's see how the algo did this week.",
+        "The numbers don't lie. Here's this week:",
+        "Friday means receipts. Here's ours:",
+        "Week's over. Here's the damage (the good kind):",
+        "The algo's weekly report:",
+        "Time to check the scoreboard.",
+    ]
+
+    _RECAP_CLOSERS_TWITTER = [
+        "All walk-forward verified. No cherry-picking.",
+        "Every trade verified. No look-ahead bias.",
+        "Walk-forward tested. Every. Single. Trade.",
+        "All signals verified in real time.",
+        "No backtests. No hypotheticals. Just results.",
+        "Systematic. Verified. Repeatable.",
+        "The algo doesn't pick favorites. It picks winners.",
+        "Not a highlights reel. The full record.",
+        "We show the wins and the losses.",
+        "Same system, same rules, every week.",
+    ]
+
+    _RECAP_OPENERS_INSTA = [
+        "Week in review.",
+        "Another week, another set of receipts.",
+        "Weekly recap \u2014 let's see how the algo performed.",
+        "Here's what systematic trading looked like this week.",
+        "The algo's weekly report card is in.",
+        "Friday close means it's time for the numbers.",
+        "How'd we do this week? Glad you asked.",
+        "The Ensemble's weekly performance breakdown:",
+        "End of week. Time for the honest numbers.",
+        "Weekly walk-forward results \u2014 the full picture.",
+    ]
+
+    _RECAP_CLOSERS_INSTA = [
+        "Every signal walk-forward verified.\nNo curve fitting. No look-ahead. Just math.",
+        "We don't cherry-pick our best trades. This is the full record \u2014 wins and losses alike.",
+        "All verified in real time. The algo doesn't get the luxury of hindsight.",
+        "Systematic trading isn't about having a perfect week. It's about having a verified one.",
+        "The algo doesn't celebrate wins or mourn losses. It just moves to the next signal.",
+        "No edits. No selective reporting. Every trade that fired gets reported.",
+        "This is what disciplined, regime-aware trading looks like over a full week.",
+        "Walk-forward tested, not backtested. Every signal verified without future data.",
+        "The system works the same every week. The results vary. The process doesn't.",
+        "We post the full record because transparency isn't optional \u2014 it's the product.",
     ]
 
     _REGIME_FLAVORS = {
-        "Strong Bull": "Full send mode activated.",
-        "Weak Bull": "Bull market with fine print.",
-        "Rotating Bull": "Musical chairs, but with money.",
-        "Range Bound": "The market is thinking. So are we.",
-        "Weak Bear": "Death by a thousand paper cuts territory.",
-        "Panic Crash": "When the VIX spikes, we step aside. Ego is expensive.",
-        "Recovery": "The brave (and the algorithmic) start buying here.",
+        "Strong Bull": [
+            "Full send mode activated.",
+            "Green across the board. The algo is busy.",
+            "Broad rally, high breadth. This is what we train for.",
+            "Everything's working. That's usually when people get careless. Not us.",
+            "Bull market in full swing. The system is fully deployed.",
+            "When the market's this strong, the hard part is being patient enough to wait for the signal.",
+            "Risk-on. But still disciplined.",
+            "The algo doesn't get euphoric. It gets positioned.",
+            "Strong Bull regime detected. Maximum exposure, maximum discipline.",
+            "Markets up, breadth strong, signals firing. Business as usual.",
+        ],
+        "Weak Bull": [
+            "Bull market with fine print.",
+            "Technically bullish. Practically tricky.",
+            "The market is up, but only a few stocks are doing the work.",
+            "Narrow leadership. The algo is being picky. You should be too.",
+            "Looks bullish from 30,000 feet. Looks selective from ground level.",
+            "Weak Bull: where most people think everything's fine and then wonder why their picks aren't working.",
+            "The index is green. Your portfolio might not be. That's a Weak Bull.",
+            "Selective entries only. The market isn't as strong as the headlines suggest.",
+            "Bull market for the few. Flat market for everyone else.",
+            "This is the regime where stock pickers earn their keep.",
+        ],
+        "Rotating Bull": [
+            "Musical chairs, but with money.",
+            "Sector rotation in full effect. Follow the momentum.",
+            "Last week's winners are this week's laggards. The algo adapts.",
+            "The market is rotating. The question is whether you're rotating with it.",
+            "Rotating Bull: where yesterday's trade is today's trap.",
+            "Sectors taking turns. The algo follows the leader.",
+            "This is the regime where discipline matters most.",
+            "Momentum is sector-specific right now. The Ensemble knows which ones.",
+            "Whichever sector is leading, that's where our signals point.",
+            "Rotation is healthy. It's also confusing if you're not systematic about it.",
+        ],
+        "Range Bound": [
+            "The market is thinking. So are we.",
+            "Choppy. The algo is sitting on its hands (mostly).",
+            "Range Bound: the regime where patience is literally the strategy.",
+            "No trend, no edge. Reduced position sizing.",
+            "The market is going sideways. So is everyone's P&L.",
+            "This is the regime where overtrading kills you. We size down.",
+            "Not every market deserves your capital. This one gets less of it.",
+            "Flat markets punish impatience. The algo doesn't have that problem.",
+            "Range Bound detected. Translation: chill.",
+            "The best trade in a Range Bound market is often no trade at all.",
+        ],
+        "Weak Bear": [
+            "Death by a thousand paper cuts territory.",
+            "Slow bleed. Stops tightened. Cash raised.",
+            "The market isn't crashing. It's just quietly taking your money.",
+            "Weak Bear: not scary enough to sell, not strong enough to buy. That's the trap.",
+            "This is the regime where hope is the most expensive emotion.",
+            "Tighter stops. Fewer signals. More cash. That's the playbook.",
+            "The market is drifting lower. The algo is drifting toward cash.",
+            "Weak Bear mode: where \"buying the dip\" starts to feel like a bad habit.",
+            "Not a crash. Just a slow leak. The algo adjusts.",
+            "The hardest regime to trade. Good thing we have a system for it.",
+        ],
+        "Panic Crash": [
+            "When the VIX spikes, we step aside. Ego is expensive.",
+            "Crash mode. The algo does the one thing most humans can't: nothing.",
+            "Panic detected. All positions closed. We'll be back when the math says so.",
+            "This is the regime where heroes go broke. We're not heroes. We're systematic.",
+            "Exit everything. Ask questions later. That's the Panic playbook.",
+            "The market is panicking. We are not. We're in cash.",
+            "Crashes are not for trading. They're for surviving. The algo survives.",
+            "Everyone has a plan until the VIX hits 40.",
+            "The best trade in a crash is the one you don't make.",
+            "Panic Crash detected. Cash is a position. A good one, right now.",
+        ],
+        "Recovery": [
+            "The brave (and the algorithmic) start buying here.",
+            "Bottom's in? Maybe. The algo is starting to nibble.",
+            "Recovery regime detected. Cautiously optimistic. Heavy on the cautious.",
+            "The market is trying to find its footing. The algo is placing its first bets.",
+            "This is where the next bull market starts. If you're paying attention.",
+            "Scaling back in. Not all at once \u2014 we're systematic, not reckless.",
+            "Recovery mode: the regime that rewards patience and punishes lateness.",
+            "The worst is probably over. The algo is starting to agree.",
+            "This is the regime where last cycle's crash sellers become this cycle's FOMO buyers.",
+            "Slowly, carefully, the algo is putting money back to work.",
+        ],
     }
 
-    def _pick_opener(self, openers: list, trade: dict) -> str:
-        """Deterministically pick an opener based on symbol hash for consistency."""
-        idx = hash(trade.get("symbol", "")) % len(openers)
-        return openers[idx]
+    def _pick(self, items: list, trade: dict, salt: str = "") -> str:
+        """Deterministically pick from a list using symbol+date+salt hash."""
+        key = trade.get("symbol", "") + str(trade.get("entry_date", "")) + salt
+        return items[hash(key) % len(items)]
 
     def _make_trade_result_twitter(self, trade: dict) -> SocialPost:
         """Create a Twitter-format trade result post (280 chars max)."""
@@ -252,12 +536,13 @@ class SocialContentService:
         pnl_pct = trade.get("pnl_pct", 0)
         days_held = self._calc_days_held(trade)
 
-        opener = self._pick_opener(self._WIN_OPENERS, trade)
+        opener = self._pick(self._WIN_OPENERS, trade)
+        closer = self._pick(self._WIN_CLOSERS_TWITTER, trade, "closer")
 
         text = (
             f"{opener}\n\n"
             f"${symbol}: {pnl_pct:+.1f}% in {days_held} days.\n\n"
-            f"Walk-forward verified — not a backtest."
+            f"{closer}"
         )
 
         return SocialPost(
@@ -279,16 +564,22 @@ class SocialContentService:
         exit_reason = trade.get("exit_reason", "trailing_stop")
         days_held = self._calc_days_held(trade)
 
-        exit_display = exit_reason.replace("_", " ").title() if exit_reason else "Exit"
-        opener = self._pick_opener(self._WIN_OPENERS, trade)
+        _EXIT_DISPLAY = {
+            "simulation_end": "portfolio rebalance",
+            "rebalance_exit": "portfolio rebalance",
+            "trailing_stop": "trailing stop",
+            "market_regime": "regime shift",
+        }
+        exit_display = _EXIT_DISPLAY.get(exit_reason, exit_reason.replace("_", " ")) if exit_reason else "exit"
+        opener = self._pick(self._WIN_OPENERS, trade, "ig")
+        closer = self._pick(self._WIN_CLOSERS_INSTA, trade, "ig_closer")
 
         text = (
             f"{opener}\n\n"
             f"${symbol} \u2014 {pnl_pct:+.1f}% in {days_held} days\n"
             f"In at ${entry_price:.2f} \u2192 Out at ${exit_price:.2f}\n"
             f"Exit: {exit_display.lower()}\n\n"
-            f"Walk-forward verified. Not a backtest, not hypothetical \u2014\n"
-            f"a real signal our system flagged in real time.\n"
+            f"{closer}\n"
             f"\nrigacap.com"
         )
 
@@ -315,12 +606,13 @@ class SocialContentService:
         pnl_pct = trade.get("pnl_pct", 0)
         days_held = self._calc_days_held(trade)
 
-        opener = self._pick_opener(self._MISS_OPENERS, trade)
+        opener = self._pick(self._MISS_OPENERS, trade)
+        closer = self._pick(self._MISS_CLOSERS_TWITTER, trade, "closer")
 
         text = (
             f"{opener}\n\n"
             f"${symbol}: {pnl_pct:+.1f}% in {days_held} days.\n\n"
-            f"Walk-forward verified \u2014 not a backtest."
+            f"{closer}"
         )
 
         return SocialPost(
@@ -342,15 +634,15 @@ class SocialContentService:
         exit_date = str(trade.get("exit_date", ""))[:10]
         days_held = self._calc_days_held(trade)
 
-        opener = self._pick_opener(self._MISS_OPENERS, trade)
+        opener = self._pick(self._MISS_OPENERS, trade, "ig")
+        closer = self._pick(self._MISS_CLOSERS_INSTA, trade, "ig_closer")
 
         text = (
             f"{opener}\n\n"
             f"${symbol} \u2014 {pnl_pct:+.1f}% in {days_held} days\n"
             f"Signal fired {entry_date} at ${entry_price:.2f}\n"
             f"Exit {exit_date} at ${exit_price:.2f}\n\n"
-            f"This wasn't a backtest. Our system flagged it in real time.\n"
-            f"You just had to be subscribed.\n"
+            f"{closer}\n"
             f"\nrigacap.com"
         )
 
@@ -401,7 +693,8 @@ class SocialContentService:
             vix_level = round(float(vix_df.iloc[-1]["close"]), 2) if vix_df is not None and len(vix_df) > 0 else None
 
             # Twitter
-            flavor = self._REGIME_FLAVORS.get(regime_name, "Adapting accordingly.")
+            flavor_list = self._REGIME_FLAVORS.get(regime_name, ["Adapting accordingly."])
+            flavor = flavor_list[hash(regime_name + str(spy_price)) % len(flavor_list)]
             twitter_text = f"Regime check: {regime_name}\n\n"
             twitter_text += f"SPY ${spy_price}"
             if vix_level is not None:
@@ -425,13 +718,14 @@ class SocialContentService:
             posts.append(twitter_post)
 
             # Instagram
-            flavor = self._REGIME_FLAVORS.get(regime_name, "Adapting accordingly.")
+            flavor_list = self._REGIME_FLAVORS.get(regime_name, ["Adapting accordingly."])
+            ig_flavor = flavor_list[hash(regime_name + str(spy_price) + "ig") % len(flavor_list)]
             insta_text = f"Regime check: {regime_name}\n\n"
             insta_text += f"SPY ${spy_price}"
             if vix_level is not None:
                 insta_text += f" | VIX {vix_level}"
             insta_text += f"\nRisk: {risk_level.title()}\n\n"
-            insta_text += f"{flavor}\n\n"
+            insta_text += f"{ig_flavor}\n\n"
             insta_text += f"{regime_desc}\n\n"
             insta_text += (
                 f"Most strategies have one mode. Ours detects 7 and\n"

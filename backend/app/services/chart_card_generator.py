@@ -148,7 +148,13 @@ class ChartCardGenerator:
         # Strategy badge
         self._draw_badge(ax, 0.35, badge_y, strategy_name, BRAND_ACCENT)
         # Exit reason badge
-        exit_display = exit_reason.replace('_', ' ').title() if exit_reason else 'Exit'
+        _EXIT_MAP = {
+            "simulation_end": "Portfolio Rebalance",
+            "rebalance_exit": "Portfolio Rebalance",
+            "trailing_stop": "Trailing Stop",
+            "market_regime": "Regime Shift",
+        }
+        exit_display = _EXIT_MAP.get(exit_reason, exit_reason.replace('_', ' ').title()) if exit_reason else 'Exit'
         self._draw_badge(ax, 0.65, badge_y, exit_display, BRAND_GRAY)
 
         # --- Footer ---
