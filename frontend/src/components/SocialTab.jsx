@@ -332,6 +332,11 @@ export default function SocialTab({ fetchWithAuth }) {
         <ComposeModal onClose={() => setShowCompose(false)} onSubmit={handleCompose} />
       )}
 
+      {/* Launch Queue — show above feed, hide once launch posts have been queued */}
+      {!posts.some(p => p.post_type === 'manual') && (
+        <LaunchQueueSection fetchWithAuth={fetchWithAuth} onQueued={() => Promise.all([fetchStats(), fetchPosts()])} />
+      )}
+
       {/* Post Feed */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -441,8 +446,6 @@ export default function SocialTab({ fetchWithAuth }) {
         </div>
       )}
 
-      {/* Launch Queue Preview */}
-      <LaunchQueueSection fetchWithAuth={fetchWithAuth} onQueued={() => Promise.all([fetchStats(), fetchPosts()])} />
     </div>
   );
 }
