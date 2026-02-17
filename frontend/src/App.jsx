@@ -1546,6 +1546,8 @@ const TOUR_STEPS = [
 
 function WelcomeTour() {
   const [visible, setVisible] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tour') !== null) return true;
     return localStorage.getItem(CACHE_KEYS.WELCOME_SEEN) !== 'true';
   });
   const [step, setStep] = useState(0);
