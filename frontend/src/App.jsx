@@ -3318,12 +3318,9 @@ function Dashboard() {
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading, user } = useAuth();
-
-  console.log('ProtectedRoute: loading=', loading, 'isAuthenticated=', isAuthenticated, 'user=', user?.email);
+  const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    console.log('ProtectedRoute: Still loading, showing spinner');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
@@ -3332,11 +3329,9 @@ function ProtectedRoute({ children }) {
   }
 
   if (!isAuthenticated) {
-    console.log('ProtectedRoute: Not authenticated, redirecting to /');
     return <Navigate to="/" replace />;
   }
 
-  console.log('ProtectedRoute: Authenticated, rendering children');
   return children;
 }
 

@@ -189,53 +189,34 @@ export function AuthProvider({ children }) {
 
   // Login
   const login = async (email, password) => {
-    console.log('AuthContext: login called for', email);
-    console.log('AuthContext: API_URL is', API_URL);
     setError(null);
 
-    const loginUrl = `${API_URL}/api/auth/login`;
-    console.log('AuthContext: Full login URL:', loginUrl);
-
     try {
-      console.log('AuthContext: Creating request body');
-      const body = JSON.stringify({ email, password });
-      console.log('AuthContext: Request body:', body);
-
-      console.log('AuthContext: Making fetch call...');
-      const response = await fetch(loginUrl, {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: body,
+        body: JSON.stringify({ email, password }),
       });
-
-      console.log('AuthContext: Fetch completed, status:', response.status);
 
       let data;
       try {
         data = await response.json();
-        console.log('AuthContext: Response JSON:', data);
       } catch (parseErr) {
-        console.error('AuthContext: Failed to parse JSON response:', parseErr);
         throw new Error('Invalid response from server');
       }
 
       if (!response.ok) {
-        console.log('AuthContext: Response not OK, throwing error');
         throw new Error(data.detail || 'Login failed');
       }
 
-      console.log('AuthContext: Login successful, setting tokens and user');
       setTokens(data.access_token, data.refresh_token);
       setUser(data.user);
-      console.log('AuthContext: User set, returning success');
       return { success: true };
     } catch (err) {
-      console.error('AuthContext: Login error name:', err.name);
-      console.error('AuthContext: Login error message:', err.message);
-      console.error('AuthContext: Login error stack:', err.stack);
+      console.error('Login failed:', err.message);
       setError(err.message);
       return { success: false, error: err.message };
     }
