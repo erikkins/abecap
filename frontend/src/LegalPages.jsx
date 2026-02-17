@@ -83,7 +83,7 @@ export function PrivacyPage() {
       </Section>
 
       <Section title="Cookies">
-        <p>We use essential cookies for authentication and session management. We do not use third-party advertising or tracking cookies.</p>
+        <p>We use essential cookies for authentication and session management. With your consent, we also use Google Analytics (GA4) to understand how visitors use our site. You can change your cookie preferences at any time using the cookie banner.</p>
       </Section>
 
       <Section title="Changes to This Policy">

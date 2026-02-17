@@ -18,6 +18,7 @@ import LoginModal from './components/LoginModal';
 import AdminDashboard from './components/AdminDashboard';
 import SubscriptionBanner from './components/SubscriptionBanner';
 import { ForgotPasswordPage, ResetPasswordPage } from './components/PasswordReset';
+import CookieConsent from './components/CookieConsent';
 // DoubleSignals, MomentumRankings, ApproachingTrigger removed — absorbed into unified dashboard
 
 // ============================================================================
@@ -3347,6 +3348,7 @@ export default function App() {
           </ProtectedRoute>
         } />
       </Routes>
+      <CookieConsent />
     </AuthProvider>
   );
 }
