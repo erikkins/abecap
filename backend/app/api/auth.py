@@ -165,10 +165,6 @@ async def register(
     db.add(user)
     await db.flush()
 
-    # Create trial subscription
-    subscription = Subscription.create_trial(user.id)
-    db.add(subscription)
-
     await db.commit()
     await db.refresh(user)
 
@@ -380,10 +376,6 @@ async def google_auth(
         db.add(user)
         await db.flush()
 
-        # Create trial subscription
-        subscription = Subscription.create_trial(user.id)
-        db.add(subscription)
-
     await db.commit()
     await db.refresh(user)
 
@@ -480,10 +472,6 @@ async def apple_auth(
         )
         db.add(user)
         await db.flush()
-
-        # Create trial subscription
-        subscription = Subscription.create_trial(user.id)
-        db.add(subscription)
 
     await db.commit()
     await db.refresh(user)

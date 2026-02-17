@@ -11,6 +11,34 @@ export default function SubscriptionBanner() {
 
   if (!user) return null;
 
+  // User registered but abandoned Stripe checkout (no subscription record)
+  if (!user.subscription) {
+    return (
+      <div className="border rounded-lg p-4 mb-6 bg-blue-50 border-blue-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CreditCard className="text-blue-600 flex-shrink-0" size={24} />
+            <div>
+              <p className="font-medium text-blue-800">
+                Complete your signup to start your free trial
+              </p>
+              <p className="text-sm text-gray-600 mt-1">
+                7-day free trial, then $20/month or $200/year
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => handleUpgrade('monthly')}
+            disabled={loading}
+            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+          >
+            {loading ? 'Loading...' : 'Start Free Trial'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const subStatus = user.subscription?.status;
   const isActive = subStatus === 'active';
   const isPastDue = subStatus === 'past_due';

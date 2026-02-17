@@ -85,18 +85,27 @@ async def create_checkout_session(
             user.stripe_customer_id = customer.id
             await db.commit()
 
-        # Create checkout session
-        session = stripe.checkout.Session.create(
-            customer=user.stripe_customer_id,
-            mode="subscription",
-            line_items=[{
-                "price": price_id,
-                "quantity": 1
-            }],
-            success_url=f"{settings.FRONTEND_URL}/dashboard?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{settings.FRONTEND_URL}/pricing?checkout=canceled",
-            allow_promotion_codes=True,
+        # Check if user already had a subscription (prevent repeat trials)
+        result = await db.execute(
+            select(Subscription).where(Subscription.user_id == user.id)
         )
+        existing_sub = result.scalar_one_or_none()
+
+        # Create checkout session
+        checkout_params = {
+            "customer": user.stripe_customer_id,
+            "mode": "subscription",
+            "line_items": [{"price": price_id, "quantity": 1}],
+            "success_url": f"{settings.FRONTEND_URL}/dashboard?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
+            "cancel_url": f"{settings.FRONTEND_URL}/pricing?checkout=canceled",
+            "allow_promotion_codes": True,
+        }
+
+        # Only offer trial to users who have never had a subscription
+        if not existing_sub:
+            checkout_params["subscription_data"] = {"trial_period_days": 7}
+
+        session = stripe.checkout.Session.create(**checkout_params)
 
         return CheckoutResponse(
             checkout_url=session.url,
@@ -204,7 +213,12 @@ async def sync_subscription(
         )
         subscription = result.scalar_one_or_none()
         if not subscription:
-            raise HTTPException(status_code=404, detail="No subscription record")
+            # User may have just completed Stripe checkout before webhook fired
+            if subs.data:
+                subscription = Subscription(user_id=user.id)
+                db.add(subscription)
+            else:
+                raise HTTPException(status_code=404, detail="No subscription record")
 
         if subs.data:
             stripe_sub = subs.data[0]
@@ -224,6 +238,11 @@ async def sync_subscription(
             if period_end:
                 subscription.current_period_end = datetime.fromtimestamp(period_end)
             subscription.cancel_at_period_end = stripe_sub.cancel_at_period_end
+            # Set trial dates if trialing
+            if hasattr(stripe_sub, 'trial_start') and stripe_sub.trial_start:
+                subscription.trial_start = datetime.fromtimestamp(stripe_sub.trial_start)
+            if hasattr(stripe_sub, 'trial_end') and stripe_sub.trial_end:
+                subscription.trial_end = datetime.fromtimestamp(stripe_sub.trial_end)
             await db.commit()
 
             return {
@@ -341,8 +360,16 @@ async def handle_subscription_created(sub: dict, db: AsyncSession):
         subscription = Subscription(user_id=user.id)
         db.add(subscription)
 
+    status_map = {
+        "active": "active",
+        "past_due": "past_due",
+        "canceled": "canceled",
+        "unpaid": "past_due",
+        "trialing": "trial",
+    }
+
     period_start, period_end = _get_period_dates(sub)
-    subscription.status = "active"
+    subscription.status = status_map.get(sub.get("status", ""), sub.get("status", ""))
     subscription.stripe_subscription_id = sub.get("id")
     subscription.stripe_price_id = _get_price_id(sub)
     if period_start:
@@ -351,8 +378,14 @@ async def handle_subscription_created(sub: dict, db: AsyncSession):
         subscription.current_period_end = datetime.fromtimestamp(period_end)
     subscription.cancel_at_period_end = sub.get("cancel_at_period_end", False)
 
+    # Set trial dates if trialing
+    if sub.get("trial_start"):
+        subscription.trial_start = datetime.fromtimestamp(sub["trial_start"])
+    if sub.get("trial_end"):
+        subscription.trial_end = datetime.fromtimestamp(sub["trial_end"])
+
     await db.commit()
-    print(f"✅ Webhook: subscription created for user {user.id}, status=active")
+    print(f"✅ Webhook: subscription created for user {user.id}, status={subscription.status}")
 
 
 async def handle_subscription_updated(sub: dict, db: AsyncSession):

@@ -126,6 +126,31 @@ export function AuthProvider({ children }) {
     loadUser();
   }, [getTokens, clearTokens, refreshAccessToken]);
 
+  // Helper: redirect users without a subscription to Stripe checkout
+  const redirectToCheckoutIfNeeded = async (userData, accessToken) => {
+    if (!userData.subscription) {
+      const plan = localStorage.getItem('rigacap_selected_plan') || 'monthly';
+      try {
+        const res = await fetch(`${API_URL}/api/billing/create-checkout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ plan }),
+        });
+        const data = await res.json();
+        if (res.ok && data.checkout_url) {
+          window.location.href = data.checkout_url;
+          return true;
+        }
+      } catch (err) {
+        console.error('Checkout redirect failed:', err);
+      }
+    }
+    return false;
+  };
+
   // Register
   const register = async (email, password, name, turnstileToken) => {
     setError(null);
@@ -149,6 +174,12 @@ export function AuthProvider({ children }) {
 
       setTokens(data.access_token, data.refresh_token);
       setUser(data.user);
+
+      // Redirect new users (no subscription) to Stripe checkout
+      if (await redirectToCheckoutIfNeeded(data.user, data.access_token)) {
+        return { success: true, redirecting: true };
+      }
+
       return { success: true };
     } catch (err) {
       setError(err.message);
@@ -231,6 +262,12 @@ export function AuthProvider({ children }) {
 
       setTokens(data.access_token, data.refresh_token);
       setUser(data.user);
+
+      // Redirect new users (no subscription) to Stripe checkout
+      if (await redirectToCheckoutIfNeeded(data.user, data.access_token)) {
+        return { success: true, redirecting: true };
+      }
+
       return { success: true };
     } catch (err) {
       setError(err.message);
@@ -260,6 +297,12 @@ export function AuthProvider({ children }) {
 
       setTokens(data.access_token, data.refresh_token);
       setUser(data.user);
+
+      // Redirect new users (no subscription) to Stripe checkout
+      if (await redirectToCheckoutIfNeeded(data.user, data.access_token)) {
+        return { success: true, redirecting: true };
+      }
+
       return { success: true };
     } catch (err) {
       setError(err.message);
