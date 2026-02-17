@@ -1113,68 +1113,217 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
-    # Send test post notification emails (direct Lambda invocation)
-    if event.get("test_post_notification"):
-        print("📧 Test post notification emails")
-        config = event.get("test_post_notification") or {}
+    # Send test emails for all templates (direct Lambda invocation)
+    if event.get("test_emails"):
+        print("📧 Test all email templates")
+        config = event.get("test_emails") or {}
 
-        async def _test_post_notification():
-            from app.services.email_service import admin_email_service
+        async def _test_emails():
+            from app.services.email_service import email_service, admin_email_service
             from types import SimpleNamespace
 
-            to_email = config.get("to_email", "erik@rigacap.com")
+            to = config.get("to_email", "erik@rigacap.com")
+            # Allow sending a subset: {"only": ["welcome", "sell_alert"]}
+            only = config.get("only")
+            results = {}
 
-            # Sample Twitter post (T-24h, no chart)
+            async def _try(name, coro):
+                if only and name not in only:
+                    return
+                try:
+                    ok = await coro
+                    results[name] = "sent" if ok else "failed"
+                    print(f"  {'✅' if ok else '❌'} {name}")
+                except Exception as e:
+                    results[name] = f"error: {e}"
+                    print(f"  ❌ {name}: {e}")
+
+            # --- Subscriber emails (EmailService) ---
+
+            # 1. Daily Summary
+            await _try("daily_summary", email_service.send_daily_summary(
+                to_email=to,
+                signals=[
+                    {"symbol": "NVDA", "price": 156.20, "is_fresh": True, "is_strong": True,
+                     "pct_above_dwap": 7.3, "momentum_rank": 2, "days_since_crossover": 0},
+                    {"symbol": "PLTR", "price": 97.30, "is_fresh": True, "is_strong": False,
+                     "pct_above_dwap": 5.8, "momentum_rank": 5, "days_since_crossover": 2},
+                    {"symbol": "MSTR", "price": 341.50, "is_fresh": False, "is_strong": False,
+                     "pct_above_dwap": 6.1, "momentum_rank": 8, "days_since_crossover": 12},
+                    {"symbol": "COIN", "price": 267.80, "is_fresh": False, "is_strong": False,
+                     "pct_above_dwap": 5.4, "momentum_rank": 14, "days_since_crossover": 18},
+                ],
+                market_regime={"regime": "weak_bull", "spy_price": 580.50, "vix_level": 16.3},
+                positions=[
+                    {"symbol": "AAPL", "entry_price": 228.0, "current_price": 245.50, "shares": 80},
+                    {"symbol": "MSFT", "entry_price": 420.0, "current_price": 408.30, "shares": 45},
+                ],
+                missed_opportunities=[
+                    {"symbol": "META", "would_be_pnl": 3200, "would_be_pct": 18.5, "signal_date": "2026-01-28"},
+                    {"symbol": "AMZN", "would_be_pnl": 1850, "would_be_pct": 12.1, "signal_date": "2026-02-03"},
+                ],
+                watchlist=[
+                    {"symbol": "TSLA", "price": 312.40, "pct_above_dwap": 3.8, "distance_to_trigger": 1.2},
+                    {"symbol": "AMD", "price": 178.90, "pct_above_dwap": 4.1, "distance_to_trigger": 0.9},
+                ],
+            ))
+
+            # 2. Welcome
+            await _try("welcome", email_service.send_welcome_email(
+                to_email=to, name="Erik Kinsman",
+            ))
+
+            # 3. Password Reset
+            await _try("password_reset", email_service.send_password_reset_email(
+                to_email=to, name="Erik Kinsman",
+                reset_url="https://rigacap.com/reset-password?token=sample-test-token-abc123",
+            ))
+
+            # 4. Trial Ending
+            await _try("trial_ending", email_service.send_trial_ending_email(
+                to_email=to, name="Erik Kinsman",
+                days_remaining=1, signals_generated=47, strong_signals_seen=12,
+            ))
+
+            # 5. Goodbye
+            await _try("goodbye", email_service.send_goodbye_email(
+                to_email=to, name="Erik Kinsman",
+            ))
+
+            # 6. Sell Alert
+            await _try("sell_alert", email_service.send_sell_alert(
+                to_email=to, user_name="Erik Kinsman",
+                symbol="MSFT", action="sell",
+                reason="Trailing stop triggered — 15% from high water mark",
+                current_price=408.30, entry_price=420.00, stop_price=411.60,
+            ))
+
+            # 7. Double Signal Alert (breakout)
+            await _try("double_signal_alert", email_service.send_double_signal_alert(
+                to_email=to,
+                new_signals=[
+                    {"symbol": "NVDA", "price": 156.20, "pct_above_dwap": 7.3,
+                     "momentum_rank": 2, "short_momentum": 12.4,
+                     "dwap_crossover_date": "2026-02-17", "days_since_crossover": 0},
+                    {"symbol": "PLTR", "price": 97.30, "pct_above_dwap": 5.8,
+                     "momentum_rank": 5, "short_momentum": 9.1,
+                     "dwap_crossover_date": "2026-02-15", "days_since_crossover": 2},
+                ],
+                approaching=[
+                    {"symbol": "TSLA", "price": 312.40, "pct_above_dwap": 3.8, "distance_to_trigger": 1.2},
+                    {"symbol": "AMD", "price": 178.90, "pct_above_dwap": 4.1, "distance_to_trigger": 0.9},
+                ],
+                market_regime={"regime": "weak_bull", "spy_price": 580.50},
+            ))
+
+            # 8. Intraday Signal Alert
+            await _try("intraday_signal", email_service.send_intraday_signal_alert(
+                to_email=to, user_name="Erik Kinsman",
+                symbol="NVDA", live_price=156.20, dwap=145.50,
+                pct_above_dwap=7.3, momentum_rank=2, sector="Technology",
+            ))
+
+            # --- Admin emails (AdminEmailService) ---
+
+            # 9. Ticker Alert
+            await _try("ticker_alert", admin_email_service.send_ticker_alert(
+                to_email=to,
+                issues=[
+                    {"symbol": "TWTR", "issue": "Delisted — ticker changed to X",
+                     "last_price": 53.70, "last_date": "2023-10-27",
+                     "suggestion": "Remove TWTR, add X to universe"},
+                    {"symbol": "SIVB", "issue": "No price data since March 2023",
+                     "last_price": 106.04, "last_date": "2023-03-10"},
+                ],
+                check_type="universe",
+            ))
+
+            # 10. Strategy Analysis
+            await _try("strategy_analysis", admin_email_service.send_strategy_analysis_email(
+                to_email=to,
+                analysis_results={
+                    "evaluations": [
+                        {"name": "DWAP+Momentum Ensemble", "recommendation_score": 87.2,
+                         "sharpe_ratio": 1.48, "total_return_pct": 289.0},
+                        {"name": "Concentrated Momentum", "recommendation_score": 72.1,
+                         "sharpe_ratio": 1.15, "total_return_pct": 195.0},
+                        {"name": "DWAP Classic", "recommendation_score": 45.8,
+                         "sharpe_ratio": 0.19, "total_return_pct": 42.0},
+                    ],
+                    "analysis_date": datetime.now().isoformat(),
+                    "lookback_days": 90,
+                },
+                recommendation="Ensemble continues to outperform. No switch recommended. "
+                    "Sharpe ratio 1.48 is well above the 0.8 threshold.",
+                switch_executed=False,
+                switch_reason="Current strategy is top-ranked; no switch needed.",
+            ))
+
+            # 11. Strategy Switch
+            await _try("switch_notification", admin_email_service.send_switch_notification_email(
+                to_email=to,
+                from_strategy="Concentrated Momentum",
+                to_strategy="DWAP+Momentum Ensemble",
+                reason="Ensemble outperformed by +15.1 points in 90-day backtest",
+                metrics={"score_before": 72.1, "score_after": 87.2, "score_diff": 15.1},
+            ))
+
+            # 12. AI Generation Complete
+            await _try("ai_generation_complete", admin_email_service.send_generation_complete_email(
+                to_email=to,
+                best_params={
+                    "trailing_stop": "12%", "max_positions": 6,
+                    "rebalance_freq": "biweekly", "dwap_threshold": "5%",
+                    "momentum_window_short": "10d", "momentum_window_long": "60d",
+                },
+                expected_metrics={"sharpe": 1.48, "return": 31.0, "drawdown": -15.1},
+                market_regime="weak_bull",
+                created_strategy_name="AI-Optimized Ensemble v3",
+            ))
+
+            # 13. Social Post Notification (Twitter T-24h)
             twitter_post = SimpleNamespace(
-                id=999,
-                platform="twitter",
+                id=999, platform="twitter",
                 text_content="NVDA called at $127.40 on Jan 15. Exited at $156.20 three weeks later.\n\n+22.6% while the market was flat.\n\nThe ensemble saw what pure momentum missed: DWAP breakout + top-5 ranking + volume surge.\n\nNot luck. Pattern recognition.",
                 scheduled_for=datetime.utcnow() + timedelta(hours=24),
-                post_type="we_called_it",
-                ai_generated=True,
+                post_type="we_called_it", ai_generated=True,
                 ai_model="claude-sonnet-4-5-20250929",
                 hashtags="#NVDA #TradingSignals #Momentum #RigaCap",
                 image_s3_key=None,
             )
+            await _try("post_notification_twitter", admin_email_service.send_post_approval_notification(
+                to_email=to, post=twitter_post, hours_before=24,
+                cancel_url="https://rigacap.com/api/admin/social/posts/999/cancel-email?token=test-preview",
+            ))
 
-            # Sample Instagram post (T-1h) with chart card
+            # 14. Social Post Notification (Instagram T-1h with chart)
             insta_post = SimpleNamespace(
-                id=998,
-                platform="instagram",
-                text_content="We flagged PLTR at $78.50 when the ensemble fired all 3 signals.\n\nDWAP crossover confirmed. Momentum rank #2. Volume 1.6x average.\n\nThree weeks later: $97.30. That's +23.9%.\n\nWhile most traders were chasing headlines, the algorithm was reading the tape.\n\nThis is what systematic investing looks like.",
+                id=998, platform="instagram",
+                text_content="We flagged PLTR at $78.50 when the ensemble fired all 3 signals.\n\nDWAP crossover confirmed. Momentum rank #2. Volume 1.6x average.\n\nThree weeks later: $97.30. That's +23.9%.",
                 scheduled_for=datetime.utcnow() + timedelta(hours=1),
-                post_type="trade_result",
-                ai_generated=True,
+                post_type="trade_result", ai_generated=True,
                 ai_model="claude-sonnet-4-5-20250929",
                 hashtags="#PLTR #AlgoTrading #Ensemble #RigaCap #WalkForward",
                 image_s3_key="social/images/75_SLV_20260116.png",
             )
+            await _try("post_notification_instagram", admin_email_service.send_post_approval_notification(
+                to_email=to, post=insta_post, hours_before=1,
+                cancel_url="https://rigacap.com/api/admin/social/posts/998/cancel-email?token=test-preview",
+            ))
 
-            sent = 0
-            for post, hours in [(twitter_post, 24), (insta_post, 1)]:
-                cancel_url = f"https://rigacap.com/api/admin/social/posts/{post.id}/cancel-email?token=test-preview-token"
-                ok = await admin_email_service.send_post_approval_notification(
-                    to_email=to_email,
-                    post=post,
-                    hours_before=hours,
-                    cancel_url=cancel_url,
-                )
-                if ok:
-                    sent += 1
-                    print(f"  Sent {post.platform} T-{hours}h notification to {to_email}")
-
-            return {"status": "success", "sent": sent, "to": to_email}
+            sent_count = sum(1 for v in results.values() if v == "sent")
+            return {"status": "success", "sent": sent_count, "total": len(results), "results": results, "to": to}
 
         try:
             loop = asyncio.get_event_loop()
             if loop.is_closed():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(_test_post_notification())
+            result = loop.run_until_complete(_test_emails())
             return result
         except Exception as e:
             import traceback
-            print(f"❌ Test post notification failed: {e}")
+            print(f"❌ Test emails failed: {e}")
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
