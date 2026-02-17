@@ -13,7 +13,7 @@ const YEARLY_DATA = [
 const HEADLINE_METRICS = [
   { value: '+289%', label: '5-Year Total Return', color: 'text-emerald-400' },
   { value: '31%', label: 'Annualized Return', color: 'text-emerald-400' },
-  { value: '0.81', label: 'Avg Sharpe Ratio', color: 'text-amber-400' },
+  { value: '1.02', label: 'Median Sharpe Ratio', subtitle: '2025: 2.32', color: 'text-amber-400' },
   { value: '-15.1%', label: 'Max Drawdown', color: 'text-red-400' },
 ];
 
@@ -63,6 +63,7 @@ export default function TrackRecordPage() {
             <div key={m.label} className="bg-gray-900 border border-gray-800 rounded-xl p-5 text-center">
               <div className={`text-2xl sm:text-3xl font-bold ${m.color}`}>{m.value}</div>
               <div className="text-xs text-gray-500 uppercase tracking-wider mt-1">{m.label}</div>
+              {m.subtitle && <div className="text-xs text-gray-600 mt-0.5">{m.subtitle}</div>}
             </div>
           ))}
         </div>
@@ -100,7 +101,7 @@ export default function TrackRecordPage() {
                 <tr className="bg-amber-500/10 border-t border-amber-500/30">
                   <td className="px-4 sm:px-6 py-4 font-bold text-amber-400">5-Year Total</td>
                   <td className="px-4 sm:px-6 py-4 text-right font-bold text-emerald-400">+289%</td>
-                  <td className="px-4 sm:px-6 py-4 text-right font-bold text-amber-400">0.81 avg</td>
+                  <td className="px-4 sm:px-6 py-4 text-right font-bold text-amber-400">1.02 med</td>
                   <td className="px-4 sm:px-6 py-4 text-right font-bold text-gray-300">-15.1%</td>
                   <td className="px-4 sm:px-6 py-4 text-amber-400/70 text-xs hidden sm:table-cell">Feb 2021 – Feb 2026</td>
                 </tr>
