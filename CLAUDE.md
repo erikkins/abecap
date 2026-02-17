@@ -146,49 +146,53 @@ stocker-app/
     └── deploy.yml           # CI/CD pipeline
 ```
 
-## Current Features
+## Launch Readiness Audit (updated 2026-02-16)
 
-### Dashboard
-- [x] Live signals panel with DWAP crossover detection
-- [x] Open positions table with real-time P&L
-- [x] Interactive 2-year stock charts (click signal or position)
-- [x] Trade history tab with 2 years of historical trades
-- [x] Authentication (Google, Apple, email)
-- [x] Fluid buy/sell flow: Signal → Position → Trade History
+### Done — Production Ready
 
-### Backend
-- [x] `/api/signals/scan` - Run market scan
-- [x] `/api/signals/latest` - Get latest signals
-- [x] `/api/portfolio/positions` - CRUD for positions
-- [x] `/api/portfolio/trades` - Trade history
-- [x] Mock data for demo mode
+| Area | Status | Details |
+|------|--------|---------|
+| **Core Product** | DONE | Dashboard, signals, positions, charts, simple/advanced modes, time-travel (admin) |
+| **Auth** | DONE | Google OAuth, Apple Sign In, email/password, JWT tokens, password reset |
+| **Payments** | DONE | Stripe Checkout, 7-day trial (CC required), cancel via Customer Portal, webhooks |
+| **Email** | DONE | Welcome, daily digest (6 PM ET), sell alerts (intraday), double-signal alerts, password reset |
+| **Data Pipeline** | DONE | Daily scan (4 PM ET via EventBridge), yfinance, S3 caching, pre-computed dashboard JSON |
+| **Infrastructure** | DONE | Lambda + ECR, CloudFront CDN, Route53, ACM SSL, API Gateway, CI/CD (GitHub Actions) |
+| **Legal** | DONE | Terms of Service, Privacy Policy (GDPR/CCPA), financial disclaimer, contact page |
+| **Security** | DONE | CORS whitelist, JWT auth, bcrypt passwords, Turnstile bot protection, S3 private (no public signal access), admin-only routes, subscription gating |
+| **Broker Disclaimer** | DONE | "Signals only — execute via your broker" in dashboard, tour, landing page, FAQ, welcome email |
+| **OG / Social** | DONE | OpenGraph + Twitter Card meta tags, launch card PNGs |
+| **Error Handling** | DONE | React ErrorBoundary wraps entire app |
 
-### Infrastructure
-- [x] Docker Compose for local dev
-- [x] Terraform for AWS deployment
-- [x] GitHub Actions CI/CD
+### Gaps — Pre-Launch / First Month
 
-## TODO / Next Steps
+| Item | Priority | Status | Notes |
+|------|----------|--------|-------|
+| **GA4 analytics** | HIGH | READY | Placeholder in index.html, needs measurement ID from analytics.google.com |
+| **CloudWatch alarms** | MEDIUM | TODO | Lambda errors, API 5xx, RDS CPU — no alerts currently |
+| **Mobile responsive polish** | MEDIUM | TODO | Tailwind breakpoints exist but untested on small screens |
+| **Custom 404 page** | LOW | TODO | React Router catch-all, currently shows blank |
+| **Email verification** | LOW | DEFERRED | Not critical — Stripe CC verification is stronger |
+| **Cookie consent banner** | LOW | DEFERRED | Only needed if adding GA4/tracking cookies |
 
-### High Priority
-- [ ] Connect frontend to real backend API (currently using mock data)
-- [ ] Implement real yfinance data fetching in backend
-- [ ] Add database persistence (PostgreSQL)
-- [ ] Implement real OAuth (Google, Apple) - currently mocked
+### Growth — Road to 5,000 Subscribers
 
-### Features
-- [ ] Email/SMS alerts for new signals
-- [ ] TradingView chart integration (instead of Recharts)
-- [ ] Broker API integration (Alpaca, Interactive Brokers)
-- [ ] Paper trading mode
-- [ ] Watchlist for stocks approaching DWAP threshold
-- [ ] Mobile responsive design improvements
+| Item | Status | Notes |
+|------|--------|-------|
+| **Referral program** | TODO | "Give a friend 1 month free, get 1 month free" |
+| **Onboarding email drip** | TODO | 5-7 day sequence: welcome → how signals work → trial ending |
+| **Public track record page** | TODO | Weekly-updated performance — trust engine for conversion |
+| **Social proof / testimonials** | TODO | Landing page section with real user results |
+| **Content / SEO strategy** | TODO | Blog posts, market commentary — organic discovery |
+| **Churn prevention** | TODO | Cancel survey, win-back emails, usage alerts |
+| **User performance dashboard** | TODO | Personal ROI tracking — "am I making money?" |
 
-### Infrastructure
-- [ ] Deploy to AWS (terraform apply)
-- [ ] Set up daily cron job for scanner (4 PM ET)
-- [ ] Add CloudWatch monitoring/alerts
-- [ ] Implement Redis caching for API responses
+### Key Metrics to Track (once GA4 is live)
+- Landing page → trial signup conversion rate
+- Trial → paid conversion rate (target: 3-5%)
+- Monthly churn rate (target: <5%)
+- CAC by channel (organic, social, paid)
+- Revenue per signal-engagement (do users who act on more signals retain better?)
 
 ## Data Sources
 
