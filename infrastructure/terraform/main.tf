@@ -507,6 +507,26 @@ resource "aws_iam_role_policy" "lambda_s3_price_data" {
   })
 }
 
+# CloudWatch read access for admin health dashboard
+resource "aws_iam_role_policy" "lambda_cloudwatch_read" {
+  name = "${local.prefix}-lambda-cw-read"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:DescribeAlarms",
+          "cloudwatch:GetMetricStatistics"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # Lambda Function - Using Container Image (10GB limit instead of 250MB)
 resource "aws_lambda_function" "api" {
   function_name = "${local.prefix}-api"

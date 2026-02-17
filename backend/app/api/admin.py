@@ -3096,3 +3096,111 @@ async def compare_exit_strategies(
             for i, r in enumerate(successful_results)
         ]
     }
+
+
+# ============================================================================
+# AWS Health Dashboard
+# ============================================================================
+
+_cloudwatch_client = None
+
+def _get_cloudwatch_client():
+    global _cloudwatch_client
+    if _cloudwatch_client is None:
+        import boto3
+        _cloudwatch_client = boto3.client('cloudwatch', region_name='us-east-1')
+    return _cloudwatch_client
+
+
+@router.get("/aws-health")
+async def get_aws_health(admin: User = Depends(get_admin_user)):
+    """Get CloudWatch alarm states and key infrastructure metrics."""
+    import os
+    is_lambda = bool(os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+
+    if not is_lambda:
+        return {
+            "alarms": [],
+            "metrics": {},
+            "local_dev": True,
+        }
+
+    try:
+        cw = _get_cloudwatch_client()
+        from datetime import datetime, timedelta, timezone
+
+        # 1. Alarm states
+        alarm_response = cw.describe_alarms(AlarmNamePrefix="rigacap-prod-")
+        alarms = [
+            {
+                "name": a["AlarmName"],
+                "state": a["StateValue"],
+                "updated_at": a["StateUpdatedTimestamp"].isoformat(),
+            }
+            for a in alarm_response.get("MetricAlarms", [])
+        ]
+
+        # 2. Key metrics
+        now = datetime.now(timezone.utc)
+        day_ago = now - timedelta(hours=24)
+        five_min_ago = now - timedelta(minutes=5)
+
+        def get_metric(namespace, metric_name, stat, dimensions, start, end, period):
+            result = cw.get_metric_statistics(
+                Namespace=namespace,
+                MetricName=metric_name,
+                Statistics=[stat],
+                Dimensions=dimensions,
+                StartTime=start,
+                EndTime=end,
+                Period=period,
+            )
+            datapoints = result.get("Datapoints", [])
+            if not datapoints:
+                return None
+            # For Sum, add all datapoints; for Average, take the latest
+            if stat == "Sum":
+                return sum(dp[stat] for dp in datapoints)
+            # Average — return latest datapoint
+            latest = max(datapoints, key=lambda dp: dp["Timestamp"])
+            return latest[stat]
+
+        lambda_dims = [{"Name": "FunctionName", "Value": "rigacap-prod-api"}]
+        rds_dims = [{"Name": "DBInstanceIdentifier", "Value": "rigacap-prod-db-v2"}]
+
+        # Lambda metrics (24h)
+        invocations = get_metric("AWS/Lambda", "Invocations", "Sum", lambda_dims, day_ago, now, 86400)
+        errors = get_metric("AWS/Lambda", "Errors", "Sum", lambda_dims, day_ago, now, 86400)
+        duration = get_metric("AWS/Lambda", "Duration", "Average", lambda_dims, day_ago, now, 86400)
+
+        # API Gateway metrics (24h) — use ApiId from env or try without dimensions
+        api_id = os.environ.get("API_GATEWAY_ID", "")
+        api_dims = [{"Name": "ApiId", "Value": api_id}] if api_id else []
+        requests_24h = get_metric("AWS/ApiGateway", "Count", "Sum", api_dims, day_ago, now, 86400) if api_dims else None
+
+        # RDS metrics (last 5 min)
+        cpu = get_metric("AWS/RDS", "CPUUtilization", "Average", rds_dims, five_min_ago, now, 300)
+        storage = get_metric("AWS/RDS", "FreeStorageSpace", "Average", rds_dims, five_min_ago, now, 300)
+        connections = get_metric("AWS/RDS", "DatabaseConnections", "Average", rds_dims, five_min_ago, now, 300)
+
+        metrics = {
+            "lambda": {
+                "invocations_24h": int(invocations) if invocations is not None else None,
+                "errors_24h": int(errors) if errors is not None else None,
+                "avg_duration_ms": round(duration, 1) if duration is not None else None,
+            },
+            "api_gateway": {
+                "requests_24h": int(requests_24h) if requests_24h is not None else None,
+            },
+            "rds": {
+                "cpu_percent": round(cpu, 1) if cpu is not None else None,
+                "free_storage_gb": round(storage / (1024 ** 3), 1) if storage is not None else None,
+                "connections": int(connections) if connections is not None else None,
+            },
+        }
+
+        return {"alarms": alarms, "metrics": metrics}
+
+    except Exception as e:
+        print(f"[AWS-HEALTH] Error fetching CloudWatch data: {e}")
+        return {"alarms": [], "metrics": {}, "error": str(e)}

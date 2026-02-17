@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw, Beaker, Bot, Settings, Share2 } from 'lucide-react';
+import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw, Beaker, Bot, Settings, Share2, Server } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import StrategyGenerator from './StrategyGenerator';
 import WalkForwardSimulator from './WalkForwardSimulator';
@@ -37,6 +37,9 @@ export default function AdminDashboard() {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [strategiesLoading, setStrategiesLoading] = useState(false);
 
+  // AWS Health state
+  const [awsHealth, setAwsHealth] = useState(null);
+
   // Strategy Lab state
   const [showStrategyEditor, setShowStrategyEditor] = useState(false);
   const [editingStrategy, setEditingStrategy] = useState(null);
@@ -64,6 +67,19 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       console.error('Failed to fetch service status:', err);
+    }
+  };
+
+  // Fetch AWS health
+  const fetchAwsHealth = async () => {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/aws-health`);
+      if (response.ok) {
+        const data = await response.json();
+        setAwsHealth(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch AWS health:', err);
     }
   };
 
@@ -208,6 +224,7 @@ export default function AdminDashboard() {
       await Promise.all([
         fetchStats(),
         fetchServiceStatus(),
+        fetchAwsHealth(),
         fetchUsers(),
         fetchStrategies(),
         fetchLatestAnalysis(),
@@ -220,6 +237,7 @@ export default function AdminDashboard() {
     const interval = setInterval(() => {
       fetchStats();
       fetchServiceStatus();
+      fetchAwsHealth();
     }, 30000);
 
     return () => clearInterval(interval);
@@ -416,6 +434,78 @@ function OverviewTab({ stats, serviceStatus, activeStrategy }) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Infrastructure Health */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Server size={20} className="text-gray-700" />
+          <h3 className="text-lg font-semibold text-gray-900">Infrastructure</h3>
+        </div>
+
+        {!awsHealth || awsHealth.local_dev || awsHealth.error ? (
+          <div className="p-4 bg-gray-50 rounded-lg text-sm text-gray-500">
+            {awsHealth?.error
+              ? `Infrastructure metrics error: ${awsHealth.error}`
+              : 'Infrastructure metrics unavailable (local dev)'}
+          </div>
+        ) : (
+          <>
+            {/* Alarm Status */}
+            {awsHealth.alarms.length > 0 && (
+              <div className="mb-4">
+                <p className="text-sm font-medium text-gray-600 mb-2">Alarm Status</p>
+                <div className="flex flex-wrap gap-2">
+                  {awsHealth.alarms.map((alarm) => (
+                    <span
+                      key={alarm.name}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                        alarm.state === 'OK'
+                          ? 'bg-green-100 text-green-800'
+                          : alarm.state === 'ALARM'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {alarm.name.replace('rigacap-prod-', '')}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Lambda */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm font-medium text-gray-700 mb-2">Lambda</p>
+                <div className="space-y-1 text-sm text-gray-600">
+                  <p>Invocations (24h): <span className="font-medium text-gray-900">{awsHealth.metrics.lambda?.invocations_24h?.toLocaleString() ?? '—'}</span></p>
+                  <p>Errors (24h): <span className={`font-medium ${(awsHealth.metrics.lambda?.errors_24h || 0) > 0 ? 'text-red-600' : 'text-gray-900'}`}>{awsHealth.metrics.lambda?.errors_24h ?? '—'}</span></p>
+                  <p>Avg Duration: <span className="font-medium text-gray-900">{awsHealth.metrics.lambda?.avg_duration_ms != null ? `${awsHealth.metrics.lambda.avg_duration_ms}ms` : '—'}</span></p>
+                </div>
+              </div>
+
+              {/* API Gateway */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm font-medium text-gray-700 mb-2">API Gateway</p>
+                <div className="space-y-1 text-sm text-gray-600">
+                  <p>Requests (24h): <span className="font-medium text-gray-900">{awsHealth.metrics.api_gateway?.requests_24h?.toLocaleString() ?? '—'}</span></p>
+                </div>
+              </div>
+
+              {/* RDS */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm font-medium text-gray-700 mb-2">RDS</p>
+                <div className="space-y-1 text-sm text-gray-600">
+                  <p>CPU: <span className={`font-medium ${(awsHealth.metrics.rds?.cpu_percent || 0) > 80 ? 'text-red-600' : 'text-gray-900'}`}>{awsHealth.metrics.rds?.cpu_percent != null ? `${awsHealth.metrics.rds.cpu_percent}%` : '—'}</span></p>
+                  <p>Free Storage: <span className="font-medium text-gray-900">{awsHealth.metrics.rds?.free_storage_gb != null ? `${awsHealth.metrics.rds.free_storage_gb} GB` : '—'}</span></p>
+                  <p>Connections: <span className="font-medium text-gray-900">{awsHealth.metrics.rds?.connections ?? '—'}</span></p>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Active Strategy Summary */}
