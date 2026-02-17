@@ -89,10 +89,7 @@ class ChartCardGenerator:
         ax.axis('off')
 
         # --- Header ---
-        # Gold beacon dot (spire tip)
-        ax.plot(0.05, 0.955, 'o', color=BRAND_ACCENT, markersize=5, zorder=10)
-        # RigaCap text
-        ax.text(0.07, 0.95, 'RigaCap', fontsize=20, fontweight='bold',
+        ax.text(0.05, 0.95, 'RigaCap', fontsize=20, fontweight='bold',
                 color='white', va='top', ha='left',
                 fontfamily='sans-serif')
         if regime_name:
