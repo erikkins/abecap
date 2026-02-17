@@ -1113,6 +1113,69 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # Send test post notification emails (direct Lambda invocation)
+    if event.get("test_post_notification"):
+        print("📧 Test post notification emails")
+        config = event.get("test_post_notification") or {}
+
+        async def _test_post_notification():
+            from app.services.email_service import admin_email_service
+            from types import SimpleNamespace
+
+            to_email = config.get("to_email", "erik@rigacap.com")
+
+            # Sample Twitter post (T-24h)
+            twitter_post = SimpleNamespace(
+                id=999,
+                platform="twitter",
+                text_content="NVDA called at $127.40 on Jan 15. Exited at $156.20 three weeks later.\n\n+22.6% while the market was flat.\n\nThe ensemble saw what pure momentum missed: DWAP breakout + top-5 ranking + volume surge.\n\nNot luck. Pattern recognition.",
+                scheduled_for=datetime.utcnow() + timedelta(hours=24),
+                post_type="we_called_it",
+                ai_generated=True,
+                ai_model="claude-sonnet-4-5-20250929",
+                hashtags="#NVDA #TradingSignals #Momentum #RigaCap",
+            )
+
+            # Sample Instagram post (T-1h)
+            insta_post = SimpleNamespace(
+                id=998,
+                platform="instagram",
+                text_content="We flagged PLTR at $78.50 when the ensemble fired all 3 signals.\n\nDWAP crossover confirmed. Momentum rank #2. Volume 1.6x average.\n\nThree weeks later: $97.30. That's +23.9%.\n\nWhile most traders were chasing headlines, the algorithm was reading the tape.\n\nThis is what systematic investing looks like.",
+                scheduled_for=datetime.utcnow() + timedelta(hours=1),
+                post_type="trade_result",
+                ai_generated=True,
+                ai_model="claude-sonnet-4-5-20250929",
+                hashtags="#PLTR #AlgoTrading #Ensemble #RigaCap #WalkForward",
+            )
+
+            sent = 0
+            for post, hours in [(twitter_post, 24), (insta_post, 1)]:
+                cancel_url = f"https://rigacap.com/api/admin/social/posts/{post.id}/cancel-email?token=test-preview-token"
+                ok = await admin_email_service.send_post_approval_notification(
+                    to_email=to_email,
+                    post=post,
+                    hours_before=hours,
+                    cancel_url=cancel_url,
+                )
+                if ok:
+                    sent += 1
+                    print(f"  Sent {post.platform} T-{hours}h notification to {to_email}")
+
+            return {"status": "success", "sent": sent, "to": to_email}
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_test_post_notification())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Test post notification failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
     # Handle bulk chart card regeneration (direct Lambda invocation)
     if event.get("regenerate_charts"):
         print("🎨 Regenerate chart cards request received")
