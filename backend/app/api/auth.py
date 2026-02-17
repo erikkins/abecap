@@ -1,7 +1,7 @@
 """Authentication API endpoints."""
 
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, EmailStr
@@ -110,6 +110,15 @@ class TokenResponse(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
 
 
 class GoogleAuthRequest(BaseModel):
@@ -495,3 +504,74 @@ async def apple_auth(
         refresh_token=refresh_token,
         user=user_dict
     )
+
+
+# ============================================================================
+# Password Reset
+# ============================================================================
+
+@router.post("/forgot-password")
+async def forgot_password(
+    request: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Send a password reset email. Always returns 200 to prevent email enumeration."""
+    result = await db.execute(select(User).where(User.email == request.email))
+    user = result.scalar_one_or_none()
+
+    if user and user.password_hash:
+        # Only send reset for email/password accounts (not OAuth-only)
+        from jose import jwt as jose_jwt
+        reset_token = jose_jwt.encode(
+            {
+                "sub": str(user.id),
+                "exp": datetime.utcnow() + timedelta(hours=1),
+                "type": "password_reset",
+            },
+            settings.JWT_SECRET_KEY,
+            algorithm=settings.JWT_ALGORITHM,
+        )
+        reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
+
+        import asyncio
+        asyncio.create_task(
+            email_service.send_password_reset_email(user.email, user.name or user.email, reset_url)
+        )
+
+    return {"message": "If that email is registered, you'll receive a reset link shortly."}
+
+
+@router.post("/reset-password")
+async def reset_password(
+    request: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Reset password using a valid reset token."""
+    payload = decode_token(request.token)
+
+    if payload is None or payload.get("type") != "password_reset":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset link"
+        )
+
+    if len(request.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters"
+        )
+
+    user_id = payload.get("sub")
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid reset link"
+        )
+
+    user.password_hash = get_password_hash(request.password)
+    await db.commit()
+
+    return {"message": "Password reset successfully. You can now sign in."}

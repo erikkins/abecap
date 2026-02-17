@@ -17,6 +17,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginModal from './components/LoginModal';
 import AdminDashboard from './components/AdminDashboard';
 import SubscriptionBanner from './components/SubscriptionBanner';
+import { ForgotPasswordPage, ResetPasswordPage } from './components/PasswordReset';
 // DoubleSignals, MomentumRankings, ApproachingTrigger removed — absorbed into unified dashboard
 
 // ============================================================================
@@ -25,11 +26,7 @@ import SubscriptionBanner from './components/SubscriptionBanner';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-// CDN URL for static signals (same bucket as price data, publicly accessible)
-const SIGNALS_CDN_URL = 'https://rigacap-prod-price-data-149218244179.s3.amazonaws.com/signals/latest.json';
-
-// CDN URL for pre-computed dashboard data (buy signals, missed opps, watchlist, regime)
-const DASHBOARD_CDN_URL = 'https://rigacap-prod-price-data-149218244179.s3.amazonaws.com/signals/dashboard.json';
+// CDN URLs removed — signals served through authenticated API to prevent free access
 
 // localStorage cache keys
 const CACHE_KEYS = {
@@ -138,19 +135,6 @@ const normalizeSignal = (signal) => ({
   pct_above_dwap: typeof signal.pct_above_dwap === 'string' ? parseFloat(signal.pct_above_dwap) : signal.pct_above_dwap,
   volume: typeof signal.volume === 'string' ? parseInt(signal.volume, 10) : signal.volume,
 });
-
-// Fetch signals from CDN (static JSON, instant load)
-const fetchSignalsFromCDN = async () => {
-  try {
-    const res = await fetch(SIGNALS_CDN_URL, { cache: 'default' });
-    if (!res.ok) throw new Error(`CDN error: ${res.status}`);
-    const data = await res.json();
-    return (data.signals || []).map(normalizeSignal);
-  } catch (e) {
-    console.log('CDN signals fetch failed, falling back to API:', e);
-    return null; // Will trigger API fallback
-  }
-};
 
 // Note: AuthContext, useAuth, LoginModal, AdminDashboard, SubscriptionBanner
 // are now imported from separate files
@@ -1819,29 +1803,7 @@ function Dashboard() {
         setTimeTravelPresets(buildTimeTravelPresets(cached));
       }
 
-      // Step 2: Fetch shared dashboard data from CDN (~200ms)
-      try {
-        const cdnRes = await fetch(DASHBOARD_CDN_URL, { signal });
-        if (cdnRes.ok && !signal.aborted) {
-          const cdnData = await cdnRes.json();
-          if (signal.aborted) return;
-          const merged = { ...cdnData };
-          if (dashboardData?.positions_with_guidance?.length > 0) {
-            merged.positions_with_guidance = dashboardData.positions_with_guidance;
-          }
-          setDashboardData(merged);
-          if (cdnData.missed_opportunities?.length > 0) {
-            setMissedOpportunities(cdnData.missed_opportunities);
-          }
-          setCache(CACHE_KEYS.DASHBOARD, cdnData);
-          setTimeTravelPresets(buildTimeTravelPresets(cdnData));
-        }
-      } catch (cdnErr) {
-        if (cdnErr.name === 'AbortError') return;
-        console.log('Dashboard CDN fetch failed, falling back to API:', cdnErr);
-      }
-
-      // Step 3: Fetch from API in background (adds user positions with sell guidance)
+      // Step 2: Fetch from authenticated API (signals + user positions with sell guidance)
       try {
         const res = await fetch(`${API_BASE}/api/signals/dashboard`, {
           headers: api._authHeaders(),
@@ -1989,19 +1951,7 @@ function Dashboard() {
         setLoading(false); // Dashboard visible immediately!
       }
 
-      // Step 2: Fetch signals from CDN (static JSON, instant for ALL users)
-      try {
-        const cdnSignals = await fetchSignalsFromCDN();
-        if (cdnSignals && cdnSignals.length > 0) {
-          setSignals(cdnSignals);
-          setCache(CACHE_KEYS.SIGNALS, cdnSignals);
-          setLastScan(new Date()); // CDN signals are fresh
-        }
-      } catch (e) {
-        console.log('CDN signals not available, will use API fallback');
-      }
-
-      // Step 3: Quick health check to show data status
+      // Step 2: Quick health check to show data status
       try {
         const health = await api.get('/health');
         setDataStatus({ loaded: health.symbols_loaded, status: 'ready' });
@@ -3379,6 +3329,8 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/app" element={
           <ProtectedRoute>
             <Dashboard />

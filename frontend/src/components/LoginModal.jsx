@@ -323,6 +323,20 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
               {mode === 'register' && (
                 <p className="text-xs text-gray-500 mt-1">Must be at least 8 characters</p>
               )}
+              {mode === 'login' && (
+                <div className="text-right mt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      window.location.href = '/forgot-password';
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-700"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Turnstile widget for registration */}

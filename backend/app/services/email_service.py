@@ -706,6 +706,68 @@ Trading involves risk. Past performance does not guarantee future results.
             text_content=text
         )
 
+    async def send_password_reset_email(self, to_email: str, name: str, reset_url: str) -> bool:
+        """Send a password reset email with a time-limited link."""
+        first_name = name.split()[0] if name else "there"
+
+        html = f"""<!DOCTYPE html>
+<html>
+<body style="margin:0; padding:0; background-color:#f9fafb; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px; margin:0 auto;">
+        <tr>
+            <td style="background:linear-gradient(135deg,#172554 0%,#1e3a5f 100%); padding:24px; text-align:center;">
+                <h1 style="margin:0; color:#c9a84c; font-size:24px; letter-spacing:1px;">RigaCap</h1>
+            </td>
+        </tr>
+        <tr>
+            <td style="background:#ffffff; padding:32px 24px;">
+                <h2 style="margin:0 0 16px; font-size:20px; color:#1f2937;">Reset Your Password</h2>
+                <p style="font-size:16px; color:#374151; line-height:1.6; margin:0 0 24px;">
+                    Hey {first_name}, we received a request to reset your password. Click the button below to choose a new one:
+                </p>
+                <div style="text-align:center; margin:32px 0;">
+                    <a href="{reset_url}"
+                       style="display:inline-block; background:linear-gradient(135deg,#172554 0%,#1e3a5f 100%); color:#ffffff; font-size:16px; font-weight:600; padding:14px 36px; border-radius:10px; text-decoration:none;">
+                        Reset Password
+                    </a>
+                </div>
+                <p style="font-size:14px; color:#6b7280; line-height:1.6; margin:0 0 16px;">
+                    This link expires in 1 hour. If you didn't request this, you can safely ignore this email.
+                </p>
+                <p style="font-size:12px; color:#9ca3af; line-height:1.6; margin:16px 0 0; word-break:break-all;">
+                    Or copy this link: {reset_url}
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td style="background-color:#f9fafb; padding:24px; text-align:center; border-top:1px solid #e5e7eb;">
+                <p style="margin:0; font-size:12px; color:#9ca3af;">
+                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>"""
+
+        text = f"""Reset Your Password
+
+Hey {first_name}, we received a request to reset your password.
+
+Click this link to choose a new one:
+{reset_url}
+
+This link expires in 1 hour. If you didn't request this, you can safely ignore this email.
+
+— The RigaCap Team"""
+
+        return await self.send_email(
+            to_email=to_email,
+            subject="Reset your RigaCap password",
+            html_content=html,
+            text_content=text
+        )
+
     async def send_trial_ending_email(
         self,
         to_email: str,

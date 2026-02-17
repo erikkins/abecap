@@ -418,13 +418,22 @@ resource "aws_ecr_lifecycle_policy" "api" {
   })
 }
 
-# S3 bucket for persistent price data (parquet files)
+# S3 bucket for persistent price data (parquet files) — NOT publicly accessible
 resource "aws_s3_bucket" "price_data" {
   bucket = "${local.prefix}-price-data-149218244179"
 
   tags = {
     Name = "${local.prefix}-price-data"
   }
+}
+
+resource "aws_s3_bucket_public_access_block" "price_data" {
+  bucket = aws_s3_bucket.price_data.id
+
+  block_public_acls       = true
+  ignore_public_acls      = true
+  block_public_policy     = true
+  restrict_public_buckets = true
 }
 
 # IAM policy for Lambda to access price data bucket
