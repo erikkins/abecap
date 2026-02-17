@@ -1040,6 +1040,224 @@ resource "aws_iam_role_policy" "lambda_step_functions" {
 }
 
 # ============================================================================
+# CloudWatch Alarms + SNS Notifications
+# ============================================================================
+
+resource "aws_sns_topic" "alarms" {
+  name = "${local.prefix}-alarms"
+
+  tags = {
+    Name = "${local.prefix}-alarms"
+  }
+}
+
+resource "aws_sns_topic_subscription" "alarm_email" {
+  topic_arn = aws_sns_topic.alarms.arn
+  protocol  = "email"
+  endpoint  = var.admin_emails
+}
+
+# Lambda Errors — more than 3 errors in 15 minutes
+resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
+  alarm_name          = "${local.prefix}-lambda-errors"
+  alarm_description   = "Lambda error rate exceeded threshold"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Errors"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 3
+  threshold           = 3
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.api.function_name
+  }
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+
+  tags = {
+    Name = "${local.prefix}-lambda-errors"
+  }
+}
+
+# Lambda Throttles — any throttling at all
+resource "aws_cloudwatch_metric_alarm" "lambda_throttles" {
+  alarm_name          = "${local.prefix}-lambda-throttles"
+  alarm_description   = "Lambda function is being throttled"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Throttles"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.api.function_name
+  }
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+
+  tags = {
+    Name = "${local.prefix}-lambda-throttles"
+  }
+}
+
+# Lambda Duration — approaching 900s timeout
+resource "aws_cloudwatch_metric_alarm" "lambda_duration" {
+  alarm_name          = "${local.prefix}-lambda-duration"
+  alarm_description   = "Lambda duration approaching 900s timeout"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Duration"
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 720000 # 720 seconds in milliseconds
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.api.function_name
+  }
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+
+  tags = {
+    Name = "${local.prefix}-lambda-duration"
+  }
+}
+
+# API Gateway 5xx errors
+resource "aws_cloudwatch_metric_alarm" "api_5xx" {
+  alarm_name          = "${local.prefix}-api-5xx"
+  alarm_description   = "API Gateway 5xx error rate exceeded threshold"
+  namespace           = "AWS/ApiGateway"
+  metric_name         = "5xx"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 2
+  threshold           = 5
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    ApiId = aws_apigatewayv2_api.main.id
+  }
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+
+  tags = {
+    Name = "${local.prefix}-api-5xx"
+  }
+}
+
+# API Gateway 4xx spike — possible abuse or misconfiguration
+resource "aws_cloudwatch_metric_alarm" "api_4xx" {
+  alarm_name          = "${local.prefix}-api-4xx-spike"
+  alarm_description   = "API Gateway 4xx error spike detected"
+  namespace           = "AWS/ApiGateway"
+  metric_name         = "4xx"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 2
+  threshold           = 50
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    ApiId = aws_apigatewayv2_api.main.id
+  }
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+
+  tags = {
+    Name = "${local.prefix}-api-4xx-spike"
+  }
+}
+
+# RDS CPU — sustained high CPU
+resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
+  alarm_name          = "${local.prefix}-rds-cpu"
+  alarm_description   = "RDS CPU utilization exceeded 80%"
+  namespace           = "AWS/RDS"
+  metric_name         = "CPUUtilization"
+  statistic           = "Average"
+  period              = 300
+  evaluation_periods  = 3
+  threshold           = 80
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "breaching"
+
+  dimensions = {
+    DBInstanceIdentifier = aws_db_instance.main.identifier
+  }
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+
+  tags = {
+    Name = "${local.prefix}-rds-cpu"
+  }
+}
+
+# RDS Free Storage — less than 3 GB remaining
+resource "aws_cloudwatch_metric_alarm" "rds_storage" {
+  alarm_name          = "${local.prefix}-rds-storage"
+  alarm_description   = "RDS free storage space below 3 GB"
+  namespace           = "AWS/RDS"
+  metric_name         = "FreeStorageSpace"
+  statistic           = "Average"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 3000000000 # 3 GB in bytes
+  comparison_operator = "LessThanThreshold"
+  treat_missing_data  = "breaching"
+
+  dimensions = {
+    DBInstanceIdentifier = aws_db_instance.main.identifier
+  }
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+
+  tags = {
+    Name = "${local.prefix}-rds-storage"
+  }
+}
+
+# RDS Connections — too many open connections
+resource "aws_cloudwatch_metric_alarm" "rds_connections" {
+  alarm_name          = "${local.prefix}-rds-connections"
+  alarm_description   = "RDS database connections exceeded 40"
+  namespace           = "AWS/RDS"
+  metric_name         = "DatabaseConnections"
+  statistic           = "Average"
+  period              = 300
+  evaluation_periods  = 2
+  threshold           = 40
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "breaching"
+
+  dimensions = {
+    DBInstanceIdentifier = aws_db_instance.main.identifier
+  }
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+
+  tags = {
+    Name = "${local.prefix}-rds-connections"
+  }
+}
+
+# ============================================================================
 # Outputs
 # ============================================================================
 

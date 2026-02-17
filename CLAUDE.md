@@ -188,7 +188,7 @@ AI-powered social media automation: real walk-forward trades → Claude API cont
 | Item | Priority | Status | Notes |
 |------|----------|--------|-------|
 | **Cookie consent banner** | MEDIUM | TODO | GA4 is now live — consent banner needed for GDPR compliance |
-| **CloudWatch alarms** | MEDIUM | TODO | Lambda errors, API 5xx, RDS CPU — no alerts currently |
+| **CloudWatch alarms** | MEDIUM | DONE | 8 alarms (Lambda errors/throttles/duration, API 5xx/4xx, RDS CPU/storage/connections) → SNS email |
 | **Mobile responsive polish** | MEDIUM | TODO | Tailwind breakpoints exist but untested on small screens |
 | **Custom 404 page** | LOW | TODO | React Router catch-all, currently shows blank |
 | **Email verification** | LOW | DEFERRED | Not critical — Stripe CC verification is stronger |
