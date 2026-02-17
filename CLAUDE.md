@@ -346,6 +346,35 @@ We ported the best-performing rules to Python, backtested extensively, and built
     - Weekly rebalancing
     - Market regime filter (SPY > 200MA)
 
+## PDF Documents
+
+Two professional PDF documents are maintained and regenerated as features evolve:
+
+**Investor Report** (`design/documents/rigacap-investor-report.html` → `.pdf`)
+- Navy+gold brand styling, cover page with SVG spire logo
+- Executive summary, walk-forward performance, ensemble approach, 7-regime intelligence
+- AI/ML section (Optuna, adaptive scoring), "We Called It" content engine
+- Platform architecture, subscriber experience, growth roadmap
+
+**Technical Architecture** (`design/documents/rigacap-technical-architecture.html` → `.pdf`)
+- Full tech audit: AWS infra, database schema (17 tables), 85 API endpoints
+- Backend services (20+), frontend components, security architecture
+- CI/CD pipeline, monitoring, performance characteristics, dependencies
+
+**To regenerate PDFs:**
+```bash
+# Edit the HTML source files, then convert:
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --headless --disable-gpu --no-pdf-header-footer --print-to-pdf-no-header \
+  --print-to-pdf="design/documents/rigacap-investor-report.pdf" \
+  design/documents/rigacap-investor-report.html
+
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --headless --disable-gpu --no-pdf-header-footer --print-to-pdf-no-header \
+  --print-to-pdf="design/documents/rigacap-technical-architecture.pdf" \
+  design/documents/rigacap-technical-architecture.html
+```
+
 ## Code Style
 
 - Python: Black formatter, type hints preferred

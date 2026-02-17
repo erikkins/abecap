@@ -88,23 +88,6 @@ class ChartCardGenerator:
         ax.set_ylim(0, 1)
         ax.axis('off')
 
-        # --- Gold decorative corners ---
-        corner_len = 0.04
-        corner_lw = 2.5
-        corner_color = BRAND_ACCENT
-        # Top-left
-        ax.plot([0.03, 0.03], [0.97 - corner_len, 0.97], color=corner_color, lw=corner_lw, solid_capstyle='round')
-        ax.plot([0.03, 0.03 + corner_len], [0.97, 0.97], color=corner_color, lw=corner_lw, solid_capstyle='round')
-        # Top-right
-        ax.plot([0.97, 0.97], [0.97 - corner_len, 0.97], color=corner_color, lw=corner_lw, solid_capstyle='round')
-        ax.plot([0.97 - corner_len, 0.97], [0.97, 0.97], color=corner_color, lw=corner_lw, solid_capstyle='round')
-        # Bottom-left
-        ax.plot([0.03, 0.03], [0.03, 0.03 + corner_len], color=corner_color, lw=corner_lw, solid_capstyle='round')
-        ax.plot([0.03, 0.03 + corner_len], [0.03, 0.03], color=corner_color, lw=corner_lw, solid_capstyle='round')
-        # Bottom-right
-        ax.plot([0.97, 0.97], [0.03, 0.03 + corner_len], color=corner_color, lw=corner_lw, solid_capstyle='round')
-        ax.plot([0.97 - corner_len, 0.97], [0.03, 0.03], color=corner_color, lw=corner_lw, solid_capstyle='round')
-
         # --- Header ---
         # Gold beacon dot (spire tip)
         ax.plot(0.05, 0.955, 'o', color=BRAND_ACCENT, markersize=5, zorder=10)
@@ -200,6 +183,23 @@ class ChartCardGenerator:
         buf.seek(0)
         return buf.read()
 
+    @staticmethod
+    def _gaussian_smooth(prices, sigma=1.5):
+        """Smooth prices with a Gaussian kernel (numpy only, no scipy needed)."""
+        kernel_size = int(sigma * 4) | 1  # ensure odd
+        x = np.arange(-(kernel_size // 2), kernel_size // 2 + 1)
+        kernel = np.exp(-x ** 2 / (2 * sigma ** 2))
+        kernel /= kernel.sum()
+        # Pad edges to avoid shrinkage
+        pad = kernel_size // 2
+        padded = np.concatenate([
+            np.full(pad, prices[0]),
+            prices,
+            np.full(pad, prices[-1]),
+        ])
+        smoothed = np.convolve(padded, kernel, mode='valid')
+        return smoothed
+
     def _draw_price_chart(self, ax, price_data, entry_date, exit_date,
                           entry_price, exit_price, accent_color):
         """Draw the price line chart with entry/exit markers."""
@@ -211,8 +211,12 @@ class ChartCardGenerator:
         # Background
         ax.set_facecolor('#0f1b3d')
 
-        # Price line
-        ax.plot(dates, prices, color='white', linewidth=1.5, alpha=0.9)
+        # Smooth the price line with Gaussian kernel for polished look
+        try:
+            smooth_prices = self._gaussian_smooth(prices, sigma=1.5)
+            ax.plot(dates, smooth_prices, color='white', linewidth=1.5, alpha=0.9)
+        except Exception:
+            ax.plot(dates, prices, color='white', linewidth=1.5, alpha=0.9)
 
         # Find entry/exit indices
         entry_dt = pd.Timestamp(entry_date[:10])
@@ -222,7 +226,10 @@ class ChartCardGenerator:
         mask = (dates >= entry_dt) & (dates <= exit_dt)
         if mask.any():
             fill_dates = dates[mask]
-            fill_prices = prices[mask]
+            try:
+                fill_prices = smooth_prices[mask]
+            except Exception:
+                fill_prices = prices[mask]
             ax.fill_between(fill_dates, fill_prices,
                            min(prices) * 0.98,
                            alpha=0.15, color=accent_color)

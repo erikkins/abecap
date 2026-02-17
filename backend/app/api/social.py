@@ -5,8 +5,11 @@ All endpoints require admin authentication.
 """
 
 import json
+import logging
 from datetime import datetime
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -558,8 +561,41 @@ async def regenerate_post_ai(
         post.status = "draft"
         post.reviewed_at = None
         post.reviewed_by = None
+
+        # Also regenerate chart card for Instagram posts
+        image_url = None
+        if post.platform == "instagram" and post.image_metadata_json:
+            try:
+                from app.services.chart_card_generator import chart_card_generator
+                meta = json.loads(post.image_metadata_json)
+                png_bytes = chart_card_generator.generate_trade_card(
+                    symbol=meta.get("symbol", "???"),
+                    entry_price=meta.get("entry_price", 0),
+                    exit_price=meta.get("exit_price", 0),
+                    entry_date=meta.get("entry_date", ""),
+                    exit_date=meta.get("exit_date", ""),
+                    pnl_pct=meta.get("pnl_pct", 0),
+                    pnl_dollars=meta.get("pnl_dollars", 0),
+                    exit_reason=meta.get("exit_reason", "trailing_stop"),
+                    strategy_name=meta.get("strategy_name", "Ensemble"),
+                    regime_name=meta.get("regime_name", ""),
+                    company_name=meta.get("company_name", ""),
+                )
+                date_str = meta.get("exit_date", "")[:10].replace("-", "")
+                s3_key = chart_card_generator.upload_to_s3(
+                    png_bytes, post.id, meta.get("symbol", "UNK"), date_str
+                )
+                if s3_key:
+                    post.image_s3_key = s3_key
+                    image_url = chart_card_generator.get_presigned_url(s3_key)
+            except Exception as e:
+                logger.warning(f"Chart card regeneration failed for post {post_id}: {e}")
+
         await db.commit()
-        return {"status": "regenerated_ai", "post_id": post_id, "text_content": new_text}
+        resp = {"status": "regenerated_ai", "post_id": post_id, "text_content": new_text}
+        if image_url:
+            resp["image_url"] = image_url
+        return resp
 
     # Fall back to template regeneration
     raise HTTPException(status_code=502, detail="AI regeneration failed. Use /regenerate for template-based fallback.")

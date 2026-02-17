@@ -1113,6 +1113,79 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # Handle bulk chart card regeneration (direct Lambda invocation)
+    if event.get("regenerate_charts"):
+        print("🎨 Regenerate chart cards request received")
+
+        async def _regenerate_charts():
+            from sqlalchemy import select
+            from app.core.database import async_session, SocialPost
+            from app.services.chart_card_generator import chart_card_generator
+            import json
+
+            async with async_session() as db:
+                result = await db.execute(
+                    select(SocialPost).where(
+                        SocialPost.platform == "instagram",
+                        SocialPost.image_metadata_json.isnot(None),
+                    )
+                )
+                posts = result.scalars().all()
+
+                regenerated = 0
+                errors = []
+                for post in posts:
+                    try:
+                        meta = json.loads(post.image_metadata_json)
+                        png_bytes = chart_card_generator.generate_trade_card(
+                            symbol=meta.get("symbol", "???"),
+                            entry_price=meta.get("entry_price", 0),
+                            exit_price=meta.get("exit_price", 0),
+                            entry_date=meta.get("entry_date", ""),
+                            exit_date=meta.get("exit_date", ""),
+                            pnl_pct=meta.get("pnl_pct", 0),
+                            pnl_dollars=meta.get("pnl_dollars", 0),
+                            exit_reason=meta.get("exit_reason", "trailing_stop"),
+                            strategy_name=meta.get("strategy_name", "Ensemble"),
+                            regime_name=meta.get("regime_name", ""),
+                            company_name=meta.get("company_name", ""),
+                        )
+                        date_str = meta.get("exit_date", "")[:10].replace("-", "")
+                        s3_key = chart_card_generator.upload_to_s3(
+                            png_bytes, post.id, meta.get("symbol", "UNK"), date_str
+                        )
+                        if s3_key:
+                            post.image_s3_key = s3_key
+                            regenerated += 1
+                            print(f"  ✅ Post {post.id} ({meta.get('symbol')}): {s3_key}")
+                        else:
+                            errors.append(f"Post {post.id}: S3 upload failed")
+                    except Exception as e:
+                        errors.append(f"Post {post.id}: {str(e)}")
+                        print(f"  ❌ Post {post.id}: {e}")
+
+                await db.commit()
+
+            return {
+                "status": "success",
+                "total_posts": len(posts),
+                "regenerated": regenerated,
+                "errors": errors,
+            }
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_regenerate_charts())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Regenerate charts failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
     # Handle seed strategies (direct Lambda invocation)
     if event.get("seed_strategies"):
         print("🌱 Seed strategies request received")
