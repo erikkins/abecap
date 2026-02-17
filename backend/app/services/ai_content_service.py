@@ -163,6 +163,7 @@ class AIContentService:
                     "pnl_pct": pnl_pct,
                     "entry_date": entry_date,
                     "exit_date": exit_date,
+                    "exit_reason": exit_reason,
                     "card_type": post_type,
                 })
 

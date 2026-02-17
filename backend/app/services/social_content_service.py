@@ -596,6 +596,7 @@ class SocialContentService:
                 "pnl_pct": pnl_pct,
                 "entry_date": entry_date,
                 "exit_date": exit_date,
+                "exit_reason": exit_reason,
                 "card_type": "trade_result",
             }),
         )
@@ -646,6 +647,8 @@ class SocialContentService:
             f"\nrigacap.com"
         )
 
+        exit_reason = trade.get("exit_reason", "trailing_stop")
+
         return SocialPost(
             post_type="missed_opportunity",
             platform="instagram",
@@ -659,6 +662,7 @@ class SocialContentService:
                 "pnl_pct": pnl_pct,
                 "entry_date": entry_date,
                 "exit_date": exit_date,
+                "exit_reason": exit_reason,
                 "card_type": "missed_opportunity",
             }),
         )
