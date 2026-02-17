@@ -12,6 +12,7 @@ import {
   Briefcase, Mail
 } from 'lucide-react';
 import LandingPage from './LandingPage';
+import TrackRecordPage from './TrackRecordPage';
 import { PrivacyPage, TermsPage, ContactPage } from './LegalPages';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginModal from './components/LoginModal';
@@ -1005,7 +1006,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
             </div>
           )}
 
-          <div className={`grid ${viewMode === 'simple' ? 'grid-cols-2' : 'grid-cols-4'} gap-4`}>
+          <div className={`grid ${viewMode === 'simple' ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'} gap-4`}>
             {type === 'signal' ? (
               viewMode === 'simple' ? (
                 <>
@@ -1130,7 +1131,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
 
           {/* Technical Indicators - Signal only, Advanced mode only */}
           {viewMode !== 'simple' && type === 'signal' && (data?.ma_50 || stockInfo?.ma_50) && (
-            <div className="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-200">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-200">
               <div className="text-center">
                 <p className="text-sm text-gray-500">50-Day MA</p>
                 <p className="text-lg font-semibold">${(data?.ma_50 || stockInfo?.ma_50)?.toFixed(2)}</p>
@@ -2580,13 +2581,13 @@ function Dashboard() {
 
             {/* Metric Cards */}
             {viewMode === 'simple' ? (
-              <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
                 <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={Wallet} trend="up" />
                 <MetricCard title="P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} icon={totalPnlPct >= 0 ? TrendingUp : TrendingDown} trend={totalPnlPct >= 0 ? 'up' : 'down'} />
                 <MetricCard title="Buy Signals" value={dashboardData?.market_stats?.signal_count || signalsWithLiveQuotes.length} subtitle={`${dashboardData?.market_stats?.fresh_count || 0} fresh`} icon={Zap} />
               </div>
             ) : (
-              <div className="grid grid-cols-5 gap-4 mb-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
                 <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={Wallet} trend="up" />
                 <MetricCard title="Open P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} icon={totalPnlPct >= 0 ? TrendingUp : TrendingDown} trend={totalPnlPct >= 0 ? 'up' : 'down'} />
                 <MetricCard title="Positions" value={`${positions.length}/6`} icon={PieIcon} />
@@ -2596,7 +2597,7 @@ function Dashboard() {
             )}
 
             {/* Two column layout: Buy Signals | Open Positions */}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* LEFT: Buy Signals */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -2824,6 +2825,7 @@ function Dashboard() {
                                   {freshSignals.map(renderSimpleSignal)}
                                 </div>
                               ) : (
+                                <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                   <thead className="bg-gray-50 text-gray-600">
                                     <tr>
@@ -2838,6 +2840,7 @@ function Dashboard() {
                                     {freshSignals.map(renderAdvancedSignal)}
                                   </tbody>
                                 </table>
+                                </div>
                               )}
                             </div>
                           ) : (
@@ -2861,6 +2864,7 @@ function Dashboard() {
                                   {monitoringSignals.map(renderSimpleSignal)}
                                 </div>
                               ) : (
+                                <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                   <thead className="bg-gray-50 text-gray-600">
                                     <tr>
@@ -2874,6 +2878,7 @@ function Dashboard() {
                                     {monitoringSignals.map(renderAdvancedSignal)}
                                   </tbody>
                                 </table>
+                                </div>
                               )}
                             </div>
                           )}
@@ -2919,6 +2924,7 @@ function Dashboard() {
                               ))}
                             </div>
                           ) : (
+                            <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                               <thead className="text-gray-500">
                                 <tr>
@@ -2943,6 +2949,7 @@ function Dashboard() {
                                 ))}
                               </tbody>
                             </table>
+                            </div>
                           )}
                         </div>
                       )}
@@ -3025,6 +3032,7 @@ function Dashboard() {
                       </div>
                     ) : (
                       /* Advanced mode: full table */
+                      <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead className="bg-gray-50 text-gray-600 sticky top-0">
                           <tr>
@@ -3086,6 +3094,7 @@ function Dashboard() {
                           })}
                         </tbody>
                       </table>
+                      </div>
                     )
                   ) : (
                     <div className="text-center py-12 text-gray-500">
@@ -3258,7 +3267,7 @@ function Dashboard() {
           </>
         ) : activeTab === 'history' ? (
           <div className="space-y-6">
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <MetricCard title="Total Trades" value={trades.length} icon={History} />
               <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${wins.length}W / ${trades.length - wins.length}L`} icon={Target} trend={winRate > 50 ? 'up' : 'down'} />
               <MetricCard title="Total P&L" value={`$${totalHistoricalPnl.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={Wallet} trend={totalHistoricalPnl >= 0 ? 'up' : 'down'} />
@@ -3339,6 +3348,7 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/track-record" element={<TrackRecordPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/app" element={

@@ -463,7 +463,7 @@ const FAQSection = () => (
         />
         <FAQItem
           question="What's your track record?"
-          answer="Our Ensemble strategy has been validated through rigorous walk-forward simulations — year-by-year tests with no hindsight bias. We've navigated the 2021 bull run, 2022 bear market, 2023 recovery, and beyond — continuously adapting through each cycle. See our year-by-year results above."
+          answer={<>Our Ensemble strategy has been validated through rigorous walk-forward simulations — year-by-year tests with no hindsight bias. We've navigated the 2021 bull run, 2022 bear market, 2023 recovery, and beyond — continuously adapting through each cycle. See our <a href="/track-record" className="text-indigo-400 hover:text-indigo-300 underline">full track record</a>.</>}
         />
         <FAQItem
           question="Can I cancel anytime?"

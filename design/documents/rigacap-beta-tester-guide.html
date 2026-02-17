@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RigaCap — Beta Tester Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  :root {
+    --navy: #172554;
+    --navy-mid: #1e3a5f;
+    --navy-light: #1e40af;
+    --gold: #f59e0b;
+    --gold-light: #fbbf24;
+    --gold-pale: #fef3c7;
+    --green: #22c55e;
+    --green-light: #dcfce7;
+    --red: #ef4444;
+    --red-light: #fee2e2;
+    --dark: #111827;
+    --gray: #64748b;
+    --light-gray: #f8fafc;
+    --border: #e2e8f0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--dark);
+    line-height: 1.6;
+    background: #fff;
+  }
+
+  @page {
+    size: letter;
+    margin: 0.6in 0.7in;
+  }
+
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page-break { page-break-before: always; }
+    .no-break { page-break-inside: avoid; }
+  }
+
+  /* Cover */
+  .cover {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: linear-gradient(145deg, #0c1a3a 0%, var(--navy) 40%, var(--navy-mid) 100%);
+    color: #fff;
+    padding: 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -30%; right: -20%;
+    width: 60%; height: 80%;
+    background: radial-gradient(circle, rgba(245,158,11,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    bottom: -20%; left: -10%;
+    width: 50%; height: 60%;
+    background: radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .cover * { position: relative; z-index: 1; }
+
+  /* Gold corner brackets on cover */
+  .cover-corners {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 1;
+  }
+  .cover-corners::before,
+  .cover-corners::after {
+    content: '';
+    position: absolute;
+    width: 60px; height: 60px;
+    border-color: var(--gold);
+    border-style: solid;
+  }
+  .cover-corners::before {
+    top: 40px; left: 40px;
+    border-width: 2px 0 0 2px;
+  }
+  .cover-corners::after {
+    top: 40px; right: 40px;
+    border-width: 2px 2px 0 0;
+  }
+  .cover-corners-bottom {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 1;
+  }
+  .cover-corners-bottom::before,
+  .cover-corners-bottom::after {
+    content: '';
+    position: absolute;
+    width: 60px; height: 60px;
+    border-color: var(--gold);
+    border-style: solid;
+  }
+  .cover-corners-bottom::before {
+    bottom: 40px; left: 40px;
+    border-width: 0 0 2px 2px;
+  }
+  .cover-corners-bottom::after {
+    bottom: 40px; right: 40px;
+    border-width: 0 2px 2px 0;
+  }
+
+  .cover .logo {
+    font-size: 1.1rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--gold);
+    margin-bottom: 2rem;
+  }
+  .cover .logo .beacon {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--gold);
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+    box-shadow: 0 0 12px rgba(245,158,11,0.6);
+  }
+  .cover h1 {
+    font-size: 3.2rem;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, #fff 0%, var(--gold-light) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .cover .subtitle {
+    font-size: 1.25rem;
+    font-weight: 300;
+    color: rgba(255,255,255,0.75);
+    max-width: 560px;
+    margin-bottom: 3rem;
+  }
+  .cover .date {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* Gold divider */
+  .gold-divider {
+    width: 80px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 2rem auto;
+  }
+
+  /* Content pages */
+  .content { max-width: 800px; margin: 0 auto; padding: 3rem 2rem; }
+
+  h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--navy);
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--gold-pale);
+  }
+  h2:first-child { margin-top: 0; }
+
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--dark);
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  p { margin-bottom: 0.75rem; color: #374151; font-size: 0.92rem; }
+  strong { font-weight: 600; }
+
+  /* Steps */
+  .step-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+    margin: 1.25rem 0;
+  }
+  .step-card {
+    background: var(--light-gray);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    border-top: 3px solid var(--navy);
+  }
+  .step-card .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--navy);
+    color: var(--gold-light);
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .step-card h3 {
+    margin-top: 0;
+    font-size: 1rem;
+    color: var(--navy);
+  }
+  .step-card p {
+    font-size: 0.85rem;
+    color: var(--gray);
+    margin-bottom: 0;
+  }
+
+  /* Callout boxes */
+  .callout {
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin: 1.25rem 0;
+  }
+  .callout-gold {
+    background: var(--gold-pale);
+    border: 1px solid #fde68a;
+    border-left: 4px solid var(--gold);
+  }
+  .callout-gold .callout-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #92400e;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.5rem;
+  }
+  .callout-gold p {
+    color: #78350f;
+    font-size: 0.88rem;
+    margin-bottom: 0.4rem;
+  }
+  .callout-gold p:last-child { margin-bottom: 0; }
+
+  .callout-blue {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-left: 4px solid var(--navy-light);
+  }
+  .callout-blue .callout-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--navy);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.5rem;
+  }
+  .callout-blue p {
+    color: #1e3a5f;
+    font-size: 0.88rem;
+    margin-bottom: 0.4rem;
+  }
+  .callout-blue p:last-child { margin-bottom: 0; }
+
+  /* Feature cards */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin: 1.25rem 0;
+  }
+  .feature-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    border-left: 4px solid var(--navy);
+  }
+  .feature-card h3 {
+    margin-top: 0;
+    font-size: 0.95rem;
+    color: var(--navy);
+  }
+  .feature-card p {
+    font-size: 0.85rem;
+    color: var(--gray);
+    margin-bottom: 0;
+  }
+
+  /* Timeline */
+  .timeline {
+    margin: 1.25rem 0;
+    border-left: 3px solid var(--navy);
+    padding-left: 1.5rem;
+  }
+  .timeline-item {
+    position: relative;
+    margin-bottom: 1.25rem;
+  }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -1.75rem;
+    top: 0.35rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--gold);
+    border: 2px solid var(--navy);
+  }
+  .timeline-item .time {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--navy);
+  }
+  .timeline-item p {
+    font-size: 0.85rem;
+    color: var(--gray);
+    margin-bottom: 0;
+  }
+
+  /* FAQ */
+  .faq-item {
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 0;
+  }
+  .faq-item:last-child { border-bottom: none; }
+  .faq-q {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--navy);
+    margin-bottom: 0.4rem;
+  }
+  .faq-a {
+    font-size: 0.88rem;
+    color: var(--gray);
+    margin-bottom: 0;
+  }
+
+  /* Disclaimer footer */
+  .disclaimer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.75rem;
+    color: var(--gray);
+    text-align: center;
+  }
+
+  ul { margin: 0.5rem 0 0.75rem 1.5rem; }
+  li { font-size: 0.88rem; color: #374151; margin-bottom: 0.35rem; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- COVER PAGE -->
+<!-- ============================================================ -->
+<div class="cover">
+  <div class="cover-corners"></div>
+  <div class="cover-corners-bottom"></div>
+
+  <div class="logo"><span class="beacon"></span>RigaCap</div>
+
+  <h1>Beta Tester Guide</h1>
+  <p class="subtitle">Everything you need to get started with RigaCap's AI-powered trading signals</p>
+
+  <div class="gold-divider"></div>
+
+  <p class="date">February 2026</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- WELCOME -->
+<!-- ============================================================ -->
+<div class="content page-break">
+
+  <h2>Welcome, Beta Tester</h2>
+
+  <p>Thank you for being one of RigaCap's first users. You're part of a small group helping us refine a product we've spent years building — a stock signal platform powered by a 3-factor Ensemble strategy that has been walk-forward validated across 5 years of market data.</p>
+
+  <div class="callout callout-gold no-break">
+    <div class="callout-title">Your Access Is Complimentary</div>
+    <p>As a beta tester, your subscription is fully comped — you will not be charged. We've set up your account so you have full access to every feature, exactly as a paying subscriber would experience it.</p>
+  </div>
+
+  <p>In return, we ask one thing: <strong>your honest feedback.</strong> Tell us what's clear, what's confusing, what's missing, and what delights you. Your input directly shapes the product before we open to the public.</p>
+
+  <!-- ============================================================ -->
+  <!-- GETTING STARTED -->
+  <!-- ============================================================ -->
+
+  <h2>Getting Started</h2>
+
+  <div class="step-grid no-break">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <h3>Sign Up</h3>
+      <p>Visit <strong>rigacap.com</strong> and create your account. Your access is already comped — no credit card needed.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <h3>Take the Tour</h3>
+      <p>A guided dashboard tour starts automatically on your first login. It walks you through every section.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <h3>Review Signals</h3>
+      <p>Signals are informational only — you decide whether to trade and execute through your own broker.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- YOUR DASHBOARD -->
+  <!-- ============================================================ -->
+
+  <h2>Your Dashboard</h2>
+
+  <p>Once logged in, you'll see a clean dashboard with everything you need. Here's what each section does:</p>
+
+  <div class="feature-grid">
+    <div class="feature-card no-break">
+      <h3>Buy Signals</h3>
+      <p><strong>Fresh signals</strong> (green BUY badge) are new opportunities the Ensemble strategy identified today. <strong>Monitoring</strong> signals (gray) are stocks being watched for potential entry. Focus on the fresh signals first.</p>
+    </div>
+    <div class="feature-card no-break">
+      <h3>Open Positions</h3>
+      <p>Shows currently tracked positions with real-time P&L, entry price, trailing stop level, and high water mark. The trailing stop automatically adjusts as positions move in your favor.</p>
+    </div>
+    <div class="feature-card no-break">
+      <h3>Simple / Advanced Mode</h3>
+      <p>Toggle in the top-right corner. <strong>Simple mode</strong> shows essential signals and positions. <strong>Advanced mode</strong> adds momentum scores, regime data, and detailed analytics.</p>
+    </div>
+    <div class="feature-card no-break">
+      <h3>Market Regime</h3>
+      <p>The current market regime (e.g., Strong Bull, Range Bound, Weak Bear) is displayed at the top. The strategy adapts its parameters automatically based on which of the 7 regimes is active.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- DAILY WORKFLOW -->
+  <!-- ============================================================ -->
+
+  <h2 class="page-break">Daily Workflow</h2>
+
+  <p>RigaCap is designed to fit your schedule. Here's how a typical day works:</p>
+
+  <div class="timeline">
+    <div class="timeline-item no-break">
+      <div class="time">4:00 PM ET — Daily Scan</div>
+      <p>After the market closes, our system scans the full stock universe and runs the Ensemble strategy. New signals and position updates appear on your dashboard.</p>
+    </div>
+    <div class="timeline-item no-break">
+      <div class="time">6:00 PM ET — Email Digest</div>
+      <p>A beautifully formatted email lands in your inbox with today's top signals, current positions with P&L, and any watchlist updates. Everything you need in one glance.</p>
+    </div>
+    <div class="timeline-item no-break">
+      <div class="time">Intraday — Sell Alerts</div>
+      <p>If a trailing stop is triggered during market hours, you'll receive an immediate email alert so you can act promptly through your broker.</p>
+    </div>
+    <div class="timeline-item no-break">
+      <div class="time">Your Action</div>
+      <p>Review the signals, do your own research, and decide whether to trade. Log in to your broker and execute any trades you choose. RigaCap identifies opportunities — you make the decisions.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- WHAT WE WANT YOU TO TEST -->
+  <!-- ============================================================ -->
+
+  <h2>What We Want You to Test</h2>
+
+  <p>As a beta tester, your perspective is invaluable. Here are the areas where your feedback matters most:</p>
+
+  <div class="callout callout-gold no-break">
+    <div class="callout-title">Signal Quality & Timing</div>
+    <p>Do the signals make sense? Are they identifying stocks you'd consider? Do the entry points feel well-timed?</p>
+  </div>
+
+  <div class="callout callout-gold no-break">
+    <div class="callout-title">Dashboard Clarity & Usability</div>
+    <p>Is the layout intuitive? Can you find what you need quickly? Is anything confusing or overwhelming?</p>
+  </div>
+
+  <div class="callout callout-gold no-break">
+    <div class="callout-title">Email Digest Usefulness</div>
+    <p>Is the daily email helpful? Too much information? Too little? Would you change the timing?</p>
+  </div>
+
+  <div class="callout callout-gold no-break">
+    <div class="callout-title">Mobile Experience</div>
+    <p>Try the dashboard on your phone. Does it look good? Is it easy to scan signals on a small screen?</p>
+  </div>
+
+  <div class="callout callout-gold no-break">
+    <div class="callout-title">Anything Confusing or Broken</div>
+    <p>Bugs, typos, broken links, slow pages — anything that doesn't feel right, we want to hear about it.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- GIVING FEEDBACK -->
+  <!-- ============================================================ -->
+
+  <h2 class="page-break">Giving Feedback</h2>
+
+  <p>The best feedback is specific. Here's how to send it:</p>
+
+  <div class="callout callout-blue no-break">
+    <div class="callout-title">Email Your Feedback</div>
+    <p><strong>Send to:</strong> erik@rigacap.com</p>
+    <p>Include what you were doing, what you expected to happen, and what actually happened. Screenshots are extremely helpful — especially for UI issues or mobile problems.</p>
+  </div>
+
+  <p>Don't worry about being too critical — that's exactly what we need. A short "this confused me" is more valuable than a polite "looks good."</p>
+
+  <!-- ============================================================ -->
+  <!-- FAQ -->
+  <!-- ============================================================ -->
+
+  <h2>Frequently Asked Questions</h2>
+
+  <div class="faq-item no-break">
+    <div class="faq-q">Is this real money?</div>
+    <p class="faq-a">The signals are generated from real market data in real time. Whether you choose to trade based on them is entirely your decision. RigaCap does not manage funds, place orders, or hold any of your money.</p>
+  </div>
+
+  <div class="faq-item no-break">
+    <div class="faq-q">How many signals should I expect per day?</div>
+    <p class="faq-a">Typically 2–4 fresh signals on active market days. Some days — especially during weak market regimes — there may be none. Quality over quantity is a core principle.</p>
+  </div>
+
+  <div class="faq-item no-break">
+    <div class="faq-q">What broker should I use?</div>
+    <p class="faq-a">Any US brokerage works — Schwab, Fidelity, Interactive Brokers, TD Ameritrade, Robinhood, etc. RigaCap is broker-agnostic. You execute all trades yourself through your own account.</p>
+  </div>
+
+  <div class="faq-item no-break">
+    <div class="faq-q">Will I be charged?</div>
+    <p class="faq-a">No. Your beta tester account is fully comped. You will not be billed during the beta period.</p>
+  </div>
+
+  <div class="faq-item no-break">
+    <div class="faq-q">How long is the beta period?</div>
+    <p class="faq-a">We'll let you know as we approach public launch. You'll receive advance notice before any changes to your account status.</p>
+  </div>
+
+  <div class="faq-item no-break">
+    <div class="faq-q">Can I share my account?</div>
+    <p class="faq-a">Please don't. Each beta account is tied to one person so we can correlate feedback with the specific experience you're seeing.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- DISCLAIMER -->
+  <!-- ============================================================ -->
+
+  <div class="disclaimer">
+    <p><strong>Disclaimer:</strong> RigaCap provides algorithmic trading signals and educational information only. We are not registered investment advisors and do not provide financial advice. Past performance, including walk-forward simulation results, is not indicative of future results. Investing in stocks involves risk, including the possible loss of principal. Always do your own research and consider consulting a licensed financial professional before making investment decisions.</p>
+    <p style="margin-top: 0.75rem;">&copy; 2026 RigaCap. All rights reserved. | rigacap.com | erik@rigacap.com</p>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -384,9 +384,19 @@ async def google_auth(
         )
         db.add(user)
         await db.flush()
+        is_new_user = True
+    else:
+        is_new_user = False
 
     await db.commit()
     await db.refresh(user)
+
+    # Send welcome email to new users
+    if is_new_user:
+        import asyncio
+        asyncio.create_task(
+            email_service.send_welcome_email(user.email, user.name or user.email)
+        )
 
     # Load subscription
     result = await db.execute(
@@ -481,9 +491,19 @@ async def apple_auth(
         )
         db.add(user)
         await db.flush()
+        is_new_user = True
+    else:
+        is_new_user = False
 
     await db.commit()
     await db.refresh(user)
+
+    # Send welcome email to new users
+    if is_new_user:
+        import asyncio
+        asyncio.create_task(
+            email_service.send_welcome_email(user.email, user.name or user.email)
+        )
 
     # Load subscription
     result = await db.execute(
