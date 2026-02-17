@@ -687,6 +687,14 @@ class EmailService:
                     </a>
                 </div>
 
+                <!-- Track Record -->
+                <div style="background-color: #eff6ff; border-radius: 12px; padding: 20px; margin: 24px 0; border-left: 4px solid #172554;">
+                    <p style="margin: 0; font-size: 14px; color: #1e3a5f;">
+                        <strong>Our Track Record:</strong> +289% over 5 years, walk-forward validated with no hindsight bias.
+                        <a href="https://rigacap.com/track-record" style="color: #1e40af; text-decoration: underline;">See the full year-by-year results →</a>
+                    </p>
+                </div>
+
                 <!-- Pro Tip -->
                 <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px; margin: 24px 0;">
                     <p style="margin: 0; font-size: 14px; color: #92400e;">
@@ -739,6 +747,8 @@ Here's what you get:
 - Works with any broker — Schwab, Fidelity, IBKR — you execute, we signal
 
 Your 7-day free trial starts now. Visit https://rigacap.com/app to see today's signals!
+
+Our Track Record: +289% over 5 years, walk-forward validated. See the details: https://rigacap.com/track-record
 
 Pro Tip: Look for signals with the green BUY badge — these are fresh breakouts with the highest conviction.
 

@@ -59,11 +59,11 @@ const HeroSection = ({ onGetStarted }) => (
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
           <a
-            href="#how-it-works"
+            href="/track-record"
             className="flex items-center gap-2 px-8 py-4 text-white/90 font-medium hover:text-white transition-colors"
           >
-            See How It Works
-            <ChevronDown className="w-5 h-5" />
+            View 5-Year Track Record
+            <ArrowRight className="w-5 h-5" />
           </a>
         </div>
 

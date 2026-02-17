@@ -3340,6 +3340,21 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+function NotFoundPage() {
+  return (
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
+      <div className="text-center">
+        <p className="text-6xl font-bold text-amber-400 mb-4">404</p>
+        <h1 className="text-2xl font-semibold text-white mb-2">Page not found</h1>
+        <p className="text-gray-400 mb-8">The page you're looking for doesn't exist or has been moved.</p>
+        <a href="/" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-gray-900 font-semibold rounded-xl hover:shadow-lg transition-all">
+          Back to RigaCap
+        </a>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -3366,6 +3381,7 @@ export default function App() {
             <Dashboard />
           </ProtectedRoute>
         } />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <CookieConsent />
     </AuthProvider>

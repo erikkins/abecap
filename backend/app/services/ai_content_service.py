@@ -26,8 +26,8 @@ Tone: witty, confident, data-driven. Never financial advice. Never hype.
 The trade is real — walk-forward verified, no backtest cherry-picking.
 If news context is provided, connect the result to recent events with a
 "we saw that coming" angle — without being obnoxious.
-Always end Twitter posts with a brief verification note (e.g., "Walk-forward verified.").
-Always end Instagram posts with "rigacap.com" on its own line.
+Always end Twitter posts with a brief verification note (e.g., "Walk-forward verified.") and include "rigacap.com/track-record" when space allows.
+Always end Instagram posts with "See our full track record at rigacap.com/track-record" on its own line.
 
 CRITICAL FORMATTING RULES:
 - Output ONLY plain text. No markdown. No **bold**, no *italics*, no headers, no bullet points.
