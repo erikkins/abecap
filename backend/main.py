@@ -1124,7 +1124,7 @@ def handler(event, context):
 
             to_email = config.get("to_email", "erik@rigacap.com")
 
-            # Sample Twitter post (T-24h)
+            # Sample Twitter post (T-24h, no chart)
             twitter_post = SimpleNamespace(
                 id=999,
                 platform="twitter",
@@ -1134,9 +1134,10 @@ def handler(event, context):
                 ai_generated=True,
                 ai_model="claude-sonnet-4-5-20250929",
                 hashtags="#NVDA #TradingSignals #Momentum #RigaCap",
+                image_s3_key=None,
             )
 
-            # Sample Instagram post (T-1h)
+            # Sample Instagram post (T-1h) with chart card
             insta_post = SimpleNamespace(
                 id=998,
                 platform="instagram",
@@ -1146,6 +1147,7 @@ def handler(event, context):
                 ai_generated=True,
                 ai_model="claude-sonnet-4-5-20250929",
                 hashtags="#PLTR #AlgoTrading #Ensemble #RigaCap #WalkForward",
+                image_s3_key="social/images/63_SLV_20260116.png",
             )
 
             sent = 0

@@ -2314,14 +2314,28 @@ class AdminEmailService(EmailService):
         urgency = "in 1 hour" if hours_before <= 1 else f"in ~{hours_before} hours"
         header_bg = "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)" if hours_before <= 1 else "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
 
-        # Truncate preview for email
+        # Truncate preview for email, convert newlines to <br> for HTML
         preview_text = (post.text_content or "")[:300]
         if len(post.text_content or "") > 300:
             preview_text += "..."
+        import html as _html
+        preview_html = _html.escape(preview_text).replace("\n", "<br>")
 
         ai_badge = ""
         if getattr(post, "ai_generated", False):
             ai_badge = '<span style="display:inline-block;background:#8b5cf6;color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;margin-left:8px;">AI Generated</span>'
+
+        # Chart card image (if post has one)
+        chart_img_html = ""
+        image_s3_key = getattr(post, "image_s3_key", None)
+        if image_s3_key:
+            try:
+                from app.services.chart_card_generator import chart_card_generator
+                img_url = chart_card_generator.get_presigned_url(image_s3_key, expires_in=86400)
+                if img_url:
+                    chart_img_html = f'<img src="{img_url}" alt="Chart card" style="width:100%; border-radius:8px; margin-bottom:16px;" />'
+            except Exception:
+                pass
 
         html = f"""<!DOCTYPE html>
 <html>
@@ -2350,9 +2364,8 @@ class AdminEmailService(EmailService):
                 </div>
 
                 <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:20px; margin-bottom:24px;">
-                    <p style="margin:0; font-size:14px; color:#374151; white-space:pre-wrap; line-height:1.6;">
-                        {preview_text}
-                    </p>
+                    {chart_img_html}
+                    <p style="margin:0; font-size:14px; color:#374151; line-height:1.6;">{preview_html}</p>
                     {f'<p style="margin:12px 0 0 0; font-size:13px; color:#6366f1;">{post.hashtags}</p>' if post.hashtags else ''}
                 </div>
 
