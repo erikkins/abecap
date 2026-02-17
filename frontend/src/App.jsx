@@ -2160,10 +2160,10 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <svg width="40" height="40" viewBox="0 0 100 100" className="shrink-0">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 overflow-x-hidden">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <svg width="32" height="32" viewBox="0 0 100 100" className="shrink-0 sm:w-10 sm:h-10">
               <defs><linearGradient id="logo-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#172554"/><stop offset="100%" stopColor="#1e3a5f"/></linearGradient></defs>
               <circle cx="50" cy="50" r="50" fill="url(#logo-bg)"/>
               <rect x="34" y="65" width="32" height="15" rx="3" ry="3" fill="#ffffff" opacity="0.2"/>
@@ -2188,26 +2188,26 @@ function Dashboard() {
               <circle cx="50" cy="20" r="1.8" fill="#f59e0b"/>
             </svg>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">RigaCap</h1>
-              <p className="text-xs text-gray-500">Ensemble Trading System</p>
+              <h1 className="text-base sm:text-xl font-bold text-gray-900">RigaCap</h1>
+              <p className="text-xs text-gray-500 hidden sm:block">Ensemble Trading System</p>
             </div>
           </div>
 
-          <nav className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
-            <button onClick={() => setActiveTab('signals')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'signals' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
-              <Zap size={16} className="inline mr-2" />Signals
+          <nav className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl shrink-0">
+            <button onClick={() => setActiveTab('signals')} className={`px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'signals' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
+              <Zap size={16} className="inline sm:mr-2" /><span className="hidden sm:inline">Signals</span>
             </button>
-            <button onClick={() => setActiveTab('history')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
-              <History size={16} className="inline mr-2" />Trade History
+            <button onClick={() => setActiveTab('history')} className={`px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
+              <History size={16} className="inline sm:mr-2" /><span className="hidden sm:inline">Trade History</span>
             </button>
             {isAdmin && (
-              <button onClick={() => setActiveTab('admin')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'admin' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
-                <Settings size={16} className="inline mr-2" />Admin
+              <button onClick={() => setActiveTab('admin')} className={`px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'admin' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
+                <Settings size={16} className="inline sm:mr-2" /><span className="hidden sm:inline">Admin</span>
               </button>
             )}
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <button
               onClick={() => setViewMode(v => v === 'simple' ? 'advanced' : 'simple')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
@@ -2218,7 +2218,7 @@ function Dashboard() {
               title={viewMode === 'simple' ? 'Switch to Advanced mode' : 'Switch to Simple mode'}
             >
               {viewMode === 'simple' ? <Eye size={14} /> : <Settings size={14} />}
-              {viewMode === 'simple' ? 'Simple' : 'Advanced'}
+              <span className="hidden sm:inline">{viewMode === 'simple' ? 'Simple' : 'Advanced'}</span>
             </button>
             {isAdmin && (
               <div className="relative">
@@ -2308,7 +2308,7 @@ function Dashboard() {
                 )}
               </div>
             )}
-            <div className="text-right text-sm">
+            <div className="text-right text-sm hidden md:block">
               <span className="text-gray-500">Last scan: </span>
               <span className="text-gray-700 font-medium">{lastScan ? lastScan.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : 'Never'}</span>
               <div className="text-xs text-gray-400">{dataStatus.loaded} symbols loaded</div>
@@ -2321,7 +2321,7 @@ function Dashboard() {
               }`}
             >
               <RefreshCw size={16} className={scanning ? 'animate-spin' : ''} />
-              {scanning ? 'Scanning...' : 'Scan'}
+              <span className="hidden sm:inline">{scanning ? 'Scanning...' : 'Scan'}</span>
             </button>
             {user ? (
               <div className="relative">
@@ -2377,7 +2377,7 @@ function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
         <WelcomeTour />
         {/* Time Travel Banner */}
         {timeTravelDate && (
@@ -3192,13 +3192,13 @@ function Dashboard() {
                       <thead className="bg-gray-50 text-gray-600">
                         <tr>
                           <th className="px-3 py-2 text-left font-medium">Symbol</th>
-                          <th className="px-3 py-2 text-left font-medium">Buy Date</th>
-                          <th className="px-3 py-2 text-right font-medium">Buy $</th>
-                          <th className="px-3 py-2 text-left font-medium">Sell Date</th>
-                          <th className="px-3 py-2 text-right font-medium">Sell $</th>
+                          <th className="px-3 py-2 text-left font-medium hidden sm:table-cell">Buy Date</th>
+                          <th className="px-3 py-2 text-right font-medium hidden md:table-cell">Buy $</th>
+                          <th className="px-3 py-2 text-left font-medium hidden sm:table-cell">Sell Date</th>
+                          <th className="px-3 py-2 text-right font-medium hidden md:table-cell">Sell $</th>
                           <th className="px-3 py-2 text-right font-medium">Return</th>
                           <th className="px-3 py-2 text-right font-medium">P&L</th>
-                          <th className="px-3 py-2 text-right font-medium">Days</th>
+                          <th className="px-3 py-2 text-right font-medium hidden sm:table-cell">Days</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -3209,17 +3209,17 @@ function Dashboard() {
                             onClick={() => setChartModal({ type: 'missed', data: m, symbol: m.symbol })}
                           >
                             <td className="px-3 py-2.5 font-semibold text-gray-900">{m.symbol}</td>
-                            <td className="px-3 py-2.5 text-gray-500">{m.entry_date}</td>
-                            <td className="px-3 py-2.5 text-right">${m.entry_price?.toFixed(2)}</td>
-                            <td className="px-3 py-2.5 text-gray-500">{m.sell_date}</td>
-                            <td className="px-3 py-2.5 text-right">${m.sell_price?.toFixed(2)}</td>
+                            <td className="px-3 py-2.5 text-gray-500 hidden sm:table-cell">{m.entry_date}</td>
+                            <td className="px-3 py-2.5 text-right hidden md:table-cell">${m.entry_price?.toFixed(2)}</td>
+                            <td className="px-3 py-2.5 text-gray-500 hidden sm:table-cell">{m.sell_date}</td>
+                            <td className="px-3 py-2.5 text-right hidden md:table-cell">${m.sell_price?.toFixed(2)}</td>
                             <td className="px-3 py-2.5 text-right">
                               <span className="text-emerald-600 font-semibold">+{m.would_be_return?.toFixed(1)}%</span>
                             </td>
                             <td className="px-3 py-2.5 text-right text-emerald-600 font-medium">
                               +${m.would_be_pnl?.toFixed(0)}
                             </td>
-                            <td className="px-3 py-2.5 text-right text-gray-500">{m.days_held}d</td>
+                            <td className="px-3 py-2.5 text-right text-gray-500 hidden sm:table-cell">{m.days_held}d</td>
                           </tr>
                         ))}
                       </tbody>
