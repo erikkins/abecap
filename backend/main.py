@@ -1147,7 +1147,7 @@ def handler(event, context):
                 ai_generated=True,
                 ai_model="claude-sonnet-4-5-20250929",
                 hashtags="#PLTR #AlgoTrading #Ensemble #RigaCap #WalkForward",
-                image_s3_key="social/images/63_SLV_20260116.png",
+                image_s3_key="social/images/75_SLV_20260116.png",
             )
 
             sent = 0
