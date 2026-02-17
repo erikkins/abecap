@@ -135,6 +135,46 @@ export default function AdminDashboard() {
     }
   };
 
+  // Comp subscription
+  const compUser = async (userId) => {
+    const days = prompt('Comp subscription for how many days?', '90');
+    if (!days) return;
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/users/${userId}/comp?days=${days}`, {
+        method: 'POST',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        alert(data.message);
+        fetchUsers(usersPagination.page, searchQuery);
+      } else {
+        const err = await response.json();
+        alert(`Failed: ${err.detail}`);
+      }
+    } catch (err) {
+      console.error('Failed to comp user:', err);
+    }
+  };
+
+  // Revoke comp
+  const revokeComp = async (userId) => {
+    if (!confirm('Revoke this comp subscription?')) return;
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/users/${userId}/revoke-comp`, {
+        method: 'POST',
+      });
+      if (response.ok) {
+        alert('Comp revoked');
+        fetchUsers(usersPagination.page, searchQuery);
+      } else {
+        const err = await response.json();
+        alert(`Failed: ${err.detail}`);
+      }
+    } catch (err) {
+      console.error('Failed to revoke comp:', err);
+    }
+  };
+
   // Fetch strategies
   const fetchStrategies = async () => {
     setStrategiesLoading(true);
@@ -364,6 +404,8 @@ export default function AdminDashboard() {
           handleSearch={handleSearch}
           toggleUserStatus={toggleUserStatus}
           extendTrial={extendTrial}
+          compUser={compUser}
+          revokeComp={revokeComp}
           fetchUsers={fetchUsers}
         />
       )}
@@ -847,7 +889,7 @@ function AutoPilotTab({ fetchWithAuth }) {
 }
 
 // Users Tab Component
-function UsersTab({ users, usersPagination, searchQuery, setSearchQuery, handleSearch, toggleUserStatus, extendTrial, fetchUsers }) {
+function UsersTab({ users, usersPagination, searchQuery, setSearchQuery, handleSearch, toggleUserStatus, extendTrial, compUser, revokeComp, fetchUsers }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
       <div className="p-6 border-b border-gray-200">
@@ -937,6 +979,23 @@ function UsersTab({ users, usersPagination, searchQuery, setSearchQuery, handleS
                         title="Extend trial by 7 days"
                       >
                         <Plus size={20} />
+                      </button>
+                    )}
+                    {user.subscription_status !== 'active' ? (
+                      <button
+                        onClick={() => compUser(user.id)}
+                        className="px-2 py-1 rounded text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                        title="Grant comp subscription"
+                      >
+                        Comp
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => revokeComp(user.id)}
+                        className="px-2 py-1 rounded text-xs font-medium text-orange-700 bg-orange-50 hover:bg-orange-100"
+                        title="Revoke comp subscription"
+                      >
+                        Revoke
                       </button>
                     )}
                   </div>

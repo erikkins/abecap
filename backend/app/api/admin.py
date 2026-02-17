@@ -675,6 +675,87 @@ async def extend_trial(
     }
 
 
+@router.post("/users/{user_id}/comp")
+async def comp_subscription(
+    user_id: str,
+    days: int = Query(90, ge=1, le=365),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Grant a complimentary active subscription (no Stripe required)."""
+    import uuid
+
+    result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    sub_result = await db.execute(
+        select(Subscription).where(Subscription.user_id == user.id)
+    )
+    subscription = sub_result.scalar_one_or_none()
+
+    now = datetime.utcnow()
+
+    if subscription:
+        subscription.status = "active"
+        subscription.current_period_start = now
+        subscription.current_period_end = now + timedelta(days=days)
+        subscription.cancel_at_period_end = False
+    else:
+        subscription = Subscription(
+            user_id=user.id,
+            status="active",
+            trial_start=now,
+            trial_end=now,
+            current_period_start=now,
+            current_period_end=now + timedelta(days=days),
+        )
+        db.add(subscription)
+
+    user.is_active = True
+    await db.commit()
+
+    return {
+        "message": f"Comp subscription granted for {days} days",
+        "expires": subscription.current_period_end.isoformat()
+    }
+
+
+@router.post("/users/{user_id}/revoke-comp")
+async def revoke_comp(
+    user_id: str,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Revoke a comped subscription."""
+    import uuid
+
+    result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    sub_result = await db.execute(
+        select(Subscription).where(Subscription.user_id == user.id)
+    )
+    subscription = sub_result.scalar_one_or_none()
+
+    if not subscription:
+        raise HTTPException(status_code=400, detail="User has no subscription")
+
+    if subscription.stripe_subscription_id:
+        raise HTTPException(status_code=400, detail="Cannot revoke a Stripe-managed subscription. Cancel via Stripe instead.")
+
+    subscription.status = "expired"
+    subscription.current_period_end = datetime.utcnow()
+    await db.commit()
+
+    return {"message": "Comp subscription revoked"}
+
+
 @router.get("/stats", response_model=AdminStatsResponse)
 async def get_admin_stats(
     admin: User = Depends(get_admin_user),
