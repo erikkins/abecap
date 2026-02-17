@@ -1272,9 +1272,19 @@ class SchedulerService:
 
             watchlist.sort(key=lambda x: x['distance_to_trigger'])
 
-            # Get market regime
-            from app.services.market_analysis import market_analysis_service
-            regime = market_analysis_service.get_market_regime()
+            # Get market regime (7-regime detector, same as dashboard)
+            from app.services.market_regime import market_regime_service
+            spy_df = scanner_service.data_cache.get('SPY')
+            vix_df = scanner_service.data_cache.get('^VIX')
+            if spy_df is not None and len(spy_df) >= 200:
+                regime_obj = market_regime_service.detect_regime(spy_df, scanner_service.data_cache, vix_df)
+                regime = {
+                    'regime': regime_obj.regime_type.value,
+                    'spy_price': round(float(spy_df['close'].iloc[-1]), 2),
+                    'vix_level': round(float(vix_df['close'].iloc[-1]), 1) if vix_df is not None and len(vix_df) > 0 else 'N/A',
+                }
+            else:
+                regime = {'regime': 'range_bound', 'spy_price': 'N/A', 'vix_level': 'N/A'}
 
             # Query subscribers with valid subscriptions (trial or active)
             from app.core.database import async_session, User as DBUser, Subscription as DBSub

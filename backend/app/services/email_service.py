@@ -198,19 +198,25 @@ class EmailService:
             </td>
         </tr>
 
-        <!-- Signals Section -->
+        <!-- Buy Signals Section (fresh only) -->
         <tr>
             <td style="padding: 0 24px 24px;">
-                <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827; border-left: 4px solid #172554; padding-left: 12px;">
-                    Ensemble Buy Signals{f' ({len(fresh_signals)} Fresh)' if fresh_signals else ''}
+                <h2 style="margin: 0 0 4px 0; font-size: 18px; color: #111827; border-left: 4px solid #059669; padding-left: 12px;">
+                    Ensemble Buy Signals{f' ({len(fresh_signals)})' if fresh_signals else ''}
                 </h2>
-                {"".join(self._signal_row(s) for s in signals[:8]) if signals else f'''
+                <p style="margin: 0 0 16px 16px; font-size: 13px; color: #6b7280;">
+                    Recent DWAP cross + top momentum — consider adding
+                </p>
+                {"".join(self._signal_row(s) for s in fresh_signals[:8]) if fresh_signals else f'''
                 <div style="background-color: #f9fafb; border-radius: 8px; padding: 24px; text-align: center; color: #6b7280;">
-                    No fresh signals today{f" — {len(watchlist)} stock{'s' if len(watchlist) != 1 else ''} on watchlist approaching trigger" if watchlist else ". Check back tomorrow!"}
+                    No fresh buy signals today{f" — {len(watchlist)} stock{'s' if len(watchlist) != 1 else ''} approaching trigger" if watchlist else ". Check back tomorrow!"}
                 </div>
                 '''}
             </td>
         </tr>
+
+        <!-- Monitoring Section (non-fresh signals) -->
+        {self._monitoring_section([s for s in signals if not s.get('is_fresh')][:6]) if [s for s in signals if not s.get('is_fresh')] else ''}
 
         <!-- Watchlist Section -->
         {self._watchlist_section(watchlist) if watchlist else ''}
@@ -255,7 +261,17 @@ class EmailService:
         is_fresh = signal.get('is_fresh', False)
         days_since = signal.get('days_since_crossover')
 
-        rank_color = '#059669' if mom_rank and mom_rank <= 5 else '#6b7280'
+        # Rank badge: Top 5 = green, Top 10 = blue, 11+ = gray
+        if mom_rank and mom_rank <= 5:
+            rank_color = '#059669'
+            rank_label = f'#{mom_rank} Top 5'
+        elif mom_rank and mom_rank <= 10:
+            rank_color = '#2563eb'
+            rank_label = f'#{mom_rank} Top 10'
+        else:
+            rank_color = '#6b7280'
+            rank_label = f'Rank #{mom_rank}'
+
         badge = '<span style="display:inline-block;background:#172554;color:#c9a94e;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;vertical-align:middle;">STRONG</span>' if is_strong else ''
 
         fresh_chip = ''
@@ -278,12 +294,32 @@ class EmailService:
                     </td>
                     <td style="text-align: right;">
                         <div style="display: inline-block; background-color: {rank_color}; color: #ffffff; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 99px;">
-                            Mom #{mom_rank}
+                            {rank_label}
                         </div>
                     </td>
                 </tr>
             </table>
         </div>
+        """
+
+    def _monitoring_section(self, monitoring_signals: List[Dict]) -> str:
+        """Generate HTML for monitoring section (non-fresh signals above DWAP + top momentum)"""
+        if not monitoring_signals:
+            return ''
+
+        rows = "".join(self._signal_row(s) for s in monitoring_signals)
+        return f"""
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <h2 style="margin: 0 0 4px 0; font-size: 18px; color: #111827; border-left: 4px solid #6b7280; padding-left: 12px;">
+                    Monitoring ({len(monitoring_signals)})
+                </h2>
+                <p style="margin: 0 0 16px 16px; font-size: 13px; color: #6b7280;">
+                    Strong momentum, watching for fresh entry signal
+                </p>
+                {rows}
+            </td>
+        </tr>
         """
 
     def _watchlist_section(self, watchlist: List[Dict]) -> str:
@@ -436,17 +472,31 @@ class EmailService:
             f"SPY: ${market_regime.get('spy_price', 'N/A') if market_regime else 'N/A'}",
             f"VIX: {market_regime.get('vix_level', 'N/A') if market_regime else 'N/A'}",
             "",
-            f"ENSEMBLE SIGNALS ({len(fresh_signals)} Fresh)",
+            f"BUY SIGNALS ({len(fresh_signals)})",
             "-" * 40,
         ]
 
-        for s in signals[:10]:
-            symbol = s.get('symbol', 'N/A')
-            price = s.get('price', 0)
-            pct = s.get('pct_above_dwap', 0)
-            mom_rank = s.get('momentum_rank', 0)
-            fresh_tag = " [NEW TODAY]" if s.get('is_fresh') and s.get('days_since_crossover') == 0 else (" [FRESH]" if s.get('is_fresh') else "")
-            lines.append(f"  {symbol}: ${price:.2f} (Mom #{mom_rank}) - DWAP +{pct:.1f}%{fresh_tag}")
+        non_fresh = [s for s in signals if not s.get('is_fresh')]
+
+        if fresh_signals:
+            for s in fresh_signals[:8]:
+                symbol = s.get('symbol', 'N/A')
+                price = s.get('price', 0)
+                pct = s.get('pct_above_dwap', 0)
+                mom_rank = s.get('momentum_rank', 0)
+                fresh_tag = " [NEW TODAY]" if s.get('days_since_crossover') == 0 else " [FRESH]"
+                lines.append(f"  {symbol}: ${price:.2f} (Rank #{mom_rank}) - DWAP +{pct:.1f}%{fresh_tag}")
+        else:
+            lines.append(f"  No fresh buy signals today")
+
+        if non_fresh:
+            lines.extend(["", f"MONITORING ({len(non_fresh)})", "-" * 40])
+            for s in non_fresh[:6]:
+                symbol = s.get('symbol', 'N/A')
+                price = s.get('price', 0)
+                pct = s.get('pct_above_dwap', 0)
+                mom_rank = s.get('momentum_rank', 0)
+                lines.append(f"  {symbol}: ${price:.2f} (Rank #{mom_rank}) - DWAP +{pct:.1f}%")
 
         if not signals and watchlist:
             lines.append(f"  No fresh signals — {len(watchlist)} stock(s) on watchlist")
