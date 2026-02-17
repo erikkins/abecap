@@ -47,6 +47,7 @@ const HeroSection = ({ onGetStarted }) => (
           Our Ensemble approach combines three proven factors — timing, momentum quality, and adaptive
           risk management — into one system that evolves through every market cycle.
         </p>
+        <p className="text-sm text-blue-200/70 mt-2">~15 high-conviction signals per month — quality over quantity</p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
@@ -174,7 +175,7 @@ const HowItWorksSection = () => (
         {[
           { step: 1, title: 'Scan', desc: 'Our algorithms analyze 6,500+ stocks daily, ranking by momentum, quality, and market conditions' },
           { step: 2, title: 'Signal', desc: 'When criteria align, you get actionable alerts with entry, stop, and target levels' },
-          { step: 3, title: 'Buy', desc: 'Execute with confidence - every signal includes built-in risk management' },
+          { step: 3, title: 'Buy', desc: 'Execute through your broker with confidence — every signal includes entry, stop, and target levels' },
           { step: 4, title: 'Profit', desc: 'Trailing stops protect gains while letting winners run' },
         ].map(({ step, title, desc }) => (
           <div key={step} className="relative text-center">
@@ -467,6 +468,10 @@ const FAQSection = () => (
         <FAQItem
           question="Can I cancel anytime?"
           answer="Absolutely! There are no contracts or commitments. You can cancel your subscription anytime from your account settings, and you'll retain access until the end of your billing period."
+        />
+        <FAQItem
+          question="Do I need a brokerage account?"
+          answer="Yes. RigaCap identifies what to buy and when — you execute trades through your own broker (Schwab, Fidelity, Interactive Brokers, etc.). We don't hold funds or place orders on your behalf."
         />
         <FAQItem
           question="Do you provide financial advice?"

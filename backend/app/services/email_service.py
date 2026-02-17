@@ -201,8 +201,8 @@ class EmailService:
         <!-- Signals Section -->
         <tr>
             <td style="padding: 0 24px 24px;">
-                <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827;">
-                    🎯 Ensemble Buy Signals{f' ({len(fresh_signals)} Fresh)' if fresh_signals else ''}
+                <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827; border-left: 4px solid #172554; padding-left: 12px;">
+                    Ensemble Buy Signals{f' ({len(fresh_signals)} Fresh)' if fresh_signals else ''}
                 </h2>
                 {"".join(self._signal_row(s) for s in signals[:8]) if signals else f'''
                 <div style="background-color: #f9fafb; border-radius: 8px; padding: 24px; text-align: center; color: #6b7280;">
@@ -256,7 +256,7 @@ class EmailService:
         days_since = signal.get('days_since_crossover')
 
         rank_color = '#059669' if mom_rank and mom_rank <= 5 else '#6b7280'
-        badge = '🔥' if is_strong else '📊'
+        badge = '<span style="display:inline-block;background:#172554;color:#c9a94e;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;vertical-align:middle;">STRONG</span>' if is_strong else ''
 
         fresh_chip = ''
         if is_fresh and days_since is not None and days_since == 0:
@@ -270,7 +270,7 @@ class EmailService:
                 <tr>
                     <td>
                         <div style="font-size: 16px; font-weight: 600; color: #111827;">
-                            {badge} {symbol}{fresh_chip}
+                            {symbol} {badge}{fresh_chip}
                         </div>
                         <div style="font-size: 14px; color: #6b7280; margin-top: 4px;">
                             ${price:.2f} &nbsp;•&nbsp; DWAP +{pct_above:.1f}%
@@ -315,8 +315,8 @@ class EmailService:
         <tr>
             <td style="padding: 0 24px 24px;">
                 <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px;">
-                    <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e;">
-                        👀 Watchlist — Approaching Trigger
+                    <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e; border-left: 4px solid #172554; padding-left: 12px;">
+                        Watchlist — Approaching Trigger
                     </h3>
                     <table cellpadding="0" cellspacing="0" style="width: 100%;">
                         {rows}
@@ -358,8 +358,8 @@ class EmailService:
         return f"""
         <tr>
             <td style="padding: 0 24px 24px;">
-                <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827;">
-                    💼 Open Positions
+                <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827; border-left: 4px solid #172554; padding-left: 12px;">
+                    Open Positions
                 </h2>
                 <table cellpadding="0" cellspacing="0" style="width: 100%;">
                     {rows}
@@ -399,8 +399,8 @@ class EmailService:
         <tr>
             <td style="padding: 0 24px 24px;">
                 <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px;">
-                    <h2 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e;">
-                        😮 Missed Opportunities
+                    <h2 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e; border-left: 4px solid #172554; padding-left: 12px;">
+                        Missed Opportunities
                     </h2>
                     <table cellpadding="0" cellspacing="0" style="width: 100%;">
                         {rows}
@@ -598,7 +598,7 @@ class EmailService:
         <tr>
             <td style="padding: 40px 32px;">
                 <p style="font-size: 18px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
-                    Hey {first_name}! 👋
+                    Hey {first_name}!
                 </p>
                 <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
                     Thank you for joining RigaCap! We're thrilled to have you on board.
@@ -609,17 +609,18 @@ class EmailService:
 
                 <!-- What You Get Box -->
                 <div style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
-                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #059669;">
-                        ✨ Here's what you get:
+                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #059669; border-left: 4px solid #172554; padding-left: 12px;">
+                        Here's what you get:
                     </h2>
                     <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
-                        <li><strong>Daily Ensemble signals</strong> — Know exactly when to buy</li>
+                        <li><strong>Daily Ensemble signals</strong> — ~15 per month, delivered before market open</li>
                         <li><strong>Simple & Advanced views</strong> — See clear buy/sell actions or dive into technical details</li>
                         <li><strong>Smart watchlist</strong> — Get alerted when stocks approach buy triggers</li>
                         <li><strong>Trailing stop protection</strong> — Adaptive risk management</li>
                         <li><strong>Market regime analysis</strong> — 7-regime detection across bull, bear, and recovery</li>
                         <li><strong>Daily email digest</strong> — Signals delivered to your inbox</li>
                         <li><strong>Portfolio tracking</strong> — See your P&L in real-time</li>
+                        <li><strong>Works with any broker</strong> — Schwab, Fidelity, IBKR — you execute, we signal</li>
                     </ul>
                 </div>
 
@@ -639,7 +640,7 @@ class EmailService:
                 <!-- Pro Tip -->
                 <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px; margin: 24px 0;">
                     <p style="margin: 0; font-size: 14px; color: #92400e;">
-                        <strong>💡 Pro Tip:</strong> Look for signals with the green BUY badge —
+                        <strong>Pro Tip:</strong> Look for signals with the green BUY badge —
                         these are fresh breakouts with the highest conviction. Toggle Advanced mode
                         in the dashboard for full technical details.
                     </p>
@@ -650,7 +651,7 @@ class EmailService:
                 </p>
 
                 <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
-                    Happy trading! 📈<br>
+                    Happy trading!<br>
                     <strong>The RigaCap Team</strong>
                 </p>
             </td>
@@ -678,13 +679,14 @@ Welcome to RigaCap, {first_name}!
 Your journey to smarter trading starts now.
 
 Here's what you get:
-- Daily Ensemble signals — know exactly when to buy
+- Daily Ensemble signals — ~15 per month, delivered before market open
 - Simple & Advanced views — clear actions or full technical details
 - Smart watchlist — alerts when stocks approach buy triggers
 - Trailing stop protection — adaptive risk management
 - Market regime analysis — 7-regime detection
 - Daily email digest
 - Portfolio tracking
+- Works with any broker — Schwab, Fidelity, IBKR — you execute, we signal
 
 Your 7-day free trial starts now. Visit https://rigacap.com/app to see today's signals!
 
@@ -762,8 +764,8 @@ Trading involves risk. Past performance does not guarantee future results.
                 <!-- Trial Stats -->
                 {f'''
                 <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
-                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #1e40af;">
-                        📊 Your Trial So Far
+                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #1e40af; border-left: 4px solid #172554; padding-left: 12px;">
+                        Your Trial So Far
                     </h2>
                     <table cellpadding="0" cellspacing="0" style="width: 100%;">
                         <tr>
@@ -782,8 +784,8 @@ Trading involves risk. Past performance does not guarantee future results.
 
                 <!-- What You'll Lose -->
                 <div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
-                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #dc2626;">
-                        🚫 What You'll Lose
+                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #dc2626; border-left: 4px solid #172554; padding-left: 12px;">
+                        What You'll Lose
                     </h2>
                     <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
                         <li>Daily AI-powered buy signals</li>
@@ -820,7 +822,7 @@ Trading involves risk. Past performance does not guarantee future results.
                 </p>
 
                 <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
-                    Happy trading! 📈<br>
+                    Happy trading!<br>
                     <strong>The RigaCap Team</strong>
                 </p>
             </td>
@@ -918,8 +920,8 @@ Trading involves risk. Past performance does not guarantee future results.
 
                 <!-- What You're Missing -->
                 <div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
-                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #dc2626;">
-                        📉 What You're Missing Today:
+                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #dc2626; border-left: 4px solid #172554; padding-left: 12px;">
+                        What You're Missing Today:
                     </h2>
                     <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
                         <li>Fresh daily signals from 6,500+ stocks</li>
@@ -1057,7 +1059,6 @@ Unsubscribe: https://rigacap.com/unsubscribe
         is_sell = action.lower() == "sell"
         subject_prefix = "SELL ALERT" if is_sell else "WARNING"
         header_gradient = "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)" if is_sell else "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
-        header_icon = "🚨" if is_sell else "⚠️"
         action_label = "SELL" if is_sell else "WATCH"
 
         stop_row = ""
@@ -1249,7 +1250,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
             <tr>
                 <td style="padding: 12px; border-bottom: 1px solid #d1fae5;">
                     <div style="font-size: 18px; font-weight: 700; color: #059669;">
-                        ⚡ {symbol}{new_badge}
+                        {symbol}{new_badge}
                     </div>
                     <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">
                         Signal triggered on {crossover_date}
@@ -1293,8 +1294,8 @@ Unsubscribe: https://rigacap.com/unsubscribe
             <tr>
                 <td style="padding: 0 24px 24px;">
                     <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px;">
-                        <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e;">
-                            👀 Approaching Trigger ({len(approaching)} stocks)
+                        <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e; border-left: 4px solid #172554; padding-left: 12px;">
+                            Approaching Trigger ({len(approaching)} stocks)
                         </h3>
                         <p style="margin: 0 0 12px 0; font-size: 13px; color: #92400e;">
                             These momentum stocks are approaching the signal trigger:
@@ -1362,8 +1363,8 @@ Unsubscribe: https://rigacap.com/unsubscribe
         <!-- New Signals Table -->
         <tr>
             <td style="padding: 0 24px 24px;">
-                <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827;">
-                    🎯 New Breakout Signals
+                <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827; border-left: 4px solid #172554; padding-left: 12px;">
+                    New Breakout Signals
                 </h2>
                 <table cellpadding="0" cellspacing="0" style="width: 100%; border: 1px solid #d1fae5; border-radius: 8px; overflow: hidden;">
                     <tr style="background-color: #ecfdf5;">
@@ -1420,7 +1421,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
 
         # Plain text version
         text_lines = [
-            "⚡ NEW BREAKOUT SIGNAL ALERT",
+            "NEW BREAKOUT SIGNAL ALERT",
             "=" * 40,
             f"{len(new_signals)} momentum stock(s) just hit the signal trigger",
         ]
@@ -1529,7 +1530,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
                 <table cellpadding="0" cellspacing="0" style="width: 100%; border: 1px solid #fde68a; border-radius: 8px; overflow: hidden;">
                     <tr style="background-color: #fffbeb;">
                         <th colspan="2" style="padding: 12px 16px; text-align: left; font-size: 14px; color: #92400e; font-weight: 600;">
-                            ⚡ {symbol} — Live Signal
+                            {symbol} — Live Signal
                         </th>
                     </tr>
                     <tr>
@@ -1601,7 +1602,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
 
         # Plain text version
         text_lines = [
-            f"🔔 LIVE SIGNAL: {symbol} just crossed DWAP +{pct_above_dwap:.1f}%",
+            f"LIVE SIGNAL: {symbol} just crossed DWAP +{pct_above_dwap:.1f}%",
             "=" * 40,
             "",
             greeting,
@@ -1712,7 +1713,7 @@ class AdminEmailService(EmailService):
             </tr>
             <tr>
                 <td colspan="3" style="padding: 8px 12px 16px; color: #92400e; font-size: 13px; background-color: #fef3c7;">
-                    💡 {suggestion}
+                    {suggestion}
                 </td>
             </tr>
             """
@@ -1762,8 +1763,8 @@ class AdminEmailService(EmailService):
         <tr>
             <td style="padding: 0 24px 24px;">
                 <div style="background-color: #f0f9ff; border-radius: 12px; padding: 20px;">
-                    <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #0369a1;">
-                        🔧 Recommended Actions
+                    <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #0369a1; border-left: 4px solid #172554; padding-left: 12px;">
+                        Recommended Actions
                     </h3>
                     <ol style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 1.8;">
                         <li>Search for recent news about the affected ticker(s)</li>
@@ -1792,7 +1793,7 @@ class AdminEmailService(EmailService):
 """
 
         text_lines = [
-            "⚠️ TICKER HEALTH ALERT",
+            "TICKER HEALTH ALERT",
             "=" * 40,
             f"{len(issues)} issue(s) detected in {'open positions' if check_type == 'position' else 'stock universe'}",
             "",
@@ -1846,14 +1847,14 @@ class AdminEmailService(EmailService):
 
         eval_rows = ""
         for i, e in enumerate(sorted_evals[:5]):
-            rank_emoji = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"#{i+1}"
+            rank_badge = f'<span style="display:inline-block;background:#172554;color:#c9a94e;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;">#{i+1}</span>'
             score_color = "#059669" if e.get("recommendation_score", 0) >= 60 else "#f59e0b" if e.get("recommendation_score", 0) >= 40 else "#6b7280"
             return_color = "#059669" if e.get("total_return_pct", 0) >= 0 else "#dc2626"
 
             eval_rows += f"""
             <tr>
                 <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
-                    {rank_emoji} <strong>{e.get('name', 'Unknown')}</strong>
+                    {rank_badge} <strong>{e.get('name', 'Unknown')}</strong>
                 </td>
                 <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">
                     <span style="color: {score_color}; font-weight: 600;">{e.get('recommendation_score', 0):.0f}</span>
@@ -1906,7 +1907,7 @@ class AdminEmailService(EmailService):
         <!-- Strategy Rankings -->
         <tr>
             <td style="padding: 0 24px 24px;">
-                <h2 style="margin: 0 0 16px; font-size: 18px; color: #111827;">📊 Strategy Rankings</h2>
+                <h2 style="margin: 0 0 16px; font-size: 18px; color: #111827; border-left: 4px solid #172554; padding-left: 12px;">Strategy Rankings</h2>
                 <table cellpadding="0" cellspacing="0" style="width: 100%; border: 1px solid #e5e7eb; border-radius: 8px;">
                     <tr style="background-color: #f9fafb;">
                         <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #6b7280;">Strategy</th>
@@ -1923,7 +1924,7 @@ class AdminEmailService(EmailService):
         <tr>
             <td style="padding: 0 24px 24px;">
                 <div style="background-color: #f0f9ff; border-radius: 12px; padding: 16px;">
-                    <h3 style="margin: 0 0 8px; font-size: 14px; color: #0369a1;">💡 Recommendation</h3>
+                    <h3 style="margin: 0 0 8px; font-size: 14px; color: #0369a1; border-left: 4px solid #172554; padding-left: 12px;">Recommendation</h3>
                     <p style="margin: 0; color: #374151; white-space: pre-line;">{recommendation}</p>
                 </div>
             </td>
@@ -2089,7 +2090,7 @@ class AdminEmailService(EmailService):
             <tr>
                 <td style="padding: 0 24px 24px;">
                     <div style="background-color: #d1fae5; border-radius: 12px; padding: 16px; border-left: 4px solid #059669;">
-                        <div style="font-weight: 600; color: #065f46;">✅ Strategy Created</div>
+                        <div style="font-weight: 600; color: #065f46;">Strategy Created</div>
                         <div style="color: #374151; margin-top: 4px;">
                             "{created_strategy_name}" has been added to your strategy library.
                         </div>
@@ -2127,7 +2128,7 @@ class AdminEmailService(EmailService):
         <!-- Expected Metrics -->
         <tr>
             <td style="padding: 0 24px 24px;">
-                <h2 style="margin: 0 0 16px; font-size: 18px; color: #111827;">📈 Expected Performance</h2>
+                <h2 style="margin: 0 0 16px; font-size: 18px; color: #111827; border-left: 4px solid #172554; padding-left: 12px;">Expected Performance</h2>
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
                     <div style="background-color: #f0fdf4; border-radius: 8px; padding: 16px; text-align: center;">
                         <div style="font-size: 12px; color: #065f46; margin-bottom: 4px;">Sharpe Ratio</div>
@@ -2148,7 +2149,7 @@ class AdminEmailService(EmailService):
         <!-- Best Parameters -->
         <tr>
             <td style="padding: 0 24px 24px;">
-                <h2 style="margin: 0 0 16px; font-size: 18px; color: #111827;">⚙️ Optimal Parameters</h2>
+                <h2 style="margin: 0 0 16px; font-size: 18px; color: #111827; border-left: 4px solid #172554; padding-left: 12px;">Optimal Parameters</h2>
                 <table cellpadding="0" cellspacing="0" style="width: 100%; border: 1px solid #e5e7eb; border-radius: 8px;">
                     {params_html}
                 </table>

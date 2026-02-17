@@ -1399,7 +1399,7 @@ const PositionRow = ({ position, onClick }) => {
 const TOUR_STEPS = [
   {
     title: 'Your Buy Signals',
-    description: 'This is where the action is. When our ensemble finds a high-conviction trade, it shows up here. BUY means it\'s active. BUY NOW means it just crossed today — move fast.',
+    description: 'When our Ensemble finds a high-conviction opportunity, it shows up here. BUY means it\'s active. BUY NOW means it just triggered today. These are signals — you execute trades through your own broker.',
     renderIllustration: () => (
       <div className="flex flex-col items-center gap-3">
         <Zap size={32} className="text-blue-600" />
@@ -1424,7 +1424,7 @@ const TOUR_STEPS = [
   },
   {
     title: 'Open Positions',
-    description: 'Once you buy a stock, it moves here. Track your P&L in real-time, and we\'ll tell you when our trailing stop says it\'s time to sell.',
+    description: 'After you act on a signal, track it here. See your P&L in real-time, and we\'ll tell you when our trailing stop says it\'s time to sell.',
     renderIllustration: () => (
       <div className="flex flex-col items-center gap-3">
         <Briefcase size={32} className="text-blue-600" />
@@ -1514,7 +1514,7 @@ const TOUR_STEPS = [
   },
   {
     title: 'Nightly Emails',
-    description: 'Every evening, you\'ll get an email with today\'s signals, your portfolio status, and the current market regime. Here\'s what to expect.',
+    description: 'Every evening, you\'ll get an email with today\'s signals, your portfolio status, and the current market regime. Expect ~15 signals per month when conditions are healthy — and zero when they\'re not.',
     renderIllustration: () => (
       <div className="flex items-center justify-center">
         <div className="relative w-64 h-32">
@@ -2670,6 +2670,7 @@ function Dashboard() {
                   <div className="flex items-center gap-2">
                     <Zap className="w-5 h-5 text-yellow-500" />
                     <h2 className="text-lg font-semibold text-gray-900">Buy Signals</h2>
+                    <span className="text-[10px] text-gray-400 ml-1">Signals only — execute via your broker</span>
                     {dashboardData?.buy_signals?.filter(s => s.is_fresh).length > 0 && (
                       <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-medium">
                         {dashboardData.buy_signals.filter(s => s.is_fresh).length} fresh
