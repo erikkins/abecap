@@ -189,8 +189,8 @@ AI-powered social media automation: real walk-forward trades → Claude API cont
 |------|----------|--------|-------|
 | **Cookie consent banner** | MEDIUM | DONE | GDPR consent banner for GA4 |
 | **CloudWatch alarms** | MEDIUM | DONE | 8 alarms (Lambda errors/throttles/duration, API 5xx/4xx, RDS CPU/storage/connections) → SNS email |
-| **Mobile responsive polish** | MEDIUM | TODO | Tailwind breakpoints exist but untested on small screens |
-| **Custom 404 page** | LOW | TODO | React Router catch-all, currently shows blank |
+| **Mobile responsive polish** | MEDIUM | DONE | Header, metric grids, tables, modals — tested on phone |
+| **Custom 404 page** | LOW | DONE | Dark theme catch-all with back-to-home button |
 | **Email verification** | LOW | DEFERRED | Not critical — Stripe CC verification is stronger |
 
 ### Growth — Road to 5,000 Subscribers
@@ -198,7 +198,7 @@ AI-powered social media automation: real walk-forward trades → Claude API cont
 | Item | Status | Notes |
 |------|--------|-------|
 | **"We Called It" social proof** | READY | AI posts auto-generated nightly from real trades, scheduled + published |
-| **Public track record page** | TODO | Weekly-updated performance — trust engine for conversion |
+| **Public track record page** | DONE | /track-record with walk-forward data, linked from hero + welcome email + social posts |
 | **Referral program** | TODO | "Give a friend 1 month free, get 1 month free" |
 | **Onboarding email drip** | TODO | 5-7 day sequence: welcome → how signals work → trial ending |
 | **Social proof / testimonials** | TODO | Landing page section with real user results |

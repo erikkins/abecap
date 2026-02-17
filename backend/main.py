@@ -1416,6 +1416,21 @@ def handler(event, context):
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
             result = loop.run_until_complete(scheduler_service.send_daily_emails())
+
+            # Export dashboard cache after daily emails (keeps dashboard.json fresh)
+            async def _export_dashboard():
+                from app.api.signals import compute_shared_dashboard_data
+                from app.services.data_export import data_export_service
+                async with async_session() as db:
+                    data = await compute_shared_dashboard_data(db)
+                    return data_export_service.export_dashboard_json(data)
+
+            try:
+                dash_result = loop.run_until_complete(_export_dashboard())
+                print(f"📦 Dashboard cache exported: {dash_result}")
+            except Exception as dash_err:
+                print(f"⚠️ Dashboard cache export failed (non-fatal): {dash_err}")
+
             return {"status": "success", "result": str(result)}
         except Exception as e:
             import traceback
