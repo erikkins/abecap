@@ -146,7 +146,7 @@ stocker-app/
     └── deploy.yml           # CI/CD pipeline
 ```
 
-## Launch Readiness Audit (updated 2026-02-16)
+## Launch Readiness Audit (updated 2026-02-17)
 
 ### Done — Production Ready
 
@@ -155,7 +155,7 @@ stocker-app/
 | **Core Product** | DONE | Dashboard, signals, positions, charts, simple/advanced modes, time-travel (admin) |
 | **Auth** | DONE | Google OAuth, Apple Sign In, email/password, JWT tokens, password reset |
 | **Payments** | DONE | Stripe Checkout, 7-day trial (CC required), cancel via Customer Portal, webhooks |
-| **Email** | DONE | Welcome, daily digest (6 PM ET), sell alerts (intraday), double-signal alerts, password reset |
+| **Email** | DONE | Welcome, daily digest (6 PM ET), sell alerts (intraday), double-signal alerts, password reset, post approval notifications |
 | **Data Pipeline** | DONE | Daily scan (4 PM ET via EventBridge), yfinance, S3 caching, pre-computed dashboard JSON |
 | **Infrastructure** | DONE | Lambda + ECR, CloudFront CDN, Route53, ACM SSL, API Gateway, CI/CD (GitHub Actions) |
 | **Legal** | DONE | Terms of Service, Privacy Policy (GDPR/CCPA), financial disclaimer, contact page |
@@ -163,36 +163,57 @@ stocker-app/
 | **Broker Disclaimer** | DONE | "Signals only — execute via your broker" in dashboard, tour, landing page, FAQ, welcome email |
 | **OG / Social** | DONE | OpenGraph + Twitter Card meta tags, launch card PNGs |
 | **Error Handling** | DONE | React ErrorBoundary wraps entire app |
+| **GA4 Analytics** | DONE | Measurement ID `G-0QKQRXTFSX` configured in index.html |
+| **Landing Page Copy** | DONE | "Credit card required" in 3 places (monthly, annual, CTA), hero spacing fixed |
+| **"We Called It" Engine** | DONE | Full AI-powered social content pipeline (see below) |
+
+### "We Called It" Content Engine (added 2026-02-17)
+
+AI-powered social media automation: real walk-forward trades → Claude API content → admin approval → auto-publish.
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| **AI Content Generation** | DONE | `ai_content_service.py`: Claude Sonnet 4.5 generates posts from real trade data. 3 post types: `trade_result`, `missed_opportunity`, `we_called_it`. Template fallback if API unavailable. Markdown stripping + char limit enforcement. |
+| **Post Scheduler** | DONE | `post_scheduler_service.py`: Auto-schedules drafts across optimal windows (9/12/17 weekday, 10/14 weekend). Spreads posts 1-3 days out, max 4/day. |
+| **Admin Approval Pipeline** | DONE | T-24h and T-1h email notifications with post preview + one-click JWT-signed cancel link. |
+| **Auto-Publish** | DONE | Cron job every 15min publishes approved posts when `scheduled_for <= now` via Twitter API v2 + Instagram Graph API. |
+| **Notification Checks** | DONE | Hourly cron sends T-24h/T-1h notifications for upcoming posts. |
+| **Social Tab UI** | DONE | Schedule/cancel buttons, AI badge (sparkle icon), scheduled/cancelled status filters, scheduled_for datetime display. |
+| **API Endpoints** | DONE | `POST /schedule`, `POST /cancel`, `GET /cancel-email?token=` (JWT one-click), `POST /regenerate-ai` |
+| **Lambda Handlers** | DONE | `test_ai_content` (single post test), `generate_social_posts` (bulk from WF trades with clear_existing option) |
+| **DB Columns** | DONE | `ai_generated`, `ai_model`, `ai_prompt_hash`, `news_context_json`, `notification_24h_sent`, `notification_1h_sent` |
 
 ### Gaps — Pre-Launch / First Month
 
 | Item | Priority | Status | Notes |
 |------|----------|--------|-------|
-| **GA4 analytics** | HIGH | READY | Placeholder in index.html, needs measurement ID from analytics.google.com |
+| **Cookie consent banner** | MEDIUM | TODO | GA4 is now live — consent banner needed for GDPR compliance |
 | **CloudWatch alarms** | MEDIUM | TODO | Lambda errors, API 5xx, RDS CPU — no alerts currently |
 | **Mobile responsive polish** | MEDIUM | TODO | Tailwind breakpoints exist but untested on small screens |
 | **Custom 404 page** | LOW | TODO | React Router catch-all, currently shows blank |
 | **Email verification** | LOW | DEFERRED | Not critical — Stripe CC verification is stronger |
-| **Cookie consent banner** | LOW | DEFERRED | Only needed if adding GA4/tracking cookies |
 
 ### Growth — Road to 5,000 Subscribers
 
 | Item | Status | Notes |
 |------|--------|-------|
+| **"We Called It" social proof** | READY | AI posts auto-generated nightly from real trades, scheduled + published |
+| **Public track record page** | TODO | Weekly-updated performance — trust engine for conversion |
 | **Referral program** | TODO | "Give a friend 1 month free, get 1 month free" |
 | **Onboarding email drip** | TODO | 5-7 day sequence: welcome → how signals work → trial ending |
-| **Public track record page** | TODO | Weekly-updated performance — trust engine for conversion |
 | **Social proof / testimonials** | TODO | Landing page section with real user results |
 | **Content / SEO strategy** | TODO | Blog posts, market commentary — organic discovery |
 | **Churn prevention** | TODO | Cancel survey, win-back emails, usage alerts |
 | **User performance dashboard** | TODO | Personal ROI tracking — "am I making money?" |
 
-### Key Metrics to Track (once GA4 is live)
+### Key Metrics to Track (GA4 live)
 - Landing page → trial signup conversion rate
 - Trial → paid conversion rate (target: 3-5%)
 - Monthly churn rate (target: <5%)
 - CAC by channel (organic, social, paid)
 - Revenue per signal-engagement (do users who act on more signals retain better?)
+- Social post engagement (clicks, impressions) — AI vs template content performance
+- Email-to-post time (nightly WF → published post, goal: 24-48h)
 
 ## Data Sources
 

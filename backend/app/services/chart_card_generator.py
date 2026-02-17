@@ -24,13 +24,14 @@ import matplotlib.dates as mdates
 from matplotlib.patches import FancyBboxPatch
 
 
-# Brand colors
-BRAND_GREEN = '#10B981'
+# Brand colors — matches navy+gold style guide (social-launch-cards.html)
+BRAND_GREEN = '#22c55e'
 BRAND_RED = '#EF4444'
-BRAND_DARK = '#1F2937'
+BRAND_DARK = '#172554'
 BRAND_LIGHT = '#F9FAFB'
-BRAND_ACCENT = '#3B82F6'
-BRAND_GRAY = '#6B7280'
+BRAND_ACCENT = '#f59e0b'
+BRAND_GOLD = '#fbbf24'
+BRAND_GRAY = '#64748b'
 
 
 class ChartCardGenerator:
@@ -87,14 +88,37 @@ class ChartCardGenerator:
         ax.set_ylim(0, 1)
         ax.axis('off')
 
+        # --- Gold decorative corners ---
+        corner_len = 0.04
+        corner_lw = 2.5
+        corner_color = BRAND_ACCENT
+        # Top-left
+        ax.plot([0.03, 0.03], [0.97 - corner_len, 0.97], color=corner_color, lw=corner_lw, solid_capstyle='round')
+        ax.plot([0.03, 0.03 + corner_len], [0.97, 0.97], color=corner_color, lw=corner_lw, solid_capstyle='round')
+        # Top-right
+        ax.plot([0.97, 0.97], [0.97 - corner_len, 0.97], color=corner_color, lw=corner_lw, solid_capstyle='round')
+        ax.plot([0.97 - corner_len, 0.97], [0.97, 0.97], color=corner_color, lw=corner_lw, solid_capstyle='round')
+        # Bottom-left
+        ax.plot([0.03, 0.03], [0.03, 0.03 + corner_len], color=corner_color, lw=corner_lw, solid_capstyle='round')
+        ax.plot([0.03, 0.03 + corner_len], [0.03, 0.03], color=corner_color, lw=corner_lw, solid_capstyle='round')
+        # Bottom-right
+        ax.plot([0.97, 0.97], [0.03, 0.03 + corner_len], color=corner_color, lw=corner_lw, solid_capstyle='round')
+        ax.plot([0.97 - corner_len, 0.97], [0.03, 0.03], color=corner_color, lw=corner_lw, solid_capstyle='round')
+
         # --- Header ---
-        ax.text(0.05, 0.95, 'RigaCap', fontsize=20, fontweight='bold',
+        # Gold beacon dot (spire tip)
+        ax.plot(0.05, 0.955, 'o', color=BRAND_ACCENT, markersize=5, zorder=10)
+        # RigaCap text
+        ax.text(0.07, 0.95, 'RigaCap', fontsize=20, fontweight='bold',
                 color='white', va='top', ha='left',
                 fontfamily='sans-serif')
         if regime_name:
             ax.text(0.95, 0.95, f'Market: {regime_name}', fontsize=14,
                     color=BRAND_GRAY, va='top', ha='right',
                     fontfamily='sans-serif')
+
+        # --- Gold divider line (below header) ---
+        ax.plot([0.08, 0.92], [0.905, 0.905], color=BRAND_ACCENT, lw=1.5, alpha=0.6)
 
         # --- Symbol ---
         ax.text(0.5, 0.87, f'${symbol}', fontsize=42, fontweight='bold',
@@ -130,6 +154,9 @@ class ChartCardGenerator:
                     fontsize=22, color=accent_color,
                     va='center', ha='center', fontfamily='sans-serif')
 
+        # --- Gold divider line (above details) ---
+        ax.plot([0.08, 0.92], [0.20, 0.20], color=BRAND_ACCENT, lw=1.5, alpha=0.6)
+
         # --- Details ---
         entry_display = entry_date[:10] if entry_date else ''
         exit_display = exit_date[:10] if exit_date else ''
@@ -159,8 +186,8 @@ class ChartCardGenerator:
 
         # --- Footer ---
         ax.text(0.05, 0.03, 'rigacap.com', fontsize=13,
-                color=BRAND_GRAY, va='bottom', ha='left',
-                fontfamily='sans-serif')
+                color=BRAND_ACCENT, va='bottom', ha='left',
+                fontfamily='sans-serif', fontweight='bold')
         ax.text(0.95, 0.03, 'Walk-Forward Verified', fontsize=13,
                 color=BRAND_GRAY, va='bottom', ha='right',
                 fontfamily='sans-serif', style='italic')
@@ -182,7 +209,7 @@ class ChartCardGenerator:
         prices = price_data['close'].values
 
         # Background
-        ax.set_facecolor('#111827')
+        ax.set_facecolor('#0f1b3d')
 
         # Price line
         ax.plot(dates, prices, color='white', linewidth=1.5, alpha=0.9)
@@ -206,7 +233,7 @@ class ChartCardGenerator:
         ax.set_ylim(min(prices) - y_pad, max(prices) + y_pad)
 
         # Label background box style
-        label_bbox = dict(boxstyle='round,pad=0.3', facecolor='#111827',
+        label_bbox = dict(boxstyle='round,pad=0.3', facecolor='#0f1b3d',
                           edgecolor='none', alpha=0.85)
 
         # Entry marker (green triangle up) — label ABOVE the line
