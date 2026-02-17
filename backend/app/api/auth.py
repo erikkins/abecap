@@ -360,6 +360,7 @@ async def google_auth(
     )
     user = result.scalar_one_or_none()
 
+    is_new_user = False
     if user:
         # Update Google ID if not set
         if not user.google_id:
@@ -385,8 +386,6 @@ async def google_auth(
         db.add(user)
         await db.flush()
         is_new_user = True
-    else:
-        is_new_user = False
 
     await db.commit()
     await db.refresh(user)
@@ -461,6 +460,7 @@ async def apple_auth(
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalar_one_or_none()
 
+    is_new_user = False
     if user:
         # Update Apple ID if not set
         if not user.apple_id:
@@ -492,8 +492,6 @@ async def apple_auth(
         db.add(user)
         await db.flush()
         is_new_user = True
-    else:
-        is_new_user = False
 
     await db.commit()
     await db.refresh(user)
