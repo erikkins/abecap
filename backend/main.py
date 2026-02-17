@@ -1186,6 +1186,102 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # Handle daily email digest (EventBridge: 6 PM ET Mon-Fri)
+    if event.get("daily_emails"):
+        print("📧 Daily email digest triggered")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(scheduler_service.send_daily_emails())
+            return {"status": "success", "result": str(result)}
+        except Exception as e:
+            import traceback
+            print(f"❌ Daily emails failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Handle double signal alerts (EventBridge: 5 PM ET Mon-Fri)
+    if event.get("double_signal_alerts"):
+        print("🔔 Double signal alerts triggered")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(scheduler_service.check_double_signal_alerts())
+            return {"status": "success", "result": str(result)}
+        except Exception as e:
+            import traceback
+            print(f"❌ Double signal alerts failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Handle ticker health check (EventBridge: 7 AM ET Mon-Fri)
+    if event.get("ticker_health_check"):
+        print("🩺 Ticker health check triggered")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(scheduler_service.check_ticker_health())
+            return {"status": "success", "result": str(result)}
+        except Exception as e:
+            import traceback
+            print(f"❌ Ticker health check failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Handle publish scheduled posts (EventBridge: every 15 min)
+    if event.get("publish_scheduled_posts"):
+        print("📤 Publish scheduled posts triggered")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(scheduler_service._publish_scheduled_posts())
+            return {"status": "success", "result": str(result)}
+        except Exception as e:
+            import traceback
+            print(f"❌ Publish scheduled posts failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Handle post notifications (EventBridge: every hour)
+    if event.get("post_notifications"):
+        print("🔔 Post notifications triggered")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(scheduler_service._send_post_notifications())
+            return {"status": "success", "result": str(result)}
+        except Exception as e:
+            import traceback
+            print(f"❌ Post notifications failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Handle strategy auto-analysis (EventBridge: Fri 6:30 PM ET)
+    if event.get("strategy_auto_analysis"):
+        print("📊 Strategy auto-analysis triggered")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(scheduler_service._strategy_auto_analysis())
+            return {"status": "success", "result": str(result)}
+        except Exception as e:
+            import traceback
+            print(f"❌ Strategy auto-analysis failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
     # Handle seed strategies (direct Lambda invocation)
     if event.get("seed_strategies"):
         print("🌱 Seed strategies request received")

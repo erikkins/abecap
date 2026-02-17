@@ -110,6 +110,52 @@ variable "admin_emails" {
   default     = "erik@rigacap.com"
 }
 
+variable "anthropic_api_key" {
+  description = "Anthropic API key for Claude AI content generation"
+  sensitive   = true
+  default     = ""
+}
+
+variable "apple_client_id" {
+  description = "Apple Sign In client/service ID"
+  default     = ""
+}
+
+variable "twitter_api_key" {
+  description = "Twitter API key (consumer key)"
+  sensitive   = true
+  default     = ""
+}
+
+variable "twitter_api_secret" {
+  description = "Twitter API secret (consumer secret)"
+  sensitive   = true
+  default     = ""
+}
+
+variable "twitter_access_token" {
+  description = "Twitter OAuth access token"
+  sensitive   = true
+  default     = ""
+}
+
+variable "twitter_access_token_secret" {
+  description = "Twitter OAuth access token secret"
+  sensitive   = true
+  default     = ""
+}
+
+variable "instagram_access_token" {
+  description = "Instagram Graph API access token"
+  sensitive   = true
+  default     = ""
+}
+
+variable "instagram_business_account_id" {
+  description = "Instagram Business Account ID"
+  default     = ""
+}
+
 variable "lambda_image_tag" {
   description = "Docker image tag for Lambda container"
   default     = "latest"
@@ -127,10 +173,10 @@ locals {
 
 # Certificate for rigacap.com and *.rigacap.com
 resource "aws_acm_certificate" "main" {
-  provider          = aws.us_east_1  # Must be us-east-1 for CloudFront
-  domain_name       = var.domain_name
+  provider                  = aws.us_east_1 # Must be us-east-1 for CloudFront
+  domain_name               = var.domain_name
   subject_alternative_names = ["*.${var.domain_name}"]
-  validation_method = "DNS"
+  validation_method         = "DNS"
 
   lifecycle {
     create_before_destroy = true
@@ -468,28 +514,36 @@ resource "aws_lambda_function" "api" {
   package_type  = "Image"
   image_uri     = "${aws_ecr_repository.api.repository_url}:${var.lambda_image_tag}"
   timeout       = 900  # 15 minutes (max for Lambda)
-  memory_size   = 6144  # 6GB for time-travel full-universe scan (data cache ~600MB + computation)
+  memory_size   = 3008 # Max for this AWS account (limit is 3008 MB)
 
   environment {
     variables = {
-      DATABASE_URL          = "postgresql://${aws_db_instance.main.username}:${var.db_password}@${aws_db_instance.main.endpoint}/${aws_db_instance.main.db_name}"
-      ENVIRONMENT           = var.environment
-      FRONTEND_URL          = "https://${var.domain_name}"
-      JWT_SECRET_KEY        = var.jwt_secret_key
-      STRIPE_SECRET_KEY     = var.stripe_secret_key
-      STRIPE_WEBHOOK_SECRET = var.stripe_webhook_secret
-      STRIPE_PRICE_ID       = var.stripe_price_id
-      STRIPE_PRICE_ID_ANNUAL = var.stripe_price_id_annual
-      TURNSTILE_SECRET_KEY  = var.turnstile_secret_key
-      PRICE_DATA_BUCKET     = aws_s3_bucket.price_data.bucket
-      SMTP_HOST             = "smtp.gmail.com"
-      SMTP_PORT             = "587"
-      SMTP_USER             = var.smtp_user
-      SMTP_PASS             = var.smtp_pass
-      FROM_EMAIL            = var.smtp_user  # Use same as SMTP_USER
-      FROM_NAME             = "RigaCap Signals"
-      ADMIN_EMAILS          = var.admin_emails
-      STEP_FUNCTIONS_ARN    = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current.account_id}:stateMachine:${local.prefix}-walk-forward"
+      DATABASE_URL                  = "postgresql://${aws_db_instance.main.username}:${var.db_password}@${aws_db_instance.main.endpoint}/${aws_db_instance.main.db_name}"
+      ENVIRONMENT                   = var.environment
+      FRONTEND_URL                  = "https://${var.domain_name}"
+      JWT_SECRET_KEY                = var.jwt_secret_key
+      STRIPE_SECRET_KEY             = var.stripe_secret_key
+      STRIPE_WEBHOOK_SECRET         = var.stripe_webhook_secret
+      STRIPE_PRICE_ID               = var.stripe_price_id
+      STRIPE_PRICE_ID_ANNUAL        = var.stripe_price_id_annual
+      TURNSTILE_SECRET_KEY          = var.turnstile_secret_key
+      PRICE_DATA_BUCKET             = aws_s3_bucket.price_data.bucket
+      SMTP_HOST                     = "smtp.gmail.com"
+      SMTP_PORT                     = "587"
+      SMTP_USER                     = var.smtp_user
+      SMTP_PASS                     = var.smtp_pass
+      FROM_EMAIL                    = var.smtp_user # Use same as SMTP_USER
+      FROM_NAME                     = "RigaCap Signals"
+      ADMIN_EMAILS                  = var.admin_emails
+      STEP_FUNCTIONS_ARN            = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current.account_id}:stateMachine:${local.prefix}-walk-forward"
+      ANTHROPIC_API_KEY             = var.anthropic_api_key
+      APPLE_CLIENT_ID               = var.apple_client_id
+      TWITTER_API_KEY               = var.twitter_api_key
+      TWITTER_API_SECRET            = var.twitter_api_secret
+      TWITTER_ACCESS_TOKEN          = var.twitter_access_token
+      TWITTER_ACCESS_TOKEN_SECRET   = var.twitter_access_token_secret
+      INSTAGRAM_ACCESS_TOKEN        = var.instagram_access_token
+      INSTAGRAM_BUSINESS_ACCOUNT_ID = var.instagram_business_account_id
     }
   }
 
@@ -516,8 +570,8 @@ resource "aws_apigatewayv2_api" "main" {
       "http://localhost:5173",
       "http://localhost:5176"
     ]
-    allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-    allow_headers = ["*"]
+    allow_methods     = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allow_headers     = ["*"]
     allow_credentials = true
   }
 }
@@ -582,7 +636,7 @@ resource "aws_security_group" "rds" {
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # TODO: Restrict to Lambda in production
+    cidr_blocks = ["0.0.0.0/0"] # TODO: Restrict to Lambda in production
   }
 
   egress {
@@ -598,19 +652,19 @@ resource "aws_security_group" "rds" {
 }
 
 resource "aws_db_instance" "main" {
-  identifier              = "${local.prefix}-db-v2"
-  engine                  = "postgres"
-  engine_version          = "15"
-  instance_class          = "db.t3.micro"
-  allocated_storage       = 20
-  storage_type            = "gp2"
-  db_name                 = "rigacap"
-  username                = "rigacap"
-  password                = var.db_password
-  publicly_accessible     = true
-  skip_final_snapshot     = true
-  deletion_protection     = true  # Prevent accidental deletion
-  vpc_security_group_ids  = [aws_security_group.rds.id]
+  identifier             = "${local.prefix}-db-v2"
+  engine                 = "postgres"
+  engine_version         = "15"
+  instance_class         = "db.t3.micro"
+  allocated_storage      = 20
+  storage_type           = "gp2"
+  db_name                = "rigacap"
+  username               = "rigacap"
+  password               = var.db_password
+  publicly_accessible    = true
+  skip_final_snapshot    = true
+  deletion_protection    = true # Prevent accidental deletion
+  vpc_security_group_ids = [aws_security_group.rds.id]
 
   tags = {
     Name = "${local.prefix}-db"
@@ -624,7 +678,7 @@ resource "aws_db_instance" "main" {
 resource "aws_cloudwatch_event_rule" "scanner" {
   name                = "${local.prefix}-scanner"
   description         = "Run market scan at 4 PM ET on weekdays"
-  schedule_expression = "cron(0 21 ? * MON-FRI *)"  # 4 PM ET = 9 PM UTC
+  schedule_expression = "cron(0 21 ? * MON-FRI *)" # 4 PM ET = 9 PM UTC
 }
 
 resource "aws_cloudwatch_event_target" "scanner" {
@@ -668,6 +722,206 @@ resource "aws_lambda_permission" "warmer" {
 }
 
 # ============================================================================
+# EventBridge - Daily Email Digest (6 PM ET = 23:00 UTC, Mon-Fri)
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "daily_emails" {
+  name                = "${local.prefix}-daily-emails"
+  description         = "Send daily email digest at 6 PM ET weekdays"
+  schedule_expression = "cron(0 23 ? * MON-FRI *)"
+}
+
+resource "aws_cloudwatch_event_target" "daily_emails" {
+  rule      = aws_cloudwatch_event_rule.daily_emails.name
+  target_id = "lambda-daily-emails"
+  arn       = aws_lambda_function.api.arn
+  input     = jsonencode({ daily_emails = true })
+}
+
+resource "aws_lambda_permission" "daily_emails" {
+  statement_id  = "AllowDailyEmailsEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.daily_emails.arn
+}
+
+# ============================================================================
+# EventBridge - Double Signal Alerts (5 PM ET = 22:00 UTC, Mon-Fri)
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "double_signals" {
+  name                = "${local.prefix}-double-signals"
+  description         = "Check for double signal alerts at 5 PM ET weekdays"
+  schedule_expression = "cron(0 22 ? * MON-FRI *)"
+}
+
+resource "aws_cloudwatch_event_target" "double_signals" {
+  rule      = aws_cloudwatch_event_rule.double_signals.name
+  target_id = "lambda-double-signals"
+  arn       = aws_lambda_function.api.arn
+  input     = jsonencode({ double_signal_alerts = true })
+}
+
+resource "aws_lambda_permission" "double_signals" {
+  statement_id  = "AllowDoubleSignalsEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.double_signals.arn
+}
+
+# ============================================================================
+# EventBridge - Ticker Health Check (7 AM ET = 12:00 UTC, Mon-Fri)
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "ticker_health" {
+  name                = "${local.prefix}-ticker-health"
+  description         = "Run ticker health check at 7 AM ET weekdays"
+  schedule_expression = "cron(0 12 ? * MON-FRI *)"
+}
+
+resource "aws_cloudwatch_event_target" "ticker_health" {
+  rule      = aws_cloudwatch_event_rule.ticker_health.name
+  target_id = "lambda-ticker-health"
+  arn       = aws_lambda_function.api.arn
+  input     = jsonencode({ ticker_health_check = true })
+}
+
+resource "aws_lambda_permission" "ticker_health" {
+  statement_id  = "AllowTickerHealthEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.ticker_health.arn
+}
+
+# ============================================================================
+# EventBridge - Nightly Walk-Forward + Social Posts (8 PM ET = 01:00 UTC next day, Tue-Sat)
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "nightly_wf" {
+  name                = "${local.prefix}-nightly-wf"
+  description         = "Run nightly walk-forward and generate social posts"
+  schedule_expression = "cron(0 1 ? * TUE-SAT *)"
+}
+
+resource "aws_cloudwatch_event_target" "nightly_wf" {
+  rule      = aws_cloudwatch_event_rule.nightly_wf.name
+  target_id = "lambda-nightly-wf"
+  arn       = aws_lambda_function.api.arn
+  input     = jsonencode({ nightly_wf_job = {} })
+}
+
+resource "aws_lambda_permission" "nightly_wf" {
+  statement_id  = "AllowNightlyWfEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.nightly_wf.arn
+}
+
+# ============================================================================
+# EventBridge - Intraday Position Monitor (every 5 min, 9 AM-3 PM ET = 14-20 UTC, Mon-Fri)
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "intraday_monitor" {
+  name                = "${local.prefix}-intraday-monitor"
+  description         = "Monitor positions intraday during market hours"
+  schedule_expression = "cron(0/5 14-20 ? * MON-FRI *)"
+}
+
+resource "aws_cloudwatch_event_target" "intraday_monitor" {
+  rule      = aws_cloudwatch_event_rule.intraday_monitor.name
+  target_id = "lambda-intraday-monitor"
+  arn       = aws_lambda_function.api.arn
+  input     = jsonencode({ intraday_monitor = true })
+}
+
+resource "aws_lambda_permission" "intraday_monitor" {
+  statement_id  = "AllowIntradayMonitorEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.intraday_monitor.arn
+}
+
+# ============================================================================
+# EventBridge - Publish Scheduled Posts (every 15 min, all days)
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "publish_posts" {
+  name                = "${local.prefix}-publish-posts"
+  description         = "Publish scheduled social media posts every 15 minutes"
+  schedule_expression = "cron(0/15 * * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "publish_posts" {
+  rule      = aws_cloudwatch_event_rule.publish_posts.name
+  target_id = "lambda-publish-posts"
+  arn       = aws_lambda_function.api.arn
+  input     = jsonencode({ publish_scheduled_posts = true })
+}
+
+resource "aws_lambda_permission" "publish_posts" {
+  statement_id  = "AllowPublishPostsEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.publish_posts.arn
+}
+
+# ============================================================================
+# EventBridge - Post Notifications (every hour, all days)
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "post_notifications" {
+  name                = "${local.prefix}-post-notifications"
+  description         = "Send T-24h and T-1h post notifications every hour"
+  schedule_expression = "cron(0 * * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "post_notifications" {
+  rule      = aws_cloudwatch_event_rule.post_notifications.name
+  target_id = "lambda-post-notifications"
+  arn       = aws_lambda_function.api.arn
+  input     = jsonencode({ post_notifications = true })
+}
+
+resource "aws_lambda_permission" "post_notifications" {
+  statement_id  = "AllowPostNotificationsEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.post_notifications.arn
+}
+
+# ============================================================================
+# EventBridge - Strategy Auto-Analysis (Fri 6:30 PM ET = 23:30 UTC)
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "strategy_analysis" {
+  name                = "${local.prefix}-strategy-analysis"
+  description         = "Run weekly strategy auto-analysis Friday 6:30 PM ET"
+  schedule_expression = "cron(30 23 ? * FRI *)"
+}
+
+resource "aws_cloudwatch_event_target" "strategy_analysis" {
+  rule      = aws_cloudwatch_event_rule.strategy_analysis.name
+  target_id = "lambda-strategy-analysis"
+  arn       = aws_lambda_function.api.arn
+  input     = jsonencode({ strategy_auto_analysis = true })
+}
+
+resource "aws_lambda_permission" "strategy_analysis" {
+  statement_id  = "AllowStrategyAnalysisEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.strategy_analysis.arn
+}
+
+# ============================================================================
 # Step Functions - Walk-Forward Simulation
 # ============================================================================
 
@@ -698,8 +952,8 @@ resource "aws_iam_role_policy" "step_functions_lambda" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = "lambda:InvokeFunction"
+        Effect   = "Allow"
+        Action   = "lambda:InvokeFunction"
         Resource = aws_lambda_function.api.arn
       }
     ]
