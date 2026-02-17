@@ -1889,24 +1889,6 @@ function Dashboard() {
     return s;
   });
 
-  // Group buy signals by sector for display
-  const signalsBySector = useMemo(() => {
-    const signals = dashboardData?.buy_signals || [];
-    if (signals.length === 0) return [];
-    const grouped = {};
-    signals.forEach(s => {
-      const sector = s.sector || 'Other';
-      (grouped[sector] ??= []).push(s);
-    });
-    const entries = Object.entries(grouped);
-    // Skip sector headers when all signals are in one group
-    if (entries.length <= 1) return null;
-    return entries.sort(([a, aSigs], [b, bSigs]) => {
-      if (a === 'Other') return 1;
-      if (b === 'Other') return -1;
-      return bSigs.length - aSigs.length;
-    });
-  }, [dashboardData?.buy_signals]);
 
   // Initial data load - HYBRID APPROACH for instant dashboard display
   // 1. Show cached data immediately (no loading state for returning users)
@@ -2730,147 +2712,174 @@ function Dashboard() {
                       </div>
                     </div>
                   ) : (dashboardData?.buy_signals || []).length > 0 ? (
-                    viewMode === 'simple' ? (
-                      /* Simple mode: list items with confidence dots, optionally grouped by sector */
-                      <div className="divide-y divide-gray-100">
-                        {(() => {
-                          const renderSimpleSignal = (s) => {
-                            const confidenceDots = Math.min(5, Math.max(1, Math.round((s.ensemble_score || 0) / 20)));
-                            return (
-                              <div
-                                key={s.symbol}
-                                className={`px-4 py-3 flex items-center justify-between cursor-pointer transition-colors ${
-                                  s.is_fresh ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500' : 'hover:bg-gray-50'
-                                }`}
-                                onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
+                    (() => {
+                      const freshSignals = (dashboardData?.buy_signals || []).filter(s => s.is_fresh);
+                      const monitoringSignals = (dashboardData?.buy_signals || []).filter(s => !s.is_fresh);
+
+                      const renderSimpleSignal = (s) => {
+                        const confidenceDots = Math.min(5, Math.max(1, Math.round((s.ensemble_score || 0) / 20)));
+                        return (
+                          <div
+                            key={s.symbol}
+                            className={`px-4 py-3 flex items-center justify-between cursor-pointer transition-colors ${
+                              s.is_fresh ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500' : 'hover:bg-gray-50'
+                            }`}
+                            onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className={`font-semibold text-base ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>{s.symbol}</span>
+                              {s.is_intraday && (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full font-semibold animate-pulse">
+                                  <Clock className="w-3 h-3" />
+                                  LIVE
+                                </span>
+                              )}
+                              <span className="text-gray-500 text-sm">${s.price?.toFixed(2)}</span>
+                              <div className="flex gap-0.5">
+                                {[1,2,3,4,5].map(i => (
+                                  <div key={i} className={`w-2 h-2 rounded-full ${i <= confidenceDots ? 'bg-emerald-500' : 'bg-gray-200'}`} />
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {s.is_fresh && (
+                                <span className={`text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium ${((s.days_since_entry ?? s.days_since_crossover) === 0) ? 'animate-pulse' : ''}`}>BUY</span>
+                              )}
+                              {s.is_fresh && (s.days_since_entry ?? s.days_since_crossover) === 0 && (
+                                <span className="text-xs text-green-700 font-semibold">New!</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      };
+
+                      const renderAdvancedSignal = (s) => (
+                        <tr
+                          key={s.symbol}
+                          className={`cursor-pointer transition-colors ${
+                            s.is_fresh
+                              ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500'
+                              : 'hover:bg-gray-50'
+                          }`}
+                          onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
+                        >
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`font-semibold ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>
+                                {s.symbol}
+                              </span>
+                              {s.is_strong && <ArrowUpRight className="w-3 h-3 text-green-500" />}
+                              {s.is_intraday && (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full font-semibold animate-pulse">
+                                  <Clock className="w-3 h-3" />
+                                  LIVE
+                                </span>
+                              )}
+                            </div>
+                            {s.is_fresh ? (
+                              <span className={`text-xs ${(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'text-green-700 font-semibold' : 'text-green-600'}`}>
+                                {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'New today!' : `${Math.min(s.days_since_entry ?? 999, s.days_since_crossover ?? 999)}d ago`}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">Crossed {s.days_since_crossover}d ago</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 text-right">${s.price?.toFixed(2)}</td>
+                          <td className="px-3 py-2.5 text-right text-green-600 font-medium">+{s.pct_above_dwap?.toFixed(1)}%</td>
+                          <td className="px-3 py-2.5 text-right">
+                            <span className={`font-medium ${s.momentum_rank <= 5 ? 'text-green-600' : 'text-gray-600'}`}>
+                              #{s.momentum_rank}
+                            </span>
+                          </td>
+                          {s.is_fresh && (
+                            <td className="px-3 py-2.5 text-center">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setChartModal({ type: 'signal', data: s, symbol: s.symbol });
+                                }}
+                                className={`text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium hover:bg-green-700 ${s.days_since_crossover === 0 ? 'animate-pulse' : ''}`}
                               >
-                                <div className="flex items-center gap-3">
-                                  <span className={`font-semibold text-base ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>{s.symbol}</span>
-                                  {s.is_intraday && (
-                                    <span className="inline-flex items-center gap-0.5 text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full font-semibold animate-pulse">
-                                      <Clock className="w-3 h-3" />
-                                      LIVE
-                                    </span>
-                                  )}
-                                  <span className="text-gray-500 text-sm">${s.price?.toFixed(2)}</span>
-                                  <div className="flex gap-0.5">
-                                    {[1,2,3,4,5].map(i => (
-                                      <div key={i} className={`w-2 h-2 rounded-full ${i <= confidenceDots ? 'bg-emerald-500' : 'bg-gray-200'}`} />
-                                    ))}
-                                  </div>
-                                </div>
+                                {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'BUY NOW' : 'BUY'}
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      );
+
+                      return (
+                        <div>
+                          {/* Buy Signals section (fresh) */}
+                          {freshSignals.length > 0 ? (
+                            <div>
+                              <div className="px-4 py-2.5 bg-green-50 border-b border-green-100 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  {s.is_fresh && (
-                                    <span className={`text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium ${((s.days_since_entry ?? s.days_since_crossover) === 0) ? 'animate-pulse' : ''}`}>BUY</span>
-                                  )}
-                                  {s.is_fresh && (s.days_since_entry ?? s.days_since_crossover) === 0 && (
-                                    <span className="text-xs text-green-700 font-semibold">New!</span>
-                                  )}
+                                  <div className="w-1 h-5 bg-green-500 rounded-full" />
+                                  <span className="text-sm font-semibold text-green-900">Buy Signals ({freshSignals.length})</span>
                                 </div>
+                                <span className="text-xs text-green-700">Consider adding</span>
                               </div>
-                            );
-                          };
-                          if (signalsBySector) {
-                            return signalsBySector.map(([sector, sigs]) => (
-                              <div key={sector}>
-                                <div className="px-4 py-2 bg-gray-50 border-b text-sm font-medium text-gray-600">
-                                  {sector} <span className="text-gray-400">({sigs.length})</span>
+                              {viewMode === 'simple' ? (
+                                <div className="divide-y divide-gray-100">
+                                  {freshSignals.map(renderSimpleSignal)}
                                 </div>
-                                {sigs.map(renderSimpleSignal)}
+                              ) : (
+                                <table className="w-full text-sm">
+                                  <thead className="bg-gray-50 text-gray-600">
+                                    <tr>
+                                      <th className="px-3 py-2 text-left font-medium">Symbol</th>
+                                      <th className="px-3 py-2 text-right font-medium">Price</th>
+                                      <th className="px-3 py-2 text-right font-medium">DWAP%</th>
+                                      <th className="px-3 py-2 text-right font-medium">Rank</th>
+                                      <th className="px-3 py-2 text-center font-medium">Action</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100">
+                                    {freshSignals.map(renderAdvancedSignal)}
+                                  </tbody>
+                                </table>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="px-4 py-4 text-center text-sm text-gray-500 bg-gray-50 border-b border-gray-100">
+                              No fresh buy signals today
+                            </div>
+                          )}
+
+                          {/* Monitoring section (non-fresh) */}
+                          {monitoringSignals.length > 0 && (
+                            <div>
+                              <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-1 h-5 bg-gray-400 rounded-full" />
+                                  <span className="text-sm font-semibold text-gray-700">Monitoring ({monitoringSignals.length})</span>
+                                </div>
+                                <span className="text-xs text-gray-500">Strong momentum — watching for fresh entry</span>
                               </div>
-                            ));
-                          }
-                          return dashboardData.buy_signals.map(renderSimpleSignal);
-                        })()}
-                      </div>
-                    ) : (
-                      /* Advanced mode: full table, optionally grouped by sector */
-                      <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-600 sticky top-0">
-                          <tr>
-                            <th className="px-3 py-2 text-left font-medium">Symbol</th>
-                            <th className="px-3 py-2 text-right font-medium">Price</th>
-                            <th className="px-3 py-2 text-right font-medium">DWAP%</th>
-                            <th className="px-3 py-2 text-right font-medium">Mom#</th>
-                            <th className="px-3 py-2 text-center font-medium">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {(() => {
-                            const renderAdvancedSignal = (s) => (
-                              <tr
-                                key={s.symbol}
-                                className={`cursor-pointer transition-colors ${
-                                  s.is_fresh
-                                    ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500'
-                                    : 'hover:bg-gray-50'
-                                }`}
-                                onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
-                              >
-                                <td className="px-3 py-2.5">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className={`font-semibold ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>
-                                      {s.symbol}
-                                    </span>
-                                    {s.is_strong && <ArrowUpRight className="w-3 h-3 text-green-500" />}
-                                    {s.is_intraday && (
-                                      <span className="inline-flex items-center gap-0.5 text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full font-semibold animate-pulse">
-                                        <Clock className="w-3 h-3" />
-                                        LIVE
-                                      </span>
-                                    )}
-                                  </div>
-                                  {s.is_fresh ? (
-                                    <span className={`text-xs ${(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'text-green-700 font-semibold' : 'text-green-600'}`}>
-                                      {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'New today!' : `${Math.min(s.days_since_entry ?? 999, s.days_since_crossover ?? 999)}d ago`}
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs text-gray-400">Crossed {s.days_since_crossover}d ago</span>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2.5 text-right">${s.price?.toFixed(2)}</td>
-                                <td className="px-3 py-2.5 text-right text-green-600 font-medium">+{s.pct_above_dwap?.toFixed(1)}%</td>
-                                <td className="px-3 py-2.5 text-right">
-                                  <span className={`font-medium ${s.momentum_rank <= 5 ? 'text-green-600' : 'text-gray-600'}`}>
-                                    #{s.momentum_rank}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-2.5 text-center">
-                                  {s.is_fresh ? (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setChartModal({ type: 'signal', data: s, symbol: s.symbol });
-                                      }}
-                                      className={`text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium hover:bg-green-700 ${s.days_since_crossover === 0 ? 'animate-pulse' : ''}`}
-                                    >
-                                      {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'BUY NOW' : 'BUY'}
-                                    </button>
-                                  ) : (
-                                    <span className="text-xs bg-gray-200 text-gray-600 px-2.5 py-1 rounded font-medium">
-                                      Active
-                                    </span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                            if (signalsBySector) {
-                              return signalsBySector.map(([sector, sigs]) => (
-                                <React.Fragment key={sector}>
-                                  <tr className="bg-gray-50">
-                                    <td colSpan={5} className="px-3 py-1.5 text-xs font-medium text-gray-500 uppercase">
-                                      {sector} ({sigs.length})
-                                    </td>
-                                  </tr>
-                                  {sigs.map(renderAdvancedSignal)}
-                                </React.Fragment>
-                              ));
-                            }
-                            return dashboardData.buy_signals.map(renderAdvancedSignal);
-                          })()}
-                        </tbody>
-                      </table>
-                    )
+                              {viewMode === 'simple' ? (
+                                <div className="divide-y divide-gray-100">
+                                  {monitoringSignals.map(renderSimpleSignal)}
+                                </div>
+                              ) : (
+                                <table className="w-full text-sm">
+                                  <thead className="bg-gray-50 text-gray-600">
+                                    <tr>
+                                      <th className="px-3 py-2 text-left font-medium">Symbol</th>
+                                      <th className="px-3 py-2 text-right font-medium">Price</th>
+                                      <th className="px-3 py-2 text-right font-medium">DWAP%</th>
+                                      <th className="px-3 py-2 text-right font-medium">Rank</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100">
+                                    {monitoringSignals.map(renderAdvancedSignal)}
+                                  </tbody>
+                                </table>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()
                   ) : (
                     /* Smart empty state */
                     <div className="p-5 space-y-4">
