@@ -1186,7 +1186,14 @@ def handler(event, context):
             from sqlalchemy import select
             from app.core.database import async_session, SocialPost
             from app.services.chart_card_generator import chart_card_generator
+            from app.services.scanner import scanner_service
             import json
+
+            # Load price data so charts have real price lines
+            if not scanner_service.data_cache:
+                print("📊 Loading price data for chart rendering...")
+                await scanner_service.fetch_data(period="1y")
+                print(f"📊 Loaded {len(scanner_service.data_cache)} symbols")
 
             async with async_session() as db:
                 result = await db.execute(
