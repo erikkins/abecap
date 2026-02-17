@@ -43,11 +43,11 @@ const HeroSection = ({ onGetStarted }) => (
         </h1>
 
         {/* Subheadline */}
-        <p className="max-w-2xl mx-auto text-lg sm:text-xl text-blue-100 mb-10">
+        <p className="max-w-2xl mx-auto text-lg sm:text-xl text-blue-100 mb-4">
           Our Ensemble approach combines three proven factors — timing, momentum quality, and adaptive
           risk management — into one system that evolves through every market cycle.
         </p>
-        <p className="text-sm text-blue-200/70 mt-2">~15 high-conviction signals per month — quality over quantity</p>
+        <p className="text-sm text-blue-200/70 mb-8">~15 high-conviction signals per month — quality over quantity</p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
@@ -314,7 +314,7 @@ const PricingSection = ({ onGetStarted }) => {
                 Start 7-Day Free Trial
               </button>
               <p className="text-center text-sm text-gray-500 mt-4">
-                No credit card required
+                Credit card required · Cancel anytime
               </p>
             </div>
           </div>
@@ -353,7 +353,7 @@ const PricingSection = ({ onGetStarted }) => {
                 Start 7-Day Free Trial
               </button>
               <p className="text-center text-sm text-gray-500 mt-4">
-                No credit card required
+                Credit card required · Cancel anytime
               </p>
             </div>
           </div>
@@ -490,7 +490,7 @@ const CTASection = ({ onGetStarted }) => (
       </h2>
       <p className="text-xl text-indigo-100 mb-10 max-w-2xl mx-auto">
         Join thousands of traders using AI-powered signals to find winning opportunities.
-        Your first week is free - no credit card required.
+        Your first week is free — credit card required to start trial.
       </p>
       <button
         onClick={onGetStarted}

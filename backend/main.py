@@ -959,6 +959,160 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # Handle AI content generation test (direct Lambda invocation)
+    if event.get("test_ai_content"):
+        print("🤖 AI content generation test received")
+        config = event["test_ai_content"]
+
+        async def _test_ai_content():
+            from app.services.ai_content_service import ai_content_service
+
+            trade = config.get("trade", {
+                "symbol": "NVDA",
+                "entry_date": "2026-01-15",
+                "exit_date": "2026-02-10",
+                "entry_price": 125.50,
+                "exit_price": 148.75,
+                "pnl_pct": 18.5,
+                "strategy": "DWAP+Momentum Ensemble",
+            })
+            platform = config.get("platform", "twitter")
+            post_type = config.get("post_type", "trade_result")
+
+            post = await ai_content_service.generate_post(
+                trade=trade,
+                post_type=post_type,
+                platform=platform,
+            )
+            if not post:
+                return {"status": "error", "error": "AI generation returned None — check ANTHROPIC_API_KEY"}
+
+            return {
+                "status": "success",
+                "platform": platform,
+                "post_type": post_type,
+                "generated_text": post.text_content,
+                "hashtags": post.hashtags,
+                "char_count": len(post.text_content) if post.text_content else 0,
+                "ai_model": post.ai_model,
+            }
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_test_ai_content())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ AI content test failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Generate AI posts from real WF trades and save to DB (direct Lambda invocation)
+    if event.get("generate_social_posts"):
+        print("🤖 Generate social posts from WF trades")
+        config = event["generate_social_posts"]
+
+        async def _generate_social_posts():
+            import json as _json
+            from app.core.database import SocialPost, WalkForwardSimulation
+            from app.services.ai_content_service import ai_content_service
+            from sqlalchemy import delete as sa_delete
+
+            job_id = config.get("job_id", 112)
+            min_pnl = config.get("min_pnl_pct", 5.0)
+            since_date = config.get("since_date", "2026-01-01")
+            clear_existing = config.get("clear_existing", False)
+            platforms = config.get("platforms", ["twitter", "instagram"])
+            post_types = config.get("post_types", ["trade_result", "missed_opportunity"])
+            max_trades = config.get("max_trades", 5)
+
+            async with async_session() as db:
+                # Load trades from WF simulation JSON
+                result = await db.execute(
+                    select(WalkForwardSimulation).where(WalkForwardSimulation.id == job_id)
+                )
+                sim = result.scalars().first()
+                if not sim or not sim.trades_json:
+                    return {"status": "error", "error": f"Simulation {job_id} not found or has no trades"}
+
+                all_trades = _json.loads(sim.trades_json)
+                # Filter: exit_date >= since_date AND pnl_pct >= min_pnl
+                filtered = [
+                    t for t in all_trades
+                    if str(t.get("exit_date", ""))[:10] >= since_date
+                    and t.get("pnl_pct", 0) >= min_pnl
+                ]
+                # Deduplicate by symbol (keep best trade per symbol)
+                seen_symbols = set()
+                unique_trades = []
+                for t in sorted(filtered, key=lambda x: -x.get("pnl_pct", 0)):
+                    if t["symbol"] not in seen_symbols:
+                        seen_symbols.add(t["symbol"])
+                        unique_trades.append(t)
+
+                unique_trades = unique_trades[:max_trades]
+
+                if not unique_trades:
+                    return {"status": "error", "error": f"No trades found for job {job_id} since {since_date} with pnl >= {min_pnl}%"}
+
+                print(f"Found {len(unique_trades)} qualifying trades (deduped by symbol)")
+
+                # Clear existing posts if requested
+                deleted = 0
+                if clear_existing:
+                    result = await db.execute(sa_delete(SocialPost))
+                    deleted = result.rowcount
+                    await db.commit()
+                    print(f"Cleared {deleted} existing posts")
+
+                # Generate posts for each trade x platform x post_type
+                created = []
+                for trade_data in unique_trades:
+                    trade_data["strategy"] = "DWAP+Momentum Ensemble"
+                    for platform in platforms:
+                        for post_type in post_types:
+                            post = await ai_content_service.generate_post(
+                                trade=trade_data,
+                                post_type=post_type,
+                                platform=platform,
+                            )
+                            if post:
+                                db.add(post)
+                                created.append({
+                                    "symbol": trade_data["symbol"],
+                                    "platform": platform,
+                                    "post_type": post_type,
+                                    "text": post.text_content[:80] + "...",
+                                    "chars": len(post.text_content),
+                                })
+                                print(f"  Created {platform}/{post_type} for {trade_data['symbol']} ({len(post.text_content)} chars)")
+
+                await db.commit()
+
+                return {
+                    "status": "success",
+                    "deleted_existing": deleted,
+                    "trades_used": len(unique_trades),
+                    "posts_created": len(created),
+                    "posts": created,
+                }
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_generate_social_posts())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Generate social posts failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
     # Handle seed strategies (direct Lambda invocation)
     if event.get("seed_strategies"):
         print("🌱 Seed strategies request received")

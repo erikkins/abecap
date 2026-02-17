@@ -2240,4 +2240,119 @@ class AdminEmailService(EmailService):
         )
 
 
+    async def send_post_approval_notification(
+        self,
+        to_email: str,
+        post,
+        hours_before: int,
+        cancel_url: str,
+    ) -> bool:
+        """
+        Send admin notification for an upcoming scheduled social post.
+
+        Shows post preview, platform badge, scheduled time, and cancel button.
+
+        Args:
+            to_email: Admin email
+            post: SocialPost object
+            hours_before: 24 or 1
+            cancel_url: JWT-signed one-click cancel link
+        """
+        platform_display = "Twitter/X" if post.platform == "twitter" else "Instagram"
+        platform_color = "#1DA1F2" if post.platform == "twitter" else "#E4405F"
+        scheduled_str = post.scheduled_for.strftime('%B %d at %I:%M %p UTC') if post.scheduled_for else "Soon"
+        urgency = "in 1 hour" if hours_before <= 1 else f"in ~{hours_before} hours"
+        header_bg = "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)" if hours_before <= 1 else "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
+
+        # Truncate preview for email
+        preview_text = (post.text_content or "")[:300]
+        if len(post.text_content or "") > 300:
+            preview_text += "..."
+
+        ai_badge = ""
+        if getattr(post, "ai_generated", False):
+            ai_badge = '<span style="display:inline-block;background:#8b5cf6;color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;margin-left:8px;">AI Generated</span>'
+
+        html = f"""<!DOCTYPE html>
+<html>
+<body style="margin:0; padding:0; background-color:#f9fafb; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px; margin:0 auto;">
+        <tr>
+            <td style="background:{header_bg}; padding:32px 24px; text-align:center;">
+                <h1 style="margin:0; color:#ffffff; font-size:24px;">
+                    Post Goes Live {urgency.title()}
+                </h1>
+                <p style="margin:8px 0 0 0; color:rgba(255,255,255,0.9); font-size:14px;">
+                    Scheduled for {scheduled_str}
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td style="background:#ffffff; padding:32px 24px;">
+                <div style="margin-bottom:20px;">
+                    <span style="display:inline-block;background:{platform_color};color:#fff;font-size:12px;font-weight:600;padding:4px 12px;border-radius:99px;">
+                        {platform_display}
+                    </span>
+                    <span style="display:inline-block;background:#e5e7eb;color:#374151;font-size:12px;font-weight:500;padding:4px 12px;border-radius:99px;margin-left:8px;">
+                        {(post.post_type or '').replace('_', ' ').title()}
+                    </span>
+                    {ai_badge}
+                </div>
+
+                <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:20px; margin-bottom:24px;">
+                    <p style="margin:0; font-size:14px; color:#374151; white-space:pre-wrap; line-height:1.6;">
+                        {preview_text}
+                    </p>
+                    {f'<p style="margin:12px 0 0 0; font-size:13px; color:#6366f1;">{post.hashtags}</p>' if post.hashtags else ''}
+                </div>
+
+                <div style="text-align:center; margin:32px 0;">
+                    <a href="{cancel_url}"
+                       style="display:inline-block; background:#dc2626; color:#ffffff; font-size:16px; font-weight:600; padding:16px 40px; border-radius:12px; text-decoration:none;">
+                        Cancel This Post
+                    </a>
+                </div>
+
+                <p style="margin:0; font-size:13px; color:#6b7280; text-align:center;">
+                    If you don't cancel, this post will be published automatically at {scheduled_str}.
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td style="background-color:#f9fafb; padding:24px; text-align:center; border-top:1px solid #e5e7eb;">
+                <p style="margin:0; font-size:12px; color:#9ca3af;">
+                    RigaCap Social Post Scheduler
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>"""
+
+        text = f"""Post Goes Live {urgency}
+
+Platform: {platform_display}
+Type: {(post.post_type or '').replace('_', ' ').title()}
+Scheduled: {scheduled_str}
+
+--- Post Preview ---
+{preview_text}
+{f'Hashtags: {post.hashtags}' if post.hashtags else ''}
+---
+
+To cancel this post, visit:
+{cancel_url}
+
+If you don't cancel, it will be published automatically."""
+
+        subject = f"{'🔴' if hours_before <= 1 else '🟡'} Post goes live {urgency}: {platform_display} — {(post.post_type or '').replace('_', ' ').title()}"
+
+        return await self.send_email(
+            to_email=to_email,
+            subject=subject,
+            html_content=html,
+            text_content=text,
+        )
+
+
 admin_email_service = AdminEmailService()

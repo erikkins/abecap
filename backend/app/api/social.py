@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, delete
 
+from app.core.config import settings
 from app.core.database import get_db, SocialPost
 from app.core.security import get_admin_user
 
@@ -29,6 +30,10 @@ class ComposeRequest(BaseModel):
 class EditRequest(BaseModel):
     text_content: Optional[str] = None
     hashtags: Optional[str] = None
+
+
+class ScheduleRequest(BaseModel):
+    publish_at: str  # ISO datetime string
 
 router = APIRouter()
 
@@ -448,6 +453,118 @@ async def edit_post(
     return {"status": "updated", "post": _post_to_dict(post)}
 
 
+@router.post("/posts/{post_id}/schedule")
+async def schedule_post(
+    post_id: int,
+    body: ScheduleRequest,
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(get_admin_user),
+):
+    """Schedule an approved post for auto-publishing at a specific time."""
+    from app.services.post_scheduler_service import post_scheduler_service
+
+    try:
+        publish_at = datetime.fromisoformat(body.publish_at.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid datetime format. Use ISO 8601.")
+
+    if publish_at <= datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Scheduled time must be in the future")
+
+    success = await post_scheduler_service.schedule_post(post_id, publish_at, db)
+    if not success:
+        raise HTTPException(status_code=400, detail="Could not schedule post. Must be draft or approved.")
+
+    return {"status": "scheduled", "post_id": post_id, "publish_at": publish_at.isoformat()}
+
+
+@router.post("/posts/{post_id}/cancel")
+async def cancel_post(
+    post_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(get_admin_user),
+):
+    """Cancel a scheduled post (sets status='cancelled')."""
+    from app.services.post_scheduler_service import post_scheduler_service
+
+    success = await post_scheduler_service.cancel_post(post_id, db)
+    if not success:
+        raise HTTPException(status_code=400, detail="Could not cancel post. Already posted or not found.")
+
+    return {"status": "cancelled", "post_id": post_id}
+
+
+@router.get("/posts/{post_id}/cancel-email")
+async def cancel_post_via_email(
+    post_id: int,
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """One-click cancel from email link (JWT-authenticated, no login needed)."""
+    from fastapi.responses import HTMLResponse
+    from app.services.post_scheduler_service import post_scheduler_service
+
+    verified_post_id = post_scheduler_service.verify_cancel_token(token)
+    if verified_post_id is None or verified_post_id != post_id:
+        return HTMLResponse(
+            content="<html><body><h2>Invalid or expired cancel link.</h2>"
+            "<p>Please log in to the admin dashboard to manage posts.</p></body></html>",
+            status_code=400,
+        )
+
+    success = await post_scheduler_service.cancel_post(post_id, db)
+    if success:
+        return HTMLResponse(
+            content="<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+            "<h2 style='color:#059669;'>Post Cancelled</h2>"
+            "<p>The scheduled post has been cancelled and will not be published.</p>"
+            f"<p><a href='{settings.FRONTEND_URL}/app'>Return to Dashboard</a></p></body></html>",
+        )
+    else:
+        return HTMLResponse(
+            content="<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+            "<h2>Could not cancel post</h2>"
+            "<p>The post may have already been published or cancelled.</p>"
+            f"<p><a href='{settings.FRONTEND_URL}/app'>Return to Dashboard</a></p></body></html>",
+            status_code=400,
+        )
+
+
+@router.post("/posts/{post_id}/regenerate-ai")
+async def regenerate_post_ai(
+    post_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(get_admin_user),
+):
+    """Re-generate content via Claude API (instead of template re-roll)."""
+    result = await db.execute(
+        select(SocialPost).where(SocialPost.id == post_id)
+    )
+    post = result.scalar_one_or_none()
+
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    if not post.source_trade_json:
+        raise HTTPException(status_code=400, detail="No source trade data for AI regeneration")
+
+    from app.services.ai_content_service import ai_content_service
+
+    new_text = await ai_content_service.regenerate_post(post)
+    if new_text:
+        post.text_content = new_text
+        post.ai_generated = True
+        post.ai_model = "claude-sonnet-4-5-20250929"
+        post.status = "draft"
+        post.reviewed_at = None
+        post.reviewed_by = None
+        await db.commit()
+        return {"status": "regenerated_ai", "post_id": post_id, "text_content": new_text}
+
+    # Fall back to template regeneration
+    raise HTTPException(status_code=502, detail="AI regeneration failed. Use /regenerate for template-based fallback.")
+
+
 def _post_to_dict(post: SocialPost, include_source: bool = False) -> dict:
     """Convert a SocialPost to a dict for API response."""
     d = {
@@ -463,6 +580,9 @@ def _post_to_dict(post: SocialPost, include_source: bool = False) -> dict:
         "reviewed_by": post.reviewed_by,
         "reviewed_at": post.reviewed_at.isoformat() if post.reviewed_at else None,
         "rejection_reason": post.rejection_reason,
+        "ai_generated": getattr(post, "ai_generated", False) or False,
+        "ai_model": getattr(post, "ai_model", None),
+        "news_context_json": getattr(post, "news_context_json", None),
         "created_at": post.created_at.isoformat() if post.created_at else None,
         "updated_at": post.updated_at.isoformat() if post.updated_at else None,
     }

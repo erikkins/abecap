@@ -295,7 +295,7 @@ class SocialPost(Base):
     id = Column(Integer, primary_key=True)
     post_type = Column(String(50))  # trade_result, missed_opportunity, weekly_recap, regime_commentary
     platform = Column(String(20))  # twitter, instagram
-    status = Column(String(20), default="draft")  # draft, approved, rejected, posted
+    status = Column(String(20), default="draft")  # draft, approved, rejected, posted, cancelled, scheduled
     text_content = Column(Text)
     hashtags = Column(Text, nullable=True)
     image_s3_key = Column(String(500), nullable=True)
@@ -308,6 +308,14 @@ class SocialPost(Base):
     reviewed_by = Column(String(100), nullable=True)
     reviewed_at = Column(DateTime, nullable=True)
     rejection_reason = Column(Text, nullable=True)
+    # AI content generation metadata
+    ai_generated = Column(Boolean, default=False)
+    ai_model = Column(String(50), nullable=True)
+    ai_prompt_hash = Column(String(64), nullable=True)
+    news_context_json = Column(Text, nullable=True)
+    # Admin notification tracking
+    notification_24h_sent = Column(Boolean, default=False)
+    notification_1h_sent = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -530,6 +538,21 @@ async def _run_schema_migrations(conn):
             )
         """))
         print("✅ Schema migration: social_posts table ready")
+    except Exception as e:
+        print(f"⚠️ Schema migration skipped: {e}")
+
+    # Migration: Add AI content + scheduling columns to social_posts
+    try:
+        for col_sql in [
+            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS ai_generated BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS ai_model VARCHAR(50)",
+            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS ai_prompt_hash VARCHAR(64)",
+            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS news_context_json TEXT",
+            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS notification_24h_sent BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS notification_1h_sent BOOLEAN DEFAULT FALSE",
+        ]:
+            await conn.execute(text(col_sql))
+        print("✅ Schema migration: social_posts AI/scheduling columns ready")
     except Exception as e:
         print(f"⚠️ Schema migration skipped: {e}")
 

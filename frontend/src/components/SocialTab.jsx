@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Share2, Check, X, RefreshCw, Trash2, Image, MessageSquare, TrendingUp, BarChart3, Globe, Send, Plus, Edit3, Save, Power, Rocket, ChevronDown, ChevronUp } from 'lucide-react';
+import { Share2, Check, X, RefreshCw, Trash2, Image, MessageSquare, TrendingUp, BarChart3, Globe, Send, Plus, Edit3, Save, Power, Rocket, ChevronDown, ChevronUp, Sparkles, Clock, Ban, Calendar } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -13,8 +13,10 @@ const STATUSES = [
   { id: 'all', label: 'All' },
   { id: 'draft', label: 'Draft' },
   { id: 'approved', label: 'Approved' },
+  { id: 'scheduled', label: 'Scheduled' },
   { id: 'rejected', label: 'Rejected' },
   { id: 'posted', label: 'Posted' },
+  { id: 'cancelled', label: 'Cancelled' },
 ];
 
 const POST_TYPES = [
@@ -29,8 +31,10 @@ const POST_TYPES = [
 const STATUS_COLORS = {
   draft: 'bg-gray-100 text-gray-700',
   approved: 'bg-green-100 text-green-700',
+  scheduled: 'bg-amber-100 text-amber-700',
   rejected: 'bg-red-100 text-red-700',
   posted: 'bg-blue-100 text-blue-700',
+  cancelled: 'bg-red-50 text-red-400',
 };
 
 const TYPE_COLORS = {
@@ -226,6 +230,47 @@ export default function SocialTab({ fetchWithAuth }) {
     }
   };
 
+  const schedulePost = async (id) => {
+    const dateStr = window.prompt('Schedule for (ISO datetime, e.g. 2026-02-18T10:00:00Z):');
+    if (!dateStr) return;
+    setActionLoading(prev => ({ ...prev, [id]: 'schedule' }));
+    try {
+      const res = await fetchWithAuth(`${API_URL}/api/admin/social/posts/${id}/schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publish_at: dateStr }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Schedule failed: ${err.detail || res.statusText}`);
+      }
+      await Promise.all([fetchStats(), fetchPosts()]);
+    } catch (err) {
+      console.error('Schedule failed:', err);
+      alert(`Schedule failed: ${err.message}`);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [id]: null }));
+    }
+  };
+
+  const cancelPost = async (id) => {
+    if (!window.confirm('Cancel this scheduled post?')) return;
+    setActionLoading(prev => ({ ...prev, [id]: 'cancel' }));
+    try {
+      const res = await fetchWithAuth(`${API_URL}/api/admin/social/posts/${id}/cancel`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Cancel failed: ${err.detail || res.statusText}`);
+      }
+      await Promise.all([fetchStats(), fetchPosts()]);
+    } catch (err) {
+      console.error('Cancel failed:', err);
+      alert(`Cancel failed: ${err.message}`);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [id]: null }));
+    }
+  };
+
   const generateChart = async (id) => {
     setActionLoading(prev => ({ ...prev, [id]: 'generate-chart' }));
     try {
@@ -392,6 +437,8 @@ export default function SocialTab({ fetchWithAuth }) {
                   onDelete={deletePost}
                   onPublish={publish}
                   onEdit={editPost}
+                  onSchedule={schedulePost}
+                  onCancel={cancelPost}
                   publishingLive={publishingLive}
                 />
               ))
@@ -415,6 +462,8 @@ export default function SocialTab({ fetchWithAuth }) {
                   onPublish={publish}
                   onEdit={editPost}
                   onGenerateChart={generateChart}
+                  onSchedule={schedulePost}
+                  onCancel={cancelPost}
                   publishingLive={publishingLive}
                 />
               ))
@@ -437,6 +486,8 @@ export default function SocialTab({ fetchWithAuth }) {
                 onDelete={deletePost}
                 onPublish={publish}
                 onEdit={editPost}
+                onSchedule={schedulePost}
+                onCancel={cancelPost}
               />
             ))}
           </div>
@@ -457,6 +508,8 @@ export default function SocialTab({ fetchWithAuth }) {
                 onDelete={deletePost}
                 onPublish={publish}
                 onEdit={editPost}
+                onSchedule={schedulePost}
+                onCancel={cancelPost}
                 onGenerateChart={generateChart}
               />
             ))}
@@ -871,6 +924,18 @@ function PostBadges({ post }) {
       <span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${STATUS_COLORS[post.status] || 'bg-gray-100 text-gray-600'}`}>
         {post.status}
       </span>
+      {post.ai_generated && (
+        <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
+          <Sparkles size={10} />
+          AI
+        </span>
+      )}
+      {post.scheduled_for && (
+        <span className="flex items-center gap-1 text-xs text-amber-600" title={`Scheduled for ${new Date(post.scheduled_for).toLocaleString()}`}>
+          <Clock size={10} />
+          {new Date(post.scheduled_for).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+        </span>
+      )}
       <span className="text-xs text-gray-400">
         {new Date(post.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
       </span>
@@ -878,7 +943,7 @@ function PostBadges({ post }) {
   );
 }
 
-function ActionButtons({ post, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, publishingLive, extraButtons }) {
+function ActionButtons({ post, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, onSchedule, onCancel, publishingLive, extraButtons }) {
   const isLoading = !!actionLoading;
   const canModify = post.status === 'draft' || post.status === 'rejected';
 
@@ -893,6 +958,28 @@ function ActionButtons({ post, actionLoading, onApprove, onReject, onRegenerate,
         >
           {actionLoading === 'publish' ? <RefreshCw size={13} className="animate-spin" /> : <Send size={13} />}
           Publish
+        </button>
+      )}
+      {post.status === 'approved' && !post.scheduled_for && onSchedule && (
+        <button
+          onClick={() => onSchedule(post.id)}
+          disabled={isLoading}
+          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors disabled:opacity-50"
+          title="Schedule for later"
+        >
+          <Calendar size={13} />
+          Schedule
+        </button>
+      )}
+      {(post.status === 'approved' || post.status === 'draft') && post.scheduled_for && onCancel && (
+        <button
+          onClick={() => onCancel(post.id)}
+          disabled={isLoading}
+          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+          title="Cancel scheduled post"
+        >
+          <Ban size={13} />
+          Cancel
         </button>
       )}
       {canModify && (
@@ -918,7 +1005,7 @@ function ActionButtons({ post, actionLoading, onApprove, onReject, onRegenerate,
         </button>
       )}
       {extraButtons}
-      {post.status !== 'posted' && (
+      {post.status !== 'posted' && post.status !== 'cancelled' && (
         <button
           onClick={() => onRegenerate(post.id)}
           disabled={isLoading}
@@ -1014,7 +1101,7 @@ function InlineEditableText({ text, hashtags, postId, canEdit, onEdit }) {
   );
 }
 
-function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, onEdit, publishingLive }) {
+function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, onEdit, onSchedule, onCancel, publishingLive }) {
   const { mainText, tags } = splitTextAndHashtags(post.text_content, post.hashtags);
   const fullText = tags ? `${mainText}\n\n${tags}` : mainText;
   const charCount = preview?.char_count ?? fullText.length;
@@ -1061,6 +1148,8 @@ function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRege
             onRegenerate={onRegenerate}
             onDelete={onDelete}
             onPublish={onPublish}
+            onSchedule={onSchedule}
+            onCancel={onCancel}
             publishingLive={publishingLive}
           />
         </div>
@@ -1069,7 +1158,7 @@ function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRege
   );
 }
 
-function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, onEdit, onGenerateChart, publishingLive }) {
+function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, onEdit, onSchedule, onCancel, onGenerateChart, publishingLive }) {
   const { mainText, tags } = splitTextAndHashtags(post.text_content, post.hashtags);
   const imageUrl = preview?.image_url || null;
   const hasImage = !!post.image_s3_key || !!imageUrl;
@@ -1156,6 +1245,8 @@ function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRe
             onRegenerate={onRegenerate}
             onDelete={onDelete}
             onPublish={onPublish}
+            onSchedule={onSchedule}
+            onCancel={onCancel}
             publishingLive={publishingLive}
             extraButtons={generateChartButton}
           />
