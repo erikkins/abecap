@@ -122,6 +122,13 @@ const api = {
       body: JSON.stringify(data)
     });
   },
+  async patch(endpoint, data) {
+    return this._fetchWithRetry(endpoint, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  },
   async delete(endpoint) {
     return this._fetchWithRetry(endpoint, { method: 'DELETE' });
   }
@@ -1659,6 +1666,10 @@ function Dashboard() {
   const [timeTravelEmailStatus, setTimeTravelEmailStatus] = useState(null); // null | 'sending' | 'sent' | 'failed'
   const [timeTravelPresets, setTimeTravelPresets] = useState([]); // Computed once from live dashboard data
   const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [showEmailPrefsModal, setShowEmailPrefsModal] = useState(false);
+  const [emailPrefs, setEmailPrefs] = useState({ daily_digest: true, sell_alerts: true, double_signals: true, intraday_signals: true });
+  const [emailPrefsSaving, setEmailPrefsSaving] = useState(false);
+  const [emailPrefsToast, setEmailPrefsToast] = useState(null); // null | 'saved' | 'unsubscribed'
 
   // Handle post-checkout redirect from Stripe
   useEffect(() => {
@@ -1679,7 +1690,42 @@ function Dashboard() {
       // Auto-dismiss after 8 seconds
       setTimeout(() => setCheckoutSuccess(false), 8000);
     }
+
+    // Handle email preference links from email footer
+    if (params.get('emailPrefs') === '1') {
+      setShowEmailPrefsModal(true);
+      const url = new URL(window.location);
+      url.searchParams.delete('emailPrefs');
+      url.searchParams.delete('token');
+      window.history.replaceState({}, '', url.pathname);
+    }
+
+    // Handle one-click unsubscribe from email footer
+    if (params.get('unsubscribe') === '1') {
+      const token = params.get('token');
+      if (token) {
+        fetch(`${API_BASE}/api/auth/unsubscribe?token=${encodeURIComponent(token)}`, { method: 'POST' })
+          .then(res => res.json())
+          .then(() => {
+            setEmailPrefsToast('unsubscribed');
+            setEmailPrefs({ daily_digest: false, sell_alerts: false, double_signals: false, intraday_signals: false });
+            setTimeout(() => setEmailPrefsToast(null), 6000);
+          })
+          .catch(() => {});
+      }
+      const url = new URL(window.location);
+      url.searchParams.delete('unsubscribe');
+      url.searchParams.delete('token');
+      window.history.replaceState({}, '', url.pathname);
+    }
   }, [refreshUser]);
+
+  // Sync email preferences from user data
+  useEffect(() => {
+    if (user?.email_preferences) {
+      setEmailPrefs(user.email_preferences);
+    }
+  }, [user]);
 
   // Live quotes polling - updates prices every 30 seconds during market hours
   useEffect(() => {
@@ -2160,7 +2206,7 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 overflow-x-hidden">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 overflow-x-clip">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <svg width="32" height="32" viewBox="0 0 100 100" className="shrink-0 sm:w-10 sm:h-10">
@@ -2357,6 +2403,13 @@ function Dashboard() {
                           Manage Subscription
                         </button>
                       )}
+                      <button
+                        onClick={() => { setShowUserMenu(false); setShowEmailPrefsModal(true); }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <Bell size={14} />
+                        Email Preferences
+                      </button>
                       <button
                         onClick={() => { setShowUserMenu(false); logout(); }}
                         className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
@@ -3312,6 +3365,74 @@ function Dashboard() {
 
       {showLoginModal && <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />}
       {chartModal && <StockChartModal {...chartModal} viewMode={viewMode} liveQuote={liveQuotes[chartModal.symbol]} timeTravelDate={timeTravelDate} onClose={() => setChartModal(null)} onAction={() => { setChartModal(null); reloadPositions(); }} />}
+
+      {/* Email Preferences Modal */}
+      {showEmailPrefsModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowEmailPrefsModal(false)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><Bell size={18} /> Email Preferences</h3>
+              <button onClick={() => setShowEmailPrefsModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              {[
+                { key: 'daily_digest', label: 'Daily Digest', desc: '6 PM ET summary with signals + positions' },
+                { key: 'sell_alerts', label: 'Sell Alerts', desc: 'Trailing stop and regime exit alerts' },
+                { key: 'double_signals', label: 'Double Signal Alerts', desc: 'DWAP + momentum confirmation alerts' },
+                { key: 'intraday_signals', label: 'Intraday Signals', desc: 'DWAP crossover during market hours' },
+              ].map(({ key, label, desc }) => (
+                <label key={key} className="flex items-center justify-between cursor-pointer group">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{label}</p>
+                    <p className="text-xs text-gray-500">{desc}</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={emailPrefs[key]}
+                    onClick={() => setEmailPrefs(prev => ({ ...prev, [key]: !prev[key] }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${emailPrefs[key] ? 'bg-blue-600' : 'bg-gray-200'}`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${emailPrefs[key] ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </label>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-3 p-5 border-t">
+              <button onClick={() => setShowEmailPrefsModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+              <button
+                disabled={emailPrefsSaving}
+                onClick={async () => {
+                  setEmailPrefsSaving(true);
+                  try {
+                    await api.patch('/api/auth/me/email-preferences', emailPrefs);
+                    setEmailPrefsToast('saved');
+                    setShowEmailPrefsModal(false);
+                    setTimeout(() => setEmailPrefsToast(null), 4000);
+                  } catch (err) {
+                    console.error('Failed to save email preferences:', err);
+                    alert('Failed to save preferences. Please try again.');
+                  } finally {
+                    setEmailPrefsSaving(false);
+                  }
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {emailPrefsSaving ? 'Saving...' : 'Save Preferences'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Preferences Toast */}
+      {emailPrefsToast && (
+        <div className="fixed bottom-6 right-6 z-50 animate-fade-in">
+          <div className={`px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white ${emailPrefsToast === 'unsubscribed' ? 'bg-orange-500' : 'bg-green-600'}`}>
+            {emailPrefsToast === 'unsubscribed' ? 'You have been unsubscribed from all emails.' : 'Email preferences saved.'}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -44,6 +44,46 @@ class EmailService:
         if not self.enabled:
             logger.warning("Email service disabled - SMTP credentials not configured")
 
+    def _generate_email_token(self, user_id: str, purpose: str = "email_manage") -> str:
+        """Generate JWT token for email footer links (30-day expiry)."""
+        from jose import jwt as jose_jwt
+        from datetime import timedelta
+        from app.core.config import settings
+        payload = {
+            "sub": str(user_id),
+            "purpose": purpose,
+            "exp": datetime.utcnow() + timedelta(days=30),
+        }
+        return jose_jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+    def _email_footer_html(self, user_id: str = None) -> str:
+        """Generate the standard email footer with manage/unsubscribe links."""
+        if user_id:
+            token = self._generate_email_token(str(user_id))
+            manage_url = f"https://rigacap.com/app?emailPrefs=1&token={token}"
+            unsub_url = f"https://rigacap.com/app?unsubscribe=1&token={token}"
+        else:
+            manage_url = "https://rigacap.com/app"
+            unsub_url = "#"
+
+        return f'''<tr>
+            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+                    <a href="https://rigacap.com/app" style="color: #172554; text-decoration: none;">View Dashboard</a>
+                    &nbsp;&bull;&nbsp;
+                    <a href="{manage_url}" style="color: #172554; text-decoration: none;">Manage Alerts</a>
+                    &nbsp;&bull;&nbsp;
+                    <a href="{unsub_url}" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
+                </p>
+                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                    Trading involves risk. Past performance does not guarantee future results.
+                </p>
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
+                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                </p>
+            </td>
+        </tr>'''
+
     async def send_email(
         self,
         to_email: str,
@@ -112,7 +152,8 @@ class EmailService:
         missed_opportunities: List[Dict],
         date: Optional[datetime] = None,
         watchlist: List[Dict] = None,
-        regime_forecast: Dict = None
+        regime_forecast: Dict = None,
+        user_id: str = None
     ) -> str:
         """
         Generate beautiful HTML for daily summary email
@@ -228,23 +269,7 @@ class EmailService:
         {self._missed_section(missed_opportunities[:5], total_missed) if missed_opportunities else ''}
 
         <!-- Footer -->
-        <tr>
-            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
-                    <a href="#" style="color: #172554; text-decoration: none;">View Dashboard</a>
-                    &nbsp;•&nbsp;
-                    <a href="#" style="color: #172554; text-decoration: none;">Manage Alerts</a>
-                    &nbsp;•&nbsp;
-                    <a href="#" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
-                </p>
-                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                    Trading involves risk. Past performance does not guarantee future results.
-                </p>
-                <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
-                    &copy; {date.year} RigaCap. All rights reserved.
-                </p>
-            </td>
-        </tr>
+        {self._email_footer_html(user_id)}
     </table>
 </body>
 </html>
@@ -526,7 +551,8 @@ class EmailService:
         missed_opportunities: List[Dict] = None,
         watchlist: List[Dict] = None,
         regime_forecast: Dict = None,
-        date: Optional[datetime] = None
+        date: Optional[datetime] = None,
+        user_id: str = None
     ) -> bool:
         """
         Send daily summary email to a subscriber
@@ -566,7 +592,8 @@ class EmailService:
             missed_opportunities=missed_opportunities,
             watchlist=watchlist,
             regime_forecast=regime_forecast,
-            date=date
+            date=date,
+            user_id=user_id
         )
 
         text = self.generate_plain_text(signals, market_regime, date=date, watchlist=watchlist)
@@ -955,8 +982,6 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
             <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
                 <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
                     <a href="https://rigacap.com/app" style="color: #172554; text-decoration: none;">View Dashboard</a>
-                    &nbsp;&bull;&nbsp;
-                    <a href="#" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
                 </p>
                 <p style="margin: 0; font-size: 12px; color: #9ca3af;">
                     Trading involves risk. Past performance does not guarantee future results.
@@ -1100,9 +1125,6 @@ Trading involves risk. Past performance does not guarantee future results.
         <!-- Footer -->
         <tr>
             <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
-                    <a href="#" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
-                </p>
                 <p style="margin: 0; font-size: 12px; color: #9ca3af;">
                     &copy; {datetime.now().year} RigaCap. All rights reserved.
                 </p>
@@ -1156,6 +1178,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
         current_price: float,
         entry_price: float,
         stop_price: float = None,
+        user_id: str = None,
     ) -> bool:
         """
         Send a sell or warning alert for an open position.
@@ -1285,18 +1308,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
         </tr>
 
         <!-- Footer -->
-        <tr>
-            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
-                    <a href="https://rigacap.com/app" style="color: #172554; text-decoration: none;">Dashboard</a>
-                    &nbsp;&bull;&nbsp;
-                    <a href="#" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
-                </p>
-                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                    &copy; {datetime.now().year} RigaCap. All rights reserved.
-                </p>
-            </td>
-        </tr>
+        {self._email_footer_html(user_id)}
     </table>
 </body>
 </html>
@@ -1336,7 +1348,8 @@ Unsubscribe: https://rigacap.com/unsubscribe
         to_email: str,
         new_signals: List[Dict],
         approaching: List[Dict] = None,
-        market_regime: Dict = None
+        market_regime: Dict = None,
+        user_id: str = None
     ) -> bool:
         """
         Send alert when momentum stocks hit the breakout signal trigger.
@@ -1524,18 +1537,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
         </tr>
 
         <!-- Footer -->
-        <tr>
-            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
-                    <a href="https://rigacap.com/app" style="color: #172554; text-decoration: none;">Dashboard</a>
-                    &nbsp;•&nbsp;
-                    <a href="#" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
-                </p>
-                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                    &copy; {datetime.now().year} RigaCap. All rights reserved.
-                </p>
-            </td>
-        </tr>
+        {self._email_footer_html(user_id)}
     </table>
 </body>
 </html>
@@ -1589,6 +1591,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
         pct_above_dwap: float,
         momentum_rank: int = None,
         sector: str = None,
+        user_id: str = None,
     ) -> bool:
         """
         Send alert when a watchlist stock crosses DWAP +5% intraday.
@@ -1705,18 +1708,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
         </tr>
 
         <!-- Footer -->
-        <tr>
-            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
-                    <a href="https://rigacap.com/app" style="color: #172554; text-decoration: none;">Dashboard</a>
-                    &nbsp;•&nbsp;
-                    <a href="#" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
-                </p>
-                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                    &copy; {datetime.now().year} RigaCap. All rights reserved.
-                </p>
-            </td>
-        </tr>
+        {self._email_footer_html(user_id)}
     </table>
 </body>
 </html>

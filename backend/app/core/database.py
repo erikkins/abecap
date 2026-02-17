@@ -5,7 +5,7 @@ Database configuration and connection
 import uuid
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -338,6 +338,9 @@ class User(Base):
     # Stripe customer ID
     stripe_customer_id = Column(String(255), nullable=True, unique=True)
 
+    # Email preferences: {"daily_digest": true, "sell_alerts": true, ...}
+    email_preferences = Column(JSON, nullable=True)
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
@@ -349,6 +352,12 @@ class User(Base):
         """Check if user has admin privileges."""
         return self.role == "admin" and self.email == "erik@rigacap.com"
 
+    def get_email_preference(self, pref_key: str) -> bool:
+        """Returns True unless explicitly set to False."""
+        if not self.email_preferences:
+            return True
+        return self.email_preferences.get(pref_key, True)
+
     def to_dict(self, include_subscription: bool = False) -> dict:
         """Convert user to dictionary for API responses.
 
@@ -356,6 +365,8 @@ class User(Base):
         which doesn't work with async SQLAlchemy. The subscription is loaded
         separately in the auth endpoints and added to the response.
         """
+        defaults = {"daily_digest": True, "sell_alerts": True, "double_signals": True, "intraday_signals": True}
+        prefs = {**defaults, **(self.email_preferences or {})}
         result = {
             "id": str(self.id),
             "email": self.email,
@@ -364,6 +375,7 @@ class User(Base):
             "is_active": self.is_active,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "last_login": self.last_login.isoformat() if self.last_login else None,
+            "email_preferences": prefs,
         }
         return result
 
@@ -584,6 +596,15 @@ async def _run_schema_migrations(conn):
             ON walk_forward_period_results(simulation_id)
         """))
         print("✅ Schema migration: walk_forward_period_results table ready")
+    except Exception as e:
+        print(f"⚠️ Schema migration skipped: {e}")
+
+    # Migration: Add email_preferences column to users
+    try:
+        await conn.execute(text("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS email_preferences JSON
+        """))
+        print("✅ Schema migration: email_preferences column ready")
     except Exception as e:
         print(f"⚠️ Schema migration skipped: {e}")
 

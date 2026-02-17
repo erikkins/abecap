@@ -495,7 +495,7 @@ class SchedulerService:
             async with async_session() as db:
                 # 1. Query all open positions with user email
                 result = await db.execute(
-                    select(DBPosition, DBUser.email, DBUser.full_name)
+                    select(DBPosition, DBUser.email, DBUser.name, DBUser.id, DBUser.email_preferences)
                     .join(DBUser, DBPosition.user_id == DBUser.id)
                     .where(DBPosition.status == 'open')
                 )
@@ -538,7 +538,7 @@ class SchedulerService:
                 alerts_sent = 0
                 today = date.today()
 
-                for position, user_email, user_name in rows:
+                for position, user_email, user_name, uid, email_prefs in rows:
                     sym = position.symbol
                     if sym not in live_prices:
                         continue
@@ -555,6 +555,10 @@ class SchedulerService:
                     )
 
                     if guidance and guidance['action'] in ('sell', 'warning'):
+                        # Check user email preference
+                        sell_pref = (email_prefs or {}).get('sell_alerts', True) if email_prefs else True
+                        if not sell_pref:
+                            continue
                         dedup_key = f"{position.id}_{guidance['action']}_{today}"
                         if dedup_key not in self._alerted_sell_positions:
                             try:
@@ -567,6 +571,7 @@ class SchedulerService:
                                     current_price=live_price,
                                     entry_price=position.entry_price,
                                     stop_price=guidance.get('stop_price'),
+                                    user_id=str(uid),
                                 )
                                 self._alerted_sell_positions.add(dedup_key)
                                 alerts_sent += 1
@@ -639,20 +644,23 @@ class SchedulerService:
                             # Send email alerts to subscribed users,
                             # skipping users who already hold the stock
                             user_result = await db.execute(
-                                select(DBUser.id, DBUser.email, DBUser.name)
+                                select(DBUser.id, DBUser.email, DBUser.name, DBUser.email_preferences)
                                 .where(DBUser.is_active == True)
                             )
                             active_users = user_result.all()
 
                             # Build set of (user_id, symbol) for open positions
                             held_positions = set()
-                            for pos, _, _ in rows:
+                            for pos, *_ in rows:
                                 held_positions.add((pos.user_id, pos.symbol))
 
                             for sig in new_intraday_signals:
-                                for user_id, user_email, user_name in active_users:
+                                for user_id, user_email, user_name, email_prefs in active_users:
                                     if (user_id, sig['symbol']) in held_positions:
                                         logger.info(f"📡 Skipping intraday alert for {sig['symbol']} to {user_email} (already holds position)")
+                                        continue
+                                    # Check user email preference
+                                    if not (email_prefs or {}).get('intraday_signals', True):
                                         continue
                                     try:
                                         await email_service.send_intraday_signal_alert(
@@ -664,6 +672,7 @@ class SchedulerService:
                                             pct_above_dwap=sig['pct_above_dwap'],
                                             momentum_rank=sig['momentum_rank'],
                                             sector=sig['sector'],
+                                            user_id=str(user_id),
                                         )
                                     except Exception as e:
                                         logger.error(f"📡 Failed to send intraday alert for {sig['symbol']} to {user_email}: {e}")
@@ -1160,18 +1169,24 @@ class SchedulerService:
                     )
                     sub_users = sub_result.scalars().all()
 
-                recipients = [u.email for u in sub_users if u.subscription and u.subscription.is_valid()]
+                recipients = []
+                for u in sub_users:
+                    if u.subscription and u.subscription.is_valid():
+                        if u.get_email_preference('double_signals'):
+                            recipients.append({'email': u.email, 'user_id': str(u.id)})
                 # Always include admin
-                if ADMIN_EMAIL not in recipients:
-                    recipients.append(ADMIN_EMAIL)
+                admin_emails = [r['email'] for r in recipients]
+                if ADMIN_EMAIL not in admin_emails:
+                    recipients.append({'email': ADMIN_EMAIL, 'user_id': None})
 
                 sent = 0
                 for recipient in recipients:
                     success = await email_service.send_double_signal_alert(
-                        to_email=recipient,
+                        to_email=recipient['email'],
                         new_signals=new_signals,
                         approaching=approaching,
-                        market_regime=regime
+                        market_regime=regime,
+                        user_id=recipient['user_id']
                     )
                     if success:
                         sent += 1
@@ -1302,7 +1317,9 @@ class SchedulerService:
             subscribers = []
             for u in all_users:
                 if u.subscription and u.subscription.is_valid():
-                    subscribers.append({'email': u.email, 'name': u.name})
+                    if not u.get_email_preference('daily_digest'):
+                        continue
+                    subscribers.append({'email': u.email, 'name': u.name, 'user_id': str(u.id)})
 
             fresh_count = len([s for s in buy_signals if s.get('is_fresh')])
 
@@ -1326,6 +1343,7 @@ class SchedulerService:
                         signals=buy_signals,
                         market_regime=regime,
                         watchlist=watchlist,
+                        user_id=sub['user_id'],
                     )
                     if success:
                         sent += 1

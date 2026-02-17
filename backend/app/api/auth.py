@@ -593,3 +593,101 @@ async def reset_password(
     await db.commit()
 
     return {"message": "Password reset successfully. You can now sign in."}
+
+
+# ============================================================================
+# Email Preferences
+# ============================================================================
+
+ALLOWED_EMAIL_PREFS = {"daily_digest", "sell_alerts", "double_signals", "intraday_signals"}
+
+
+@router.patch("/me/email-preferences")
+async def update_email_preferences(
+    prefs: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update email preferences for the current user."""
+    # Validate keys
+    invalid_keys = set(prefs.keys()) - ALLOWED_EMAIL_PREFS
+    if invalid_keys:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid preference keys: {', '.join(invalid_keys)}"
+        )
+
+    # Validate values are booleans
+    for key, value in prefs.items():
+        if not isinstance(value, bool):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Preference '{key}' must be a boolean"
+            )
+
+    # Merge with existing
+    existing = user.email_preferences or {}
+    merged = {**existing, **prefs}
+    user.email_preferences = merged
+    await db.commit()
+    await db.refresh(user)
+
+    defaults = {k: True for k in ALLOWED_EMAIL_PREFS}
+    return {"email_preferences": {**defaults, **merged}}
+
+
+@router.get("/email-preferences")
+async def get_email_preferences_by_token(
+    token: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get email preferences using a JWT token (from email footer links)."""
+    payload = decode_token(token)
+    if payload is None or payload.get("purpose") != "email_manage":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired link"
+        )
+
+    user_id = payload.get("sub")
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid link"
+        )
+
+    defaults = {k: True for k in ALLOWED_EMAIL_PREFS}
+    prefs = {**defaults, **(user.email_preferences or {})}
+    return {"email_preferences": prefs, "email": user.email}
+
+
+@router.post("/unsubscribe")
+async def unsubscribe_by_token(
+    token: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """One-click unsubscribe from all emails (from email footer)."""
+    payload = decode_token(token)
+    if payload is None or payload.get("purpose") not in ("email_manage", "email_unsubscribe"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired link"
+        )
+
+    user_id = payload.get("sub")
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid link"
+        )
+
+    user.email_preferences = {k: False for k in ALLOWED_EMAIL_PREFS}
+    await db.commit()
+
+    return {"message": "You have been unsubscribed from all emails.", "email": user.email}
