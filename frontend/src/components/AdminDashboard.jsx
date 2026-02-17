@@ -315,6 +315,7 @@ export default function AdminDashboard() {
           stats={stats}
           serviceStatus={serviceStatus}
           activeStrategy={activeStrategy}
+          awsHealth={awsHealth}
         />
       )}
 
@@ -371,7 +372,7 @@ export default function AdminDashboard() {
 }
 
 // Overview Tab Component
-function OverviewTab({ stats, serviceStatus, activeStrategy }) {
+function OverviewTab({ stats, serviceStatus, activeStrategy, awsHealth }) {
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
