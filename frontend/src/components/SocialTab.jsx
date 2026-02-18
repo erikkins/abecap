@@ -399,7 +399,7 @@ export default function SocialTab({ fetchWithAuth }) {
 
       {/* Launch Queue — show above feed, hide once launch posts have been queued */}
       {!posts.some(p => p.post_type === 'manual') && (
-        <LaunchQueueSection fetchWithAuth={fetchWithAuth} onQueued={() => Promise.all([fetchStats(), fetchPosts()])} />
+        <LaunchQueueSection fetchWithAuth={fetchWithAuth} onQueued={() => Promise.all([fetchStats(), fetchPosts()])} posts={posts} />
       )}
 
       {/* Post Feed */}
@@ -591,9 +591,13 @@ const LAUNCH_POSTS = [
   },
 ];
 
-function LaunchQueueSection({ fetchWithAuth, onQueued }) {
-  const [expanded, setExpanded] = useState(true);
+function LaunchQueueSection({ fetchWithAuth, onQueued, posts = [] }) {
+  const [expanded, setExpanded] = useState(false);
   const [queueing, setQueueing] = useState(false);
+
+  // Check if launch posts already exist (match first launch post text prefix)
+  const launchPrefix = LAUNCH_POSTS[0].twitter.text.substring(0, 30);
+  const alreadyQueued = posts.some(p => p.text_content?.startsWith(launchPrefix));
   const [queued, setQueued] = useState(false);
 
   const noop = () => {};
@@ -651,17 +655,17 @@ function LaunchQueueSection({ fetchWithAuth, onQueued }) {
             <p className="text-sm text-gray-500">Preview how launch posts will look. When ready, queue them all as drafts to review and approve individually.</p>
             <button
               onClick={queueAllPosts}
-              disabled={queueing || queued}
+              disabled={queueing || queued || alreadyQueued}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                queued
+                queued || alreadyQueued
                   ? 'bg-green-100 text-green-700 cursor-default'
                   : 'bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50'
               }`}
             >
               {queueing ? (
                 <><RefreshCw size={14} className="animate-spin" /> Queueing...</>
-              ) : queued ? (
-                <><Check size={14} /> Queued!</>
+              ) : queued || alreadyQueued ? (
+                <><Check size={14} /> Already Queued</>
               ) : (
                 <><Plus size={14} /> Queue All as Drafts</>
               )}
