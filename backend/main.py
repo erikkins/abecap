@@ -2050,7 +2050,7 @@ def handler(event, context):
             return {"status": "failed", "error": str(e)}
 
     # Social post admin (direct Lambda invocation)
-    # Actions: list, approve, publish, approve_and_publish
+    # Actions: list, approve, publish, approve_and_publish, delete, attach_image
     if event.get("social_admin"):
         config = event["social_admin"]
         action = config.get("action", "list")
@@ -2114,6 +2114,32 @@ def handler(event, context):
                         return {"status": "published", "post_id": post_id, "platform": post.platform, **pub_result}
 
                     return {"status": post.status, "post_id": post_id}
+
+                elif action == "delete":
+                    post_ids = config.get("post_ids")
+                    if not post_ids:
+                        return {"error": "post_ids required (list of IDs)"}
+                    from sqlalchemy import delete as sa_delete
+                    await db.execute(sa_delete(SocialPost).where(SocialPost.id.in_(post_ids)))
+                    await db.commit()
+                    print(f"🗑️ Deleted {len(post_ids)} posts: {post_ids}")
+                    return {"deleted": len(post_ids)}
+
+                elif action == "attach_image":
+                    post_id = config.get("post_id")
+                    image_s3_key = config.get("image_s3_key")
+                    if not post_id or not image_s3_key:
+                        return {"error": "post_id and image_s3_key required"}
+                    result = await db.execute(
+                        select(SocialPost).where(SocialPost.id == post_id)
+                    )
+                    post = result.scalar_one_or_none()
+                    if not post:
+                        return {"error": f"Post {post_id} not found"}
+                    post.image_s3_key = image_s3_key
+                    await db.commit()
+                    print(f"🖼️ Attached image to post {post_id}: {image_s3_key}")
+                    return {"post_id": post_id, "image_s3_key": image_s3_key}
 
                 else:
                     return {"error": f"Unknown action: {action}"}
