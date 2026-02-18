@@ -29,7 +29,7 @@ import pandas as pd
 
 from app.core.config import settings
 from app.core.database import init_db, get_db, Position as DBPosition, Trade as DBTrade, Signal as DBSignal, User, async_session
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_admin_user, require_valid_subscription
 from app.api.signals import router as signals_router
 from app.api.email import router as email_router
 from app.api.auth import router as auth_router
@@ -2316,7 +2316,7 @@ def handler(event, context):
 # ============================================================================
 
 @app.get("/")
-async def root():
+async def root(admin: User = Depends(get_admin_user)):
     return {
         "name": "RigaCap API",
         "version": "2.0.0",
@@ -2327,7 +2327,7 @@ async def root():
 
 
 @app.get("/health")
-async def health():
+async def health(user: User = Depends(require_valid_subscription)):
     scheduler_status = scheduler_service.get_status()
 
     # Use local cache if available, otherwise get metadata from S3
@@ -2357,7 +2357,7 @@ async def health():
 
 
 @app.post("/api/warmup")
-async def warmup():
+async def warmup(admin: User = Depends(get_admin_user)):
     """
     Warm up Lambda by loading all data.
     Call this after deployment to preload data so user requests are fast.
@@ -2410,7 +2410,7 @@ async def warmup():
 
 
 @app.post("/api/data/load-batch")
-async def load_batch(batch_size: int = 50):
+async def load_batch(batch_size: int = 50, admin: User = Depends(get_admin_user)):
     """
     Load a batch of stocks that aren't already cached.
     Call this repeatedly to gradually build up the full dataset.
@@ -2465,7 +2465,7 @@ async def load_batch(batch_size: int = 50):
 
 
 @app.get("/api/data/status")
-async def data_status():
+async def data_status(admin: User = Depends(get_admin_user)):
     """Get current data loading status"""
     await scanner_service.ensure_universe_loaded()
 
@@ -2482,7 +2482,7 @@ async def data_status():
 
 
 @app.get("/api/config")
-async def get_config():
+async def get_config(admin: User = Depends(get_admin_user)):
     return {
         "dwap_threshold_pct": settings.DWAP_THRESHOLD_PCT,
         "stop_loss_pct": settings.STOP_LOSS_PCT,
@@ -2497,7 +2497,7 @@ async def get_config():
 
 
 @app.get("/api/debug/yfinance")
-async def debug_yfinance():
+async def debug_yfinance(admin: User = Depends(get_admin_user)):
     """Debug endpoint to test yfinance import"""
     result = {"yfinance_available": False, "error": None, "version": None}
     try:
@@ -2516,7 +2516,7 @@ async def debug_yfinance():
 
 
 @app.post("/api/universe/load-full")
-async def load_full_universe():
+async def load_full_universe(admin: User = Depends(get_admin_user)):
     """
     Load the full NASDAQ + NYSE stock universe (~6000 stocks)
 
@@ -2535,7 +2535,7 @@ async def load_full_universe():
 
 
 @app.get("/api/universe/status")
-async def get_universe_status():
+async def get_universe_status(admin: User = Depends(get_admin_user)):
     """Get current universe status"""
     return {
         "universe_size": len(scanner_service.universe),
@@ -2546,7 +2546,7 @@ async def get_universe_status():
 
 
 @app.post("/api/data/load")
-async def load_market_data(symbols: Optional[str] = None, period: str = "5y"):
+async def load_market_data(symbols: Optional[str] = None, period: str = "5y", admin: User = Depends(get_admin_user)):
     """
     Manually trigger market data loading
 
@@ -2575,7 +2575,7 @@ async def load_market_data(symbols: Optional[str] = None, period: str = "5y"):
 
 
 @app.get("/api/data/status")
-async def get_data_status():
+async def get_data_status(admin: User = Depends(get_admin_user)):
     """Get current data loading status"""
     return {
         "data_available": len(scanner_service.data_cache) > 0,
@@ -2587,7 +2587,7 @@ async def get_data_status():
 
 
 @app.post("/api/data/export")
-async def export_data():
+async def export_data(admin: User = Depends(get_admin_user)):
     """
     Export all cached price data to individual CSV files
 
@@ -2601,7 +2601,7 @@ async def export_data():
 
 
 @app.post("/api/data/export-consolidated")
-async def export_data_consolidated():
+async def export_data_consolidated(admin: User = Depends(get_admin_user)):
     """
     Export all cached price data to a single consolidated gzipped CSV.
 
@@ -2616,7 +2616,7 @@ async def export_data_consolidated():
 
 
 @app.post("/api/data/pre-deploy")
-async def pre_deploy_export():
+async def pre_deploy_export(admin: User = Depends(get_admin_user)):
     """
     Pre-deployment export: Save all current price data to S3.
 
@@ -2638,13 +2638,13 @@ async def pre_deploy_export():
 
 
 @app.get("/api/data/export-status")
-async def get_export_status():
+async def get_export_status(admin: User = Depends(get_admin_user)):
     """Get status of exported data files"""
     return data_export_service.get_status()
 
 
 @app.post("/api/data/import")
-async def import_data():
+async def import_data(admin: User = Depends(get_admin_user)):
     """
     Import price data from Parquet files into memory
 
@@ -2670,7 +2670,7 @@ async def import_data():
 # ============================================================================
 
 @app.get("/api/market/regime")
-async def get_market_regime():
+async def get_market_regime(user: User = Depends(require_valid_subscription)):
     """
     Get current market regime and trading recommendation.
 
@@ -2731,7 +2731,7 @@ async def get_market_regime():
 
 
 @app.get("/api/market/sectors")
-async def get_sector_strength():
+async def get_sector_strength(admin: User = Depends(get_admin_user)):
     """
     Get sector strength rankings
 
@@ -2750,7 +2750,7 @@ async def get_sector_strength():
 
 
 @app.get("/api/market/summary")
-async def get_market_summary():
+async def get_market_summary(admin: User = Depends(get_admin_user)):
     """
     Get complete market summary including regime and sectors
     """
@@ -2781,13 +2781,13 @@ async def get_market_summary():
 # ============================================================================
 
 @app.get("/api/scheduler/status")
-async def get_scheduler_status():
+async def get_scheduler_status(admin: User = Depends(get_admin_user)):
     """Get scheduler status and next run times"""
     return scheduler_service.get_status()
 
 
 @app.post("/api/scheduler/run")
-async def trigger_manual_update():
+async def trigger_manual_update(admin: User = Depends(get_admin_user)):
     """
     Manually trigger a market update (for testing)
 
@@ -2808,7 +2808,7 @@ async def trigger_manual_update():
 # ============================================================================
 
 @app.get("/api/backtest/run")
-async def run_backtest(days: int = 252, strategy: str = "momentum", max_symbols: int = 200):
+async def run_backtest(days: int = 252, strategy: str = "momentum", max_symbols: int = 200, user: User = Depends(require_valid_subscription)):
     """
     Run backtest over historical data
 
@@ -2861,7 +2861,7 @@ async def run_backtest(days: int = 252, strategy: str = "momentum", max_symbols:
 
 
 @app.get("/api/backtest/positions")
-async def get_backtest_positions(days: int = 252):
+async def get_backtest_positions(days: int = 252, admin: User = Depends(get_admin_user)):
     """
     Get simulated open positions from backtest
 
@@ -2884,7 +2884,7 @@ async def get_backtest_positions(days: int = 252):
 
 
 @app.get("/api/backtest/trades")
-async def get_backtest_trades(days: int = 252, limit: int = 50):
+async def get_backtest_trades(days: int = 252, limit: int = 50, admin: User = Depends(get_admin_user)):
     """
     Get trade history from backtest
     """
@@ -2904,7 +2904,7 @@ async def get_backtest_trades(days: int = 252, limit: int = 50):
 
 
 @app.get("/api/backtest/walk-forward-cached")
-async def get_cached_walk_forward(db: AsyncSession = Depends(get_db)):
+async def get_cached_walk_forward(user: User = Depends(require_valid_subscription), db: AsyncSession = Depends(get_db)):
     """
     Get the latest cached daily walk-forward simulation results.
 
@@ -3248,7 +3248,7 @@ async def get_equity_curve(user: User = Depends(get_current_user), db: AsyncSess
 
 
 @app.get("/api/stock/{symbol}/history")
-async def get_stock_history(symbol: str, days: int = 252):
+async def get_stock_history(symbol: str, days: int = 252, user: User = Depends(require_valid_subscription)):
     """Get historical price data for a symbol from cache"""
     symbol = symbol.upper()
 
@@ -3385,7 +3385,7 @@ async def get_live_quotes(symbols: str = "", user: User = Depends(get_current_us
 
 
 @app.post("/api/quotes/batch")
-async def get_batch_quotes(symbols: List[str]):
+async def get_batch_quotes(symbols: List[str], admin: User = Depends(get_admin_user)):
     """
     Get live quotes for a batch of symbols (POST for larger lists).
     """

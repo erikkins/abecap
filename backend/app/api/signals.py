@@ -192,7 +192,7 @@ async def run_memory_scan(
 
 
 @router.get("/cdn-url")
-async def get_signals_cdn_url():
+async def get_signals_cdn_url(admin: User = Depends(get_admin_user)):
     """
     Get the CDN URL for the latest signals JSON.
 
@@ -442,7 +442,7 @@ async def backfill_historical_signals(
 
 
 @router.get("/info/{symbol}")
-async def get_stock_info(symbol: str):
+async def get_stock_info(symbol: str, user: User = Depends(require_valid_subscription)):
     """
     Get company information for a stock symbol
 
