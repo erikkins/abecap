@@ -485,212 +485,139 @@ db_init_attempted = False
 
 
 async def _run_schema_migrations(conn):
-    """Run schema migrations for columns that don't exist yet."""
+    """Run schema migrations for columns that don't exist yet.
+
+    Each migration runs in a SAVEPOINT so a single failure doesn't
+    invalidate the outer transaction and cascade-fail all remaining
+    migrations.
+    """
     from sqlalchemy import text
 
-    # Migration: Add is_daily_cache column to walk_forward_simulations
-    try:
-        await conn.execute(text("""
-            ALTER TABLE walk_forward_simulations
-            ADD COLUMN IF NOT EXISTS is_daily_cache BOOLEAN DEFAULT FALSE
-        """))
-        print("✅ Schema migration: is_daily_cache column ready")
-    except Exception as e:
-        # Column might already exist or table doesn't exist yet
-        print(f"⚠️ Schema migration skipped: {e}")
+    async def _run(label: str, statements):
+        """Run one or more SQL statements inside a savepoint."""
+        try:
+            async with conn.begin_nested():
+                if isinstance(statements, str):
+                    statements = [statements]
+                for sql in statements:
+                    await conn.execute(text(sql))
+            print(f"✅ Schema migration: {label}")
+        except Exception as e:
+            print(f"⚠️ Schema migration skipped ({label}): {e}")
 
-    # Migration: Add errors_json column to walk_forward_simulations
-    try:
-        await conn.execute(text("""
-            ALTER TABLE walk_forward_simulations
-            ADD COLUMN IF NOT EXISTS errors_json TEXT
-        """))
-        print("✅ Schema migration: errors_json column ready")
-    except Exception as e:
-        print(f"⚠️ Schema migration skipped: {e}")
+    await _run("is_daily_cache column", """
+        ALTER TABLE walk_forward_simulations
+        ADD COLUMN IF NOT EXISTS is_daily_cache BOOLEAN DEFAULT FALSE
+    """)
 
-    # Migration: Add trades_json column to walk_forward_simulations
-    try:
-        await conn.execute(text("""
-            ALTER TABLE walk_forward_simulations
-            ADD COLUMN IF NOT EXISTS trades_json TEXT
-        """))
-        print("✅ Schema migration: trades_json column ready")
-    except Exception as e:
-        print(f"⚠️ Schema migration skipped: {e}")
+    await _run("errors_json column", """
+        ALTER TABLE walk_forward_simulations
+        ADD COLUMN IF NOT EXISTS errors_json TEXT
+    """)
 
-    # Migration: Add step_functions_arn column to walk_forward_simulations
-    try:
-        await conn.execute(text("""
-            ALTER TABLE walk_forward_simulations
-            ADD COLUMN IF NOT EXISTS step_functions_arn VARCHAR(500)
-        """))
-        print("✅ Schema migration: step_functions_arn column ready")
-    except Exception as e:
-        print(f"⚠️ Schema migration skipped: {e}")
+    await _run("trades_json column", """
+        ALTER TABLE walk_forward_simulations
+        ADD COLUMN IF NOT EXISTS trades_json TEXT
+    """)
 
-    # Migration: Add is_nightly_missed_opps column to walk_forward_simulations
-    try:
-        await conn.execute(text("""
-            ALTER TABLE walk_forward_simulations
-            ADD COLUMN IF NOT EXISTS is_nightly_missed_opps BOOLEAN DEFAULT FALSE
-        """))
-        print("✅ Schema migration: is_nightly_missed_opps column ready")
-    except Exception as e:
-        print(f"⚠️ Schema migration skipped: {e}")
+    await _run("step_functions_arn column", """
+        ALTER TABLE walk_forward_simulations
+        ADD COLUMN IF NOT EXISTS step_functions_arn VARCHAR(500)
+    """)
 
-    # Migration: Create social_posts table
-    try:
-        await conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS social_posts (
-                id SERIAL PRIMARY KEY,
-                post_type VARCHAR(50),
-                platform VARCHAR(20),
-                status VARCHAR(20) DEFAULT 'draft',
-                text_content TEXT,
-                hashtags TEXT,
-                image_s3_key VARCHAR(500),
-                image_metadata_json TEXT,
-                source_simulation_id INTEGER,
-                source_trade_json TEXT,
-                source_data_json TEXT,
-                scheduled_for TIMESTAMP,
-                posted_at TIMESTAMP,
-                reviewed_by VARCHAR(100),
-                reviewed_at TIMESTAMP,
-                rejection_reason TEXT,
-                created_at TIMESTAMP DEFAULT NOW(),
-                updated_at TIMESTAMP DEFAULT NOW()
-            )
-        """))
-        print("✅ Schema migration: social_posts table ready")
-    except Exception as e:
-        print(f"⚠️ Schema migration skipped: {e}")
+    await _run("is_nightly_missed_opps column", """
+        ALTER TABLE walk_forward_simulations
+        ADD COLUMN IF NOT EXISTS is_nightly_missed_opps BOOLEAN DEFAULT FALSE
+    """)
 
-    # Migration: Add AI content + scheduling columns to social_posts
-    try:
-        for col_sql in [
-            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS ai_generated BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS ai_model VARCHAR(50)",
-            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS ai_prompt_hash VARCHAR(64)",
-            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS news_context_json TEXT",
-            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS notification_24h_sent BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS notification_1h_sent BOOLEAN DEFAULT FALSE",
-        ]:
-            await conn.execute(text(col_sql))
-        print("✅ Schema migration: social_posts AI/scheduling columns ready")
-    except Exception as e:
-        print(f"⚠️ Schema migration skipped: {e}")
+    await _run("social_posts table", """
+        CREATE TABLE IF NOT EXISTS social_posts (
+            id SERIAL PRIMARY KEY,
+            post_type VARCHAR(50),
+            platform VARCHAR(20),
+            status VARCHAR(20) DEFAULT 'draft',
+            text_content TEXT,
+            hashtags TEXT,
+            image_s3_key VARCHAR(500),
+            image_metadata_json TEXT,
+            source_simulation_id INTEGER,
+            source_trade_json TEXT,
+            source_data_json TEXT,
+            scheduled_for TIMESTAMP,
+            posted_at TIMESTAMP,
+            reviewed_by VARCHAR(100),
+            reviewed_at TIMESTAMP,
+            rejection_reason TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
 
-    # Migration: Reply scanner columns on social_posts
-    try:
-        for col_sql in [
-            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_tweet_id VARCHAR(50)",
-            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_username VARCHAR(50)",
-            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS source_tweet_text TEXT",
-        ]:
-            await conn.execute(text(col_sql))
-        print("✅ Schema migration: social_posts reply columns ready")
-    except Exception as e:
-        print(f"⚠️ Schema migration skipped: {e}")
+    await _run("social_posts AI/scheduling columns", [
+        "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS ai_generated BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS ai_model VARCHAR(50)",
+        "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS ai_prompt_hash VARCHAR(64)",
+        "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS news_context_json TEXT",
+        "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS notification_24h_sent BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS notification_1h_sent BOOLEAN DEFAULT FALSE",
+    ])
 
-    # Migration: Create walk_forward_period_results table
-    try:
-        await conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS walk_forward_period_results (
-                id SERIAL PRIMARY KEY,
-                simulation_id INTEGER NOT NULL REFERENCES walk_forward_simulations(id),
-                period_index INTEGER NOT NULL,
-                period_start TIMESTAMP,
-                period_end TIMESTAMP,
-                starting_capital FLOAT,
-                ending_capital FLOAT,
-                period_return_pct FLOAT,
-                strategy_name VARCHAR(100),
-                strategy_type VARCHAR(50),
-                is_ai_params BOOLEAN DEFAULT FALSE,
-                switch_event_json TEXT,
-                trades_json TEXT,
-                equity_points_json TEXT,
-                ai_optimization_json TEXT,
-                parameter_snapshot_json TEXT,
-                error_info TEXT
-            )
-        """))
-        await conn.execute(text("""
-            CREATE INDEX IF NOT EXISTS idx_wfpr_simulation_id
-            ON walk_forward_period_results(simulation_id)
-        """))
-        print("✅ Schema migration: walk_forward_period_results table ready")
-    except Exception as e:
-        print(f"⚠️ Schema migration skipped: {e}")
+    await _run("social_posts reply columns", [
+        "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_tweet_id VARCHAR(50)",
+        "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_username VARCHAR(50)",
+        "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS source_tweet_text TEXT",
+    ])
 
-    # Migration: Add email_preferences column to users
-    try:
-        await conn.execute(text("""
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS email_preferences JSON
-        """))
-        print("✅ Schema migration: email_preferences column ready")
-    except Exception as e:
-        print(f"⚠️ Schema migration skipped: {e}")
+    await _run("walk_forward_period_results table", [
+        """CREATE TABLE IF NOT EXISTS walk_forward_period_results (
+            id SERIAL PRIMARY KEY,
+            simulation_id INTEGER NOT NULL REFERENCES walk_forward_simulations(id),
+            period_index INTEGER NOT NULL,
+            period_start TIMESTAMP,
+            period_end TIMESTAMP,
+            starting_capital FLOAT,
+            ending_capital FLOAT,
+            period_return_pct FLOAT,
+            strategy_name VARCHAR(100),
+            strategy_type VARCHAR(50),
+            is_ai_params BOOLEAN DEFAULT FALSE,
+            switch_event_json TEXT,
+            trades_json TEXT,
+            equity_points_json TEXT,
+            ai_optimization_json TEXT,
+            parameter_snapshot_json TEXT,
+            error_info TEXT
+        )""",
+        """CREATE INDEX IF NOT EXISTS idx_wfpr_simulation_id
+           ON walk_forward_period_results(simulation_id)""",
+    ])
 
-    # Migration: Add onboarding_step column to users
-    # Default existing users to 5 (completed) so only new signups get the drip
-    try:
-        await conn.execute(text("""
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_step INTEGER DEFAULT 0
-        """))
-        await conn.execute(text("""
-            UPDATE users SET onboarding_step = 5 WHERE onboarding_step = 0 AND created_at < NOW() - INTERVAL '1 day'
-        """))
-        print("✅ Schema migration: onboarding_step column ready")
-    except Exception as e:
-        print(f"⚠️ Schema migration skipped: {e}")
+    await _run("email_preferences column", """
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS email_preferences JSON
+    """)
 
-    # Migration: Add referral program columns to users
-    try:
-        for col_sql in [
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(12)",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by UUID REFERENCES users(id)",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_count INTEGER DEFAULT 0",
-        ]:
-            await conn.execute(text(col_sql))
-        await conn.execute(text("""
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code)
-        """))
-        # Backfill existing users with a referral code
-        await conn.execute(text("""
-            UPDATE users SET referral_code = UPPER(SUBSTRING(MD5(id::text || created_at::text) FROM 1 FOR 8))
-            WHERE referral_code IS NULL
-        """))
-        print("✅ Schema migration: referral program columns ready")
-    except Exception as e:
-        print(f"⚠️ Schema migration skipped: {e}")
+    await _run("onboarding_step column", [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_step INTEGER DEFAULT 0",
+        "UPDATE users SET onboarding_step = 5 WHERE onboarding_step = 0 AND created_at < NOW() - INTERVAL '1 day'",
+    ])
 
-    # Migration: Add user_id to positions and trades tables
-    try:
-        await conn.execute(text("""
-            ALTER TABLE positions ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id)
-        """))
-        await conn.execute(text("""
-            CREATE INDEX IF NOT EXISTS idx_positions_user_id ON positions(user_id)
-        """))
-        await conn.execute(text("""
-            ALTER TABLE trades ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id)
-        """))
-        await conn.execute(text("""
-            CREATE INDEX IF NOT EXISTS idx_trades_user_id ON trades(user_id)
-        """))
-        # Assign orphaned rows to admin
-        await conn.execute(text("""
-            UPDATE positions SET user_id = (SELECT id FROM users WHERE email = 'erik@rigacap.com') WHERE user_id IS NULL
-        """))
-        await conn.execute(text("""
-            UPDATE trades SET user_id = (SELECT id FROM users WHERE email = 'erik@rigacap.com') WHERE user_id IS NULL
-        """))
-        print("✅ Schema migration: user_id columns on positions/trades ready")
-    except Exception as e:
-        print(f"⚠️ Schema migration skipped: {e}")
+    await _run("referral program columns", [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(12)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by UUID REFERENCES users(id)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_count INTEGER DEFAULT 0",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code)",
+        """UPDATE users SET referral_code = UPPER(SUBSTRING(MD5(id::text || created_at::text) FROM 1 FOR 8))
+           WHERE referral_code IS NULL""",
+    ])
+
+    await _run("user_id columns on positions/trades", [
+        "ALTER TABLE positions ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id)",
+        "CREATE INDEX IF NOT EXISTS idx_positions_user_id ON positions(user_id)",
+        "ALTER TABLE trades ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id)",
+        "CREATE INDEX IF NOT EXISTS idx_trades_user_id ON trades(user_id)",
+        "UPDATE positions SET user_id = (SELECT id FROM users WHERE email = 'erik@rigacap.com') WHERE user_id IS NULL",
+        "UPDATE trades SET user_id = (SELECT id FROM users WHERE email = 'erik@rigacap.com') WHERE user_id IS NULL",
+    ])
 
 
 async def init_db():
