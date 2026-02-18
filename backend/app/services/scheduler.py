@@ -18,6 +18,7 @@ from apscheduler.triggers.cron import CronTrigger
 import pytz
 
 from app.core.config import settings
+from app.core.timezone import trading_today, days_since_et
 from app.services.scanner import scanner_service
 from app.services.email_service import email_service, admin_email_service
 from app.services.data_export import data_export_service
@@ -489,7 +490,6 @@ class SchedulerService:
 
             from app.core.database import async_session, Position as DBPosition, User as DBUser
             from sqlalchemy import select
-            from datetime import date
             import yfinance as yf
 
             async with async_session() as db:
@@ -536,7 +536,7 @@ class SchedulerService:
 
                 # 4. Check each position for sell triggers
                 alerts_sent = 0
-                today = date.today()
+                today = trading_today()
 
                 for position, user_email, user_name, uid, email_prefs in rows:
                     sym = position.symbol
@@ -1456,7 +1456,7 @@ class SchedulerService:
                 if result.get("success"):
                     logger.info(f"✅ Dashboard cache exported to {result.get('storage', 'storage')}")
                     # Also save a date-keyed snapshot for time-travel
-                    today_str = datetime.now().strftime('%Y-%m-%d')
+                    today_str = trading_today().isoformat()
                     snap_result = data_export_service.export_snapshot(today_str, data)
                     if snap_result.get("success"):
                         logger.info(f"✅ Snapshot saved for {today_str}")
@@ -1515,7 +1515,7 @@ class SchedulerService:
                     # Calculate days since signup
                     if not user.created_at:
                         continue
-                    days_since = (datetime.utcnow() - user.created_at).days
+                    days_since = days_since_et(user.created_at)
 
                     # Find the highest eligible step
                     next_step = None

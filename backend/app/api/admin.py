@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime, timedelta
+from app.core.timezone import trading_today_start
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
@@ -763,7 +764,7 @@ async def get_admin_stats(
 ):
     """Get admin dashboard statistics."""
     now = datetime.utcnow()
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = trading_today_start()
     week_ago = now - timedelta(days=7)
 
     # Total users
@@ -894,7 +895,7 @@ async def get_service_status(
         from app.services.scanner import scanner_service
 
         # Count today's signals
-        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = trading_today_start()
         signals_result = await db.execute(
             select(func.count(Signal.id)).where(Signal.created_at >= today_start)
         )

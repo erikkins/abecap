@@ -580,9 +580,10 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                 if crossover_date:
                     entry_date = find_ensemble_entry_date(symbol, crossover_date, mom_threshold)
                     if entry_date:
-                        today = pd.Timestamp.now().normalize()
+                        from app.core.timezone import trading_today
+                        today_et = pd.Timestamp(trading_today())
                         entry_ts = pd.Timestamp(entry_date).normalize()
-                        days_since_entry = (today - entry_ts).days
+                        days_since_entry = (today_et - entry_ts).days
 
                 fresh_by_crossover = days_since is not None and days_since <= fresh_days
                 fresh_by_entry = days_since_entry is not None and days_since_entry <= fresh_days

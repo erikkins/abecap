@@ -3081,7 +3081,8 @@ async def get_positions(user: User = Depends(get_current_user), db: AsyncSession
         stop_loss = round(adjusted_entry * (1 - settings.STOP_LOSS_PCT / 100), 2)
         profit_target = round(adjusted_entry * (1 + settings.PROFIT_TARGET_PCT / 100), 2)
 
-        days_held = (datetime.now() - pos.entry_date).days
+        from app.core.timezone import days_since_et
+        days_held = days_since_et(pos.entry_date)
         pnl_pct = ((current_price - adjusted_entry) / adjusted_entry) * 100
         position_value = pos.shares * current_price
 
