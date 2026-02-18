@@ -747,6 +747,23 @@ def handler(event, context):
             traceback.print_exc()
             return {"status": "failed", "error": str(e)}
 
+    # Query walk-forward job details (read-only)
+    if event.get("wf_query"):
+        config = event["wf_query"]
+        job_id = config.get("job_id")
+
+        async def _wf_query():
+            from app.services.walk_forward_service import walk_forward_service
+            async with async_session() as db:
+                return await walk_forward_service.get_simulation_details(db, job_id)
+
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(_wf_query())
+        return result or {"error": f"Job {job_id} not found"}
+
     # Handle async walk-forward jobs
     if event.get("walk_forward_job"):
         print(f"📊 Walk-forward async job received - {len(scanner_service.data_cache)} symbols in cache, SPY={'SPY' in scanner_service.data_cache}")
