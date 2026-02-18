@@ -1231,7 +1231,7 @@ class SchedulerService:
                 logger.info("📅 Not a trading day, skipping emails")
                 return
 
-            from app.api.signals import find_dwap_crossover_date
+            from app.api.signals import find_dwap_crossover_date, find_ensemble_entry_date
 
             # Build ensemble signals (same as dashboard endpoint)
             dwap_signals = await scanner_service.scan(refresh_data=False, apply_market_filter=True)
@@ -1244,6 +1244,10 @@ class SchedulerService:
                 r.symbol: {'rank': i + 1, 'data': r}
                 for i, r in enumerate(momentum_rankings[:momentum_top_n])
             }
+
+            # Threshold for ensemble entry date (same as dashboard)
+            threshold_rank = momentum_top_n // 2
+            mom_threshold = momentum_rankings[threshold_rank - 1].composite_score if len(momentum_rankings) >= threshold_rank else 0
 
             # Build ensemble buy signals with freshness
             buy_signals = []
@@ -1259,7 +1263,22 @@ class SchedulerService:
                     ensemble_score = dwap_score + rank_score
 
                     crossover_date, days_since = find_dwap_crossover_date(symbol)
-                    is_fresh = days_since is not None and days_since <= fresh_days
+                    fresh_by_crossover = days_since is not None and days_since <= fresh_days
+
+                    # Also check ensemble entry date (momentum qualification)
+                    entry_date = None
+                    days_since_entry = None
+                    if crossover_date:
+                        entry_date = find_ensemble_entry_date(symbol, crossover_date, mom_threshold)
+                        if entry_date:
+                            from app.core.timezone import trading_today
+                            import pandas as pd
+                            today_et = pd.Timestamp(trading_today())
+                            entry_ts = pd.Timestamp(entry_date).normalize()
+                            days_since_entry = (today_et - entry_ts).days
+
+                    fresh_by_entry = days_since_entry is not None and days_since_entry <= fresh_days
+                    is_fresh = fresh_by_crossover or fresh_by_entry
 
                     buy_signals.append({
                         'symbol': symbol,
@@ -1269,7 +1288,9 @@ class SchedulerService:
                         'momentum_rank': int(mom_rank),
                         'ensemble_score': round(float(ensemble_score), 1),
                         'dwap_crossover_date': crossover_date,
+                        'ensemble_entry_date': entry_date,
                         'days_since_crossover': int(days_since) if days_since is not None else None,
+                        'days_since_entry': days_since_entry,
                         'is_fresh': bool(is_fresh),
                     })
 
