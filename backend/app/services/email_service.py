@@ -1306,7 +1306,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
                         +289%
                     </p>
                     <p style="margin: 4px 0 0 0; font-size: 14px; color: #374151;">
-                        31% annualized &bull; 0.81 avg Sharpe &bull; No hindsight bias
+                        31% annualized &bull; 1.02 med Sharpe &bull; No hindsight bias
                     </p>
                 </div>
 
