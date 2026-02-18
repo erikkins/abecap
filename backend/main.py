@@ -1669,6 +1669,11 @@ def handler(event, context):
             if spy_df is None:
                 return {"status": "failed", "error": "SPY data not in cache"}
 
+            print(f"📸 SPY shape={spy_df.shape}, index type={type(spy_df.index).__name__}, "
+                  f"tz={getattr(spy_df.index, 'tz', None)}, "
+                  f"first={spy_df.index[0]}, last={spy_df.index[-1]}, "
+                  f"cols={list(spy_df.columns[:5])}")
+
             start_ts = pd.Timestamp(job_config["start_date"])
             end_ts = pd.Timestamp(job_config["end_date"])
 
