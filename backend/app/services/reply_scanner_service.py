@@ -229,56 +229,58 @@ class ReplyScannerService:
 
                 results["symbols_extracted"] += len(symbols)
 
-                # Match symbols to trade history
+                # Match symbols to trade history (only proven winners)
                 trade_matches = await self._match_trade_history(symbols, db)
                 if not trade_matches:
                     continue
 
-                for symbol, trade in trade_matches.items():
-                    results["trades_matched"] += 1
+                # Pick the single best trade match per tweet (highest return)
+                best_symbol = max(trade_matches, key=lambda s: trade_matches[s].get("pnl_pct", 0))
+                best_trade = trade_matches[best_symbol]
+                results["trades_matched"] += 1
 
-                    # Dedup check
-                    if await self._check_deduplication(tweet_id, username, symbol, db):
-                        results["skipped_dedup"] += 1
-                        continue
+                symbol = best_symbol
+                trade = best_trade
 
-                    # Generate reply
-                    reply_text = await self._generate_reply(
-                        tweet_text, username, trade, symbol
+                # Dedup check
+                if await self._check_deduplication(tweet_id, username, symbol, db):
+                    results["skipped_dedup"] += 1
+                    continue
+
+                # Generate reply
+                reply_text = await self._generate_reply(
+                    tweet_text, username, trade, symbol
+                )
+                if not reply_text:
+                    continue
+
+                detail = {
+                    "username": username,
+                    "tweet_id": tweet_id,
+                    "symbol": symbol,
+                    "trade_return": f"{trade.get('pnl_pct', 0):+.1f}%",
+                    "reply_text": reply_text,
+                    "reply_chars": len(reply_text),
+                }
+
+                if not dry_run:
+                    post = SocialPost(
+                        post_type="contextual_reply",
+                        platform="twitter",
+                        status="draft",
+                        text_content=reply_text,
+                        source_trade_json=json.dumps(trade),
+                        reply_to_tweet_id=tweet_id,
+                        reply_to_username=username,
+                        source_tweet_text=tweet_text[:500],
+                        ai_generated=True,
+                        ai_model=CLAUDE_MODEL,
                     )
-                    if not reply_text:
-                        continue
+                    db.add(post)
+                    detail["post_saved"] = True
 
-                    detail = {
-                        "username": username,
-                        "tweet_id": tweet_id,
-                        "symbol": symbol,
-                        "trade_return": f"{trade.get('pnl_pct', 0):+.1f}%",
-                        "reply_text": reply_text,
-                        "reply_chars": len(reply_text),
-                    }
-
-                    if not dry_run:
-                        # Find existing "we called it" URL for this symbol
-                        track_url = await self._find_we_called_it_url(symbol, db)
-
-                        post = SocialPost(
-                            post_type="contextual_reply",
-                            platform="twitter",
-                            status="draft",
-                            text_content=reply_text,
-                            source_trade_json=json.dumps(trade),
-                            reply_to_tweet_id=tweet_id,
-                            reply_to_username=username,
-                            source_tweet_text=tweet_text[:500],
-                            ai_generated=True,
-                            ai_model=CLAUDE_MODEL,
-                        )
-                        db.add(post)
-                        detail["post_saved"] = True
-
-                    results["details"].append(detail)
-                    results["replies_created"] += 1
+                results["details"].append(detail)
+                results["replies_created"] += 1
 
         if not dry_run and results["replies_created"] > 0:
             await db.commit()
@@ -378,27 +380,6 @@ class ReplyScannerService:
                 if pnl > 0:
                     matches[sym] = trade
 
-        # Fall back to recent buy signals if no WF trade match
-        if not matches:
-            from app.core.database import Signal
-            for symbol in symbols:
-                sig_result = await db.execute(
-                    select(Signal)
-                    .where(Signal.symbol == symbol)
-                    .where(Signal.signal_type == "BUY")
-                    .order_by(Signal.created_at.desc())
-                    .limit(1)
-                )
-                sig = sig_result.scalars().first()
-                if sig:
-                    matches[symbol] = {
-                        "symbol": symbol,
-                        "entry_date": sig.created_at.strftime("%Y-%m-%d") if sig.created_at else "",
-                        "entry_price": sig.price,
-                        "pnl_pct": 0,
-                        "signal_based": True,
-                    }
-
         return matches
 
     async def _check_deduplication(
@@ -448,16 +429,10 @@ class ReplyScannerService:
         pnl_pct = trade.get("pnl_pct", 0)
         entry_date = str(trade.get("entry_date", ""))[:10]
 
-        if trade.get("signal_based"):
-            trade_context = (
-                f"Our ensemble system flagged ${symbol} with a buy signal on {entry_date} "
-                f"at ${trade.get('entry_price', 0):.2f}."
-            )
-        else:
-            trade_context = (
-                f"Our ensemble system caught ${symbol}: entered {entry_date}, "
-                f"returned {pnl_pct:+.1f}%."
-            )
+        trade_context = (
+            f"Our ensemble system caught ${symbol}: entered {entry_date}, "
+            f"returned {pnl_pct:+.1f}%."
+        )
 
         user_prompt = (
             f"@{username} tweeted:\n\"{tweet_text[:300]}\"\n\n"
