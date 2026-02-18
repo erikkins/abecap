@@ -164,7 +164,7 @@ export default function SocialTab({ fetchWithAuth }) {
     });
   }, [posts, previews, fetchPreview]);
 
-  const handleAction = async (postId, action, method = 'POST', confirmMsg = null) => {
+  const handleAction = async (postId, action, method = 'POST', confirmMsg = null, successMsg = null) => {
     if (confirmMsg && !window.confirm(confirmMsg)) return;
     setActionLoading(prev => ({ ...prev, [postId]: action }));
     try {
@@ -172,6 +172,8 @@ export default function SocialTab({ fetchWithAuth }) {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         alert(`Action failed: ${err.detail || res.statusText}`);
+      } else if (successMsg) {
+        alert(successMsg);
       }
       await Promise.all([fetchStats(), fetchPosts()]);
     } catch (err) {
@@ -182,8 +184,8 @@ export default function SocialTab({ fetchWithAuth }) {
     }
   };
 
-  const approve = (id) => handleAction(id, `posts/${id}/approve`);
-  const reject = (id) => handleAction(id, `posts/${id}/reject`);
+  const approve = (id) => handleAction(id, `posts/${id}/approve`, 'POST', null, 'Post approved! Switch to "Approved" filter to see it.');
+  const reject = (id) => handleAction(id, `posts/${id}/reject`, 'POST', null, 'Post rejected.');
   const regenerate = (id) => handleAction(id, `posts/${id}/regenerate`);
   const deletePost = (id) => handleAction(id, `posts/${id}`, 'DELETE', 'Delete this post? This cannot be undone.');
 
