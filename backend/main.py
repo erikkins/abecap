@@ -1183,18 +1183,19 @@ def handler(event, context):
             only = config.get("only")
             results = {}
 
-            # Look up user_id for footer links
-            test_user_id = None
-            try:
-                from app.core.database import async_session, User
-                from sqlalchemy import select
-                async with async_session() as db:
-                    r = await db.execute(select(User.id).where(User.email == to))
-                    row = r.scalar_one_or_none()
-                    if row:
-                        test_user_id = str(row)
-            except Exception:
-                pass
+            # Look up user_id for footer links (accept override for mail-tester)
+            test_user_id = config.get("user_id")
+            if not test_user_id:
+                try:
+                    from app.core.database import async_session, User
+                    from sqlalchemy import select
+                    async with async_session() as db:
+                        r = await db.execute(select(User.id).where(User.email == to))
+                        row = r.scalar_one_or_none()
+                        if row:
+                            test_user_id = str(row)
+                except Exception:
+                    pass
 
             async def _try(name, coro):
                 if only and name not in only:
