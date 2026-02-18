@@ -98,7 +98,7 @@ async def run_scan(
             signals=[SignalResponse(**s.to_dict()) for s in signals]
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/latest", response_model=ScanResponse)
@@ -188,7 +188,7 @@ async def run_memory_scan(
             signals=[SignalResponse(**s.to_dict()) for s in signals]
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/cdn-url")

@@ -121,7 +121,7 @@ async def create_checkout_session(
         print(f"❌ Stripe error in create-checkout: {e}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Payment service error: {str(e)}"
+            detail="Payment service error"
         )
     except Exception as e:
         print(f"❌ Unexpected error in create-checkout: {type(e).__name__}: {e}")
@@ -162,7 +162,7 @@ async def create_portal_session(
         print(f"❌ Stripe error in portal: {e}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Payment service error: {str(e)}"
+            detail="Payment service error"
         )
 
 
@@ -260,7 +260,7 @@ async def sync_subscription(
 
     except stripe.StripeError as e:
         print(f"❌ Stripe error in sync: {e}")
-        raise HTTPException(status_code=502, detail=f"Stripe error: {str(e)}")
+        raise HTTPException(status_code=502, detail="Payment service error")
 
 
 @router.post("/webhook")
@@ -313,7 +313,7 @@ async def stripe_webhook(
             await handle_payment_failed(sub_data, db)
     except Exception as e:
         print(f"❌ Webhook handler error for {event_type}: {type(e).__name__}: {e}")
-        raise HTTPException(status_code=500, detail=f"Webhook handler error: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail="Webhook processing error")
 
     return {"received": True}
 

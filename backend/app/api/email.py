@@ -104,7 +104,7 @@ async def send_test_email(request: TestEmailRequest, admin: User = Depends(get_a
             )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/preview", response_model=EmailPreviewResponse)
@@ -142,7 +142,7 @@ async def preview_daily_email(admin: User = Depends(get_admin_user)):
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/status")
@@ -217,6 +217,6 @@ async def send_time_travel_email(request: TimeTravelEmailRequest, admin: User = 
                 detail="Failed to send email. Check SMTP configuration."
             )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid date format: {e}")
+        raise HTTPException(status_code=400, detail="Invalid date format")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")

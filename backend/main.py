@@ -226,9 +226,27 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
+
+
+# Security headers middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
+from starlette.responses import Response
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: StarletteRequest, call_next):
+        response: Response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Include API routers
 app.include_router(signals_router, prefix="/api/signals", tags=["signals"])
@@ -2531,7 +2549,8 @@ async def load_full_universe(admin: User = Depends(get_admin_user)):
             "message": f"Loaded {len(symbols)} stocks from NASDAQ + NYSE"
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Internal error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/universe/status")
@@ -2727,7 +2746,8 @@ async def get_market_regime(user: User = Depends(require_valid_subscription)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Internal error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/market/sectors")
@@ -2746,7 +2766,8 @@ async def get_sector_strength(admin: User = Depends(get_admin_user)):
             "updated": datetime.now().isoformat()
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Internal error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/market/summary")
@@ -2773,7 +2794,8 @@ async def get_market_summary(admin: User = Depends(get_admin_user)):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Internal error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ============================================================================
@@ -2800,7 +2822,8 @@ async def trigger_manual_update(admin: User = Depends(get_admin_user)):
             "status": scheduler_service.get_status()
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
+        logger.error(f"Scheduler update failed: {e}")
+        raise HTTPException(status_code=500, detail="Update failed")
 
 
 # ============================================================================
@@ -2857,7 +2880,8 @@ async def run_backtest(days: int = 252, strategy: str = "momentum", max_symbols:
             "trades": [t.to_dict() for t in result.trades]
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
+        logger.error(f"Backtest failed: {e}")
+        raise HTTPException(status_code=500, detail="Backtest failed")
 
 
 @app.get("/api/backtest/positions")
@@ -2880,7 +2904,8 @@ async def get_backtest_positions(days: int = 252, admin: User = Depends(get_admi
                             if result.positions else 0
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Internal error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/backtest/trades")
@@ -2900,7 +2925,8 @@ async def get_backtest_trades(days: int = 252, limit: int = 50, admin: User = De
             "total_pnl": result.total_pnl
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Internal error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/backtest/walk-forward-cached")
@@ -3270,7 +3296,7 @@ async def get_stock_history(symbol: str, days: int = 252, user: User = Depends(r
         try:
             await scanner_service.fetch_data([symbol], period="5y")
         except Exception as e:
-            raise HTTPException(status_code=404, detail=f"Could not fetch data for {symbol}: {e}")
+            raise HTTPException(status_code=404, detail=f"Could not fetch data for {symbol}")
 
     if symbol not in scanner_service.data_cache:
         raise HTTPException(status_code=404, detail=f"No data for {symbol}")
@@ -3375,7 +3401,8 @@ async def get_live_quotes(symbols: str = "", user: User = Depends(get_current_us
 
     except Exception as e:
         logger.error(f"Failed to fetch live quotes: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch quotes: {str(e)}")
+        logger.error(f"Failed to fetch quotes: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch quotes")
 
     return {
         "quotes": quotes,
@@ -3423,7 +3450,8 @@ async def get_batch_quotes(symbols: List[str], admin: User = Depends(get_admin_u
 
     except Exception as e:
         logger.error(f"Failed to fetch batch quotes: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Internal error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
     return {
         "quotes": quotes,

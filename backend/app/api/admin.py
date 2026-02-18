@@ -190,10 +190,10 @@ async def run_database_migration(admin: User = Depends(get_admin_user), db: Asyn
 
     except Exception as e:
         import traceback
+        print(f"Migration error: {traceback.format_exc()}")
         return {
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc(),
+            "error": "Migration failed",
             "migrations": migrations
         }
 
@@ -978,7 +978,7 @@ async def run_ticker_health_check(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Health check failed: {str(e)}"
+            detail="Health check failed"
         )
 
 
@@ -1872,7 +1872,7 @@ async def run_walk_forward(
             "errors": result.errors if hasattr(result, 'errors') else []
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Simulation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Simulation failed")
 
 
 @router.get("/strategies/walk-forward/history")
@@ -2255,7 +2255,7 @@ async def get_current_regime(
         )
         return regime.to_dict()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Regime detection failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Regime detection failed")
 
 
 @router.get("/market-regime/history")
@@ -2321,7 +2321,7 @@ async def get_regime_history(
         }
     except Exception as e:
         import traceback
-        raise HTTPException(status_code=500, detail=f"Regime history failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Regime history failed")
 
 
 @router.get("/market-regime/periods")
@@ -2389,7 +2389,7 @@ async def get_regime_periods(
         }
     except Exception as e:
         import traceback
-        raise HTTPException(status_code=500, detail=f"Regime periods failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Regime periods failed")
 
 
 @router.get("/market-regime/conditions")
@@ -2422,7 +2422,7 @@ async def get_current_conditions(
         )
         return asdict(conditions)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Condition calculation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Condition calculation failed")
 
 
 # ============================================================================
@@ -2876,7 +2876,7 @@ async def run_flexible_backtest(
         try:
             params = StrategyParams(**request.custom_params)
         except TypeError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid custom_params: {e}")
+            raise HTTPException(status_code=400, detail="Invalid custom_params")
         use_momentum = request.strategy_type == "momentum"
     else:
         # Use defaults based on strategy_type
@@ -2963,7 +2963,7 @@ async def run_flexible_backtest(
             "trades": trades_list[:50]  # Limit to 50 trades
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Backtest failed")
 
 
 @router.post("/strategies/backtest/compare-exits")
@@ -3029,7 +3029,7 @@ async def compare_exit_strategies(
                     "config": config
                 })
             except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid strategy config: {e}")
+                raise HTTPException(status_code=400, detail="Invalid strategy config")
     else:
         # Default comparison set
         exit_configs = [
