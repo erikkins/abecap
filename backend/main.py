@@ -1335,6 +1335,11 @@ def handler(event, context):
                     user_id=test_user_id,
                 ))
 
+            # 20. Referral Reward
+            await _try("referral_reward", email_service.send_referral_reward_email(
+                to_email=to, name="Erik Kinsman", friend_name="Jane Doe",
+            ))
+
             sent_count = sum(1 for v in results.values() if v == "sent")
             return {"status": "success", "sent": sent_count, "total": len(results), "results": results, "to": to}
 

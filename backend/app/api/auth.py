@@ -1,5 +1,6 @@
 """Authentication API endpoints."""
 
+import secrets
 import time
 from datetime import datetime, timedelta
 from typing import Optional
@@ -88,12 +89,19 @@ async def _verify_apple_token(id_token: str) -> dict:
 router = APIRouter()
 
 
+def generate_referral_code(length=8):
+    """Generate a unique referral code (no ambiguous chars O/0/I/1/L)."""
+    chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+    return ''.join(secrets.choice(chars) for _ in range(length))
+
+
 # Request/Response schemas
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     name: Optional[str] = None
     turnstile_token: str
+    referral_code: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
@@ -124,12 +132,14 @@ class ResetPasswordRequest(BaseModel):
 class GoogleAuthRequest(BaseModel):
     id_token: str
     turnstile_token: Optional[str] = None
+    referral_code: Optional[str] = None
 
 
 class AppleAuthRequest(BaseModel):
     id_token: str
     user_data: Optional[dict] = None
     turnstile_token: Optional[str] = None
+    referral_code: Optional[str] = None
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -170,7 +180,18 @@ async def register(
         password_hash=get_password_hash(request.password),
         name=request.name,
         role="admin" if request.email == "erik@rigacap.com" else "user",
+        referral_code=generate_referral_code(),
     )
+
+    # Link referrer if referral code provided
+    if request.referral_code:
+        referrer_result = await db.execute(
+            select(User).where(User.referral_code == request.referral_code.upper().strip())
+        )
+        referrer = referrer_result.scalar_one_or_none()
+        if referrer:
+            user.referred_by = referrer.id
+
     db.add(user)
     await db.flush()
 
@@ -184,7 +205,10 @@ async def register(
     # Send welcome email (don't wait for it, fire and forget)
     import asyncio
     asyncio.create_task(
-        email_service.send_welcome_email(user.email, user.name or user.email)
+        email_service.send_welcome_email(
+            user.email, user.name or user.email,
+            referral_code=user.referral_code,
+        )
     )
 
     return TokenResponse(
@@ -382,7 +406,18 @@ async def google_auth(
             name=name,
             google_id=google_id,
             role="admin" if email == "erik@rigacap.com" else "user",
+            referral_code=generate_referral_code(),
         )
+
+        # Link referrer if referral code provided
+        if request.referral_code:
+            referrer_result = await db.execute(
+                select(User).where(User.referral_code == request.referral_code.upper().strip())
+            )
+            referrer = referrer_result.scalar_one_or_none()
+            if referrer:
+                user.referred_by = referrer.id
+
         db.add(user)
         await db.flush()
         is_new_user = True
@@ -394,7 +429,10 @@ async def google_auth(
     if is_new_user:
         import asyncio
         asyncio.create_task(
-            email_service.send_welcome_email(user.email, user.name or user.email)
+            email_service.send_welcome_email(
+                user.email, user.name or user.email,
+                referral_code=user.referral_code,
+            )
         )
 
     # Load subscription
@@ -488,7 +526,18 @@ async def apple_auth(
             name=full_name,
             apple_id=apple_id,
             role="admin" if email == "erik@rigacap.com" else "user",
+            referral_code=generate_referral_code(),
         )
+
+        # Link referrer if referral code provided
+        if request.referral_code:
+            referrer_result = await db.execute(
+                select(User).where(User.referral_code == request.referral_code.upper().strip())
+            )
+            referrer = referrer_result.scalar_one_or_none()
+            if referrer:
+                user.referred_by = referrer.id
+
         db.add(user)
         await db.flush()
         is_new_user = True
@@ -500,7 +549,10 @@ async def apple_auth(
     if is_new_user:
         import asyncio
         asyncio.create_task(
-            email_service.send_welcome_email(user.email, user.name or user.email)
+            email_service.send_welcome_email(
+                user.email, user.name or user.email,
+                referral_code=user.referral_code,
+            )
         )
 
     # Load subscription
@@ -691,3 +743,19 @@ async def unsubscribe_by_token(
     await db.commit()
 
     return {"message": "You have been unsubscribed from all emails.", "email": user.email}
+
+
+# ============================================================================
+# Referral Program
+# ============================================================================
+
+@router.get("/referral")
+async def get_referral_info(
+    user: User = Depends(get_current_user),
+):
+    """Get the current user's referral code, link, and count."""
+    return {
+        "referral_code": user.referral_code,
+        "referral_link": f"https://rigacap.com/?ref={user.referral_code}" if user.referral_code else None,
+        "referral_count": user.referral_count or 0,
+    }

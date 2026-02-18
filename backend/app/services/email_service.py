@@ -643,11 +643,36 @@ class EmailService:
         return {"sent": sent, "failed": failed, "total": len(subscribers)}
 
 
-    async def send_welcome_email(self, to_email: str, name: str) -> bool:
+    async def send_welcome_email(self, to_email: str, name: str, referral_code: str = None) -> bool:
         """
         Send a beautiful welcome email when a user signs up.
         """
         first_name = name.split()[0] if name else "there"
+
+        referral_html = ""
+        referral_text = ""
+        if referral_code:
+            referral_html = f'''
+                <div style="background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); border-radius: 12px; padding: 24px; margin: 24px 0; text-align: center;">
+                    <p style="margin: 0 0 8px 0; font-size: 18px; color: #c9a84c; font-weight: 700;">
+                        Give a Month, Get a Month
+                    </p>
+                    <p style="margin: 0 0 16px 0; font-size: 14px; color: rgba(255,255,255,0.9); line-height: 1.5;">
+                        Share your referral link with a friend. They get their first month free,
+                        and when they subscribe, you get a free month too!
+                    </p>
+                    <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; margin: 0 auto; max-width: 400px;">
+                        <p style="margin: 0; font-size: 14px; color: #ffffff; font-family: monospace; word-break: break-all;">
+                            rigacap.com/?ref={referral_code}
+                        </p>
+                    </div>
+                </div>
+'''
+            referral_text = f"""
+--- GIVE A MONTH, GET A MONTH ---
+Share your referral link: rigacap.com/?ref={referral_code}
+Your friend gets their first month free, and you get a free month when they subscribe!
+"""
 
         html = f"""
 <!DOCTYPE html>
@@ -731,6 +756,8 @@ class EmailService:
                     </p>
                 </div>
 
+                {referral_html}
+
                 <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
                     If you have any questions, just reply to this email — we're always here to help.
                 </p>
@@ -778,7 +805,7 @@ Your 7-day free trial starts now. Visit https://rigacap.com/app to see today's s
 Our Track Record: +289% over 5 years, walk-forward validated. See the details: https://rigacap.com/track-record
 
 Pro Tip: Look for signals with the green BUY badge — these are fresh breakouts with the highest conviction.
-
+{referral_text}
 Happy trading!
 The RigaCap Team
 
@@ -2048,6 +2075,91 @@ Unsubscribe: https://rigacap.com/unsubscribe
             subject=f"🔔 LIVE SIGNAL: {symbol} just crossed DWAP +{pct_above_dwap:.1f}%",
             html_content=html,
             text_content="\n".join(text_lines)
+        )
+
+    async def send_referral_reward_email(self, to_email: str, name: str, friend_name: str) -> bool:
+        """Send a reward notification when a referred friend converts to paid."""
+        first_name = name.split()[0] if name else "there"
+        friend_first = friend_name.split()[0] if friend_name else "Your friend"
+
+        html = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0; padding:0; background-color:#f3f4f6; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    <table cellpadding="0" cellspacing="0" style="width:100%; max-width:600px; margin:0 auto; background-color:#ffffff;">
+        <tr>
+            <td style="background:linear-gradient(135deg, #172554 0%, #1e3a5f 100%); padding:48px 24px; text-align:center;">
+                <div style="font-size:48px; margin-bottom:16px;">🎉</div>
+                <h1 style="margin:0; color:#c9a84c; font-size:28px; font-weight:700;">
+                    You Earned a Free Month!
+                </h1>
+                <p style="margin:12px 0 0 0; color:rgba(255,255,255,0.9); font-size:16px;">
+                    Your referral just paid off
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding:40px 32px;">
+                <p style="font-size:18px; color:#374151; margin:0 0 24px 0; line-height:1.6;">
+                    Hey {first_name}!
+                </p>
+                <p style="font-size:16px; color:#374151; margin:0 0 24px 0; line-height:1.6;">
+                    Great news — <strong>{friend_first}</strong> just became a paying subscriber,
+                    and that means your next invoice is <strong>$0</strong>. One full month of
+                    RigaCap signals, on us.
+                </p>
+
+                <div style="background:linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius:16px; padding:24px; margin:24px 0; text-align:center;">
+                    <p style="margin:0 0 8px 0; font-size:14px; color:#059669; font-weight:600;">YOUR REWARD</p>
+                    <p style="margin:0; font-size:32px; color:#172554; font-weight:700;">1 Month Free</p>
+                    <p style="margin:8px 0 0 0; font-size:14px; color:#6b7280;">Applied to your next invoice automatically</p>
+                </div>
+
+                <p style="font-size:16px; color:#374151; margin:24px 0; line-height:1.6;">
+                    Keep sharing! Every friend who subscribes earns you another free month.
+                </p>
+
+                <div style="text-align:center; margin:32px 0;">
+                    <a href="https://rigacap.com/app"
+                       style="display:inline-block; background:linear-gradient(135deg, #172554 0%, #1e3a5f 100%); color:#ffffff; font-size:16px; font-weight:600; padding:16px 40px; border-radius:12px; text-decoration:none;">
+                        View Dashboard →
+                    </a>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td style="background-color:#f9fafb; padding:24px; text-align:center; border-top:1px solid #e5e7eb;">
+                <p style="margin:0; font-size:12px; color:#9ca3af;">
+                    Trading involves risk. Past performance does not guarantee future results.
+                </p>
+                <p style="margin:8px 0 0 0; font-size:12px; color:#9ca3af;">
+                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>"""
+
+        text = f"""Hey {first_name}!
+
+Great news — {friend_first} just became a paying subscriber, and your next invoice is $0!
+
+YOUR REWARD: 1 Month Free (applied to your next invoice automatically)
+
+Keep sharing! Every friend who subscribes earns you another free month.
+
+View dashboard: https://rigacap.com/app
+
+---
+Trading involves risk. Past performance does not guarantee future results.
+"""
+
+        return await self.send_email(
+            to_email=to_email,
+            subject="🎉 You Earned a Free Month! Your Referral Paid Off",
+            html_content=html,
+            text_content=text
         )
 
 

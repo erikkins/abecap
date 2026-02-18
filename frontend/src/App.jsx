@@ -9,7 +9,7 @@ import {
   DollarSign, Target, Shield, Activity, PieChart as PieIcon, History,
   ArrowUpRight, ArrowDownRight, Clock, Zap, X, ChevronRight, Eye,
   Calendar, BarChart3, Wallet, LogIn, AlertCircle, Loader2, CreditCard, Lock,
-  Briefcase, Mail
+  Briefcase, Mail, Gift, Copy, Check
 } from 'lucide-react';
 import LandingPage from './LandingPage';
 import TrackRecordPage from './TrackRecordPage';
@@ -1667,6 +1667,8 @@ function Dashboard() {
   const [timeTravelPresets, setTimeTravelPresets] = useState([]); // Computed once from live dashboard data
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [showEmailPrefsModal, setShowEmailPrefsModal] = useState(false);
+  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [referralCopied, setReferralCopied] = useState(false);
   const [emailPrefs, setEmailPrefs] = useState({ daily_digest: true, sell_alerts: true, double_signals: true, intraday_signals: true });
   const [emailPrefsSaving, setEmailPrefsSaving] = useState(false);
   const [emailPrefsToast, setEmailPrefsToast] = useState(null); // null | 'saved' | 'unsubscribed'
@@ -2409,6 +2411,16 @@ function Dashboard() {
                       >
                         <Bell size={14} />
                         Email Preferences
+                      </button>
+                      <button
+                        onClick={() => { setShowUserMenu(false); setShowReferralModal(true); }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <Gift size={14} />
+                        Refer a Friend
+                        {(user.referral_count > 0) && (
+                          <span className="ml-auto bg-green-100 text-green-700 text-xs font-medium px-1.5 py-0.5 rounded-full">{user.referral_count}</span>
+                        )}
                       </button>
                       <button
                         onClick={() => { setShowUserMenu(false); logout(); }}
@@ -3420,6 +3432,59 @@ function Dashboard() {
               >
                 {emailPrefsSaving ? 'Saving...' : 'Save Preferences'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Referral Modal */}
+      {showReferralModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowReferralModal(false)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><Gift size={18} /> Refer a Friend</h3>
+              <button onClick={() => setShowReferralModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            <div className="p-5">
+              <div className="bg-gradient-to-br from-blue-950 to-blue-900 rounded-xl p-6 text-center mb-5">
+                <p className="text-amber-400 font-bold text-lg mb-1">Give a Month, Get a Month</p>
+                <p className="text-white/80 text-sm leading-relaxed">
+                  Share your link with a friend. They get their first month free,
+                  and when they subscribe, you get a free month too!
+                </p>
+              </div>
+              {user?.referral_code && (
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-gray-700">Your referral link</label>
+                  <div className="flex gap-2">
+                    <input
+                      readOnly
+                      value={`rigacap.com/?ref=${user.referral_code}`}
+                      className="flex-1 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg font-mono text-gray-700"
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`https://rigacap.com/?ref=${user.referral_code}`);
+                        setReferralCopied(true);
+                        setTimeout(() => setReferralCopied(false), 2000);
+                      }}
+                      className={`px-3 py-2 text-sm font-medium rounded-lg flex items-center gap-1.5 transition-colors ${
+                        referralCopied
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      {referralCopied ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy</>}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {(user?.referral_count > 0) && (
+                <div className="mt-5 bg-green-50 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold text-green-700">{user.referral_count}</p>
+                  <p className="text-sm text-green-600">friend{user.referral_count !== 1 ? 's' : ''} referred</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

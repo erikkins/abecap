@@ -155,6 +155,7 @@ export function AuthProvider({ children }) {
   const register = async (email, password, name, turnstileToken) => {
     setError(null);
     try {
+      const referralCode = localStorage.getItem('rigacap_referral_code');
       const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,6 +164,7 @@ export function AuthProvider({ children }) {
           password,
           name,
           turnstile_token: turnstileToken,
+          referral_code: referralCode || undefined,
         }),
       });
 
@@ -172,6 +174,7 @@ export function AuthProvider({ children }) {
         throw new Error(data.detail || 'Registration failed');
       }
 
+      localStorage.removeItem('rigacap_referral_code');
       setTokens(data.access_token, data.refresh_token);
       setUser(data.user);
 
@@ -226,12 +229,14 @@ export function AuthProvider({ children }) {
   const loginWithGoogle = async (idToken, turnstileToken = null) => {
     setError(null);
     try {
+      const referralCode = localStorage.getItem('rigacap_referral_code');
       const response = await fetch(`${API_URL}/api/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id_token: idToken,
           turnstile_token: turnstileToken,
+          referral_code: referralCode || undefined,
         }),
       });
 
@@ -241,6 +246,7 @@ export function AuthProvider({ children }) {
         throw new Error(data.detail || 'Google login failed');
       }
 
+      localStorage.removeItem('rigacap_referral_code');
       setTokens(data.access_token, data.refresh_token);
       setUser(data.user);
 
@@ -260,6 +266,7 @@ export function AuthProvider({ children }) {
   const loginWithApple = async (idToken, userData = null, turnstileToken = null) => {
     setError(null);
     try {
+      const referralCode = localStorage.getItem('rigacap_referral_code');
       const response = await fetch(`${API_URL}/api/auth/apple`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -267,6 +274,7 @@ export function AuthProvider({ children }) {
           id_token: idToken,
           user_data: userData,
           turnstile_token: turnstileToken,
+          referral_code: referralCode || undefined,
         }),
       });
 
@@ -276,6 +284,7 @@ export function AuthProvider({ children }) {
         throw new Error(data.detail || 'Apple login failed');
       }
 
+      localStorage.removeItem('rigacap_referral_code');
       setTokens(data.access_token, data.refresh_token);
       setUser(data.user);
 

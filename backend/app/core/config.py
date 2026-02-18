@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
     STRIPE_PRICE_ID: str = os.getenv("STRIPE_PRICE_ID", "")  # Monthly subscription price
     STRIPE_PRICE_ID_ANNUAL: str = os.getenv("STRIPE_PRICE_ID_ANNUAL", "")  # Annual subscription price
+    STRIPE_REFERRAL_COUPON_ID: str = os.getenv("STRIPE_REFERRAL_COUPON_ID", "REFERRAL_1MONTH_FREE")
 
     # Cloudflare Turnstile
     TURNSTILE_SECRET_KEY: str = os.getenv("TURNSTILE_SECRET_KEY", "")

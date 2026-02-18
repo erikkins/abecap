@@ -608,6 +608,19 @@ export default function LandingPage() {
   const [selectedPlan, setSelectedPlan] = useState('monthly');
   const [isReturningVisitor, setIsReturningVisitor] = useState(false);
 
+  // Capture referral code from URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      localStorage.setItem('rigacap_referral_code', ref.toUpperCase().trim());
+      // Clean URL
+      const url = new URL(window.location);
+      url.searchParams.delete('ref');
+      window.history.replaceState({}, '', url.pathname + url.search);
+    }
+  }, []);
+
   // Check if returning visitor on mount
   useEffect(() => {
     setIsReturningVisitor(hasVisitedBefore());

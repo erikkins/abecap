@@ -98,8 +98,13 @@ async def create_checkout_session(
             "line_items": [{"price": price_id, "quantity": 1}],
             "success_url": f"{settings.FRONTEND_URL}/dashboard?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
             "cancel_url": f"{settings.FRONTEND_URL}/pricing?checkout=canceled",
-            "allow_promotion_codes": True,
         }
+
+        # Apply referral coupon if user was referred (and no existing subscription)
+        if user.referred_by and not existing_sub and settings.STRIPE_REFERRAL_COUPON_ID:
+            checkout_params["discounts"] = [{"coupon": settings.STRIPE_REFERRAL_COUPON_ID}]
+        else:
+            checkout_params["allow_promotion_codes"] = True
 
         # Only offer trial to users who have never had a subscription
         if not existing_sub:
@@ -420,8 +425,10 @@ async def handle_subscription_updated(sub: dict, db: AsyncSession):
         "trialing": "trial",
     }
 
+    old_status = subscription.status
     period_start, period_end = _get_period_dates(sub)
-    subscription.status = status_map.get(sub.get("status", ""), sub.get("status", ""))
+    new_status = status_map.get(sub.get("status", ""), sub.get("status", ""))
+    subscription.status = new_status
     subscription.stripe_subscription_id = sub.get("id")
     if period_start:
         subscription.current_period_start = datetime.fromtimestamp(period_start)
@@ -430,7 +437,60 @@ async def handle_subscription_updated(sub: dict, db: AsyncSession):
     subscription.cancel_at_period_end = sub.get("cancel_at_period_end", False)
 
     await db.commit()
-    print(f"✅ Webhook: subscription updated, status={subscription.status}")
+    print(f"✅ Webhook: subscription updated, status={new_status}")
+
+    # Reward referrer when referred user converts trial → active
+    if old_status == "trial" and new_status == "active":
+        await _reward_referrer(subscription.user_id, db)
+
+
+async def _reward_referrer(user_id, db: AsyncSession):
+    """Apply referral coupon to referrer's subscription when referred user converts."""
+    try:
+        result = await db.execute(select(User).where(User.id == user_id))
+        referred_user = result.scalar_one_or_none()
+        if not referred_user or not referred_user.referred_by:
+            return
+
+        result = await db.execute(select(User).where(User.id == referred_user.referred_by))
+        referrer = result.scalar_one_or_none()
+        if not referrer:
+            return
+
+        # Apply coupon to referrer's Stripe subscription
+        result = await db.execute(
+            select(Subscription).where(Subscription.user_id == referrer.id)
+        )
+        referrer_sub = result.scalar_one_or_none()
+        if referrer_sub and referrer_sub.stripe_subscription_id and settings.STRIPE_REFERRAL_COUPON_ID:
+            import stripe
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            try:
+                stripe.Subscription.modify(
+                    referrer_sub.stripe_subscription_id,
+                    coupon=settings.STRIPE_REFERRAL_COUPON_ID,
+                )
+                print(f"✅ Referral: applied coupon to referrer {referrer.id}")
+            except Exception as e:
+                print(f"⚠️ Referral: failed to apply coupon to referrer {referrer.id}: {e}")
+
+        # Increment referrer's count
+        referrer.referral_count = (referrer.referral_count or 0) + 1
+        await db.commit()
+
+        # Send reward email to referrer
+        from app.services.email_service import email_service
+        import asyncio
+        asyncio.create_task(
+            email_service.send_referral_reward_email(
+                to_email=referrer.email,
+                name=referrer.name or referrer.email,
+                friend_name=referred_user.name or referred_user.email,
+            )
+        )
+        print(f"✅ Referral: rewarded referrer {referrer.id}, count={referrer.referral_count}")
+    except Exception as e:
+        print(f"⚠️ Referral reward error: {e}")
 
 
 async def handle_subscription_deleted(sub: dict, db: AsyncSession):

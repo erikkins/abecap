@@ -344,6 +344,11 @@ class User(Base):
     # Onboarding drip sequence: 0=none sent, 1-5=last step sent
     onboarding_step = Column(Integer, default=0)
 
+    # Referral program
+    referral_code = Column(String(12), unique=True, nullable=True, index=True)
+    referred_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    referral_count = Column(Integer, default=0)
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
@@ -379,6 +384,8 @@ class User(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "last_login": self.last_login.isoformat() if self.last_login else None,
             "email_preferences": prefs,
+            "referral_code": self.referral_code,
+            "referral_count": self.referral_count or 0,
         }
         return result
 
@@ -621,6 +628,26 @@ async def _run_schema_migrations(conn):
             UPDATE users SET onboarding_step = 5 WHERE onboarding_step = 0 AND created_at < NOW() - INTERVAL '1 day'
         """))
         print("✅ Schema migration: onboarding_step column ready")
+    except Exception as e:
+        print(f"⚠️ Schema migration skipped: {e}")
+
+    # Migration: Add referral program columns to users
+    try:
+        for col_sql in [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(12)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by UUID REFERENCES users(id)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_count INTEGER DEFAULT 0",
+        ]:
+            await conn.execute(text(col_sql))
+        await conn.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code)
+        """))
+        # Backfill existing users with a referral code
+        await conn.execute(text("""
+            UPDATE users SET referral_code = UPPER(SUBSTRING(MD5(id::text || created_at::text) FROM 1 FOR 8))
+            WHERE referral_code IS NULL
+        """))
+        print("✅ Schema migration: referral program columns ready")
     except Exception as e:
         print(f"⚠️ Schema migration skipped: {e}")
 
