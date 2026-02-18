@@ -855,7 +855,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                           strokeWidth={2}
                           strokeDasharray="8 4"
                           label={{
-                            value: `Sell $${sellY.toFixed(2)}${data?.exit_reason ? ` (${data.exit_reason.replace(/_/g, ' ')})` : ''}`,
+                            value: `Sell $${sellY.toFixed(2)}${data?.exit_reason ? ` (${{'trailing_stop':'trailing stop','rebalance_exit':'portfolio rebalance','simulation_end':'portfolio rebalance','profit_target':'profit target','stop_loss':'stop loss'}[data.exit_reason] || data.exit_reason.replace(/_/g, ' ')})` : ''}`,
                             fill: '#F59E0B',
                             fontWeight: 'bold',
                             fontSize: 12,
@@ -3370,7 +3370,7 @@ function Dashboard() {
                           <td className="py-3 px-4">${t.exit_price?.toFixed(2)}</td>
                           <td className="py-3 px-4"><span className={`px-2 py-1 rounded text-sm font-semibold ${t.pnl_pct >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>{t.pnl_pct >= 0 ? '+' : ''}{t.pnl_pct?.toFixed(1)}%</span></td>
                           <td className={`py-3 px-4 font-medium ${t.pnl >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>${t.pnl?.toFixed(0)}</td>
-                          <td className="py-3 px-4"><span className={`px-2 py-1 rounded text-xs font-medium ${t.exit_reason === 'profit_target' ? 'bg-emerald-100 text-emerald-700' : t.exit_reason === 'stop_loss' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{t.exit_reason?.toUpperCase()}</span></td>
+                          <td className="py-3 px-4"><span className={`px-2 py-1 rounded text-xs font-medium ${t.exit_reason === 'profit_target' ? 'bg-emerald-100 text-emerald-700' : t.exit_reason === 'stop_loss' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{({'trailing_stop':'TRAILING STOP','rebalance_exit':'REBALANCE','simulation_end':'REBALANCE','profit_target':'PROFIT TARGET','stop_loss':'STOP LOSS'}[t.exit_reason] || t.exit_reason?.toUpperCase())}</span></td>
                           <td className="py-3 px-4 text-gray-500">{t.days_held}d</td>
                         </tr>
                       ))}
