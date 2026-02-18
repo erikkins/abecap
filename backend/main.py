@@ -2157,6 +2157,81 @@ def handler(event, context):
             traceback.print_exc()
             return {"status": "error", "error": str(e)}
 
+    # Refresh Instagram long-lived token (scheduled weekly via EventBridge)
+    if event.get("refresh_instagram_token"):
+        print("🔄 Refreshing Instagram access token")
+        import httpx
+
+        from app.core.config import settings
+
+        app_id = settings.META_APP_ID
+        app_secret = settings.META_APP_SECRET
+        current_token = settings.INSTAGRAM_ACCESS_TOKEN
+
+        if not all([app_id, app_secret, current_token]):
+            return {"status": "error", "error": "META_APP_ID, META_APP_SECRET, or INSTAGRAM_ACCESS_TOKEN not set"}
+
+        try:
+            resp = httpx.get(
+                "https://graph.facebook.com/v24.0/oauth/access_token",
+                params={
+                    "grant_type": "fb_exchange_token",
+                    "client_id": app_id,
+                    "client_secret": app_secret,
+                    "fb_exchange_token": current_token,
+                },
+                timeout=30,
+            )
+            data = resp.json()
+
+            if "access_token" not in data:
+                print(f"❌ Token refresh failed: {data}")
+                # Send admin alert
+                try:
+                    from app.services.email_service import admin_email_service
+                    loop = asyncio.get_event_loop()
+                    if loop.is_closed():
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                    loop.run_until_complete(
+                        admin_email_service.send_admin_alert(
+                            "Instagram Token Refresh Failed",
+                            f"Token refresh failed. Error: {data}. "
+                            "Please manually regenerate at developers.facebook.com"
+                        )
+                    )
+                except Exception:
+                    pass
+                return {"status": "error", "error": str(data)}
+
+            new_token = data["access_token"]
+            expires_in = data.get("expires_in", 0)
+            expires_days = expires_in // 86400
+
+            # Update Lambda env var with new token
+            import boto3
+            lambda_client = boto3.client("lambda", region_name=settings.AWS_REGION)
+            func_config = lambda_client.get_function_configuration(
+                FunctionName=os.environ.get("AWS_LAMBDA_FUNCTION_NAME", "rigacap-prod-api")
+            )
+            env_vars = func_config.get("Environment", {}).get("Variables", {})
+            env_vars["INSTAGRAM_ACCESS_TOKEN"] = new_token
+            lambda_client.update_function_configuration(
+                FunctionName=os.environ.get("AWS_LAMBDA_FUNCTION_NAME", "rigacap-prod-api"),
+                Environment={"Variables": env_vars},
+            )
+
+            print(f"✅ Instagram token refreshed, expires in {expires_days} days")
+            return {
+                "status": "refreshed",
+                "expires_in_days": expires_days,
+            }
+        except Exception as e:
+            import traceback
+            print(f"❌ Token refresh error: {e}")
+            traceback.print_exc()
+            return {"status": "error", "error": str(e)}
+
     # For API Gateway events, use Mangum
     # Create a fresh Mangum handler to avoid event loop issues on warm Lambdas
     global _mangum_handler
