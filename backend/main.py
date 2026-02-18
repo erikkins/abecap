@@ -216,7 +216,10 @@ app = FastAPI(
     title="RigaCap API",
     version="2.0.0",
     description="DWAP-based stock trading signals with 5-year historical data",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 app.add_middleware(
