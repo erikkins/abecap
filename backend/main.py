@@ -1446,19 +1446,25 @@ def handler(event, context):
                 asyncio.set_event_loop(loop)
             result = loop.run_until_complete(scheduler_service.send_daily_emails())
 
-            # Export dashboard cache after daily emails (keeps dashboard.json fresh)
-            async def _export_dashboard():
+            # Export dashboard cache + daily snapshot after daily emails
+            async def _export_dashboard_and_snapshot():
                 from app.api.signals import compute_shared_dashboard_data
                 from app.services.data_export import data_export_service
+                from datetime import date
                 async with async_session() as db:
                     data = await compute_shared_dashboard_data(db)
-                    return data_export_service.export_dashboard_json(data)
+                    dash_result = data_export_service.export_dashboard_json(data)
+                    # Also save today's snapshot for time-travel mode
+                    today_str = date.today().strftime("%Y-%m-%d")
+                    snap_result = data_export_service.export_snapshot(today_str, data)
+                    return {"dashboard": dash_result, "snapshot": snap_result}
 
             try:
-                dash_result = loop.run_until_complete(_export_dashboard())
-                print(f"📦 Dashboard cache exported: {dash_result}")
+                export_result = loop.run_until_complete(_export_dashboard_and_snapshot())
+                print(f"📦 Dashboard cache exported: {export_result.get('dashboard')}")
+                print(f"📸 Daily snapshot saved: {export_result.get('snapshot')}")
             except Exception as dash_err:
-                print(f"⚠️ Dashboard cache export failed (non-fatal): {dash_err}")
+                print(f"⚠️ Dashboard/snapshot export failed (non-fatal): {dash_err}")
 
             return {"status": "success", "result": str(result)}
         except Exception as e:
