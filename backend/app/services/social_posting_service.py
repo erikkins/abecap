@@ -239,6 +239,104 @@ class SocialPostingService:
 
             return {"media_id": media_id, "permalink": permalink}
 
+    # ── Twitter Follow ──────────────────────────────────────────────
+
+    TWITTER_USERS_ME_URL = "https://api.twitter.com/2/users/me"
+    TWITTER_USERS_BY_USERNAME_URL = "https://api.twitter.com/2/users/by/username"
+
+    async def get_authenticated_user_id(self) -> Optional[str]:
+        """Get the Twitter user ID for the authenticated account."""
+        auth_header = self._oauth1_signature("GET", self.TWITTER_USERS_ME_URL, {})
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(
+                self.TWITTER_USERS_ME_URL,
+                headers={"Authorization": auth_header},
+            )
+        if resp.status_code == 200:
+            return resp.json().get("data", {}).get("id")
+        logger.error("Failed to get authenticated user: %s %s", resp.status_code, resp.text)
+        return None
+
+    async def lookup_twitter_user_id(self, username: str) -> Optional[str]:
+        """Look up a Twitter user ID by username (without @)."""
+        url = f"{self.TWITTER_USERS_BY_USERNAME_URL}/{username}"
+        auth_header = self._oauth1_signature("GET", url, {})
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(
+                url,
+                headers={"Authorization": auth_header},
+            )
+        if resp.status_code == 200:
+            return resp.json().get("data", {}).get("id")
+        logger.warning("User lookup failed for @%s: %s %s", username, resp.status_code, resp.text)
+        return None
+
+    async def follow_twitter_user(self, target_user_id: str, my_user_id: str = None) -> dict:
+        """Follow a Twitter user by their user ID.
+
+        Returns {"following": True, "pending": False} on success,
+        or {"error": "..."} on failure.
+        """
+        if not settings.TWITTER_API_KEY:
+            return {"error": "Twitter API credentials not configured"}
+
+        if not my_user_id:
+            my_user_id = await self.get_authenticated_user_id()
+            if not my_user_id:
+                return {"error": "Could not determine authenticated user ID"}
+
+        url = f"https://api.twitter.com/2/users/{my_user_id}/following"
+        auth_header = self._oauth1_signature("POST", url, {})
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                url,
+                headers={
+                    "Authorization": auth_header,
+                    "Content-Type": "application/json",
+                },
+                json={"target_user_id": target_user_id},
+            )
+
+        if resp.status_code in (200, 201):
+            return resp.json().get("data", {})
+        logger.error("Twitter follow failed: %s %s", resp.status_code, resp.text)
+        return {"error": f"Twitter API error {resp.status_code}: {resp.text}"}
+
+    async def batch_follow_twitter(self, usernames: list[str]) -> dict:
+        """Follow a list of Twitter usernames. Returns results per username."""
+        import asyncio
+
+        my_user_id = await self.get_authenticated_user_id()
+        if not my_user_id:
+            return {"error": "Could not determine authenticated user ID"}
+
+        results = {}
+        for username in usernames:
+            clean = username.lstrip("@").strip()
+            if not clean:
+                continue
+            try:
+                target_id = await self.lookup_twitter_user_id(clean)
+                if not target_id:
+                    results[clean] = {"error": "User not found"}
+                    continue
+                result = await self.follow_twitter_user(target_id, my_user_id)
+                results[clean] = result
+                logger.info("Followed @%s: %s", clean, result)
+            except Exception as e:
+                results[clean] = {"error": str(e)}
+                logger.error("Error following @%s: %s", clean, e)
+            # Rate limit: 5 requests per 15 min window for follows
+            await asyncio.sleep(3)
+
+        return {
+            "my_user_id": my_user_id,
+            "followed": sum(1 for r in results.values() if r.get("following")),
+            "failed": sum(1 for r in results.values() if "error" in r),
+            "results": results,
+        }
+
     # ── Unified publish ──────────────────────────────────────────────
 
     async def publish_post(self, post) -> dict:

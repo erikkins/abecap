@@ -2172,6 +2172,14 @@ def handler(event, context):
                     await db.commit()
                     return {"scheduled": results}
 
+                elif action == "follow_accounts":
+                    # Batch follow Twitter accounts: {"usernames": ["unusual_whales", "PeterLBrandt", ...]}
+                    usernames = config.get("usernames", [])
+                    if not usernames:
+                        return {"error": "usernames list required"}
+                    from app.services.social_posting_service import social_posting_service
+                    return await social_posting_service.batch_follow_twitter(usernames)
+
                 else:
                     return {"error": f"Unknown action: {action}"}
 
