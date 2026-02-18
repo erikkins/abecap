@@ -2049,6 +2049,88 @@ def handler(event, context):
             traceback.print_exc()
             return {"status": "failed", "error": str(e)}
 
+    # Social post admin (direct Lambda invocation)
+    # Actions: list, approve, publish, approve_and_publish
+    if event.get("social_admin"):
+        config = event["social_admin"]
+        action = config.get("action", "list")
+
+        async def _social_admin():
+            from app.core.database import async_session, SocialPost
+            from sqlalchemy import select, desc
+
+            async with async_session() as db:
+                if action == "list":
+                    limit = config.get("limit", 20)
+                    status_filter = config.get("status")
+                    q = select(SocialPost).order_by(desc(SocialPost.id)).limit(limit)
+                    if status_filter:
+                        q = q.where(SocialPost.status == status_filter)
+                    result = await db.execute(q)
+                    posts = result.scalars().all()
+                    return {
+                        "posts": [
+                            {
+                                "id": p.id,
+                                "platform": p.platform,
+                                "post_type": p.post_type,
+                                "status": p.status,
+                                "text_preview": (p.text_content or "")[:100],
+                                "scheduled_for": str(p.scheduled_for) if p.scheduled_for else None,
+                                "created_at": str(p.created_at),
+                            }
+                            for p in posts
+                        ]
+                    }
+
+                elif action in ("approve", "publish", "approve_and_publish"):
+                    post_id = config.get("post_id")
+                    if not post_id:
+                        return {"error": "post_id required"}
+
+                    result = await db.execute(
+                        select(SocialPost).where(SocialPost.id == post_id)
+                    )
+                    post = result.scalar_one_or_none()
+                    if not post:
+                        return {"error": f"Post {post_id} not found"}
+
+                    if action in ("approve", "approve_and_publish"):
+                        if post.status not in ("draft", "rejected", "scheduled"):
+                            return {"error": f"Cannot approve post with status '{post.status}'"}
+                        post.status = "approved"
+                        post.scheduled_for = None
+                        await db.commit()
+                        print(f"✅ Post {post_id} approved")
+
+                    if action in ("publish", "approve_and_publish"):
+                        if post.status != "approved":
+                            return {"error": f"Post must be approved first (current: '{post.status}')"}
+                        from app.services.social_posting_service import social_posting_service
+                        pub_result = await social_posting_service.publish_post(post)
+                        await db.commit()
+                        if "error" in pub_result:
+                            return {"error": pub_result["error"]}
+                        return {"status": "published", "post_id": post_id, "platform": post.platform, **pub_result}
+
+                    return {"status": post.status, "post_id": post_id}
+
+                else:
+                    return {"error": f"Unknown action: {action}"}
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_social_admin())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Social admin failed: {e}")
+            traceback.print_exc()
+            return {"status": "error", "error": str(e)}
+
     # For API Gateway events, use Mangum
     # Create a fresh Mangum handler to avoid event loop issues on warm Lambdas
     global _mangum_handler

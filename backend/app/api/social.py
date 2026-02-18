@@ -105,13 +105,14 @@ async def approve_post(
 
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    if post.status not in ("draft", "rejected"):
+    if post.status not in ("draft", "rejected", "scheduled"):
         raise HTTPException(status_code=400, detail=f"Cannot approve post with status '{post.status}'")
 
     post.status = "approved"
     post.reviewed_by = admin.email
     post.reviewed_at = datetime.utcnow()
     post.rejection_reason = None
+    post.scheduled_for = None  # Clear schedule when approving
     await db.commit()
 
     return {"status": "approved", "post_id": post_id}
