@@ -871,6 +871,19 @@ class SchedulerService:
             replace_existing=True
         )
 
+        # Reply scanner — every 4 hours during waking hours
+        self.scheduler.add_job(
+            self._scan_reply_opportunities,
+            CronTrigger(
+                hour='8,12,16,20',
+                minute=15,
+                timezone=ET
+            ),
+            id='reply_scanner',
+            name='Social Reply Scanner',
+            replace_existing=True
+        )
+
         # Strategy auto-analysis every other Friday at 6 PM ET
         # Runs biweekly strategy analysis and potential auto-switch
         self.scheduler.add_job(
@@ -1550,6 +1563,27 @@ class SchedulerService:
             import traceback
             traceback.print_exc()
             return {"sent": 0, "error": str(e)}
+
+    async def _scan_reply_opportunities(self):
+        """
+        Scan followed accounts for tweets mentioning stocks we've traded.
+        Generate contextual reply drafts for admin review.
+
+        Runs every 4 hours at :15 past the hour.
+        """
+        try:
+            from app.core.database import async_session
+            from app.services.reply_scanner_service import reply_scanner_service
+
+            async with async_session() as db:
+                result = await reply_scanner_service.scan_and_generate(db, since_hours=4)
+                if result.get("replies_created"):
+                    logger.info(f"🔁 Reply scanner: {result['replies_created']} draft(s) created")
+                else:
+                    logger.info(f"🔁 Reply scanner: no reply opportunities found "
+                               f"({result.get('tweets_found', 0)} tweets scanned)")
+        except Exception as e:
+            logger.error(f"❌ Reply scanner failed: {e}")
 
     async def _strategy_auto_analysis(self):
         """

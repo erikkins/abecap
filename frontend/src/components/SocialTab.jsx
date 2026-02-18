@@ -25,6 +25,7 @@ const POST_TYPES = [
   { id: 'missed_opportunity', label: 'Missed Opportunity' },
   { id: 'weekly_recap', label: 'Weekly Recap' },
   { id: 'regime_commentary', label: 'Regime' },
+  { id: 'contextual_reply', label: 'Replies' },
   { id: 'manual', label: 'Manual' },
 ];
 
@@ -42,6 +43,7 @@ const TYPE_COLORS = {
   missed_opportunity: 'bg-amber-100 text-amber-700',
   weekly_recap: 'bg-purple-100 text-purple-700',
   regime_commentary: 'bg-sky-100 text-sky-700',
+  contextual_reply: 'bg-cyan-100 text-cyan-700',
   manual: 'bg-indigo-100 text-indigo-700',
 };
 
@@ -50,6 +52,7 @@ const TYPE_LABELS = {
   missed_opportunity: 'Missed Opportunity',
   weekly_recap: 'Weekly Recap',
   regime_commentary: 'Regime',
+  contextual_reply: 'Reply',
   manual: 'Manual',
 };
 
@@ -1119,6 +1122,18 @@ function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRege
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       <div className="p-4 space-y-3">
         <PostBadges post={post} />
+
+        {/* Source tweet context for replies */}
+        {post.reply_to_username && (
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+            <div className="text-xs text-gray-500 mb-1">
+              Replying to @{post.reply_to_username}
+            </div>
+            {post.source_tweet_text && (
+              <p className="text-xs text-gray-600 line-clamp-2">{post.source_tweet_text}</p>
+            )}
+          </div>
+        )}
 
         {/* Mock Tweet */}
         <div className="border border-gray-200 rounded-xl p-4">

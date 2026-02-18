@@ -1207,6 +1207,36 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # Scan followed accounts for reply opportunities (direct Lambda invocation)
+    if event.get("scan_replies"):
+        print("🔍 Scanning for reply opportunities")
+        config = event["scan_replies"]
+
+        async def _scan_replies():
+            from app.services.reply_scanner_service import reply_scanner_service
+
+            async with async_session() as db:
+                result = await reply_scanner_service.scan_and_generate(
+                    db=db,
+                    since_hours=config.get("since_hours", 4),
+                    dry_run=config.get("dry_run", False),
+                    accounts=config.get("accounts"),
+                )
+                return result
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_scan_replies())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Reply scan failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
     # Send test emails for all templates (direct Lambda invocation)
     if event.get("test_emails"):
         print("📧 Test all email templates")

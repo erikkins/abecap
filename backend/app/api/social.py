@@ -624,6 +624,9 @@ def _post_to_dict(post: SocialPost, include_source: bool = False) -> dict:
         "ai_generated": getattr(post, "ai_generated", False) or False,
         "ai_model": getattr(post, "ai_model", None),
         "news_context_json": getattr(post, "news_context_json", None),
+        "reply_to_tweet_id": getattr(post, "reply_to_tweet_id", None),
+        "reply_to_username": getattr(post, "reply_to_username", None),
+        "source_tweet_text": getattr(post, "source_tweet_text", None),
         "created_at": post.created_at.isoformat() if post.created_at else None,
         "updated_at": post.updated_at.isoformat() if post.updated_at else None,
     }

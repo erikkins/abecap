@@ -110,7 +110,8 @@ class SocialPostingService:
         return media_id
 
     async def post_to_twitter(
-        self, text: str, image_url: Optional[str] = None
+        self, text: str, image_url: Optional[str] = None,
+        reply_to_tweet_id: Optional[str] = None,
     ) -> dict:
         """Post a tweet. Optionally attach an image (downloaded from image_url).
 
@@ -130,6 +131,8 @@ class SocialPostingService:
         payload = {"text": text}
         if media_id:
             payload["media"] = {"media_ids": [media_id]}
+        if reply_to_tweet_id:
+            payload["reply"] = {"in_reply_to_tweet_id": reply_to_tweet_id}
 
         # Twitter API v2 uses JSON body — OAuth 1.0a signature only covers URL params
         auth_header = self._oauth1_signature("POST", self.TWITTER_TWEET_URL, {})
@@ -358,7 +361,8 @@ class SocialPostingService:
             )
 
         if post.platform == "twitter":
-            result = await self.post_to_twitter(text, image_url)
+            reply_to = getattr(post, 'reply_to_tweet_id', None)
+            result = await self.post_to_twitter(text, image_url, reply_to_tweet_id=reply_to)
         elif post.platform == "instagram":
             if not image_url:
                 return {"error": "Instagram posts require an image"}

@@ -316,6 +316,10 @@ class SocialPost(Base):
     # Admin notification tracking
     notification_24h_sent = Column(Boolean, default=False)
     notification_1h_sent = Column(Boolean, default=False)
+    # Reply-specific columns (contextual_reply post type)
+    reply_to_tweet_id = Column(String(50), nullable=True)
+    reply_to_username = Column(String(50), nullable=True)
+    source_tweet_text = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -575,6 +579,18 @@ async def _run_schema_migrations(conn):
         ]:
             await conn.execute(text(col_sql))
         print("✅ Schema migration: social_posts AI/scheduling columns ready")
+    except Exception as e:
+        print(f"⚠️ Schema migration skipped: {e}")
+
+    # Migration: Reply scanner columns on social_posts
+    try:
+        for col_sql in [
+            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_tweet_id VARCHAR(50)",
+            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_username VARCHAR(50)",
+            "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS source_tweet_text TEXT",
+        ]:
+            await conn.execute(text(col_sql))
+        print("✅ Schema migration: social_posts reply columns ready")
     except Exception as e:
         print(f"⚠️ Schema migration skipped: {e}")
 
