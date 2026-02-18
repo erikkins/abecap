@@ -199,8 +199,8 @@ AI-powered social media automation: real walk-forward trades → Claude API cont
 |------|--------|-------|
 | **"We Called It" social proof** | READY | AI posts auto-generated nightly from real trades, scheduled + published |
 | **Public track record page** | DONE | /track-record with walk-forward data, linked from hero + welcome email + social posts |
-| **Referral program** | TODO | "Give a friend 1 month free, get 1 month free" |
-| **Onboarding email drip** | TODO | 5-7 day sequence: welcome → how signals work → trial ending |
+| **Referral program** | DONE | "Give a month, get a month" — unique 8-char codes, Stripe coupon at checkout, referrer rewarded on trial→paid conversion, welcome email referral section, dashboard modal with copy link |
+| **Onboarding email drip** | DONE | 5-step drip over 8 days: how signals work (D1), pro tips (D3), trial ending (D5), last day (D6), win-back w/ 20% off (D8). EventBridge 10 AM ET daily. |
 | **Social proof / testimonials** | TODO | Landing page section with real user results |
 | **Content / SEO strategy** | TODO | Blog posts, market commentary — organic discovery |
 | **Churn prevention** | TODO | Cancel survey, win-back emails, usage alerts |
