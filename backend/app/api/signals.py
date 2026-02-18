@@ -10,7 +10,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from app.core.database import get_db, Signal, Position, User
-from app.core.security import get_current_user_optional, require_valid_subscription
+from app.core.security import get_current_user_optional, get_admin_user, require_valid_subscription
 from app.services.scanner import scanner_service, SignalData
 from app.services.stock_universe import stock_universe_service
 from app.services.data_export import data_export_service
@@ -159,7 +159,8 @@ async def run_memory_scan(
     refresh: bool = False,
     apply_market_filter: bool = True,
     min_strength: float = 0,
-    export_to_cdn: bool = True
+    export_to_cdn: bool = True,
+    admin: User = Depends(get_admin_user),
 ):
     """
     Run market scan without database (memory only)
@@ -290,7 +291,8 @@ async def get_missed_opportunities(
 @router.post("/backfill")
 async def backfill_historical_signals(
     days: int = 90,
-    db: AsyncSession = Depends(get_db)
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Backfill historical signals by scanning past price data.

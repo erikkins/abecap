@@ -2,11 +2,13 @@
 Email API - Endpoints for email management and testing
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime
 
+from app.core.database import User
+from app.core.security import get_admin_user
 from app.services.email_service import email_service
 from app.services.scanner import scanner_service
 from app.services.market_analysis import market_analysis_service
@@ -33,7 +35,7 @@ class EmailPreviewResponse(BaseModel):
 
 
 @router.post("/test")
-async def send_test_email(request: TestEmailRequest):
+async def send_test_email(request: TestEmailRequest, admin: User = Depends(get_admin_user)):
     """
     Send a test daily summary email to a specific address
 
@@ -106,7 +108,7 @@ async def send_test_email(request: TestEmailRequest):
 
 
 @router.get("/preview", response_model=EmailPreviewResponse)
-async def preview_daily_email():
+async def preview_daily_email(admin: User = Depends(get_admin_user)):
     """
     Preview the daily summary email without sending
 
@@ -144,7 +146,7 @@ async def preview_daily_email():
 
 
 @router.get("/status")
-async def get_email_status():
+async def get_email_status(admin: User = Depends(get_admin_user)):
     """
     Get email service status and configuration
     """
@@ -156,7 +158,7 @@ async def get_email_status():
 
 
 @router.post("/trigger-daily")
-async def trigger_daily_emails(background_tasks: BackgroundTasks):
+async def trigger_daily_emails(background_tasks: BackgroundTasks, admin: User = Depends(get_admin_user)):
     """
     Manually trigger the daily email job
 
@@ -173,7 +175,7 @@ async def trigger_daily_emails(background_tasks: BackgroundTasks):
 
 
 @router.post("/time-travel")
-async def send_time_travel_email(request: TimeTravelEmailRequest):
+async def send_time_travel_email(request: TimeTravelEmailRequest, admin: User = Depends(get_admin_user)):
     """
     Send the daily summary email as it would have appeared on a historical date.
 

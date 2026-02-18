@@ -27,8 +27,8 @@ router = APIRouter()
 # ============================================================================
 
 @router.get("/data-debug")
-async def get_data_debug():
-    """Debug endpoint to check data availability (no auth required for debugging)."""
+async def get_data_debug(admin: User = Depends(get_admin_user)):
+    """Debug endpoint to check data availability."""
     from app.services.scanner import scanner_service
 
     if not scanner_service.data_cache:
@@ -58,7 +58,7 @@ async def get_data_debug():
 
 
 @router.post("/migrate")
-async def run_database_migration(db: AsyncSession = Depends(get_db)):
+async def run_database_migration(admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
     """
     Run database migrations to add new tables and columns.
     Safe to run multiple times - uses IF NOT EXISTS.
@@ -2433,8 +2433,7 @@ async def get_current_conditions(
 async def analyze_double_signals(
     lookback_days: int = Query(252, ge=60, le=504, description="Days of history to analyze"),
     sample_every_n: int = Query(5, ge=1, le=50, description="Sample every N trading days"),
-    # NOTE: Auth temporarily disabled for one-off analysis
-    # admin: User = Depends(get_admin_user)
+    admin: User = Depends(get_admin_user),
 ):
     """
     Analyze performance of Double Signals (DWAP + Momentum) vs single signals.
