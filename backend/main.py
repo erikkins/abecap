@@ -565,8 +565,8 @@ def handler(event, context):
             signals = await scanner_service.scan(refresh_data=True)
             print(f"📡 Scan complete: {len(signals)} signals, {len(scanner_service.data_cache)} symbols in cache")
 
-            # 2. Persist refreshed cache to S3 for future cold starts
-            export_result = data_export_service.export_all(scanner_service.data_cache)
+            # 2. Persist refreshed cache to S3 pickle for future cold starts
+            export_result = data_export_service.export_pickle(scanner_service.data_cache)
             print(f"💾 Data cache persisted to S3: {export_result.get('count', 0)} symbols")
 
             # 3. Store signals in DB + export to S3
