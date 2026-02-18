@@ -285,6 +285,11 @@ class ReplyScannerService:
         if not dry_run and results["replies_created"] > 0:
             await db.commit()
 
+            # Auto-schedule the new drafts so approval emails go out
+            from app.services.post_scheduler_service import post_scheduler_service
+            scheduled = await post_scheduler_service.auto_schedule_drafts(db)
+            results["posts_scheduled"] = scheduled
+
         return results
 
     async def _resolve_user_ids(self, usernames: List[str]) -> Dict[str, str]:

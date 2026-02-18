@@ -1214,8 +1214,20 @@ def handler(event, context):
 
         async def _scan_replies():
             from app.services.reply_scanner_service import reply_scanner_service
+            from sqlalchemy import delete
 
             async with async_session() as db:
+                # Optionally clear old reply drafts before regenerating
+                if config.get("clear_existing"):
+                    deleted = await db.execute(
+                        delete(SocialPost).where(
+                            SocialPost.post_type == "contextual_reply",
+                            SocialPost.status.in_(["draft", "approved"]),
+                        )
+                    )
+                    await db.commit()
+                    print(f"🗑️ Cleared {deleted.rowcount} existing reply drafts")
+
                 result = await reply_scanner_service.scan_and_generate(
                     db=db,
                     since_hours=config.get("since_hours", 4),
