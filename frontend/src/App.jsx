@@ -214,13 +214,13 @@ const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy, viewMode = 'advanc
   const handleBuy = async () => {
     setSubmitting(true);
     try {
-      await api.post('/api/portfolio/positions', {
+      const result = await api.post('/api/portfolio/positions', {
         symbol,
         shares,
         price: entryPrice,
         ...(timeTravelDate && { entry_date: timeTravelDate }),
       });
-      onBuy();
+      onBuy(result.position);
       onClose();
     } catch (err) {
       console.error('Buy failed:', err);
@@ -1200,8 +1200,8 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
           viewMode={viewMode}
           timeTravelDate={timeTravelDate}
           onClose={() => setShowBuyModal(false)}
-          onBuy={() => {
-            onAction && onAction();
+          onBuy={(positionData) => {
+            onAction && onAction(positionData);
           }}
         />
       )}
@@ -3416,7 +3416,31 @@ function Dashboard() {
       </main>
 
       {showLoginModal && <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />}
-      {chartModal && <StockChartModal {...chartModal} viewMode={viewMode} liveQuote={liveQuotes[chartModal.symbol]} timeTravelDate={timeTravelDate} onClose={() => setChartModal(null)} onAction={() => { setChartModal(null); reloadPositions(); }} />}
+      {chartModal && <StockChartModal {...chartModal} viewMode={viewMode} liveQuote={liveQuotes[chartModal.symbol]} timeTravelDate={timeTravelDate} onClose={() => setChartModal(null)} onAction={(positionData) => {
+        setChartModal(null);
+        // Optimistic update: add position immediately so UI feels instant
+        if (positionData) {
+          const optimistic = {
+            id: positionData.id,
+            symbol: positionData.symbol,
+            shares: positionData.shares,
+            entry_price: positionData.entry_price,
+            entry_date: new Date().toISOString().slice(0, 10),
+            current_price: positionData.entry_price,
+            pnl_pct: 0,
+            days_held: 0,
+            high_water_mark: positionData.entry_price,
+            trailing_stop_price: positionData.stop_loss,
+            trailing_stop_pct: 12,
+            distance_to_stop_pct: 12,
+            sell_signal: 'hold',
+          };
+          setPositions(prev => [optimistic, ...prev]);
+          setSignals(prev => prev.filter(s => s.symbol !== positionData.symbol));
+        }
+        // Full reload in background for accurate data
+        reloadPositions();
+      }} />}
 
       {/* Email Preferences Modal */}
       {showEmailPrefsModal && (
