@@ -547,6 +547,56 @@ def handler(event, context):
             "body": f'{{"status": "warm", "symbols_loaded": {len(scanner_service.data_cache)}}}'
         }
 
+    # Handle daily scan (EventBridge: 4 PM ET Mon-Fri)
+    # Refreshes data from yfinance, persists cache to S3, exports signals + dashboard + snapshot
+    if event.get("daily_scan"):
+        print(f"📡 Daily scan triggered - {len(scanner_service.data_cache)} symbols in cache")
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _run_daily_scan():
+            from app.services.data_export import data_export_service
+            from app.api.signals import compute_shared_dashboard_data
+            from datetime import date
+
+            # 1. Refresh data from yfinance
+            signals = await scanner_service.scan(refresh_data=True)
+            print(f"📡 Scan complete: {len(signals)} signals, {len(scanner_service.data_cache)} symbols in cache")
+
+            # 2. Persist refreshed cache to S3 for future cold starts
+            export_result = data_export_service.export_all(scanner_service.data_cache)
+            print(f"💾 Data cache persisted to S3: {export_result.get('count', 0)} symbols")
+
+            # 3. Store signals in DB + export to S3
+            await store_signals_callback(signals)
+
+            # 4. Export dashboard JSON + daily snapshot
+            async with async_session() as db:
+                data = await compute_shared_dashboard_data(db)
+                dash_result = data_export_service.export_dashboard_json(data)
+                today_str = date.today().strftime("%Y-%m-%d")
+                snap_result = data_export_service.export_snapshot(today_str, data)
+
+            return {
+                "status": "success",
+                "signals": len(signals),
+                "symbols_cached": len(scanner_service.data_cache),
+                "dashboard": dash_result,
+                "snapshot": snap_result,
+            }
+
+        try:
+            result = loop.run_until_complete(_run_daily_scan())
+            print(f"📡 Daily scan result: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Daily scan failed: {e}")
+            traceback.print_exc()
+            return {"status": "failed", "error": str(e)}
+
     # Handle dashboard cache export
     if event.get("export_dashboard_cache"):
         print("📦 Dashboard cache export requested")

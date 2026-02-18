@@ -705,7 +705,7 @@ resource "aws_cloudwatch_event_target" "scanner" {
   rule      = aws_cloudwatch_event_rule.scanner.name
   target_id = "lambda"
   arn       = aws_lambda_function.api.arn
-  input     = jsonencode({ path = "/api/signals/scan", httpMethod = "GET" })
+  input     = jsonencode({ daily_scan = true })
 }
 
 resource "aws_lambda_permission" "eventbridge" {
