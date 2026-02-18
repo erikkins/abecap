@@ -612,9 +612,13 @@ async def _run_schema_migrations(conn):
         print(f"⚠️ Schema migration skipped: {e}")
 
     # Migration: Add onboarding_step column to users
+    # Default existing users to 5 (completed) so only new signups get the drip
     try:
         await conn.execute(text("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_step INTEGER DEFAULT 0
+        """))
+        await conn.execute(text("""
+            UPDATE users SET onboarding_step = 5 WHERE onboarding_step = 0 AND created_at < NOW() - INTERVAL '1 day'
         """))
         print("✅ Schema migration: onboarding_step column ready")
     except Exception as e:
