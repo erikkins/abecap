@@ -2678,15 +2678,28 @@ function Dashboard() {
                   </div>
                   <span className="text-xs text-gray-500">
                     {(() => {
-                      // Find the most recent buy signal date from current signals or recent history
-                      const dates = [
-                        ...(dashboardData?.buy_signals || []).map(s => s.ensemble_entry_date).filter(Boolean),
-                        ...(dashboardData?.recent_signals || []).map(s => s.signal_date).filter(Boolean),
-                      ];
-                      if (dates.length === 0) return 'Ensemble: DWAP + Momentum';
+                      // Find the most recent ensemble entry date (ignore raw scanner signals)
+                      const dates = (dashboardData?.buy_signals || [])
+                        .filter(s => s.is_fresh)
+                        .map(s => s.ensemble_entry_date)
+                        .filter(Boolean);
+                      if (dates.length === 0) {
+                        // Fall back to any ensemble entry date
+                        const allDates = (dashboardData?.buy_signals || [])
+                          .map(s => s.ensemble_entry_date)
+                          .filter(Boolean);
+                        if (allDates.length === 0) return 'Ensemble: DWAP + Momentum';
+                        const latest = allDates.sort().reverse()[0];
+                        const today = new Date(); today.setHours(0,0,0,0);
+                        const signalDate = new Date(latest + 'T00:00:00');
+                        const diffDays = Math.round((today - signalDate) / 86400000);
+                        if (diffDays === 0) return 'Last signal: Today';
+                        if (diffDays === 1) return 'Last signal: Yesterday';
+                        return `Last signal: ${diffDays}d ago`;
+                      }
                       const latest = dates.sort().reverse()[0];
                       const today = new Date(); today.setHours(0,0,0,0);
-                      const signalDate = new Date(latest + 'T00:00:00'); // parse as local
+                      const signalDate = new Date(latest + 'T00:00:00');
                       const diffDays = Math.round((today - signalDate) / 86400000);
                       if (diffDays === 0) return 'Last signal: Today';
                       if (diffDays === 1) return 'Last signal: Yesterday';
@@ -3165,7 +3178,7 @@ function Dashboard() {
                     <div className="text-center py-12 text-gray-500">
                       <PieIcon className="w-12 h-12 mx-auto text-gray-300 mb-3" />
                       <p>No open positions</p>
-                      <p className="text-xs mt-1">Click BUY on a fresh signal to add a position</p>
+                      <p className="text-xs mt-1">Click a fresh signal, then Track Position from the chart</p>
                     </div>
                   )}
                 </div>
