@@ -144,10 +144,10 @@ async def get_latest_signals(
 
 
 @router.get("/watchlist", response_model=List[WatchlistItem])
-async def get_watchlist(threshold: float = 3.0):
+async def get_watchlist(threshold: float = 3.0, user: User = Depends(require_valid_subscription)):
     """
     Get stocks approaching DWAP threshold (watchlist)
-    
+
     - **threshold**: Minimum % above DWAP to include
     """
     watchlist = scanner_service.get_watchlist(threshold)
@@ -206,7 +206,7 @@ async def get_signals_cdn_url():
 
 
 @router.get("/symbol/{symbol}", response_model=SignalResponse)
-async def get_signal_for_symbol(symbol: str):
+async def get_signal_for_symbol(symbol: str, user: User = Depends(require_valid_subscription)):
     """
     Get current signal analysis for a specific symbol
     """
@@ -238,7 +238,8 @@ class MissedOpportunity(BaseModel):
 async def get_missed_opportunities(
     days: int = 90,
     limit: int = 10,
-    db: AsyncSession = Depends(get_db)
+    user: User = Depends(require_valid_subscription),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get missed opportunities - profitable trades from a backtest of the past N days.

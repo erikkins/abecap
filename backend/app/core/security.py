@@ -1,5 +1,7 @@
 """Security utilities for authentication and authorization."""
 
+import time
+from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Optional
 import uuid
@@ -13,6 +15,30 @@ from sqlalchemy import select
 
 from app.core.config import settings
 from app.core.database import get_db
+
+
+# ============================================================================
+# In-memory rate limiter (per Lambda container)
+# ============================================================================
+
+class RateLimiter:
+    """Simple in-memory rate limiter. Tracks requests per key within a time window."""
+
+    def __init__(self):
+        self._requests: dict[str, list[float]] = defaultdict(list)
+
+    def check(self, key: str, max_requests: int, window_seconds: int) -> bool:
+        """Return True if request is allowed, False if rate limited."""
+        now = time.time()
+        cutoff = now - window_seconds
+        self._requests[key] = [t for t in self._requests[key] if t > cutoff]
+        if len(self._requests[key]) >= max_requests:
+            return False
+        self._requests[key].append(now)
+        return True
+
+
+rate_limiter = RateLimiter()
 
 
 # Password hashing

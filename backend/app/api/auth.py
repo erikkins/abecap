@@ -18,6 +18,7 @@ from app.core.security import (
     create_refresh_token,
     decode_token,
     get_current_user,
+    rate_limiter,
 )
 from app.services.turnstile import verify_turnstile
 from app.services.email_service import email_service
@@ -149,8 +150,13 @@ async def register(
     db: AsyncSession = Depends(get_db)
 ):
     """Register a new user with email/password."""
+    client_ip = req.client.host if req.client else "unknown"
+
+    # Rate limit: 3 registrations per minute per IP
+    if not rate_limiter.check(f"register:{client_ip}", max_requests=3, window_seconds=60):
+        raise HTTPException(status_code=429, detail="Too many attempts. Please try again later.")
+
     # Verify Turnstile
-    client_ip = req.client.host if req.client else None
     if not await verify_turnstile(request.turnstile_token, client_ip):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -222,9 +228,16 @@ async def register(
 @router.post("/login", response_model=TokenResponse)
 async def login(
     request: LoginRequest,
+    req: Request,
     db: AsyncSession = Depends(get_db)
 ):
     """Login with email/password."""
+    client_ip = req.client.host if req.client else "unknown"
+
+    # Rate limit: 5 login attempts per minute per IP
+    if not rate_limiter.check(f"login:{client_ip}", max_requests=5, window_seconds=60):
+        raise HTTPException(status_code=429, detail="Too many attempts. Please try again later.")
+
     # Find user
     result = await db.execute(select(User).where(User.email == request.email))
     user = result.scalar_one_or_none()
@@ -392,14 +405,13 @@ async def google_auth(
             user.google_id = google_id
         user.last_login = datetime.utcnow()
     else:
-        # Verify Turnstile for new users
-        if request.turnstile_token:
-            client_ip = req.client.host if req.client else None
-            if not await verify_turnstile(request.turnstile_token, client_ip):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Bot verification failed"
-                )
+        # Verify Turnstile for new users (mandatory)
+        client_ip = req.client.host if req.client else None
+        if not request.turnstile_token or not await verify_turnstile(request.turnstile_token, client_ip):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Bot verification failed"
+            )
 
         # Create new user
         user = User(
@@ -513,14 +525,13 @@ async def apple_auth(
                 detail="Email required for new accounts"
             )
 
-        # Verify Turnstile for new users
-        if request.turnstile_token:
-            client_ip = req.client.host if req.client else None
-            if not await verify_turnstile(request.turnstile_token, client_ip):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Bot verification failed"
-                )
+        # Verify Turnstile for new users (mandatory)
+        client_ip = req.client.host if req.client else None
+        if not request.turnstile_token or not await verify_turnstile(request.turnstile_token, client_ip):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Bot verification failed"
+            )
 
         # Create new user
         user = User(
@@ -586,9 +597,15 @@ async def apple_auth(
 @router.post("/forgot-password")
 async def forgot_password(
     request: ForgotPasswordRequest,
+    req: Request,
     db: AsyncSession = Depends(get_db)
 ):
     """Send a password reset email. Always returns 200 to prevent email enumeration."""
+    client_ip = req.client.host if req.client else "unknown"
+
+    # Rate limit: 3 reset requests per minute per IP
+    if not rate_limiter.check(f"forgot:{client_ip}", max_requests=3, window_seconds=60):
+        raise HTTPException(status_code=429, detail="Too many attempts. Please try again later.")
     result = await db.execute(select(User).where(User.email == request.email))
     user = result.scalar_one_or_none()
 
