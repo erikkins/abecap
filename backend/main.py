@@ -2141,6 +2141,24 @@ def handler(event, context):
                     print(f"🖼️ Attached image to post {post_id}: {image_s3_key}")
                     return {"post_id": post_id, "image_s3_key": image_s3_key}
 
+                elif action == "bulk_schedule":
+                    # Schedule multiple posts: [{"post_id": 97, "publish_at": "2026-02-19T14:00:00"}, ...]
+                    schedule_list = config.get("posts", [])
+                    if not schedule_list:
+                        return {"error": "posts list required"}
+                    from app.services.post_scheduler_service import post_scheduler_service
+                    results = []
+                    for item in schedule_list:
+                        pid = item.get("post_id")
+                        pub_at = item.get("publish_at")
+                        try:
+                            publish_at = datetime.fromisoformat(pub_at)
+                            ok = await post_scheduler_service.schedule_post(pid, publish_at, db)
+                            results.append({"post_id": pid, "scheduled": ok, "publish_at": pub_at})
+                        except Exception as e:
+                            results.append({"post_id": pid, "scheduled": False, "error": str(e)})
+                    return {"scheduled": results}
+
                 else:
                     return {"error": f"Unknown action: {action}"}
 
