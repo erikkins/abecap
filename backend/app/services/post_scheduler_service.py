@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
-import jwt
+from jose import jwt, JWTError, ExpiredSignatureError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
@@ -252,10 +252,10 @@ class PostSchedulerService:
             if payload.get("action") != "cancel":
                 return None
             return payload.get("post_id")
-        except jwt.ExpiredSignatureError:
+        except ExpiredSignatureError:
             logger.warning("Cancel token expired")
             return None
-        except jwt.InvalidTokenError:
+        except JWTError:
             logger.warning("Invalid cancel token")
             return None
 
