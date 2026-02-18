@@ -1127,6 +1127,19 @@ def handler(event, context):
             only = config.get("only")
             results = {}
 
+            # Look up user_id for footer links
+            test_user_id = None
+            try:
+                from app.core.database import async_session, User
+                from sqlalchemy import select
+                async with async_session() as db:
+                    r = await db.execute(select(User.id).where(User.email == to))
+                    row = r.scalar_one_or_none()
+                    if row:
+                        test_user_id = str(row)
+            except Exception:
+                pass
+
             async def _try(name, coro):
                 if only and name not in only:
                     return
@@ -1166,6 +1179,7 @@ def handler(event, context):
                     {"symbol": "TSLA", "price": 312.40, "pct_above_dwap": 3.8, "distance_to_trigger": 1.2},
                     {"symbol": "AMD", "price": 178.90, "pct_above_dwap": 4.1, "distance_to_trigger": 0.9},
                 ],
+                user_id=test_user_id,
             ))
 
             # 2. Welcome
@@ -1196,6 +1210,7 @@ def handler(event, context):
                 symbol="MSFT", action="sell",
                 reason="Trailing stop triggered — 15% from high water mark",
                 current_price=408.30, entry_price=420.00, stop_price=411.60,
+                user_id=test_user_id,
             ))
 
             # 7. Double Signal Alert (breakout)
@@ -1214,6 +1229,7 @@ def handler(event, context):
                     {"symbol": "AMD", "price": 178.90, "pct_above_dwap": 4.1, "distance_to_trigger": 0.9},
                 ],
                 market_regime={"regime": "weak_bull", "spy_price": 580.50},
+                user_id=test_user_id,
             ))
 
             # 8. Intraday Signal Alert
@@ -1221,6 +1237,7 @@ def handler(event, context):
                 to_email=to, user_name="Erik Kinsman",
                 symbol="NVDA", live_price=156.20, dwap=145.50,
                 pct_above_dwap=7.3, momentum_rank=2, sector="Technology",
+                user_id=test_user_id,
             ))
 
             # --- Admin emails (AdminEmailService) ---
