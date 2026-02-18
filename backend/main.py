@@ -561,18 +561,23 @@ def handler(event, context):
             from app.api.signals import compute_shared_dashboard_data
             from datetime import date
 
-            # 1. Refresh data from yfinance
-            signals = await scanner_service.scan(refresh_data=True)
-            print(f"📡 Scan complete: {len(signals)} signals, {len(scanner_service.data_cache)} symbols in cache")
+            # 1. Force-refresh data from yfinance (scan() skips yfinance in Lambda mode)
+            print("📡 Fetching fresh price data from yfinance...")
+            await scanner_service.fetch_data()
+            print(f"📡 Fetched {len(scanner_service.data_cache)} symbols from yfinance")
 
-            # 2. Persist refreshed cache to S3 pickle for future cold starts
+            # 2. Run scan on fresh data
+            signals = await scanner_service.scan(refresh_data=False)
+            print(f"📡 Scan complete: {len(signals)} signals")
+
+            # 3. Persist refreshed cache to S3 pickle for future cold starts
             export_result = data_export_service.export_pickle(scanner_service.data_cache)
             print(f"💾 Data cache persisted to S3: {export_result.get('count', 0)} symbols")
 
-            # 3. Store signals in DB + export to S3
+            # 4. Store signals in DB + export to S3
             await store_signals_callback(signals)
 
-            # 4. Export dashboard JSON + daily snapshot
+            # 5. Export dashboard JSON + daily snapshot
             async with async_session() as db:
                 data = await compute_shared_dashboard_data(db)
                 dash_result = data_export_service.export_dashboard_json(data)
