@@ -23,7 +23,7 @@ SMTP_HOST = os.getenv('SMTP_HOST', 'smtp.gmail.com')
 SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
 SMTP_USER = os.getenv('SMTP_USER', '')
 SMTP_PASS = os.getenv('SMTP_PASS', '')
-FROM_EMAIL = os.getenv('FROM_EMAIL', 'signals@rigacap.com')
+FROM_EMAIL = os.getenv('FROM_EMAIL', 'daily@rigacap.com')
 FROM_NAME = os.getenv('FROM_NAME', 'RigaCap Signals')
 
 # Admin emails - only these addresses can receive internal/admin notifications
@@ -89,7 +89,8 @@ class EmailService:
         to_email: str,
         subject: str,
         html_content: str,
-        text_content: Optional[str] = None
+        text_content: Optional[str] = None,
+        user_id: str = None
     ) -> bool:
         """
         Send an email to a single recipient
@@ -99,6 +100,7 @@ class EmailService:
             subject: Email subject line
             html_content: HTML body of the email
             text_content: Plain text fallback (optional)
+            user_id: User ID for List-Unsubscribe header (omit for transactional emails)
 
         Returns:
             True if sent successfully, False otherwise
@@ -114,6 +116,14 @@ class EmailService:
             msg['Subject'] = subject
             msg['From'] = f"{FROM_NAME} <{FROM_EMAIL}>"
             msg['To'] = to_email
+            msg['Reply-To'] = f"{FROM_NAME} <{FROM_EMAIL}>"
+
+            # RFC 8058 one-click unsubscribe headers (required by Gmail/Yahoo since Feb 2024)
+            if user_id:
+                token = self._generate_email_token(str(user_id), purpose="email_unsubscribe")
+                unsub_url = f"https://api.rigacap.com/auth/unsubscribe?token={token}"
+                msg['List-Unsubscribe'] = f"<{unsub_url}>"
+                msg['List-Unsubscribe-Post'] = "List-Unsubscribe=One-Click"
 
             # Add plain text part
             if text_content:
@@ -598,7 +608,7 @@ class EmailService:
 
         text = self.generate_plain_text(signals, market_regime, date=date, watchlist=watchlist)
 
-        return await self.send_email(to_email, subject, html, text)
+        return await self.send_email(to_email, subject, html, text, user_id=user_id)
 
     async def send_bulk_daily_summary(
         self,
@@ -643,7 +653,7 @@ class EmailService:
         return {"sent": sent, "failed": failed, "total": len(subscribers)}
 
 
-    async def send_welcome_email(self, to_email: str, name: str, referral_code: str = None) -> bool:
+    async def send_welcome_email(self, to_email: str, name: str, referral_code: str = None, user_id: str = None) -> bool:
         """
         Send a beautiful welcome email when a user signs up.
         """
@@ -817,7 +827,8 @@ Trading involves risk. Past performance does not guarantee future results.
             to_email=to_email,
             subject="🚀 Welcome to RigaCap — Your Trading Edge Starts Now!",
             html_content=html,
-            text_content=text
+            text_content=text,
+            user_id=user_id
         )
 
     async def send_password_reset_email(self, to_email: str, name: str, reset_url: str) -> bool:
@@ -888,7 +899,8 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
         name: str,
         days_remaining: int = 2,
         signals_generated: int = 0,
-        strong_signals_seen: int = 0
+        strong_signals_seen: int = 0,
+        user_id: str = None
     ) -> bool:
         """
         Send a 'your trial is ending soon' email to nudge conversion.
@@ -1053,10 +1065,11 @@ Trading involves risk. Past performance does not guarantee future results.
             to_email=to_email,
             subject=f"⏰ Your Trial Ends {day_word} — Subscribe to Keep Your Edge",
             html_content=html,
-            text_content=text
+            text_content=text,
+            user_id=user_id
         )
 
-    async def send_goodbye_email(self, to_email: str, name: str) -> bool:
+    async def send_goodbye_email(self, to_email: str, name: str, user_id: str = None) -> bool:
         """
         Send a 'sorry to see you go' email when a user cancels or trial expires.
         """
@@ -1191,7 +1204,8 @@ Unsubscribe: https://rigacap.com/unsubscribe
             to_email=to_email,
             subject="💔 We Miss You at RigaCap — Here's a Special Offer",
             html_content=html,
-            text_content=text
+            text_content=text,
+            user_id=user_id
         )
 
 
@@ -1495,7 +1509,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
 </body>
 </html>"""
 
-        return await self.send_email(to_email, subject, html)
+        return await self.send_email(to_email, subject, html, user_id=user_id)
 
     async def send_sell_alert(
         self,
@@ -1669,7 +1683,8 @@ Unsubscribe: https://rigacap.com/unsubscribe
             to_email=to_email,
             subject=subject,
             html_content=html,
-            text_content="\n".join(text_lines)
+            text_content="\n".join(text_lines),
+            user_id=user_id
         )
 
     async def send_double_signal_alert(
@@ -1906,7 +1921,8 @@ Unsubscribe: https://rigacap.com/unsubscribe
             to_email=to_email,
             subject=f"⚡ {len(new_signals)} New Breakout Signal{'s' if len(new_signals) > 1 else ''} - Momentum + Breakout Signal",
             html_content=html,
-            text_content="\n".join(text_lines)
+            text_content="\n".join(text_lines),
+            user_id=user_id
         )
 
 
@@ -2074,10 +2090,11 @@ Unsubscribe: https://rigacap.com/unsubscribe
             to_email=to_email,
             subject=f"🔔 LIVE SIGNAL: {symbol} just crossed DWAP +{pct_above_dwap:.1f}%",
             html_content=html,
-            text_content="\n".join(text_lines)
+            text_content="\n".join(text_lines),
+            user_id=user_id
         )
 
-    async def send_referral_reward_email(self, to_email: str, name: str, friend_name: str) -> bool:
+    async def send_referral_reward_email(self, to_email: str, name: str, friend_name: str, user_id: str = None) -> bool:
         """Send a reward notification when a referred friend converts to paid."""
         first_name = name.split()[0] if name else "there"
         friend_first = friend_name.split()[0] if friend_name else "Your friend"
@@ -2159,7 +2176,8 @@ Trading involves risk. Past performance does not guarantee future results.
             to_email=to_email,
             subject="🎉 You Earned a Free Month! Your Referral Paid Off",
             html_content=html,
-            text_content=text
+            text_content=text,
+            user_id=user_id
         )
 
 

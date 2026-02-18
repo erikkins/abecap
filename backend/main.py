@@ -706,6 +706,7 @@ def handler(event, context):
                                     current_price=live_price,
                                     entry_price=position.entry_price,
                                     stop_price=guidance.get('stop_price'),
+                                    user_id=str(position.user_id),
                                 )
                                 sched._alerted_sell_positions.add(dedup_key)
                                 alerts_sent += 1

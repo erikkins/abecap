@@ -486,6 +486,7 @@ async def _reward_referrer(user_id, db: AsyncSession):
                 to_email=referrer.email,
                 name=referrer.name or referrer.email,
                 friend_name=referred_user.name or referred_user.email,
+                user_id=str(referrer.id),
             )
         )
         print(f"✅ Referral: rewarded referrer {referrer.id}, count={referrer.referral_count}")

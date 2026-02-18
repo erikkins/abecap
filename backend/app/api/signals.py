@@ -1853,6 +1853,7 @@ async def simulate_intraday_crossover(
                 pct_above_dwap=sig['as_of_date_pct_above'],
                 momentum_rank=sig['momentum_rank'],
                 sector=sig['sector'],
+                user_id=str(user.id),
             )
             emails_sent.append({
                 'symbol': sig['symbol'],

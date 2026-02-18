@@ -552,7 +552,7 @@ resource "aws_lambda_function" "api" {
       SMTP_PORT                     = "587"
       SMTP_USER                     = var.smtp_user
       SMTP_PASS                     = var.smtp_pass
-      FROM_EMAIL                    = "signals@rigacap.com"
+      FROM_EMAIL                    = "daily@rigacap.com"
       FROM_NAME                     = "RigaCap Signals"
       ADMIN_EMAILS                  = var.admin_emails
       STEP_FUNCTIONS_ARN            = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current.account_id}:stateMachine:${local.prefix}-walk-forward"

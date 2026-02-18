@@ -208,6 +208,7 @@ async def register(
         email_service.send_welcome_email(
             user.email, user.name or user.email,
             referral_code=user.referral_code,
+            user_id=str(user.id),
         )
     )
 
@@ -432,6 +433,7 @@ async def google_auth(
             email_service.send_welcome_email(
                 user.email, user.name or user.email,
                 referral_code=user.referral_code,
+                user_id=str(user.id),
             )
         )
 
@@ -552,6 +554,7 @@ async def apple_auth(
             email_service.send_welcome_email(
                 user.email, user.name or user.email,
                 referral_code=user.referral_code,
+                user_id=str(user.id),
             )
         )
 
