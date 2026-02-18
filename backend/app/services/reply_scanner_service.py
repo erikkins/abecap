@@ -377,7 +377,7 @@ class ReplyScannerService:
                     continue  # Keep first (most recent sim) match
 
                 pnl = trade.get("pnl_pct", 0)
-                if pnl > 0:
+                if pnl >= 5:
                     matches[sym] = trade
 
         return matches
