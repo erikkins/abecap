@@ -2345,7 +2345,7 @@ async def root(admin: User = Depends(get_admin_user)):
 
 
 @app.get("/health")
-async def health(user: User = Depends(require_valid_subscription)):
+async def health(user: User = Depends(get_current_user)):
     scheduler_status = scheduler_service.get_status()
 
     # Use local cache if available, otherwise get metadata from S3
