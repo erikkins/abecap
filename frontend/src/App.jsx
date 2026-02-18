@@ -2795,6 +2795,18 @@ function Dashboard() {
                       const freshSignals = (dashboardData?.buy_signals || []).filter(s => s.is_fresh);
                       const monitoringSignals = (dashboardData?.buy_signals || []).filter(s => !s.is_fresh);
 
+                      // Days since last ensemble signal (for dynamic empty-state messaging)
+                      const daysSinceLastSignal = (() => {
+                        const allDates = (dashboardData?.buy_signals || [])
+                          .map(s => s.ensemble_entry_date)
+                          .filter(Boolean);
+                        if (allDates.length === 0) return null;
+                        const latest = allDates.sort().reverse()[0];
+                        const today = new Date(); today.setHours(0,0,0,0);
+                        const signalDate = new Date(latest + 'T00:00:00');
+                        return Math.round((today - signalDate) / 86400000);
+                      })();
+
                       const renderSimpleSignal = (s) => {
                         const confidenceDots = Math.min(5, Math.max(1, Math.round((s.ensemble_score || 0) / 20)));
                         return (
@@ -2923,7 +2935,16 @@ function Dashboard() {
                             </div>
                           ) : (
                             <div className="px-4 py-4 text-center text-sm text-gray-500 bg-gray-50 border-b border-gray-100">
-                              No fresh buy signals today
+                              <p>No fresh buy signals today</p>
+                              {daysSinceLastSignal > 7 && (
+                                <p className="text-xs text-gray-400 mt-1.5 max-w-xs mx-auto">
+                                  {daysSinceLastSignal <= 14
+                                    ? "Quiet week. The ensemble is being selective — it waits for all three factors to line up."
+                                    : daysSinceLastSignal <= 21
+                                    ? "Two weeks of patience. Sitting out when setups aren't clean is how the ensemble protects you."
+                                    : "Extended quiet stretch. The ensemble won't chase trades — when conditions are right, you'll be the first to know."}
+                                </p>
+                              )}
                             </div>
                           )}
 
@@ -2976,7 +2997,13 @@ function Dashboard() {
                           }`} />
                           <span>
                             <strong>{dashboardData.regime_forecast.current_regime_name}</strong> market
-                            {' '}&mdash; no fresh crossovers today.
+                            {' '}&mdash; {
+                              ['weak_bear', 'panic_crash'].includes(dashboardData.regime_forecast.current_regime)
+                                ? "the ensemble is protecting your capital by sitting this out."
+                                : ['range_bound', 'rotating_bull'].includes(dashboardData.regime_forecast.current_regime)
+                                ? "mixed conditions — the ensemble is being extra selective."
+                                : "scanning for setups that meet all three criteria."
+                            }
                             {(dashboardData?.watchlist || []).length > 0 && ` ${dashboardData.watchlist.length} stock${dashboardData.watchlist.length > 1 ? 's' : ''} on watchlist.`}
                           </span>
                         </div>
