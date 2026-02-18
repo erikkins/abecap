@@ -1456,6 +1456,101 @@ class SchedulerService:
             import traceback
             traceback.print_exc()
 
+    async def send_onboarding_drip_emails(self):
+        """
+        Daily check: send next onboarding email based on signup age.
+
+        Schedule: {1: day 1, 2: day 3, 3: day 5, 4: day 6, 5: day 8}
+        Skips: fully unsubscribed users, admins, already-converted (steps 3-5).
+        """
+        logger.info("📧 Starting onboarding drip check...")
+
+        try:
+            from app.core.database import async_session, User as DBUser, Subscription as DBSub
+            from sqlalchemy import select
+            from sqlalchemy.orm import selectinload
+
+            step_schedule = {1: 1, 2: 3, 3: 5, 4: 6, 5: 8}
+
+            async with async_session() as db:
+                result = await db.execute(
+                    select(DBUser)
+                    .options(selectinload(DBUser.subscription))
+                    .where(DBUser.is_active == True)
+                )
+                users = result.scalars().all()
+
+                sent = 0
+                skipped = 0
+
+                for user in users:
+                    # Skip admins
+                    if user.is_admin():
+                        continue
+
+                    # Skip if already completed all steps
+                    current_step = user.onboarding_step or 0
+                    if current_step >= 5:
+                        continue
+
+                    # Skip if fully unsubscribed (all prefs false)
+                    prefs = user.email_preferences or {}
+                    if prefs and all(v is False for v in prefs.values()):
+                        skipped += 1
+                        continue
+
+                    # Calculate days since signup
+                    if not user.created_at:
+                        continue
+                    days_since = (datetime.utcnow() - user.created_at).days
+
+                    # Find the highest eligible step
+                    next_step = None
+                    for step, required_days in sorted(step_schedule.items()):
+                        if days_since >= required_days and step > current_step:
+                            next_step = step
+
+                    if next_step is None:
+                        continue
+
+                    # For steps 3-5 (trial urgency / win-back): skip if already converted
+                    if next_step >= 3:
+                        sub = user.subscription
+                        if sub and sub.status == "active":
+                            skipped += 1
+                            continue
+
+                    # Send the email
+                    try:
+                        success = await email_service.send_onboarding_email(
+                            step=next_step,
+                            to_email=user.email,
+                            name=user.name or "",
+                            user_id=str(user.id),
+                        )
+                        if success:
+                            user.onboarding_step = next_step
+                            sent += 1
+                            logger.info(f"📧 Onboarding step {next_step} sent to {user.email}")
+                        else:
+                            logger.warning(f"📧 Onboarding step {next_step} failed for {user.email}")
+                    except Exception as e:
+                        logger.error(f"📧 Onboarding email error for {user.email}: {e}")
+
+                    # Rate limiting
+                    await asyncio.sleep(0.5)
+
+                await db.commit()
+
+                logger.info(f"📧 Onboarding drip complete: {sent} sent, {skipped} skipped")
+                return {"sent": sent, "skipped": skipped}
+
+        except Exception as e:
+            logger.error(f"❌ Onboarding drip failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"sent": 0, "error": str(e)}
+
     async def _strategy_auto_analysis(self):
         """
         Biweekly strategy analysis and potential auto-switch.

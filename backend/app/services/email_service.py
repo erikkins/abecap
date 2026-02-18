@@ -1168,6 +1168,308 @@ Unsubscribe: https://rigacap.com/unsubscribe
         )
 
 
+    async def send_onboarding_email(self, step: int, to_email: str, name: str, user_id: str = None) -> bool:
+        """
+        Send an onboarding drip email (steps 1-5).
+
+        Step 1 (Day 1): How Your Signals Work
+        Step 2 (Day 3): Pro Tips for Better Returns
+        Step 3 (Day 5): Your Trial Ends in 2 Days
+        Step 4 (Day 6): Last Day of Your Free Trial
+        Step 5 (Day 8): We Miss You (win-back)
+        """
+        first_name = name.split()[0] if name else "there"
+
+        subjects = {
+            1: "How Your Signals Work",
+            2: "Pro Tips for Better Returns",
+            3: "Your Trial Ends in 2 Days",
+            4: "Last Day of Your Free Trial",
+            5: "We Miss You — Come Back to RigaCap",
+        }
+
+        emojis = {1: "📊", 2: "💡", 3: "⏰", 4: "🚨", 5: "💔"}
+
+        subject = f"{emojis.get(step, '📧')} {subjects.get(step, 'RigaCap')}"
+
+        content_blocks = {
+            1: f"""
+                <p style="font-size: 18px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    Hey {first_name}!
+                </p>
+                <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    Welcome to Day 1! Let's make sure you get the most out of your trial.
+                    Here's how RigaCap finds the best trades:
+                </p>
+
+                <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
+                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #1e40af; border-left: 4px solid #172554; padding-left: 12px;">
+                        The Ensemble Algorithm
+                    </h2>
+                    <ol style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
+                        <li><strong>DWAP Timing</strong> — We track when a stock's price crosses 5% above its 200-day weighted average. This catches early breakouts before the crowd.</li>
+                        <li><strong>Momentum Quality</strong> — We rank stocks by 10-day and 60-day momentum. Only top-ranked stocks make the cut.</li>
+                        <li><strong>Confirmation</strong> — Volume surge + near 50-day high = triple-confirmed entry.</li>
+                    </ol>
+                </div>
+
+                <div style="background-color: #f0fdf4; border-radius: 12px; padding: 20px; margin: 24px 0;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #059669;">Reading Your Dashboard</h3>
+                    <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
+                        <li><strong style="color: #059669;">Green BUY badge</strong> — Fresh breakout, highest conviction</li>
+                        <li><strong>Momentum Rank</strong> — Top 5 = best opportunities</li>
+                        <li><strong>Signal Strength</strong> — STRONG badge = all 3 factors aligned</li>
+                    </ul>
+                </div>
+
+                <div style="text-align: center; margin: 32px 0;">
+                    <a href="https://rigacap.com/app"
+                       style="display: inline-block; background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); color: #ffffff; font-size: 16px; font-weight: 600; padding: 16px 40px; border-radius: 12px; text-decoration: none;">
+                        Check Today's Signals →
+                    </a>
+                </div>
+
+                <p style="font-size: 14px; color: #6b7280; margin: 24px 0 0 0;">
+                    Tomorrow you'll start receiving daily email digests with fresh signals — no need to check the dashboard manually.
+                </p>
+            """,
+            2: f"""
+                <p style="font-size: 18px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    Hey {first_name}!
+                </p>
+                <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    You've been with us a few days — here are some tips to maximize your returns:
+                </p>
+
+                <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
+                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #92400e; border-left: 4px solid #172554; padding-left: 12px;">
+                        Pro Tip #1: Watch the Watchlist
+                    </h2>
+                    <p style="margin: 0; color: #374151; line-height: 1.6;">
+                        Stocks on the <strong>Watchlist</strong> are approaching the DWAP trigger.
+                        When they cross, you'll get an alert — often before they show up as full signals.
+                        This gives you a head start.
+                    </p>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
+                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #6d28d9; border-left: 4px solid #172554; padding-left: 12px;">
+                        Pro Tip #2: Know Your Market Regime
+                    </h2>
+                    <p style="margin: 0; color: #374151; line-height: 1.6;">
+                        RigaCap detects <strong>7 market regimes</strong> — from Strong Bull to Panic/Crash.
+                        In bearish regimes, the algorithm reduces exposure automatically.
+                        Check the regime badge at the top of your dashboard.
+                    </p>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
+                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #059669; border-left: 4px solid #172554; padding-left: 12px;">
+                        Pro Tip #3: Trailing Stops Protect You
+                    </h2>
+                    <p style="margin: 0; color: #374151; line-height: 1.6;">
+                        Every position has a <strong>12% trailing stop</strong> from its high water mark.
+                        You'll get an email alert when a stock approaches the stop —
+                        no need to watch prices all day.
+                    </p>
+                </div>
+
+                <div style="background-color: #f9fafb; border-radius: 12px; padding: 20px; margin: 24px 0; border-left: 4px solid #172554;">
+                    <p style="margin: 0; font-size: 14px; color: #374151;">
+                        <strong>Simple vs Advanced mode:</strong> Toggle in the top-right corner of your dashboard.
+                        Simple mode shows clear buy/sell actions. Advanced mode reveals full technical details
+                        (DWAP levels, momentum scores, regime analysis).
+                    </p>
+                </div>
+
+                <div style="text-align: center; margin: 32px 0;">
+                    <a href="https://rigacap.com/app"
+                       style="display: inline-block; background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); color: #ffffff; font-size: 16px; font-weight: 600; padding: 16px 40px; border-radius: 12px; text-decoration: none;">
+                        Open Dashboard →
+                    </a>
+                </div>
+            """,
+            3: f"""
+                <p style="font-size: 18px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    Hey {first_name},
+                </p>
+                <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    Just a heads up — your free trial ends in <strong>2 days</strong>.
+                    Here's what you've been getting access to:
+                </p>
+
+                <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 16px; padding: 24px; margin: 24px 0; text-align: center;">
+                    <p style="margin: 0 0 4px 0; font-size: 14px; color: #059669; text-transform: uppercase; font-weight: 600;">
+                        5-Year Walk-Forward Performance
+                    </p>
+                    <p style="margin: 0; font-size: 48px; font-weight: 700; color: #059669;">
+                        +289%
+                    </p>
+                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #374151;">
+                        31% annualized &bull; 0.81 avg Sharpe &bull; No hindsight bias
+                    </p>
+                </div>
+
+                <div style="background-color: #eff6ff; border-radius: 12px; padding: 20px; margin: 24px 0;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #1e40af;">What you'll keep with a subscription:</h3>
+                    <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
+                        <li>Daily ensemble buy signals (DWAP + momentum + volume)</li>
+                        <li>7-regime market detection with adaptive exposure</li>
+                        <li>Trailing stop alerts — sell signals delivered to your inbox</li>
+                        <li>Watchlist alerts when stocks approach buy triggers</li>
+                        <li>Full track record — <a href="https://rigacap.com/track-record" style="color: #1e40af;">see year-by-year results</a></li>
+                    </ul>
+                </div>
+
+                <div style="text-align: center; margin: 32px 0;">
+                    <a href="https://rigacap.com/#pricing"
+                       style="display: inline-block; background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); color: #ffffff; font-size: 18px; font-weight: 600; padding: 18px 48px; border-radius: 12px; text-decoration: none;">
+                        Subscribe Now →
+                    </a>
+                </div>
+
+                <p style="font-size: 14px; color: #6b7280; margin: 24px 0 0 0;">
+                    Questions? Just reply to this email — we're always here to help.
+                </p>
+            """,
+            4: f"""
+                <p style="font-size: 18px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    Hey {first_name},
+                </p>
+                <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    This is your <strong>last day</strong> of free access to RigaCap signals.
+                    After today, you'll lose access to:
+                </p>
+
+                <div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
+                    <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2.2;">
+                        <li>Daily AI-powered ensemble buy signals</li>
+                        <li>Sell alerts and trailing stop notifications</li>
+                        <li>Market regime detection (7 regimes)</li>
+                        <li>Momentum rankings across 6,500+ stocks</li>
+                        <li>Watchlist alerts and missed opportunity tracking</li>
+                        <li>Portfolio P&L tracking</li>
+                    </ul>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 16px; padding: 24px; margin: 24px 0; text-align: center;">
+                    <p style="margin: 0; font-size: 14px; color: #059669; text-transform: uppercase; font-weight: 600;">
+                        Latest Year Performance
+                    </p>
+                    <p style="margin: 8px 0 0 0; font-size: 42px; font-weight: 700; color: #059669;">
+                        87.5%
+                    </p>
+                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #374151;">
+                        Walk-forward return (2025-2026) &bull; 2.32 Sharpe ratio
+                    </p>
+                </div>
+
+                <div style="text-align: center; margin: 32px 0;">
+                    <a href="https://rigacap.com/#pricing"
+                       style="display: inline-block; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: #ffffff; font-size: 18px; font-weight: 600; padding: 18px 48px; border-radius: 12px; text-decoration: none;">
+                        Don't Lose Access — Subscribe Now →
+                    </a>
+                </div>
+
+                <p style="font-size: 14px; color: #6b7280; margin: 24px 0 0 0;">
+                    Questions? Just reply to this email.
+                </p>
+            """,
+            5: f"""
+                <p style="font-size: 18px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    Hey {first_name},
+                </p>
+                <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    Your trial ended, but we're still finding signals every day.
+                    Here's what you've been missing:
+                </p>
+
+                <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
+                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #92400e; border-left: 4px solid #172554; padding-left: 12px;">
+                        While You Were Away
+                    </h2>
+                    <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
+                        <li>The ensemble generates <strong>~15 signals per month</strong></li>
+                        <li>Walk-forward tested: <strong>+289% over 5 years</strong>, no hindsight bias</li>
+                        <li>80% of years profitable (4 out of 5)</li>
+                    </ul>
+                </div>
+
+                <div style="background-color: #eff6ff; border-radius: 12px; padding: 20px; margin: 24px 0; border-left: 4px solid #172554;">
+                    <p style="margin: 0; font-size: 14px; color: #1e3a5f;">
+                        <strong>See our full track record:</strong>
+                        Year-by-year walk-forward results with zero hindsight bias.
+                        <a href="https://rigacap.com/track-record" style="color: #1e40af; text-decoration: underline;">View Track Record →</a>
+                    </p>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); border-radius: 16px; padding: 24px; margin: 24px 0; text-align: center;">
+                    <p style="margin: 0 0 8px 0; font-size: 14px; color: rgba(255,255,255,0.9); text-transform: uppercase; font-weight: 600;">
+                        Come Back Offer
+                    </p>
+                    <p style="margin: 0 0 16px 0; font-size: 24px; font-weight: 700; color: #ffffff;">
+                        Get 20% Off Your First Month
+                    </p>
+                    <a href="https://rigacap.com/app?promo=COMEBACK20"
+                       style="display: inline-block; background-color: #ffffff; color: #172554; font-size: 16px; font-weight: 600; padding: 14px 32px; border-radius: 10px; text-decoration: none;">
+                        Reactivate Now →
+                    </a>
+                </div>
+
+                <p style="font-size: 14px; color: #6b7280; margin: 24px 0 0 0;">
+                    If something wasn't right, reply to this email and let us know — we're always improving.
+                </p>
+            """,
+        }
+
+        content = content_blocks.get(step, "")
+        if not content:
+            logger.warning(f"Unknown onboarding step: {step}")
+            return False
+
+        # Header gradient varies by step type
+        if step <= 2:
+            header_gradient = "linear-gradient(135deg, #172554 0%, #1e3a5f 100%)"
+            header_title = subjects[step]
+        elif step <= 4:
+            header_gradient = "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
+            header_title = subjects[step]
+        else:
+            header_gradient = "linear-gradient(135deg, #1f2937 0%, #374151 100%)"
+            header_title = "We Miss You"
+
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+            <td style="background: {header_gradient}; padding: 48px 24px; text-align: center;">
+                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="48" height="48" style="display: block; margin: 0 auto 16px auto; border-radius: 50%;" />
+                <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
+                    {header_title}
+                </h1>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 40px 32px;">
+                {content}
+                <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
+                    Happy trading!<br>
+                    <strong>The RigaCap Team</strong>
+                </p>
+            </td>
+        </tr>
+        {self._email_footer_html(user_id)}
+    </table>
+</body>
+</html>"""
+
+        return await self.send_email(to_email, subject, html)
+
     async def send_sell_alert(
         self,
         to_email: str,

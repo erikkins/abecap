@@ -942,6 +942,31 @@ resource "aws_lambda_permission" "strategy_analysis" {
 }
 
 # ============================================================================
+# EventBridge - Onboarding Drip Emails (10 AM ET = 15:00 UTC, daily)
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "onboarding_drip" {
+  name                = "${local.prefix}-onboarding-drip"
+  description         = "Send onboarding drip emails at 10 AM ET daily"
+  schedule_expression = "cron(0 15 * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "onboarding_drip" {
+  rule      = aws_cloudwatch_event_rule.onboarding_drip.name
+  target_id = "lambda-onboarding-drip"
+  arn       = aws_lambda_function.api.arn
+  input     = jsonencode({ onboarding_drip = true })
+}
+
+resource "aws_lambda_permission" "onboarding_drip" {
+  statement_id  = "AllowOnboardingDripEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.onboarding_drip.arn
+}
+
+# ============================================================================
 # Step Functions - Walk-Forward Simulation
 # ============================================================================
 

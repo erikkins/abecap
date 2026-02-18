@@ -341,6 +341,9 @@ class User(Base):
     # Email preferences: {"daily_digest": true, "sell_alerts": true, ...}
     email_preferences = Column(JSON, nullable=True)
 
+    # Onboarding drip sequence: 0=none sent, 1-5=last step sent
+    onboarding_step = Column(Integer, default=0)
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
@@ -605,6 +608,15 @@ async def _run_schema_migrations(conn):
             ALTER TABLE users ADD COLUMN IF NOT EXISTS email_preferences JSON
         """))
         print("✅ Schema migration: email_preferences column ready")
+    except Exception as e:
+        print(f"⚠️ Schema migration skipped: {e}")
+
+    # Migration: Add onboarding_step column to users
+    try:
+        await conn.execute(text("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_step INTEGER DEFAULT 0
+        """))
+        print("✅ Schema migration: onboarding_step column ready")
     except Exception as e:
         print(f"⚠️ Schema migration skipped: {e}")
 

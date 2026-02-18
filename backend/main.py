@@ -1328,6 +1328,13 @@ def handler(event, context):
                 cancel_url="https://rigacap.com/api/admin/social/posts/998/cancel-email?token=test-preview",
             ))
 
+            # 15-19. Onboarding drip emails (steps 1-5)
+            for step in range(1, 6):
+                await _try(f"onboarding_{step}", email_service.send_onboarding_email(
+                    step=step, to_email=to, name="Erik Kinsman",
+                    user_id=test_user_id,
+                ))
+
             sent_count = sum(1 for v in results.values() if v == "sent")
             return {"status": "success", "sent": sent_count, "total": len(results), "results": results, "to": to}
 
@@ -1532,6 +1539,22 @@ def handler(event, context):
         except Exception as e:
             import traceback
             print(f"❌ Strategy auto-analysis failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Handle onboarding drip emails (EventBridge: 10 AM ET daily)
+    if event.get("onboarding_drip"):
+        print("📧 Onboarding drip emails triggered")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(scheduler_service.send_onboarding_drip_emails())
+            return {"status": "success", "result": result}
+        except Exception as e:
+            import traceback
+            print(f"❌ Onboarding drip failed: {e}")
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
