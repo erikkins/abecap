@@ -52,7 +52,11 @@ async def list_posts(
     _admin=Depends(get_admin_user),
 ):
     """List social posts with optional filters."""
-    query = select(SocialPost).order_by(desc(SocialPost.created_at))
+    if status == "scheduled":
+        # Scheduled posts: next-to-publish first
+        query = select(SocialPost).order_by(SocialPost.scheduled_for.asc())
+    else:
+        query = select(SocialPost).order_by(desc(SocialPost.created_at))
 
     if status:
         query = query.where(SocialPost.status == status)

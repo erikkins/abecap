@@ -938,9 +938,9 @@ function PostBadges({ post }) {
         </span>
       )}
       {post.scheduled_for && (
-        <span className="flex items-center gap-1 text-xs text-amber-600" title={`Scheduled for ${new Date(post.scheduled_for).toLocaleString()}`}>
-          <Clock size={10} />
-          {new Date(post.scheduled_for).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+        <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700" title={`Scheduled for ${new Date(post.scheduled_for).toLocaleString()}`}>
+          <Calendar size={11} />
+          {new Date(post.scheduled_for).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} @ {new Date(post.scheduled_for).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
         </span>
       )}
       <span className="text-xs text-gray-400">

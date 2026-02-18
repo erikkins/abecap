@@ -2146,17 +2146,28 @@ def handler(event, context):
                     schedule_list = config.get("posts", [])
                     if not schedule_list:
                         return {"error": "posts list required"}
-                    from app.services.post_scheduler_service import post_scheduler_service
                     results = []
                     for item in schedule_list:
                         pid = item.get("post_id")
                         pub_at = item.get("publish_at")
                         try:
                             publish_at = datetime.fromisoformat(pub_at)
-                            ok = await post_scheduler_service.schedule_post(pid, publish_at, db)
-                            results.append({"post_id": pid, "scheduled": ok, "publish_at": pub_at})
+                            r = await db.execute(
+                                select(SocialPost).where(SocialPost.id == pid)
+                            )
+                            post = r.scalar_one_or_none()
+                            if not post:
+                                results.append({"post_id": pid, "scheduled": False, "error": "not found"})
+                                continue
+                            if post.status not in ("draft", "approved"):
+                                results.append({"post_id": pid, "scheduled": False, "error": f"status is {post.status}"})
+                                continue
+                            post.status = "scheduled"
+                            post.scheduled_for = publish_at
+                            results.append({"post_id": pid, "scheduled": True, "publish_at": pub_at})
                         except Exception as e:
                             results.append({"post_id": pid, "scheduled": False, "error": str(e)})
+                    await db.commit()
                     return {"scheduled": results}
 
                 else:
