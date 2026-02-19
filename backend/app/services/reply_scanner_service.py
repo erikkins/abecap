@@ -73,33 +73,35 @@ FOLLOWED_ACCOUNTS: Dict[str, dict] = {
 }
 
 # Company name -> ticker mappings for extraction
+# Company names that are unambiguous — won't match common English words.
+# Excluded: apple, snap, block, target, arm, unity, elastic, meta, uber, discord, visa
+# Those require a cashtag ($AAPL) to match.
 COMPANY_TO_TICKER: Dict[str, str] = {
-    "nvidia": "NVDA", "apple": "AAPL", "microsoft": "MSFT", "amazon": "AMZN",
-    "google": "GOOGL", "alphabet": "GOOGL", "meta": "META", "facebook": "META",
-    "tesla": "TSLA", "netflix": "NFLX", "amd": "AMD", "intel": "INTC",
-    "broadcom": "AVGO", "qualcomm": "QCOM", "micron": "MU", "salesforce": "CRM",
+    "nvidia": "NVDA", "microsoft": "MSFT", "amazon": "AMZN",
+    "google": "GOOGL", "alphabet": "GOOGL", "facebook": "META",
+    "tesla": "TSLA", "netflix": "NFLX", "broadcom": "AVGO",
+    "qualcomm": "QCOM", "micron": "MU", "salesforce": "CRM",
     "adobe": "ADBE", "palantir": "PLTR", "snowflake": "SNOW", "crowdstrike": "CRWD",
-    "palo alto": "PANW", "datadog": "DDOG", "servicenow": "NOW", "shopify": "SHOP",
+    "palo alto networks": "PANW", "datadog": "DDOG", "servicenow": "NOW", "shopify": "SHOP",
     "coinbase": "COIN", "robinhood": "HOOD", "sofi": "SOFI", "paypal": "PYPL",
-    "square": "SQ", "block": "SQ", "uber": "UBER", "lyft": "LYFT",
-    "airbnb": "ABNB", "doordash": "DASH", "roku": "ROKU", "spotify": "SPOT",
-    "snap": "SNAP", "pinterest": "PINS", "twitter": "TWTR", "discord": "CORD",
-    "costco": "COST", "walmart": "WMT", "target": "TGT", "home depot": "HD",
-    "nike": "NKE", "starbucks": "SBUX", "mcdonald": "MCD", "coca-cola": "KO",
-    "pepsi": "PEP", "pepsico": "PEP", "procter": "PG", "johnson & johnson": "JNJ",
+    "lyft": "LYFT", "airbnb": "ABNB", "doordash": "DASH", "roku": "ROKU",
+    "spotify": "SPOT", "snapchat": "SNAP", "pinterest": "PINS",
+    "costco": "COST", "walmart": "WMT", "home depot": "HD",
+    "nike": "NKE", "starbucks": "SBUX", "mcdonalds": "MCD", "coca-cola": "KO",
+    "pepsi": "PEP", "pepsico": "PEP", "procter & gamble": "PG", "johnson & johnson": "JNJ",
     "jpmorgan": "JPM", "goldman sachs": "GS", "morgan stanley": "MS",
     "bank of america": "BAC", "wells fargo": "WFC", "citigroup": "C",
-    "visa": "V", "mastercard": "MA", "american express": "AXP",
+    "mastercard": "MA", "american express": "AXP",
     "unitedhealth": "UNH", "pfizer": "PFE", "eli lilly": "LLY", "abbvie": "ABBV",
     "novo nordisk": "NVO", "merck": "MRK", "moderna": "MRNA",
     "exxon": "XOM", "chevron": "CVX", "conocophillips": "COP",
-    "boeing": "BA", "lockheed": "LMT", "raytheon": "RTX",
+    "boeing": "BA", "lockheed martin": "LMT", "raytheon": "RTX",
     "disney": "DIS", "comcast": "CMCSA", "paramount": "PARA",
-    "arm": "ARM", "super micro": "SMCI", "supermicro": "SMCI",
-    "arista": "ANET", "fortinet": "FTNT", "zscaler": "ZS",
-    "mongodb": "MDB", "elastic": "ESTC", "confluent": "CFLT",
-    "trade desk": "TTD", "unity": "U", "roblox": "RBLX",
-    "rivian": "RIVN", "lucid": "LCID", "nio": "NIO",
+    "super micro": "SMCI", "supermicro": "SMCI",
+    "arista networks": "ANET", "fortinet": "FTNT", "zscaler": "ZS",
+    "mongodb": "MDB", "confluent": "CFLT",
+    "trade desk": "TTD", "roblox": "RBLX",
+    "rivian": "RIVN", "lucid motors": "LCID", "nio": "NIO",
 }
 
 # Words that look like tickers but aren't
@@ -135,32 +137,36 @@ _FINANCIAL_CONTEXT_WORDS = {
 def extract_symbols(text: str) -> List[str]:
     """
     Extract stock ticker symbols from tweet text using 3-tier extraction:
-    1. Cashtags ($NVDA)
-    2. Bare uppercase tickers near financial context words
-    3. Company name mentions mapped to tickers
+    1. Cashtags ($NVDA) — highest confidence
+    2. Bare uppercase tickers (3+ chars) near financial context words
+    3. Company name mentions (word-boundary match, not substring)
 
     Returns deduplicated list of valid-looking symbols.
     """
     symbols = set()
 
-    # Tier 1: Cashtags ($NVDA, $AAPL)
+    # Strip @mentions and URLs before analysis (prevents username/URL false positives)
+    clean_text = re.sub(r'@\w+', '', text)
+    clean_text = re.sub(r'https?://\S+', '', clean_text)
+
+    # Tier 1: Cashtags ($NVDA, $AAPL) — always trusted
     cashtags = re.findall(r'\$([A-Z]{1,5})\b', text)
     for tag in cashtags:
         if tag not in FALSE_POSITIVE_TICKERS:
             symbols.add(tag)
 
-    # Tier 2: Bare uppercase tickers (2-5 chars) near financial context
-    text_lower = text.lower()
-    has_financial_context = any(w in text_lower for w in _FINANCIAL_CONTEXT_WORDS)
+    # Tier 2: Bare uppercase tickers (3-5 chars) near financial context
+    clean_lower = clean_text.lower()
+    has_financial_context = any(w in clean_lower for w in _FINANCIAL_CONTEXT_WORDS)
     if has_financial_context:
-        bare_tickers = re.findall(r'\b([A-Z]{2,5})\b', text)
+        bare_tickers = re.findall(r'\b([A-Z]{3,5})\b', clean_text)
         for ticker in bare_tickers:
-            if ticker not in FALSE_POSITIVE_TICKERS and len(ticker) >= 3:
+            if ticker not in FALSE_POSITIVE_TICKERS:
                 symbols.add(ticker)
 
-    # Tier 3: Company name mentions
+    # Tier 3: Company name mentions (word-boundary match)
     for name, ticker in COMPANY_TO_TICKER.items():
-        if name.lower() in text_lower:
+        if re.search(r'\b' + re.escape(name) + r'\b', clean_lower):
             symbols.add(ticker)
 
     return list(symbols)
