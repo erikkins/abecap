@@ -1,8 +1,9 @@
 """
-Chart Card Generator - Create 1080x1080 Instagram chart cards from trade data.
+Chart Card Generator - Create 1080x1350 Instagram chart cards from trade data.
 
 Uses matplotlib with Agg backend (headless, works on Lambda).
 Cards show price chart with entry/exit markers, return info, and branding.
+4:5 aspect ratio (1080x1350) optimized for Instagram's 3:4 grid preview.
 """
 
 import io
@@ -35,7 +36,7 @@ BRAND_GRAY = '#64748b'
 
 
 class ChartCardGenerator:
-    """Generate Instagram-ready chart card images from trade data."""
+    """Generate Instagram-ready 1080x1350 chart card images from trade data."""
 
     def __init__(self):
         self._s3_client = None
@@ -61,7 +62,7 @@ class ChartCardGenerator:
         company_name: str = "",
     ) -> bytes:
         """
-        Generate a 1080x1080 chart card image.
+        Generate a 1080x1350 chart card image (4:5 ratio for Instagram).
 
         Returns PNG bytes.
         """
@@ -71,16 +72,18 @@ class ChartCardGenerator:
         # Try to get price data for the chart
         price_data = self._get_price_data(symbol, entry_date, exit_date)
 
-        fig, ax = plt.subplots(1, 1, figsize=(10.8, 10.8), dpi=100)
+        # 1080x1350 = 4:5 ratio, optimized for Instagram grid preview
+        fig, ax = plt.subplots(1, 1, figsize=(10.8, 13.5), dpi=100)
         fig.patch.set_facecolor(BRAND_DARK)
 
-        # Layout regions (in figure coordinates)
-        # Header: top 8%
-        # Symbol/company: next 8%
-        # Chart: middle 46%
-        # Return: next 14%
-        # Details: next 12%
-        # Footer: bottom 6%
+        # Layout regions (in figure coordinates, 0=bottom, 1=top)
+        # Header: 0.95-1.00 (top 5%)
+        # Symbol/company: 0.88-0.95 (7%)
+        # Chart: 0.38-0.86 (48%)
+        # Return: 0.25-0.36 (11%)
+        # Details: 0.15-0.24 (9%)
+        # Badges: 0.08-0.14 (6%)
+        # Footer: 0.02-0.07 (5%)
 
         # Clear axes for custom layout
         ax.set_position([0, 0, 1, 1])
@@ -89,49 +92,49 @@ class ChartCardGenerator:
         ax.axis('off')
 
         # --- Header ---
-        ax.text(0.05, 0.95, 'RigaCap', fontsize=20, fontweight='bold',
+        ax.text(0.05, 0.97, 'RigaCap', fontsize=22, fontweight='bold',
                 color='white', va='top', ha='left',
                 fontfamily='sans-serif')
         if regime_name:
-            ax.text(0.95, 0.95, f'Market: {regime_name}', fontsize=14,
+            ax.text(0.95, 0.97, f'Market: {regime_name}', fontsize=15,
                     color=BRAND_GRAY, va='top', ha='right',
                     fontfamily='sans-serif')
 
         # --- Gold divider line (below header) ---
-        ax.plot([0.08, 0.92], [0.905, 0.905], color=BRAND_ACCENT, lw=1.5, alpha=0.6)
+        ax.plot([0.08, 0.92], [0.935, 0.935], color=BRAND_ACCENT, lw=1.5, alpha=0.6)
 
         # --- Symbol ---
-        ax.text(0.5, 0.87, f'${symbol}', fontsize=42, fontweight='bold',
+        ax.text(0.5, 0.91, f'${symbol}', fontsize=46, fontweight='bold',
                 color='white', va='top', ha='center',
                 fontfamily='sans-serif')
         if company_name:
-            ax.text(0.5, 0.82, company_name, fontsize=16,
+            ax.text(0.5, 0.87, company_name, fontsize=17,
                     color=BRAND_GRAY, va='top', ha='center',
                     fontfamily='sans-serif')
 
         # --- Price Chart ---
         if price_data is not None and len(price_data) > 5:
-            chart_ax = fig.add_axes([0.08, 0.38, 0.84, 0.40])
+            chart_ax = fig.add_axes([0.08, 0.38, 0.84, 0.46])
             self._draw_price_chart(
                 chart_ax, price_data, entry_date, exit_date,
                 entry_price, exit_price, accent_color
             )
         else:
             # No chart data — show placeholder
-            ax.text(0.5, 0.56, 'Price Chart', fontsize=18,
+            ax.text(0.5, 0.60, 'Price Chart', fontsize=18,
                     color=BRAND_GRAY, va='center', ha='center',
                     fontfamily='sans-serif', style='italic')
 
         # --- Return ---
         return_sign = '+' if pnl_pct > 0 else ''
-        ax.text(0.5, 0.30, f'{return_sign}{pnl_pct:.1f}%', fontsize=64,
+        ax.text(0.5, 0.30, f'{return_sign}{pnl_pct:.1f}%', fontsize=68,
                 fontweight='bold', color=accent_color,
                 va='center', ha='center', fontfamily='sans-serif')
 
         if pnl_dollars:
             dollar_sign = '+' if pnl_dollars > 0 else ''
-            ax.text(0.5, 0.23, f'{dollar_sign}${abs(pnl_dollars):,.0f}',
-                    fontsize=22, color=accent_color,
+            ax.text(0.5, 0.24, f'{dollar_sign}${abs(pnl_dollars):,.0f}',
+                    fontsize=24, color=accent_color,
                     va='center', ha='center', fontfamily='sans-serif')
 
         # --- Gold divider line (above details) ---
@@ -146,7 +149,7 @@ class ChartCardGenerator:
         else:
             detail_text = ''
 
-        ax.text(0.5, 0.16, detail_text, fontsize=15,
+        ax.text(0.5, 0.16, detail_text, fontsize=16,
                 color=BRAND_GRAY, va='center', ha='center',
                 fontfamily='sans-serif')
 
@@ -165,10 +168,10 @@ class ChartCardGenerator:
         self._draw_badge(ax, 0.65, badge_y, exit_display, BRAND_GRAY)
 
         # --- Footer ---
-        ax.text(0.05, 0.03, 'rigacap.com', fontsize=13,
+        ax.text(0.05, 0.03, 'rigacap.com', fontsize=14,
                 color=BRAND_ACCENT, va='bottom', ha='left',
                 fontfamily='sans-serif', fontweight='bold')
-        ax.text(0.95, 0.03, 'Walk-Forward Verified', fontsize=13,
+        ax.text(0.95, 0.03, 'Walk-Forward Verified', fontsize=14,
                 color=BRAND_GRAY, va='bottom', ha='right',
                 fontfamily='sans-serif', style='italic')
 
