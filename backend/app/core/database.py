@@ -324,6 +324,43 @@ class SocialPost(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
 
+class ModelPosition(Base):
+    """Model portfolio positions (live or walk-forward tracking)"""
+    __tablename__ = "model_positions"
+
+    id = Column(Integer, primary_key=True)
+    portfolio_type = Column(String(20), nullable=False, index=True)  # "live" or "walkforward"
+    symbol = Column(String(10), nullable=False, index=True)
+    entry_date = Column(DateTime, nullable=False)
+    entry_price = Column(Float, nullable=False)
+    shares = Column(Float, nullable=False)
+    cost_basis = Column(Float, nullable=False)
+    highest_price = Column(Float)
+    exit_date = Column(DateTime, nullable=True)
+    exit_price = Column(Float, nullable=True)
+    exit_reason = Column(String(50), nullable=True)
+    pnl_dollars = Column(Float, nullable=True)
+    pnl_pct = Column(Float, nullable=True)
+    signal_data_json = Column(Text, nullable=True)
+    status = Column(String(20), default="open", index=True)
+    social_post_generated = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ModelPortfolioState(Base):
+    """Aggregate state for each model portfolio"""
+    __tablename__ = "model_portfolio_state"
+
+    id = Column(Integer, primary_key=True)
+    portfolio_type = Column(String(20), nullable=False, unique=True)
+    starting_capital = Column(Float, default=100000.0)
+    current_cash = Column(Float, default=100000.0)
+    total_trades = Column(Integer, default=0)
+    winning_trades = Column(Integer, default=0)
+    total_pnl = Column(Float, default=0.0)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class User(Base):
     """User account for authentication and subscription management"""
     __tablename__ = "users"
@@ -618,6 +655,44 @@ async def _run_schema_migrations(conn):
         "UPDATE positions SET user_id = (SELECT id FROM users WHERE email = 'erik@rigacap.com') WHERE user_id IS NULL",
         "UPDATE trades SET user_id = (SELECT id FROM users WHERE email = 'erik@rigacap.com') WHERE user_id IS NULL",
     ])
+
+    await _run("model_positions table", [
+        """CREATE TABLE IF NOT EXISTS model_positions (
+            id SERIAL PRIMARY KEY,
+            portfolio_type VARCHAR(20) NOT NULL,
+            symbol VARCHAR(10) NOT NULL,
+            entry_date TIMESTAMP NOT NULL,
+            entry_price FLOAT NOT NULL,
+            shares FLOAT NOT NULL,
+            cost_basis FLOAT NOT NULL,
+            highest_price FLOAT,
+            exit_date TIMESTAMP,
+            exit_price FLOAT,
+            exit_reason VARCHAR(50),
+            pnl_dollars FLOAT,
+            pnl_pct FLOAT,
+            signal_data_json TEXT,
+            status VARCHAR(20) DEFAULT 'open',
+            social_post_generated BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_mp_status ON model_positions(status)",
+        "CREATE INDEX IF NOT EXISTS idx_mp_portfolio ON model_positions(portfolio_type)",
+        "CREATE INDEX IF NOT EXISTS idx_mp_symbol ON model_positions(symbol)",
+    ])
+
+    await _run("model_portfolio_state table", """
+        CREATE TABLE IF NOT EXISTS model_portfolio_state (
+            id SERIAL PRIMARY KEY,
+            portfolio_type VARCHAR(20) NOT NULL UNIQUE,
+            starting_capital FLOAT DEFAULT 100000.0,
+            current_cash FLOAT DEFAULT 100000.0,
+            total_trades INTEGER DEFAULT 0,
+            winning_trades INTEGER DEFAULT 0,
+            total_pnl FLOAT DEFAULT 0.0,
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
 
 
 async def init_db():

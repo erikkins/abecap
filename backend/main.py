@@ -785,6 +785,48 @@ def handler(event, context):
         result = loop.run_until_complete(_wf_query())
         return result or {"error": f"Job {job_id} not found"}
 
+    # Handle model portfolio operations
+    if event.get("model_portfolio"):
+        config = event["model_portfolio"]
+        action = config.get("action", "summary")
+        portfolio_type = config.get("portfolio_type")  # None = both
+
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _run_model_portfolio():
+            from app.services.model_portfolio_service import model_portfolio_service
+            from app.core.database import async_session as mp_session
+
+            async with mp_session() as db:
+                if action == "process_entries":
+                    results = {}
+                    for ptype in ([portfolio_type] if portfolio_type else ["live", "walkforward"]):
+                        results[ptype] = await model_portfolio_service.process_entries(db, ptype)
+                    return {"action": action, "results": results}
+
+                elif action == "process_exits":
+                    results = {}
+                    if not portfolio_type or portfolio_type == "walkforward":
+                        results["walkforward"] = await model_portfolio_service.process_wf_exits(db)
+                    if not portfolio_type or portfolio_type == "live":
+                        results["live"] = {"note": "Live exits require live prices (intraday monitor)"}
+                    return {"action": action, "results": results}
+
+                elif action == "summary":
+                    return await model_portfolio_service.get_portfolio_summary(db, portfolio_type)
+
+                elif action == "reset":
+                    return await model_portfolio_service.reset_portfolio(db, portfolio_type)
+
+                else:
+                    return {"error": f"Unknown action: {action}"}
+
+        result = loop.run_until_complete(_run_model_portfolio())
+        return result
+
     # Handle async walk-forward jobs
     if event.get("walk_forward_job"):
         print(f"📊 Walk-forward async job received - {len(scanner_service.data_cache)} symbols in cache, SPY={'SPY' in scanner_service.data_cache}")

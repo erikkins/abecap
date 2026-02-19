@@ -3285,3 +3285,14 @@ async def get_aws_health(admin: User = Depends(get_admin_user)):
     except Exception as e:
         print(f"[AWS-HEALTH] Error fetching CloudWatch data: {e}")
         return {"alarms": [], "metrics": {}, "error": str(e)}
+
+
+@router.get("/model-portfolio")
+async def get_model_portfolio(
+    portfolio_type: Optional[str] = None,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get model portfolio summary (live, walkforward, or both)."""
+    from app.services.model_portfolio_service import model_portfolio_service
+    return await model_portfolio_service.get_portfolio_summary(db, portfolio_type)

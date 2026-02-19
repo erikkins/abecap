@@ -145,6 +145,24 @@ class SchedulerService:
             except Exception as cache_err:
                 logger.error(f"⚠️ Dashboard cache export failed: {cache_err}")
 
+            # Model portfolio: process entries + WF exits after dashboard cache
+            try:
+                from app.services.model_portfolio_service import model_portfolio_service
+                from app.core.database import async_session as mp_session
+
+                async with mp_session() as mp_db:
+                    for ptype in ("live", "walkforward"):
+                        entry_result = await model_portfolio_service.process_entries(mp_db, ptype)
+                        if entry_result.get("entries"):
+                            logger.info(f"[MODEL-{ptype.upper()}] Entered {entry_result['entries']} position(s)")
+
+                    # WF daily close exit check (trailing stop + rebalance boundary)
+                    wf_closed = await model_portfolio_service.process_wf_exits(mp_db)
+                    if wf_closed:
+                        logger.info(f"[MODEL-WF] Closed {len(wf_closed)} position(s)")
+            except Exception as e:
+                logger.error(f"[MODEL-PORTFOLIO] Entry/exit processing failed: {e}")
+
             # Update status
             self.last_run = datetime.now(ET)
             self.last_run_status = "success"
@@ -440,8 +458,18 @@ class SchedulerService:
 
                 logger.info(f"📡 Monitoring {len(rows)} open position(s)")
 
-                # 2. Collect unique symbols and fetch live quotes in batch
+                # 2. Collect unique symbols (user positions + model portfolio)
                 symbols = list({row[0].symbol for row in rows})
+                try:
+                    from app.core.database import ModelPosition as MPModel
+                    mp_result = await db.execute(
+                        select(MPModel.symbol).where(MPModel.status == "open", MPModel.portfolio_type == "live")
+                    )
+                    model_syms = {r[0] for r in mp_result.all()}
+                    symbols = list(set(symbols) | model_syms)
+                except Exception:
+                    pass  # Model tables may not exist yet
+
                 live_prices = {}
                 try:
                     tickers = yf.Tickers(' '.join(symbols))
@@ -517,6 +545,17 @@ class SchedulerService:
 
                 # Persist high water mark updates
                 await db.commit()
+
+                # --- Model portfolio: check live exits (intraday) ---
+                try:
+                    from app.services.model_portfolio_service import model_portfolio_service
+                    mp_closed = await model_portfolio_service.process_live_exits(
+                        db, live_prices, regime_forecast
+                    )
+                    if mp_closed:
+                        logger.info(f"[MODEL-LIVE] Closed {len(mp_closed)} position(s)")
+                except Exception as e:
+                    logger.error(f"[MODEL-LIVE] Exit check failed: {e}")
 
                 # --- 5. Intraday DWAP crossover check (watchlist stocks) ---
                 intraday_signals_added = 0

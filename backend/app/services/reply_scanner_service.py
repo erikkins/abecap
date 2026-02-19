@@ -355,39 +355,69 @@ class ReplyScannerService:
         self, symbols: List[str], db
     ) -> Dict[str, dict]:
         """
-        Match extracted symbols against walk-forward trade history.
+        Match extracted symbols against trade history.
+        Primary: real model portfolio exits (last 90 days, pnl >= 5%).
+        Fallback: walk-forward simulation trades for unmatched symbols.
         Returns dict of symbol -> trade data for symbols with positive returns.
         """
         from sqlalchemy import select
 
         matches = {}
 
-        # Query recent WF simulations with trades
-        result = await db.execute(
-            select(WalkForwardSimulation)
-            .where(WalkForwardSimulation.trades_json.isnot(None))
-            .where(WalkForwardSimulation.status == "completed")
-            .order_by(WalkForwardSimulation.simulation_date.desc())
-            .limit(10)
-        )
-        sims = result.scalars().all()
+        # Primary: model portfolio closed positions (real tracked trades)
+        try:
+            from app.core.database import ModelPosition
+            cutoff = datetime.utcnow() - timedelta(days=90)
+            result = await db.execute(
+                select(ModelPosition).where(
+                    ModelPosition.status == "closed",
+                    ModelPosition.exit_date >= cutoff,
+                    ModelPosition.pnl_pct >= 5,
+                ).order_by(ModelPosition.exit_date.desc())
+            )
+            for pos in result.scalars().all():
+                if pos.symbol in symbols and pos.symbol not in matches:
+                    matches[pos.symbol] = {
+                        "symbol": pos.symbol,
+                        "entry_date": pos.entry_date.isoformat() if pos.entry_date else "",
+                        "exit_date": pos.exit_date.isoformat() if pos.exit_date else "",
+                        "entry_price": pos.entry_price,
+                        "exit_price": pos.exit_price,
+                        "pnl_pct": pos.pnl_pct,
+                        "exit_reason": pos.exit_reason,
+                        "source": "model_portfolio",
+                    }
+        except Exception:
+            pass  # Model tables may not exist yet
 
-        for sim in sims:
-            try:
-                trades = json.loads(sim.trades_json) if isinstance(sim.trades_json, str) else []
-            except (json.JSONDecodeError, TypeError):
-                continue
+        # Fallback: WF simulation trades for unmatched symbols
+        unmatched = [s for s in symbols if s not in matches]
+        if unmatched:
+            result = await db.execute(
+                select(WalkForwardSimulation)
+                .where(WalkForwardSimulation.trades_json.isnot(None))
+                .where(WalkForwardSimulation.status == "completed")
+                .order_by(WalkForwardSimulation.simulation_date.desc())
+                .limit(10)
+            )
+            sims = result.scalars().all()
 
-            for trade in trades:
-                sym = trade.get("symbol", "")
-                if sym not in symbols:
+            for sim in sims:
+                try:
+                    trades = json.loads(sim.trades_json) if isinstance(sim.trades_json, str) else []
+                except (json.JSONDecodeError, TypeError):
                     continue
-                if sym in matches:
-                    continue  # Keep first (most recent sim) match
 
-                pnl = trade.get("pnl_pct", 0)
-                if pnl >= 5:
-                    matches[sym] = trade
+                for trade in trades:
+                    sym = trade.get("symbol", "")
+                    if sym not in unmatched:
+                        continue
+                    if sym in matches:
+                        continue
+
+                    pnl = trade.get("pnl_pct", 0)
+                    if pnl >= 5:
+                        matches[sym] = trade
 
         return matches
 
