@@ -215,7 +215,7 @@ class PostSchedulerService:
         return sent
 
     async def cancel_post(self, post_id: int, db: AsyncSession) -> bool:
-        """Admin cancels a scheduled post. Sets status='cancelled'."""
+        """Admin cancels a scheduled post. Resets to approved so it can be rescheduled."""
         result = await db.execute(
             select(SocialPost).where(SocialPost.id == post_id)
         )
@@ -224,13 +224,16 @@ class PostSchedulerService:
         if not post:
             return False
 
-        if post.status in ("posted", "cancelled"):
+        if post.status == "posted":
             return False
 
-        post.status = "cancelled"
+        post.status = "approved"
+        post.scheduled_for = None
+        post.notification_24h_sent = False
+        post.notification_1h_sent = False
         await db.commit()
 
-        logger.info(f"Post {post_id} cancelled")
+        logger.info(f"Post {post_id} unscheduled (reset to approved)")
         return True
 
     def generate_cancel_token(self, post_id: int, expires_hours: int = 48) -> str:

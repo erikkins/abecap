@@ -501,7 +501,7 @@ async def cancel_post(
     if not success:
         raise HTTPException(status_code=400, detail="Could not cancel post. Already posted or not found.")
 
-    return {"status": "cancelled", "post_id": post_id}
+    return {"status": "approved", "post_id": post_id, "message": "Schedule cleared. Post is ready to reschedule."}
 
 
 @router.get("/posts/{post_id}/cancel-email")
