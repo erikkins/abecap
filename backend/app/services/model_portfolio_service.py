@@ -423,11 +423,6 @@ class ModelPortfolioService:
                 for t in recent_result.scalars().all()
             ]
 
-            total_value = state.current_cash + sum(
-                p.shares * (p.get("current_price", p["entry_price"]) if isinstance(p, dict) else p["current_price"])
-                for p in open_data
-            ) if open_data else state.current_cash
-            # Recalculate properly
             positions_value = sum(p["current_price"] * p["shares"] for p in open_data)
             total_value = state.current_cash + positions_value
 
