@@ -103,6 +103,9 @@ export default function SocialTab({ fetchWithAuth }) {
   const [actionLoading, setActionLoading] = useState({});
   const [showCompose, setShowCompose] = useState(false);
   const [publishingLive, setPublishingLive] = useState(() => localStorage.getItem('social_live') === 'true');
+  const [scheduleModal, setScheduleModal] = useState(null); // post id or null
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('09:00');
 
   const toggleLive = () => {
     const next = !publishingLive;
@@ -239,15 +242,30 @@ export default function SocialTab({ fetchWithAuth }) {
     }
   };
 
-  const schedulePost = async (id) => {
-    const dateStr = window.prompt('Schedule for (ISO datetime, e.g. 2026-02-18T10:00:00Z):');
-    if (!dateStr) return;
+  const schedulePost = (id) => {
+    // Open the schedule modal with a default date of tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setScheduleDate(tomorrow.toISOString().slice(0, 10));
+    setScheduleTime('09:00');
+    setScheduleModal(id);
+  };
+
+  const confirmSchedule = async () => {
+    if (!scheduleDate || !scheduleTime || !scheduleModal) return;
+    const id = scheduleModal;
+    // Convert EST date+time to UTC ISO string
+    const estDatetime = `${scheduleDate}T${scheduleTime}:00`;
+    const utcDate = new Date(new Date(estDatetime + '-05:00').toISOString());
+    const isoStr = utcDate.toISOString();
+
+    setScheduleModal(null);
     setActionLoading(prev => ({ ...prev, [id]: 'schedule' }));
     try {
       const res = await fetchWithAuth(`${API_URL}/api/admin/social/posts/${id}/schedule`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ publish_at: dateStr }),
+        body: JSON.stringify({ publish_at: isoStr }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -403,6 +421,65 @@ export default function SocialTab({ fetchWithAuth }) {
       {/* Compose Modal */}
       {showCompose && (
         <ComposeModal onClose={() => setShowCompose(false)} onSubmit={handleCompose} />
+      )}
+
+      {/* Schedule Modal */}
+      {scheduleModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setScheduleModal(null)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <Calendar size={18} className="text-amber-500" />
+              Schedule Post
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={scheduleDate}
+                  onChange={e => setScheduleDate(e.target.value)}
+                  min={new Date().toISOString().slice(0, 10)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Time (EST)</label>
+                <select
+                  value={scheduleTime}
+                  onChange={e => setScheduleTime(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                >
+                  {['06:00','07:00','08:00','09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00'].map(t => (
+                    <option key={t} value={t}>
+                      {new Date(`2026-01-01T${t}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} ET
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-xs text-gray-400">
+                Will publish: {scheduleDate && scheduleTime ? `${new Date(scheduleDate + 'T' + scheduleTime + ':00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(`2026-01-01T${scheduleTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} ET` : '—'}
+              </p>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => setScheduleModal(null)}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSchedule}
+                disabled={!scheduleDate || !scheduleTime}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <span className="flex items-center justify-center gap-1.5">
+                  <Calendar size={14} />
+                  Schedule
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Launch Queue — show above feed, hide once launch posts have been queued */}
