@@ -473,6 +473,8 @@ async def schedule_post(
 
     try:
         publish_at = datetime.fromisoformat(body.publish_at.replace("Z", "+00:00"))
+        # Strip timezone info for naive UTC comparison (consistent with rest of codebase)
+        publish_at = publish_at.replace(tzinfo=None)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid datetime format. Use ISO 8601.")
 
