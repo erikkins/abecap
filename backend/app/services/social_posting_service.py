@@ -291,7 +291,24 @@ class SocialPostingService:
             if not container_id:
                 return {"error": "No container ID returned from Threads"}
 
-            # Step 2: Publish
+            # Step 2: Wait for container to be ready (up to 30s)
+            for _ in range(6):
+                status_resp = await client.get(
+                    f"{self.THREADS_API_BASE}/{container_id}",
+                    params={
+                        "fields": "status",
+                        "access_token": access_token,
+                    },
+                )
+                if status_resp.status_code == 200:
+                    status = status_resp.json().get("status")
+                    if status == "FINISHED":
+                        break
+                    if status == "ERROR":
+                        return {"error": "Threads container processing failed"}
+                await _async_sleep(5)
+
+            # Step 3: Publish
             publish_resp = await client.post(
                 f"{self.THREADS_API_BASE}/{user_id}/threads_publish",
                 data={
