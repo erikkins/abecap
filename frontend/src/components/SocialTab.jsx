@@ -665,19 +665,30 @@ function LaunchQueueSection({ fetchWithAuth, onQueued, posts = [] }) {
   const [expanded, setExpanded] = useState(false);
   const [queueing, setQueueing] = useState(false);
 
-  // Check if launch posts already exist (match first launch post text prefix)
-  const launchPrefix = LAUNCH_POSTS[0].twitter.text.substring(0, 30);
-  const alreadyQueued = posts.some(p => p.text_content?.startsWith(launchPrefix));
+  // Check which platforms already have launch posts queued
+  const existingPlatforms = new Set();
+  for (const lp of LAUNCH_POSTS) {
+    for (const plat of ['twitter', 'instagram', 'threads']) {
+      const prefix = lp[plat]?.text?.substring(0, 30);
+      if (prefix && posts.some(p => p.platform === plat && p.text_content?.startsWith(prefix))) {
+        existingPlatforms.add(plat);
+      }
+    }
+  }
+  const missingPlatforms = ['twitter', 'instagram', 'threads'].filter(p => !existingPlatforms.has(p));
+  const alreadyQueued = missingPlatforms.length === 0;
   const [queued, setQueued] = useState(false);
 
   const noop = () => {};
 
   const queueAllPosts = async () => {
-    if (!window.confirm('Queue all 15 launch posts (5 Twitter + 5 Instagram + 5 Threads) as drafts?')) return;
+    const platformsToQueue = missingPlatforms.length > 0 ? missingPlatforms : ['twitter', 'instagram', 'threads'];
+    const count = platformsToQueue.length * LAUNCH_POSTS.length;
+    if (!window.confirm(`Queue ${count} launch posts (${platformsToQueue.join(' + ')}) as drafts?`)) return;
     setQueueing(true);
     let success = 0;
     for (const lp of LAUNCH_POSTS) {
-      for (const platform of ['twitter', 'instagram', 'threads']) {
+      for (const platform of platformsToQueue) {
         const content = lp[platform];
         if (!content) continue;
         try {
@@ -701,7 +712,7 @@ function LaunchQueueSection({ fetchWithAuth, onQueued, posts = [] }) {
     }
     setQueueing(false);
     setQueued(true);
-    alert(`Queued ${success} of 15 launch posts as drafts.`);
+    alert(`Queued ${success} of ${count} launch posts as drafts.`);
     if (onQueued) onQueued();
   };
 
@@ -736,7 +747,9 @@ function LaunchQueueSection({ fetchWithAuth, onQueued, posts = [] }) {
               {queueing ? (
                 <><RefreshCw size={14} className="animate-spin" /> Queueing...</>
               ) : queued || alreadyQueued ? (
-                <><Check size={14} /> Already Queued</>
+                <><Check size={14} /> All Queued</>
+              ) : missingPlatforms.length < 3 ? (
+                <><Plus size={14} /> Queue {missingPlatforms.join(' + ')} Drafts</>
               ) : (
                 <><Plus size={14} /> Queue All as Drafts</>
               )}
