@@ -38,8 +38,25 @@ TONE: Conversational, not corporate. Confident but not arrogant.
 FORMAT: Under 260 chars. Plain text only. No markdown. No emojis at start.
 Include rigacap.com/track-record only if space allows naturally."""
 
+THREADS_REPLY_SYSTEM_PROMPT = """You write Threads replies for RigaCap, an AI-powered stock trading signal service.
+Someone posted about a stock that our system successfully traded.
+Write a brief, natural reply that adds value.
+
+TONE: Conversational, not corporate. Confident but not arrogant.
+- Say "our system flagged" or "caught this move", never "we predicted"
+- NEVER give financial advice
+- NEVER use hashtags in replies (spammy)
+- NEVER start with "Great post!" or "Nice call!" (engagement bait)
+- One concise point. Don't ramble.
+
+FORMAT: Under 350 chars. Plain text only. No markdown. No emojis at start.
+Include rigacap.com/track-record if space allows naturally."""
+
 # Twitter API v2 endpoint for user tweets
 TWITTER_USER_TWEETS_URL = "https://api.twitter.com/2/users/{user_id}/tweets"
+
+# Threads API
+THREADS_API_BASE = "https://graph.threads.net/v1.0"
 
 # Accounts to monitor — username -> {name, category}
 # Sourced from docs/social-target-list.md (X handles only)
@@ -185,21 +202,28 @@ class ReplyScannerService:
         since_hours: int = 4,
         dry_run: bool = False,
         accounts: Optional[List[str]] = None,
+        platforms: Optional[List[str]] = None,
     ) -> dict:
         """
-        Main entry point. Scan tweets, extract symbols, match trades, generate replies.
+        Main entry point. Scan tweets/threads, extract symbols, match trades, generate replies.
 
         Args:
             db: AsyncSession
-            since_hours: How far back to look for tweets
+            since_hours: How far back to look for posts
             dry_run: If True, generate reply text but don't save to DB
             accounts: Optional list of usernames to scan (defaults to all)
+            platforms: Platforms to scan (default: ["twitter", "threads"])
 
         Returns:
             Summary dict with counts and details
         """
         if not self.enabled:
             return {"error": "Reply scanner disabled — missing API keys"}
+
+        if platforms is None:
+            platforms = ["twitter"]
+            if settings.THREADS_ACCESS_TOKEN:
+                platforms.append("threads")
 
         target_accounts = accounts or list(FOLLOWED_ACCOUNTS.keys())
         results = {
@@ -212,59 +236,120 @@ class ReplyScannerService:
             "details": [],
         }
 
-        # Resolve user IDs
-        user_ids = await self._resolve_user_ids(target_accounts)
-        if not user_ids:
-            return {**results, "error": "Could not resolve any user IDs"}
+        # ── Twitter scanning ──
+        if "twitter" in platforms:
+            # Resolve user IDs
+            user_ids = await self._resolve_user_ids(target_accounts)
 
-        for username, user_id in user_ids.items():
-            results["scanned_accounts"] += 1
+            for username, user_id in user_ids.items():
+                results["scanned_accounts"] += 1
 
-            tweets = await self._fetch_recent_tweets(user_id, since_hours)
-            if not tweets:
-                continue
+                tweets = await self._fetch_recent_tweets(user_id, since_hours)
+                if not tweets:
+                    continue
 
-            for tweet in tweets:
+                for tweet in tweets:
+                    results["tweets_found"] += 1
+                    tweet_id = tweet.get("id", "")
+                    tweet_text = tweet.get("text", "")
+
+                    symbols = extract_symbols(tweet_text)
+                    if not symbols:
+                        continue
+
+                    results["symbols_extracted"] += len(symbols)
+
+                    trade_matches = await self._match_trade_history(symbols, db)
+                    if not trade_matches:
+                        continue
+
+                    best_symbol = max(trade_matches, key=lambda s: trade_matches[s].get("pnl_pct", 0))
+                    best_trade = trade_matches[best_symbol]
+                    results["trades_matched"] += 1
+
+                    symbol = best_symbol
+                    trade = best_trade
+
+                    if await self._check_deduplication(tweet_id, username, symbol, db):
+                        results["skipped_dedup"] += 1
+                        continue
+
+                    reply_text = await self._generate_reply(
+                        tweet_text, username, trade, symbol
+                    )
+                    if not reply_text:
+                        continue
+
+                    detail = {
+                        "platform": "twitter",
+                        "username": username,
+                        "tweet_id": tweet_id,
+                        "symbol": symbol,
+                        "trade_return": f"{trade.get('pnl_pct', 0):+.1f}%",
+                        "reply_text": reply_text,
+                        "reply_chars": len(reply_text),
+                    }
+
+                    if not dry_run:
+                        post = SocialPost(
+                            post_type="contextual_reply",
+                            platform="twitter",
+                            status="draft",
+                            text_content=reply_text,
+                            source_trade_json=json.dumps(trade),
+                            reply_to_tweet_id=tweet_id,
+                            reply_to_username=username,
+                            source_tweet_text=tweet_text,
+                            ai_generated=True,
+                            ai_model=CLAUDE_MODEL,
+                        )
+                        db.add(post)
+                        detail["post_saved"] = True
+
+                    results["details"].append(detail)
+                    results["replies_created"] += 1
+
+        # ── Threads scanning (mentions + keyword search) ──
+        if "threads" in platforms and settings.THREADS_ACCESS_TOKEN:
+            threads_mentions = await self._fetch_threads_mentions(since_hours)
+            for mention in threads_mentions:
                 results["tweets_found"] += 1
-                tweet_id = tweet.get("id", "")
-                tweet_text = tweet.get("text", "")
+                thread_id = mention.get("id", "")
+                thread_text = mention.get("text", "")
+                thread_username = mention.get("username", "unknown")
 
-                symbols = extract_symbols(tweet_text)
+                symbols = extract_symbols(thread_text)
                 if not symbols:
                     continue
 
                 results["symbols_extracted"] += len(symbols)
 
-                # Match symbols to trade history (only proven winners)
                 trade_matches = await self._match_trade_history(symbols, db)
                 if not trade_matches:
                     continue
 
-                # Pick the single best trade match per tweet (highest return)
                 best_symbol = max(trade_matches, key=lambda s: trade_matches[s].get("pnl_pct", 0))
                 best_trade = trade_matches[best_symbol]
                 results["trades_matched"] += 1
 
-                symbol = best_symbol
-                trade = best_trade
-
-                # Dedup check
-                if await self._check_deduplication(tweet_id, username, symbol, db):
+                # Dedup: check if we already replied to this thread
+                if await self._check_deduplication(thread_id, thread_username, best_symbol, db):
                     results["skipped_dedup"] += 1
                     continue
 
-                # Generate reply
                 reply_text = await self._generate_reply(
-                    tweet_text, username, trade, symbol
+                    thread_text, thread_username, best_trade, best_symbol,
+                    platform="threads"
                 )
                 if not reply_text:
                     continue
 
                 detail = {
-                    "username": username,
-                    "tweet_id": tweet_id,
-                    "symbol": symbol,
-                    "trade_return": f"{trade.get('pnl_pct', 0):+.1f}%",
+                    "platform": "threads",
+                    "username": thread_username,
+                    "tweet_id": thread_id,
+                    "symbol": best_symbol,
+                    "trade_return": f"{best_trade.get('pnl_pct', 0):+.1f}%",
                     "reply_text": reply_text,
                     "reply_chars": len(reply_text),
                 }
@@ -272,13 +357,13 @@ class ReplyScannerService:
                 if not dry_run:
                     post = SocialPost(
                         post_type="contextual_reply",
-                        platform="twitter",
+                        platform="threads",
                         status="draft",
                         text_content=reply_text,
-                        source_trade_json=json.dumps(trade),
-                        reply_to_tweet_id=tweet_id,
-                        reply_to_username=username,
-                        source_tweet_text=tweet_text,
+                        source_trade_json=json.dumps(best_trade),
+                        reply_to_thread_id=thread_id,
+                        reply_to_username=thread_username,
+                        source_tweet_text=thread_text,
                         ai_generated=True,
                         ai_model=CLAUDE_MODEL,
                     )
@@ -287,6 +372,78 @@ class ReplyScannerService:
 
                 results["details"].append(detail)
                 results["replies_created"] += 1
+
+            # ── Threads keyword search ──
+            search_symbols = await self._get_searchable_symbols(db)
+            results["keyword_symbols_searched"] = len(search_symbols)
+
+            for symbol in search_symbols:
+                keyword_posts = await self._fetch_threads_keyword_posts(
+                    f"${symbol}", since_hours
+                )
+
+                for post in keyword_posts:
+                    results["tweets_found"] += 1
+                    thread_id = post.get("id", "")
+                    thread_text = post.get("text", "")
+                    thread_username = post.get("username", "unknown")
+
+                    # Skip our own posts
+                    if thread_username.lower() == "rigacap":
+                        continue
+
+                    results["symbols_extracted"] += 1
+
+                    # Get trade data for this symbol
+                    trade_matches = await self._match_trade_history([symbol], db)
+                    if not trade_matches or symbol not in trade_matches:
+                        continue
+
+                    trade = trade_matches[symbol]
+                    results["trades_matched"] += 1
+
+                    if await self._check_deduplication(
+                        thread_id, thread_username, symbol, db
+                    ):
+                        results["skipped_dedup"] += 1
+                        continue
+
+                    reply_text = await self._generate_reply(
+                        thread_text, thread_username, trade, symbol,
+                        platform="threads"
+                    )
+                    if not reply_text:
+                        continue
+
+                    detail = {
+                        "platform": "threads",
+                        "source": "keyword_search",
+                        "username": thread_username,
+                        "tweet_id": thread_id,
+                        "symbol": symbol,
+                        "trade_return": f"{trade.get('pnl_pct', 0):+.1f}%",
+                        "reply_text": reply_text,
+                        "reply_chars": len(reply_text),
+                    }
+
+                    if not dry_run:
+                        new_post = SocialPost(
+                            post_type="contextual_reply",
+                            platform="threads",
+                            status="draft",
+                            text_content=reply_text,
+                            source_trade_json=json.dumps(trade),
+                            reply_to_thread_id=thread_id,
+                            reply_to_username=thread_username,
+                            source_tweet_text=thread_text,
+                            ai_generated=True,
+                            ai_model=CLAUDE_MODEL,
+                        )
+                        db.add(new_post)
+                        detail["post_saved"] = True
+
+                    results["details"].append(detail)
+                    results["replies_created"] += 1
 
         if not dry_run and results["replies_created"] > 0:
             await db.commit()
@@ -350,6 +507,152 @@ class ReplyScannerService:
         except Exception as e:
             logger.error(f"Error fetching tweets for user {user_id}: {e}")
             return []
+
+    async def _fetch_threads_mentions(
+        self, since_hours: int
+    ) -> List[dict]:
+        """Fetch recent Threads mentions of our account."""
+        if not settings.THREADS_ACCESS_TOKEN or not settings.THREADS_USER_ID:
+            return []
+
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(
+                    f"{THREADS_API_BASE}/{settings.THREADS_USER_ID}/replies",
+                    params={
+                        "fields": "id,text,username,timestamp",
+                        "access_token": settings.THREADS_ACCESS_TOKEN,
+                    },
+                )
+
+            if resp.status_code != 200:
+                logger.warning(
+                    f"Failed to fetch Threads mentions: {resp.status_code} {resp.text}"
+                )
+                return []
+
+            data = resp.json()
+            mentions = data.get("data", [])
+
+            # Filter to recent mentions
+            since_time = datetime.utcnow() - timedelta(hours=since_hours)
+            recent = []
+            for m in mentions:
+                ts = m.get("timestamp", "")
+                if ts:
+                    try:
+                        post_time = datetime.fromisoformat(ts.replace("Z", "+00:00")).replace(tzinfo=None)
+                        if post_time >= since_time:
+                            recent.append(m)
+                    except (ValueError, TypeError):
+                        continue
+
+            return recent
+
+        except Exception as e:
+            logger.error(f"Error fetching Threads mentions: {e}")
+            return []
+
+    async def _fetch_threads_keyword_posts(
+        self, query: str, since_hours: int
+    ) -> List[dict]:
+        """Search Threads for public posts matching a keyword query.
+
+        Rate limit: 500 queries per 7 days (~71/day).
+        """
+        if not settings.THREADS_ACCESS_TOKEN or not settings.THREADS_USER_ID:
+            return []
+
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(
+                    f"{THREADS_API_BASE}/{settings.THREADS_USER_ID}/threads_search",
+                    params={
+                        "q": query,
+                        "fields": "id,text,username,timestamp",
+                        "limit": "10",
+                        "access_token": settings.THREADS_ACCESS_TOKEN,
+                    },
+                )
+
+            if resp.status_code != 200:
+                logger.warning(
+                    f"Threads keyword search failed for '{query}': "
+                    f"{resp.status_code} {resp.text}"
+                )
+                return []
+
+            data = resp.json()
+            posts = data.get("data", [])
+
+            # Filter to recent posts
+            since_time = datetime.utcnow() - timedelta(hours=since_hours)
+            recent = []
+            for p in posts:
+                ts = p.get("timestamp", "")
+                if ts:
+                    try:
+                        post_time = datetime.fromisoformat(
+                            ts.replace("Z", "+00:00")
+                        ).replace(tzinfo=None)
+                        if post_time >= since_time:
+                            recent.append(p)
+                    except (ValueError, TypeError):
+                        continue
+
+            logger.info(
+                f"Threads keyword '{query}': {len(posts)} results, "
+                f"{len(recent)} recent"
+            )
+            return recent
+
+        except Exception as e:
+            logger.error(f"Error in Threads keyword search for '{query}': {e}")
+            return []
+
+    async def _get_searchable_symbols(self, db) -> List[str]:
+        """Get symbols worth searching for — active positions + recent winners.
+
+        Returns up to 15 symbols to stay within Threads rate limits
+        (500 queries / 7 days ≈ 17 per scan at 4 scans/day).
+        """
+        from sqlalchemy import select
+
+        symbols = []
+
+        # 1. Active model portfolio positions (highest priority — we're in the trade)
+        try:
+            from app.core.database import ModelPosition
+            result = await db.execute(
+                select(ModelPosition.symbol).where(
+                    ModelPosition.status == "active"
+                )
+            )
+            active = [row[0] for row in result.all()]
+            symbols.extend(active)
+        except Exception:
+            pass
+
+        # 2. Recent closed winners (last 30 days, pnl >= 8%)
+        try:
+            from app.core.database import ModelPosition
+            cutoff = datetime.utcnow() - timedelta(days=30)
+            result = await db.execute(
+                select(ModelPosition.symbol)
+                .where(
+                    ModelPosition.status == "closed",
+                    ModelPosition.exit_date >= cutoff,
+                    ModelPosition.pnl_pct >= 8,
+                )
+                .order_by(ModelPosition.pnl_pct.desc())
+                .limit(10)
+            )
+            winners = [row[0] for row in result.all()]
+            symbols.extend(s for s in winners if s not in symbols)
+        except Exception:
+            pass
+
+        return symbols[:15]
 
     async def _match_trade_history(
         self, symbols: List[str], db
@@ -422,18 +725,23 @@ class ReplyScannerService:
         return matches
 
     async def _check_deduplication(
-        self, tweet_id: str, username: str, symbol: str, db
+        self, post_id: str, username: str, symbol: str, db
     ) -> bool:
         """
         Return True if this reply should be skipped (duplicate).
-        Skip if: same tweet_id already replied to, or same account+symbol within 7 days.
+        Skip if: same post_id already replied to, or same account+symbol within 7 days.
         """
-        from sqlalchemy import select, and_
+        from sqlalchemy import select, and_, or_
 
-        # Check same tweet_id
+        # Check same tweet_id or thread_id
         result = await db.execute(
             select(SocialPost.id)
-            .where(SocialPost.reply_to_tweet_id == tweet_id)
+            .where(
+                or_(
+                    SocialPost.reply_to_tweet_id == post_id,
+                    SocialPost.reply_to_thread_id == post_id,
+                )
+            )
             .limit(1)
         )
         if result.scalars().first() is not None:
@@ -459,7 +767,8 @@ class ReplyScannerService:
         return False
 
     async def _generate_reply(
-        self, tweet_text: str, username: str, trade: dict, symbol: str
+        self, tweet_text: str, username: str, trade: dict, symbol: str,
+        platform: str = "twitter",
     ) -> Optional[str]:
         """Generate a contextual reply using Claude API."""
         if not settings.ANTHROPIC_API_KEY:
@@ -473,25 +782,33 @@ class ReplyScannerService:
             f"returned {pnl_pct:+.1f}%."
         )
 
+        platform_label = "tweeted" if platform == "twitter" else "posted on Threads"
+        char_limit = 260 if platform == "twitter" else 350
+
         user_prompt = (
-            f"@{username} tweeted:\n\"{tweet_text[:300]}\"\n\n"
+            f"@{username} {platform_label}:\n\"{tweet_text[:300]}\"\n\n"
             f"Trade data: {trade_context}\n\n"
-            f"Write a reply to this tweet. The reply should feel like a natural addition "
+            f"Write a reply to this post. The reply should feel like a natural addition "
             f"to the conversation, not a cold sales pitch. Reference the specific stock "
-            f"and our trade result briefly."
+            f"and our trade result briefly. Max {char_limit} chars."
+        )
+
+        system_prompt = (
+            THREADS_REPLY_SYSTEM_PROMPT if platform == "threads"
+            else REPLY_SYSTEM_PROMPT
         )
 
         try:
-            text = await self._call_claude(user_prompt)
+            text = await self._call_claude(user_prompt, system_prompt=system_prompt)
             if not text:
                 return None
 
             # Strip markdown
             text = self._strip_markdown(text)
 
-            # Enforce 260 char limit
-            if len(text) > 260:
-                text = text[:257].rsplit(" ", 1)[0] + "..."
+            # Enforce char limit
+            if len(text) > char_limit:
+                text = text[:char_limit - 3].rsplit(" ", 1)[0] + "..."
 
             return text
 
@@ -520,7 +837,7 @@ class ReplyScannerService:
             return f"https://rigacap.com/track-record"
         return None
 
-    async def _call_claude(self, user_prompt: str) -> Optional[str]:
+    async def _call_claude(self, user_prompt: str, system_prompt: str = None) -> Optional[str]:
         """Make a Claude API call for reply generation."""
         headers = {
             "x-api-key": settings.ANTHROPIC_API_KEY,
@@ -531,7 +848,7 @@ class ReplyScannerService:
         payload = {
             "model": CLAUDE_MODEL,
             "max_tokens": 256,
-            "system": REPLY_SYSTEM_PROMPT,
+            "system": system_prompt or REPLY_SYSTEM_PROMPT,
             "messages": [
                 {"role": "user", "content": user_prompt}
             ],

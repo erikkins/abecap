@@ -65,8 +65,9 @@ class SocialContentService:
         for trade in profitable[:3]:
             twitter_post = self._make_trade_result_twitter(trade)
             insta_post = self._make_trade_result_instagram(trade)
+            threads_post = self._make_trade_result_threads(trade)
 
-            for post in [twitter_post, insta_post]:
+            for post in [twitter_post, insta_post, threads_post]:
                 post.source_simulation_id = simulation_id
                 post.source_trade_json = json.dumps(trade)
                 db.add(post)
@@ -76,8 +77,9 @@ class SocialContentService:
         for trade in profitable[3:5]:
             twitter_post = self._make_missed_opportunity_twitter(trade)
             insta_post = self._make_missed_opportunity_instagram(trade)
+            threads_post = self._make_missed_opportunity_threads(trade)
 
-            for post in [twitter_post, insta_post]:
+            for post in [twitter_post, insta_post, threads_post]:
                 post.source_simulation_id = simulation_id
                 post.source_trade_json = json.dumps(trade)
                 db.add(post)
@@ -667,6 +669,57 @@ class SocialContentService:
             }),
         )
 
+    def _make_trade_result_threads(self, trade: dict) -> SocialPost:
+        """Create a Threads-format trade result post (500 chars max)."""
+        symbol = trade.get("symbol", "???")
+        pnl_pct = trade.get("pnl_pct", 0)
+        entry_price = trade.get("entry_price", 0)
+        exit_price = trade.get("exit_price", 0)
+        days_held = self._calc_days_held(trade)
+
+        opener = self._pick(self._WIN_OPENERS, trade, "threads")
+        closer = self._pick(self._WIN_CLOSERS_TWITTER, trade, "threads_closer")
+
+        text = (
+            f"{opener}\n\n"
+            f"${symbol}: {pnl_pct:+.1f}% in {days_held} days\n"
+            f"${entry_price:.2f} \u2192 ${exit_price:.2f}\n\n"
+            f"{closer}\n\nrigacap.com"
+        )
+
+        return SocialPost(
+            post_type="trade_result",
+            platform="threads",
+            status="draft",
+            text_content=text[:500],
+        )
+
+    def _make_missed_opportunity_threads(self, trade: dict) -> SocialPost:
+        """Create a Threads missed opportunity post (500 chars max)."""
+        symbol = trade.get("symbol", "???")
+        pnl_pct = trade.get("pnl_pct", 0)
+        entry_price = trade.get("entry_price", 0)
+        exit_price = trade.get("exit_price", 0)
+        days_held = self._calc_days_held(trade)
+
+        opener = self._pick(self._MISS_OPENERS, trade, "threads")
+        closer = self._pick(self._MISS_CLOSERS_TWITTER, trade, "threads_closer")
+
+        text = (
+            f"{opener}\n\n"
+            f"${symbol}: {pnl_pct:+.1f}% in {days_held} days\n"
+            f"Signal fired at ${entry_price:.2f}, exited at ${exit_price:.2f}\n\n"
+            f"{closer}\n\nrigacap.com"
+        )
+
+        return SocialPost(
+            post_type="missed_opportunity",
+            platform="threads",
+            status="draft",
+            text_content=text[:500],
+            source_trade_json=json.dumps(trade),
+        )
+
     async def _make_regime_commentary(
         self, db: AsyncSession, simulation_id: int
     ) -> List[SocialPost]:
@@ -752,6 +805,29 @@ class SocialContentService:
                 }),
             )
             posts.append(insta_post)
+
+            # Threads
+            threads_flavor = flavor_list[hash(regime_name + str(spy_price) + "threads") % len(flavor_list)]
+            threads_text = f"Regime check: {regime_name}\n\n"
+            threads_text += f"SPY ${spy_price}"
+            if vix_level is not None:
+                threads_text += f" | VIX {vix_level}"
+            threads_text += f"\n\n{threads_flavor}\n\nrigacap.com"
+
+            threads_post = SocialPost(
+                post_type="regime_commentary",
+                platform="threads",
+                status="draft",
+                text_content=threads_text[:500],
+                source_simulation_id=simulation_id,
+                source_data_json=json.dumps({
+                    "regime": regime_name,
+                    "risk_level": risk_level,
+                    "spy_price": spy_price,
+                    "vix_level": vix_level,
+                }),
+            )
+            posts.append(threads_post)
 
         except Exception as e:
             logger.error(f"Regime commentary generation failed: {e}")

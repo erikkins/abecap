@@ -1176,7 +1176,7 @@ def handler(event, context):
             min_pnl = config.get("min_pnl_pct", 5.0)
             since_date = config.get("since_date", "2026-01-01")
             clear_existing = config.get("clear_existing", False)
-            platforms = config.get("platforms", ["twitter", "instagram"])
+            platforms = config.get("platforms", ["twitter", "instagram", "threads"])
             post_types = config.get("post_types", ["trade_result", "missed_opportunity"])
             max_trades = config.get("max_trades", 5)
 
@@ -1291,6 +1291,7 @@ def handler(event, context):
                     since_hours=config.get("since_hours", 4),
                     dry_run=config.get("dry_run", False),
                     accounts=config.get("accounts"),
+                    platforms=config.get("platforms"),
                 )
                 return result
 
@@ -1304,6 +1305,55 @@ def handler(event, context):
         except Exception as e:
             import traceback
             print(f"❌ Reply scan failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Scan Instagram comments for reply opportunities (direct Lambda invocation)
+    if event.get("scan_instagram_comments"):
+        print("💬 Scanning Instagram comments for reply opportunities")
+        config = event.get("scan_instagram_comments") or {}
+
+        async def _scan_ig_comments():
+            from app.services.instagram_comment_service import instagram_comment_service
+
+            async with async_session() as db:
+                result = await instagram_comment_service.scan_and_reply(
+                    db=db,
+                    since_hours=config.get("since_hours", 4),
+                )
+                return result
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_scan_ig_comments())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Instagram comment scan failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Refresh Threads API token (direct Lambda invocation)
+    if event.get("refresh_threads_token"):
+        print("🔑 Refreshing Threads access token")
+
+        async def _refresh_threads():
+            from app.services.social_posting_service import social_posting_service
+            return await social_posting_service.refresh_threads_token()
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_refresh_threads())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Threads token refresh failed: {e}")
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 

@@ -7,6 +7,7 @@ const PLATFORMS = [
   { id: 'all', label: 'All' },
   { id: 'twitter', label: 'Twitter/X' },
   { id: 'instagram', label: 'Instagram' },
+  { id: 'threads', label: 'Threads' },
 ];
 
 const STATUSES = [
@@ -26,6 +27,7 @@ const POST_TYPES = [
   { id: 'weekly_recap', label: 'Weekly Recap' },
   { id: 'regime_commentary', label: 'Regime' },
   { id: 'contextual_reply', label: 'Replies' },
+  { id: 'instagram_comment_reply', label: 'IG Comments' },
   { id: 'manual', label: 'Manual' },
 ];
 
@@ -44,6 +46,7 @@ const TYPE_COLORS = {
   weekly_recap: 'bg-purple-100 text-purple-700',
   regime_commentary: 'bg-sky-100 text-sky-700',
   contextual_reply: 'bg-cyan-100 text-cyan-700',
+  instagram_comment_reply: 'bg-pink-100 text-pink-700',
   manual: 'bg-indigo-100 text-indigo-700',
 };
 
@@ -53,6 +56,7 @@ const TYPE_LABELS = {
   weekly_recap: 'Weekly Recap',
   regime_commentary: 'Regime',
   contextual_reply: 'Reply',
+  instagram_comment_reply: 'IG Comment',
   manual: 'Manual',
 };
 
@@ -102,7 +106,7 @@ export default function SocialTab({ fetchWithAuth }) {
 
   const toggleLive = () => {
     const next = !publishingLive;
-    if (next && !window.confirm('Enable live publishing? Posts will be sent to Twitter/Instagram when you click Publish.')) return;
+    if (next && !window.confirm('Enable live publishing? Posts will be sent to Twitter/Instagram/Threads when you click Publish.')) return;
     setPublishingLive(next);
     localStorage.setItem('social_live', String(next));
   };
@@ -318,6 +322,7 @@ export default function SocialTab({ fetchWithAuth }) {
 
   const twitterPosts = posts.filter(p => p.platform === 'twitter');
   const instagramPosts = posts.filter(p => p.platform === 'instagram');
+  const threadsPosts = posts.filter(p => p.platform === 'threads');
 
   return (
     <div className="space-y-6">
@@ -335,7 +340,7 @@ export default function SocialTab({ fetchWithAuth }) {
             </span>
             <p className="text-xs text-gray-500">
               {publishingLive
-                ? 'Publish buttons are active — posts will go live to Twitter/Instagram.'
+                ? 'Publish buttons are active — posts will go live to Twitter/Instagram/Threads.'
                 : 'Publish buttons are hidden. Enable when ready to go live.'}
             </p>
           </div>
@@ -424,7 +429,7 @@ export default function SocialTab({ fetchWithAuth }) {
           </button>
         </div>
       ) : platform === 'all' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Twitter/X ({twitterPosts.length})</h3>
             {twitterPosts.length === 0 ? (
@@ -474,6 +479,29 @@ export default function SocialTab({ fetchWithAuth }) {
               ))
             )}
           </div>
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Threads ({threadsPosts.length})</h3>
+            {threadsPosts.length === 0 ? (
+              <p className="text-sm text-gray-400 py-4">No Threads posts match filters.</p>
+            ) : (
+              threadsPosts.map(post => (
+                <ThreadsCard
+                  key={post.id}
+                  post={post}
+                  actionLoading={actionLoading[post.id]}
+                  onApprove={approve}
+                  onReject={reject}
+                  onRegenerate={regenerate}
+                  onDelete={deletePost}
+                  onPublish={publish}
+                  onEdit={editPost}
+                  onSchedule={schedulePost}
+                  onCancel={cancelPost}
+                  publishingLive={publishingLive}
+                />
+              ))
+            )}
+          </div>
         </div>
       ) : platform === 'twitter' ? (
         <div className="space-y-4">
@@ -493,6 +521,29 @@ export default function SocialTab({ fetchWithAuth }) {
                 onEdit={editPost}
                 onSchedule={schedulePost}
                 onCancel={cancelPost}
+                publishingLive={publishingLive}
+              />
+            ))}
+          </div>
+        </div>
+      ) : platform === 'threads' ? (
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Threads ({threadsPosts.length})</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {threadsPosts.map(post => (
+              <ThreadsCard
+                key={post.id}
+                post={post}
+                actionLoading={actionLoading[post.id]}
+                onApprove={approve}
+                onReject={reject}
+                onRegenerate={regenerate}
+                onDelete={deletePost}
+                onPublish={publish}
+                onEdit={editPost}
+                onSchedule={schedulePost}
+                onCancel={cancelPost}
+                publishingLive={publishingLive}
               />
             ))}
           </div>
@@ -516,6 +567,7 @@ export default function SocialTab({ fetchWithAuth }) {
                 onSchedule={schedulePost}
                 onCancel={cancelPost}
                 onGenerateChart={generateChart}
+                publishingLive={publishingLive}
               />
             ))}
           </div>
@@ -746,7 +798,8 @@ function ComposeModal({ onClose, onSubmit }) {
 
   const fullText = hashtags ? `${text}\n\n${hashtags}` : text;
   const charCount = fullText.length;
-  const overLimit = composePlatform === 'twitter' && charCount > 280;
+  const charMax = composePlatform === 'twitter' ? 280 : composePlatform === 'threads' ? 500 : null;
+  const overLimit = charMax && charCount > charMax;
 
   const handleSubmit = async (saveStatus) => {
     if (!text.trim()) return;
@@ -776,7 +829,7 @@ function ComposeModal({ onClose, onSubmit }) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Platform</label>
             <div className="flex gap-2">
-              {['twitter', 'instagram'].map(p => (
+              {['twitter', 'instagram', 'threads'].map(p => (
                 <button
                   key={p}
                   onClick={() => setComposePlatform(p)}
@@ -786,7 +839,7 @@ function ComposeModal({ onClose, onSubmit }) {
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
-                  {p === 'twitter' ? 'Twitter/X' : 'Instagram'}
+                  {p === 'twitter' ? 'Twitter/X' : p === 'threads' ? 'Threads' : 'Instagram'}
                 </button>
               ))}
             </div>
@@ -819,7 +872,7 @@ function ComposeModal({ onClose, onSubmit }) {
           {/* Preview */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Preview</label>
-            {composePlatform === 'twitter' ? (
+            {(composePlatform === 'twitter' || composePlatform === 'threads') ? (
               <div className="border border-gray-200 rounded-xl p-4">
                 <div className="flex gap-3">
                   <RigaCapLogo size={40} className="shrink-0" />
@@ -853,10 +906,10 @@ function ComposeModal({ onClose, onSubmit }) {
             )}
           </div>
 
-          {/* Char count for Twitter */}
-          {composePlatform === 'twitter' && (
+          {/* Char count for Twitter/Threads */}
+          {charMax && (
             <div className={`text-xs font-medium ${overLimit ? 'text-red-600' : 'text-gray-400'}`}>
-              {charCount}/280
+              {charCount}/{charMax}
             </div>
           )}
         </div>
@@ -1161,6 +1214,74 @@ function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRege
         <div className="flex items-center justify-between">
           <span className={`text-xs font-medium ${overLimit ? 'text-red-600' : 'text-gray-400'}`}>
             {charCount}/280
+          </span>
+          <ActionButtons
+            post={post}
+            actionLoading={actionLoading}
+            onApprove={onApprove}
+            onReject={onReject}
+            onRegenerate={onRegenerate}
+            onDelete={onDelete}
+            onPublish={onPublish}
+            onSchedule={onSchedule}
+            onCancel={onCancel}
+            publishingLive={publishingLive}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ThreadsCard({ post, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, onEdit, onSchedule, onCancel, publishingLive }) {
+  const { mainText, tags } = splitTextAndHashtags(post.text_content, post.hashtags);
+  const charCount = (mainText + (tags ? `\n\n${tags}` : '')).length;
+  const overLimit = charCount > 500;
+  const canEdit = post.status === 'draft' || post.status === 'approved';
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="p-4 space-y-3">
+        <PostBadges post={post} />
+
+        {/* Source thread context for replies */}
+        {post.reply_to_username && (
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+            <div className="text-xs text-gray-500 mb-1">
+              Replying to @{post.reply_to_username}
+            </div>
+            {post.source_tweet_text && (
+              <p className="text-xs text-gray-600 line-clamp-2">{post.source_tweet_text}</p>
+            )}
+          </div>
+        )}
+
+        {/* Mock Threads Post */}
+        <div className="border border-gray-200 rounded-xl p-4">
+          <div className="flex gap-3">
+            <RigaCapLogo size={40} className="shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1">
+                <span className="font-bold text-sm text-gray-900">rigacap</span>
+                <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Threads</span>
+              </div>
+              <div className="mt-1">
+                <InlineEditableText
+                  text={mainText}
+                  hashtags={tags}
+                  postId={post.id}
+                  canEdit={canEdit}
+                  onEdit={onEdit}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Char Count */}
+        <div className="flex items-center justify-between">
+          <span className={`text-xs font-medium ${overLimit ? 'text-red-600' : 'text-gray-400'}`}>
+            {charCount}/500
           </span>
           <ActionButtons
             post={post}

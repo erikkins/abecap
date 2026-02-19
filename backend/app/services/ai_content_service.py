@@ -66,14 +66,25 @@ class AIContentService:
         if not self.enabled:
             return None
 
-        char_limit = 260 if platform == "twitter" else 600
-        platform_instruction = (
-            f"Twitter post: max {char_limit} characters (leave room for hashtags). "
-            "Short, punchy, one clear message."
-            if platform == "twitter"
-            else f"Instagram caption: {char_limit} characters max. "
-            "More detail is fine. End with 'rigacap.com' on its own line."
-        )
+        if platform == "twitter":
+            char_limit = 260
+            platform_instruction = (
+                f"Twitter post: max {char_limit} characters (leave room for hashtags). "
+                "Short, punchy, one clear message."
+            )
+        elif platform == "threads":
+            char_limit = 500
+            platform_instruction = (
+                f"Threads post: max {char_limit} characters. "
+                "Short, punchy. Similar to Twitter but slightly longer. No hashtags. "
+                "End with rigacap.com if space allows."
+            )
+        else:
+            char_limit = 600
+            platform_instruction = (
+                f"Instagram caption: {char_limit} characters max. "
+                "More detail is fine. End with 'rigacap.com' on its own line."
+            )
 
         symbol = trade.get("symbol", "???")
         pnl_pct = trade.get("pnl_pct", 0)
@@ -128,7 +139,7 @@ class AIContentService:
 
             # Remove platform labels (e.g., "Twitter:" or "Instagram:" at the start)
             import re
-            text = re.sub(r'^(Twitter|Instagram|Twitter/X|IG):\s*', '', text, flags=re.IGNORECASE).strip()
+            text = re.sub(r'^(Twitter|Instagram|Twitter/X|Threads|IG):\s*', '', text, flags=re.IGNORECASE).strip()
 
             # Enforce character limit for both platforms
             if len(text) > char_limit:

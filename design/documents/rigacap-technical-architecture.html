@@ -798,8 +798,8 @@
     <p style="font-size:0.75rem; color: var(--gray); margin-bottom: 0.4rem;">AI-generated social content with approval workflow. Status: draft &rarr; approved &rarr; scheduled &rarr; posted/canceled.</p>
     <div class="schema-cols">
       <div><span class="col-name">id</span> <span class="col-type">INTEGER PK</span></div>
-      <div><span class="col-name">post_type</span> <span class="col-type">trade_result/missed_opp/recap</span></div>
-      <div><span class="col-name">platform</span> <span class="col-type">twitter/instagram</span></div>
+      <div><span class="col-name">post_type</span> <span class="col-type">trade_result/missed_opp/recap/contextual_reply/instagram_comment_reply</span></div>
+      <div><span class="col-name">platform</span> <span class="col-type">twitter/instagram/threads</span></div>
       <div><span class="col-name">status</span> <span class="col-type">VARCHAR(20)</span></div>
       <div><span class="col-name">text_content, hashtags</span> <span class="col-type">TEXT</span></div>
       <div><span class="col-name">image_s3_key</span> <span class="col-type">VARCHAR(500)</span></div>
@@ -808,6 +808,11 @@
       <div><span class="col-name">ai_model, ai_prompt_hash</span> <span class="col-type">VARCHAR</span></div>
       <div><span class="col-name">news_context_json</span> <span class="col-type">TEXT</span></div>
       <div><span class="col-name">source_trade_json</span> <span class="col-type">TEXT</span></div>
+      <div><span class="col-name">reply_to_tweet_id</span> <span class="col-type">VARCHAR(50)</span></div>
+      <div><span class="col-name">reply_to_thread_id</span> <span class="col-type">VARCHAR(50)</span></div>
+      <div><span class="col-name">reply_to_instagram_comment_id</span> <span class="col-type">VARCHAR(50)</span></div>
+      <div><span class="col-name">reply_to_instagram_media_id</span> <span class="col-type">VARCHAR(50)</span></div>
+      <div><span class="col-name">reply_to_username</span> <span class="col-type">VARCHAR(100)</span></div>
     </div>
   </div>
 
@@ -891,10 +896,12 @@
       <tr><td><strong>StockUniverseService</strong></td><td>461</td><td>Stock universe management, sector classification, ETF filtering</td></tr>
       <tr><td><strong>StrategyAnalyzerService</strong></td><td>437</td><td>Multi-strategy comparison and performance attribution</td></tr>
       <tr><td><strong>StrategyGeneratorService</strong></td><td>434</td><td>Optuna-based parameter optimization, AI strategy generation</td></tr>
-      <tr><td><strong>ChartCardGenerator</strong></td><td>346</td><td>1080&times;1080 matplotlib chart cards with brand styling</td></tr>
+      <tr><td><strong>ChartCardGenerator</strong></td><td>346</td><td>1080&times;1350 (4:5) matplotlib chart cards with brand styling</td></tr>
       <tr><td><strong>PostSchedulerService</strong></td><td>292</td><td>Post scheduling, notification pipeline, cancel mechanism</td></tr>
       <tr><td><strong>AIContentService</strong></td><td>287</td><td>Claude API integration for AI-powered content generation</td></tr>
-      <tr><td><strong>SocialPostingService</strong></td><td>285</td><td>Twitter API v2 + Instagram Graph API publishing</td></tr>
+      <tr><td><strong>SocialPostingService</strong></td><td>420</td><td>Twitter API v2 + Instagram Graph API + Threads API publishing</td></tr>
+      <tr><td><strong>ReplyScannerService</strong></td><td>650</td><td>Multi-platform contextual reply scanner (Twitter + Threads)</td></tr>
+      <tr><td><strong>InstagramCommentService</strong></td><td>200</td><td>Instagram comment monitoring + Claude-powered reply generation</td></tr>
       <tr><td><strong>TradeAutopsyService</strong></td><td>175</td><td>Claude-powered forensic post-mortem analysis for closed trades</td></tr>
       <tr><td><strong>RegimeForecastService</strong></td><td>185</td><td>Daily regime forecast storage, accuracy tracking, heatmap data</td></tr>
     </tbody>
@@ -909,7 +916,7 @@
 
 <!-- PAGE: API ENDPOINTS -->
 <div class="content page-break">
-  <h2>7. API Surface (95 Endpoints)</h2>
+  <h2>7. API Surface (97 Endpoints)</h2>
 
   <h3>Authentication (<code>/auth</code>) &mdash; 9 endpoints</h3>
   <table>
@@ -960,7 +967,7 @@
     </tbody>
   </table>
 
-  <h3>Social (<code>/social</code>) &mdash; 16 endpoints</h3>
+  <h3>Social (<code>/social</code>) &mdash; 18 endpoints</h3>
   <table>
     <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
     <tbody>
@@ -977,6 +984,8 @@
       <tr><td><code>GET</code></td><td>/social/posts/{id}/cancel-email</td><td>One-click cancel via JWT link</td></tr>
       <tr><td><code>POST</code></td><td>/social/generate-chart/{id}</td><td>Generate chart card image</td></tr>
       <tr><td><code>GET</code></td><td>/social/stats</td><td>Publishing statistics</td></tr>
+      <tr><td><code>GET</code></td><td>/social/posts/{id}/approve-email</td><td>One-click approve via JWT link</td></tr>
+      <tr><td><code>POST</code></td><td>/social/posts/{id}/requeue</td><td>Requeue rejected post as new draft</td></tr>
     </tbody>
   </table>
 

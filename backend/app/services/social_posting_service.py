@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class SocialPostingService:
-    """Publish posts to Twitter and Instagram."""
+    """Publish posts to Twitter, Instagram, and Threads."""
 
     # Twitter API v2 endpoints
     TWITTER_TWEET_URL = "https://api.twitter.com/2/tweets"
@@ -32,6 +32,9 @@ class SocialPostingService:
 
     # Instagram Graph API
     INSTAGRAM_API_BASE = "https://graph.facebook.com/v24.0"
+
+    # Threads API
+    THREADS_API_BASE = "https://graph.threads.net/v1.0"
 
     # ── Twitter ──────────────────────────────────────────────────────
 
@@ -242,6 +245,133 @@ class SocialPostingService:
 
             return {"media_id": media_id, "permalink": permalink}
 
+    # ── Threads ──────────────────────────────────────────────────────
+
+    async def post_to_threads(
+        self, text: str, image_url: Optional[str] = None,
+        reply_to_id: Optional[str] = None,
+    ) -> dict:
+        """Post to Threads via the Threads API.
+
+        Returns {"threads_id": "...", "permalink": "..."} on success,
+        or {"error": "..."} on failure.
+        """
+        if not settings.THREADS_ACCESS_TOKEN or not settings.THREADS_USER_ID:
+            return {"error": "Threads API credentials not configured"}
+
+        user_id = settings.THREADS_USER_ID
+        access_token = settings.THREADS_ACCESS_TOKEN
+
+        async with httpx.AsyncClient(timeout=60) as client:
+            # Step 1: Create media container
+            container_data = {
+                "text": text,
+                "access_token": access_token,
+            }
+
+            if image_url:
+                container_data["media_type"] = "IMAGE"
+                container_data["image_url"] = image_url
+            else:
+                container_data["media_type"] = "TEXT"
+
+            if reply_to_id:
+                container_data["reply_to_id"] = reply_to_id
+
+            container_resp = await client.post(
+                f"{self.THREADS_API_BASE}/{user_id}/threads",
+                data=container_data,
+            )
+
+            if container_resp.status_code != 200:
+                logger.error("Threads container failed: %s %s", container_resp.status_code, container_resp.text)
+                return {"error": f"Threads container error: {container_resp.text}"}
+
+            container_id = container_resp.json().get("id")
+            if not container_id:
+                return {"error": "No container ID returned from Threads"}
+
+            # Step 2: Publish
+            publish_resp = await client.post(
+                f"{self.THREADS_API_BASE}/{user_id}/threads_publish",
+                data={
+                    "creation_id": container_id,
+                    "access_token": access_token,
+                },
+            )
+
+            if publish_resp.status_code != 200:
+                logger.error("Threads publish failed: %s %s", publish_resp.status_code, publish_resp.text)
+                return {"error": f"Threads publish error: {publish_resp.text}"}
+
+            threads_id = publish_resp.json().get("id", "")
+
+            # Get permalink
+            permalink = ""
+            try:
+                perm_resp = await client.get(
+                    f"{self.THREADS_API_BASE}/{threads_id}",
+                    params={
+                        "fields": "permalink",
+                        "access_token": access_token,
+                    },
+                )
+                permalink = perm_resp.json().get("permalink", "")
+            except Exception:
+                pass
+
+            return {"threads_id": threads_id, "permalink": permalink}
+
+    async def lookup_threads_user_by_username(self, username: str) -> Optional[str]:
+        """Look up a Threads user ID by username."""
+        if not settings.THREADS_ACCESS_TOKEN:
+            return None
+
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(
+                    f"{self.THREADS_API_BASE}/{settings.THREADS_USER_ID}",
+                    params={
+                        "fields": "id,username",
+                        "access_token": settings.THREADS_ACCESS_TOKEN,
+                    },
+                )
+            if resp.status_code == 200:
+                return resp.json().get("id")
+        except Exception as e:
+            logger.warning("Threads user lookup failed for %s: %s", username, e)
+
+        return None
+
+    # ── Instagram Comments ───────────────────────────────────────────
+
+    async def post_instagram_comment(
+        self, comment_id: str, message: str
+    ) -> dict:
+        """Reply to an Instagram comment.
+
+        Returns {"comment_id": "...", "success": True} on success,
+        or {"error": "..."} on failure.
+        """
+        if not settings.INSTAGRAM_ACCESS_TOKEN:
+            return {"error": "Instagram API credentials not configured"}
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{self.INSTAGRAM_API_BASE}/{comment_id}/replies",
+                data={
+                    "message": message,
+                    "access_token": settings.INSTAGRAM_ACCESS_TOKEN,
+                },
+            )
+
+        if resp.status_code != 200:
+            logger.error("IG comment reply failed: %s %s", resp.status_code, resp.text)
+            return {"error": f"Instagram comment reply error: {resp.text}"}
+
+        reply_id = resp.json().get("id", "")
+        return {"comment_id": reply_id, "success": True}
+
     # ── Twitter Follow ──────────────────────────────────────────────
 
     TWITTER_USERS_ME_URL = "https://api.twitter.com/2/users/me"
@@ -340,6 +470,87 @@ class SocialPostingService:
             "results": results,
         }
 
+    # ── Threads Token Refresh ────────────────────────────────────────
+
+    async def refresh_threads_token(self) -> dict:
+        """Refresh the Threads long-lived access token and update Lambda env var.
+
+        Threads long-lived tokens expire after 60 days. This method exchanges
+        the current token for a new one and persists it by updating the Lambda
+        function's environment variables via boto3.
+
+        Returns {"success": True, "expires_in": ...} or {"error": "..."}.
+        """
+        if not settings.THREADS_ACCESS_TOKEN:
+            return {"error": "No Threads access token configured"}
+
+        # Step 1: Exchange current token for a new long-lived token
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(
+                    "https://graph.threads.net/refresh_access_token",
+                    params={
+                        "grant_type": "th_refresh_token",
+                        "access_token": settings.THREADS_ACCESS_TOKEN,
+                    },
+                )
+
+            if resp.status_code != 200:
+                logger.error(
+                    "Threads token refresh failed: %s %s",
+                    resp.status_code, resp.text,
+                )
+                return {"error": f"Refresh API error {resp.status_code}: {resp.text}"}
+
+            data = resp.json()
+            new_token = data.get("access_token")
+            expires_in = data.get("expires_in", 0)
+
+            if not new_token:
+                return {"error": "No access_token in refresh response"}
+
+            logger.info(
+                "Threads token refreshed, expires in %d days",
+                expires_in // 86400,
+            )
+        except Exception as e:
+            logger.error("Threads token refresh request failed: %s", e)
+            return {"error": str(e)}
+
+        # Step 2: Update in-memory setting for current execution
+        settings.THREADS_ACCESS_TOKEN = new_token
+
+        # Step 3: Persist to Lambda env var so it survives cold starts
+        function_name = os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+        if function_name:
+            try:
+                import boto3
+                lambda_client = boto3.client("lambda", region_name="us-east-1")
+
+                # Get current config
+                config = lambda_client.get_function_configuration(
+                    FunctionName=function_name
+                )
+                env_vars = config.get("Environment", {}).get("Variables", {})
+
+                # Update token
+                env_vars["THREADS_ACCESS_TOKEN"] = new_token
+
+                lambda_client.update_function_configuration(
+                    FunctionName=function_name,
+                    Environment={"Variables": env_vars},
+                )
+                logger.info("Lambda env var THREADS_ACCESS_TOKEN updated")
+            except Exception as e:
+                logger.error("Failed to update Lambda env var: %s", e)
+                return {
+                    "success": True,
+                    "warning": f"Token refreshed in memory but Lambda env update failed: {e}",
+                    "expires_in": expires_in,
+                }
+
+        return {"success": True, "expires_in": expires_in}
+
     # ── Unified publish ──────────────────────────────────────────────
 
     async def publish_post(self, post) -> dict:
@@ -364,9 +575,19 @@ class SocialPostingService:
             reply_to = getattr(post, 'reply_to_tweet_id', None)
             result = await self.post_to_twitter(text, image_url, reply_to_tweet_id=reply_to)
         elif post.platform == "instagram":
-            if not image_url:
-                return {"error": "Instagram posts require an image"}
-            result = await self.post_to_instagram(text, image_url)
+            # Instagram comment replies use a different API path
+            if getattr(post, 'post_type', None) == "instagram_comment_reply":
+                comment_id = getattr(post, 'reply_to_instagram_comment_id', None)
+                if not comment_id:
+                    return {"error": "No comment ID for Instagram comment reply"}
+                result = await self.post_instagram_comment(comment_id, text)
+            else:
+                if not image_url:
+                    return {"error": "Instagram posts require an image"}
+                result = await self.post_to_instagram(text, image_url)
+        elif post.platform == "threads":
+            reply_to = getattr(post, 'reply_to_thread_id', None)
+            result = await self.post_to_threads(text, image_url, reply_to_id=reply_to)
         else:
             return {"error": f"Unknown platform: {post.platform}"}
 

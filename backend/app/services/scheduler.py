@@ -858,7 +858,7 @@ class SchedulerService:
             replace_existing=True
         )
 
-        # Reply scanner — every 4 hours during waking hours
+        # Reply scanner — every 4 hours during waking hours (Twitter + Threads)
         self.scheduler.add_job(
             self._scan_reply_opportunities,
             CronTrigger(
@@ -868,6 +868,33 @@ class SchedulerService:
             ),
             id='reply_scanner',
             name='Social Reply Scanner',
+            replace_existing=True
+        )
+
+        # Instagram comment reply scanner — every 4 hours, offset from reply scanner
+        self.scheduler.add_job(
+            self._scan_instagram_comments,
+            CronTrigger(
+                hour='9,13,17,21',
+                minute=30,
+                timezone=ET
+            ),
+            id='instagram_comment_scanner',
+            name='Instagram Comment Scanner',
+            replace_existing=True
+        )
+
+        # Threads token refresh — weekly on Mondays at 3 AM ET
+        self.scheduler.add_job(
+            self._refresh_threads_token,
+            CronTrigger(
+                day_of_week='mon',
+                hour=3,
+                minute=0,
+                timezone=ET
+            ),
+            id='threads_token_refresh',
+            name='Threads Token Refresh',
             replace_existing=True
         )
 
@@ -1592,6 +1619,57 @@ class SchedulerService:
                                f"({result.get('tweets_found', 0)} tweets scanned)")
         except Exception as e:
             logger.error(f"❌ Reply scanner failed: {e}")
+
+    async def _scan_instagram_comments(self):
+        """
+        Scan Instagram comments on our posts and generate reply drafts.
+
+        Runs every 4 hours at :30 past the hour.
+        """
+        try:
+            from app.core.database import async_session
+            from app.services.instagram_comment_service import instagram_comment_service
+
+            async with async_session() as db:
+                result = await instagram_comment_service.scan_and_reply(db, since_hours=4)
+                if result.get("replies_created"):
+                    logger.info(f"💬 IG comment scanner: {result['replies_created']} reply draft(s) created")
+                else:
+                    logger.info(f"💬 IG comment scanner: no new comments to reply to "
+                               f"({result.get('comments_found', 0)} comments checked)")
+        except Exception as e:
+            logger.error(f"❌ Instagram comment scanner failed: {e}")
+
+    async def _refresh_threads_token(self):
+        """
+        Refresh the Threads long-lived access token weekly.
+
+        Long-lived tokens expire after 60 days. Refreshing weekly ensures
+        we never get close to expiry.
+        """
+        try:
+            from app.services.social_posting_service import social_posting_service
+
+            result = await social_posting_service.refresh_threads_token()
+            if result.get("success"):
+                days = result.get("expires_in", 0) // 86400
+                logger.info(f"🔑 Threads token refreshed — expires in {days} days")
+                if result.get("warning"):
+                    logger.warning(f"⚠️ {result['warning']}")
+            else:
+                logger.error(f"🔑 Threads token refresh failed: {result.get('error')}")
+                # Send admin alert
+                try:
+                    await admin_email_service.send_admin_alert(
+                        to_email=ADMIN_EMAIL,
+                        subject="Threads Token Refresh Failed",
+                        message=f"Automatic Threads token refresh failed: {result.get('error')}\n\n"
+                                "Please manually refresh at: https://developers.facebook.com",
+                    )
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.error(f"❌ Threads token refresh job failed: {e}")
 
     async def _strategy_auto_analysis(self):
         """

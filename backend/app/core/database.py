@@ -320,6 +320,11 @@ class SocialPost(Base):
     reply_to_tweet_id = Column(String(50), nullable=True)
     reply_to_username = Column(String(50), nullable=True)
     source_tweet_text = Column(Text, nullable=True)
+    # Threads reply column
+    reply_to_thread_id = Column(String(50), nullable=True)
+    # Instagram comment reply columns
+    reply_to_instagram_comment_id = Column(String(50), nullable=True)
+    reply_to_instagram_media_id = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -635,6 +640,12 @@ async def _run_schema_migrations(conn):
         "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_tweet_id VARCHAR(50)",
         "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_username VARCHAR(50)",
         "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS source_tweet_text TEXT",
+    ])
+
+    await _run("social_posts threads + instagram comment columns", [
+        "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_thread_id VARCHAR(50)",
+        "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_instagram_comment_id VARCHAR(50)",
+        "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_instagram_media_id VARCHAR(50)",
     ])
 
     await _run("walk_forward_period_results table", [
