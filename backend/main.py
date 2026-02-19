@@ -1336,6 +1336,43 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # Create social post drafts directly (direct Lambda invocation)
+    if event.get("create_drafts"):
+        print("📝 Creating social post drafts")
+        drafts_data = event["create_drafts"]
+
+        async def _create_drafts():
+            from app.core.database import SocialPost
+
+            async with async_session() as db:
+                created = []
+                for p in drafts_data:
+                    post = SocialPost(
+                        platform=p.get("platform", "threads"),
+                        text_content=p.get("text_content", ""),
+                        hashtags=p.get("hashtags", ""),
+                        post_type=p.get("post_type", "manual"),
+                        status="draft",
+                        image_s3_key=p.get("image_s3_key"),
+                    )
+                    db.add(post)
+                    created.append({"platform": post.platform, "text": post.text_content[:60] + "..."})
+                await db.commit()
+                return {"status": "success", "created": len(created), "posts": created}
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_create_drafts())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Create drafts failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
     # Refresh Threads API token (direct Lambda invocation)
     if event.get("refresh_threads_token"):
         print("🔑 Refreshing Threads access token")
