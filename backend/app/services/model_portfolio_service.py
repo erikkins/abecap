@@ -88,10 +88,12 @@ class ModelPortfolioService:
         if portfolio_type not in PORTFOLIO_TYPES:
             return {"error": f"Invalid portfolio type: {portfolio_type}"}
 
-        # WF portfolio only enters at period boundaries
+        # WF portfolio only enters at period boundaries (once per period)
         today = date.today()
-        if portfolio_type == "walkforward" and not self._is_wf_period_boundary(today):
-            return {"entries": 0, "reason": "Not a WF period boundary"}
+        current_period = self._get_wf_period(today)
+        if portfolio_type == "walkforward":
+            if not self._is_wf_period_boundary(today) or current_period == self._last_wf_period_processed:
+                return {"entries": 0, "reason": "Not a WF period boundary"}
 
         state = await self._get_or_create_state(db, portfolio_type)
         open_positions = await self._get_open_positions(db, portfolio_type)
@@ -225,7 +227,11 @@ class ModelPortfolioService:
             return []
 
         today = date.today()
-        is_boundary = self._is_wf_period_boundary(today)
+        current_period = self._get_wf_period(today)
+        is_boundary = (
+            self._is_wf_period_boundary(today)
+            and current_period != self._last_wf_period_processed
+        )
 
         # Get daily close prices from scanner cache
         from app.services.scanner import scanner_service
@@ -260,6 +266,10 @@ class ModelPortfolioService:
 
         if closed:
             await db.commit()
+
+        # Mark this period as processed so boundary doesn't fire again
+        if is_boundary:
+            self._last_wf_period_processed = current_period
 
         return closed
 
@@ -455,30 +465,36 @@ class ModelPortfolioService:
     # Walk-forward biweekly boundary logic
     # ------------------------------------------------------------------
 
-    def _is_wf_period_boundary(self, today: date) -> bool:
+    def _get_wf_period(self, d: date) -> int:
+        """Return which biweekly period a date belongs to (-1 if before anchor)."""
+        days_since = (d - WF_ANCHOR_DATE).days
+        if days_since < 0:
+            return -1
+        return days_since // WF_PERIOD_DAYS
+
+    def _is_wf_period_boundary(self, today: date, prev_trading_day: Optional[date] = None) -> bool:
         """Check if today is the first trading day of a new biweekly period.
 
-        Boundaries fall on Sundays (Feb 1 2026 anchor + 14-day periods),
-        so we check if today is Monday (or the first weekday) after a boundary.
-        Specifically: the boundary that *just passed* (within 0-2 days ago)
-        should not already have been the boundary for a previous trading day.
+        If prev_trading_day is provided (backfill mode), compares periods directly.
+        Otherwise (live mode), checks if any of the previous 6 calendar days
+        falls in a prior period. Live callers must deduplicate (only act once
+        per period) using _last_wf_period_processed.
         """
-        days_since = (today - WF_ANCHOR_DATE).days
-        if days_since < 0:
+        current_period = self._get_wf_period(today)
+        if current_period < 0:
             return False
-        # Check if a boundary falls on today or within the last 2 days
-        # (covers Sat/Sun boundaries triggering on Monday)
-        for offset in range(3):
-            check_date = today - timedelta(days=offset)
-            ds = (check_date - WF_ANCHOR_DATE).days
-            if ds >= 0 and ds % WF_PERIOD_DAYS == 0:
-                # Boundary is on check_date. Today triggers if it's the first
-                # weekday on or after check_date.
-                first_weekday = check_date
-                while first_weekday.weekday() >= 5:  # Sat=5, Sun=6
-                    first_weekday += timedelta(days=1)
-                return today == first_weekday
+
+        if prev_trading_day is not None:
+            return self._get_wf_period(prev_trading_day) < current_period
+
+        # Live mode: check if a period boundary exists in the recent window
+        for offset in range(1, 7):
+            prev = today - timedelta(days=offset)
+            if self._get_wf_period(prev) < current_period:
+                return True
         return False
+
+    _last_wf_period_processed: int = -1
 
     # ------------------------------------------------------------------
     # Reset (admin/testing)
@@ -575,22 +591,14 @@ class ModelPortfolioService:
             "snapshots": 0,
         }
 
-        # Get WF boundary dates in range
-        boundaries = set()
-        d = WF_ANCHOR_DATE
-        while d <= today.date():
-            if d >= start.date():
-                boundaries.add(pd.Timestamp(d).normalize())
-            d += timedelta(days=WF_PERIOD_DAYS)
-
         logger.info(
-            f"[BACKFILL] {len(trading_days)} trading days, "
-            f"{len(boundaries)} WF boundaries"
+            f"[BACKFILL] {len(trading_days)} trading days"
         )
 
+        prev_trading_day = None
         for day in trading_days:
             day_date = day.date()
-            is_boundary = day in boundaries
+            is_boundary = self._is_wf_period_boundary(day_date, prev_trading_day)
 
             # Get current open positions
             open_positions = await self._get_open_positions(db, portfolio_type)
@@ -726,6 +734,8 @@ class ModelPortfolioService:
             # Flush periodically to keep session clean
             if summary["snapshots"] % 10 == 0:
                 await db.flush()
+
+            prev_trading_day = day_date
 
         state.updated_at = datetime.utcnow()
         await db.commit()
