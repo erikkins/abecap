@@ -160,6 +160,10 @@ class SchedulerService:
                     wf_closed = await model_portfolio_service.process_wf_exits(mp_db)
                     if wf_closed:
                         logger.info(f"[MODEL-WF] Closed {len(wf_closed)} position(s)")
+
+                    # Take daily equity curve snapshot
+                    snap_result = await model_portfolio_service.take_daily_snapshot(mp_db)
+                    logger.info(f"[MODEL-SNAPSHOT] {snap_result}")
             except Exception as e:
                 logger.error(f"[MODEL-PORTFOLIO] Entry/exit processing failed: {e}")
 

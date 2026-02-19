@@ -821,6 +821,11 @@ def handler(event, context):
                 elif action == "reset":
                     return await model_portfolio_service.reset_portfolio(db, portfolio_type)
 
+                elif action == "backfill":
+                    as_of_date = config.get("as_of_date", "2026-02-01")
+                    force = config.get("force", False)
+                    return await model_portfolio_service.backfill_from_date(db, as_of_date, force)
+
                 else:
                     return {"error": f"Unknown action: {action}"}
 

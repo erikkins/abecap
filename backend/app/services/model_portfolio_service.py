@@ -17,7 +17,7 @@ from typing import Dict, List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import ModelPosition, ModelPortfolioState
+from app.core.database import ModelPosition, ModelPortfolioState, ModelPortfolioSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -411,6 +411,7 @@ class ModelPortfolioService:
             )
             recent_trades = [
                 {
+                    "id": t.id,
                     "symbol": t.symbol,
                     "entry_date": t.entry_date.isoformat() if t.entry_date else None,
                     "exit_date": t.exit_date.isoformat() if t.exit_date else None,
@@ -486,8 +487,559 @@ class ModelPortfolioService:
                 )
             )
 
+            # Also clear snapshots
+            await db.execute(
+                delete(ModelPortfolioSnapshot).where(
+                    ModelPortfolioSnapshot.portfolio_type == ptype
+                )
+            )
+
         await db.commit()
         return {"deleted_positions": deleted, "reset_types": types}
+
+    # ------------------------------------------------------------------
+    # Backfill walk-forward portfolio from a historical date
+    # ------------------------------------------------------------------
+
+    async def backfill_from_date(
+        self,
+        db: AsyncSession,
+        as_of_date: str = "2026-02-01",
+        force: bool = False,
+    ) -> dict:
+        """
+        Backfill the WF portfolio from a historical date through today.
+
+        Steps:
+        1. Reset WF portfolio if force=True
+        2. Load signals from snapshot or live computation for the start date
+        3. Enter top fresh ensemble signals
+        4. Walk forward day by day: update HWM, check trailing stop, rebalance at boundaries
+        5. Take daily snapshots for equity curve
+        """
+        import pandas as pd
+        from sqlalchemy import delete
+
+        portfolio_type = "walkforward"
+
+        if force:
+            await self.reset_portfolio(db, portfolio_type)
+            logger.info("[BACKFILL] Reset WF portfolio")
+
+        # Get scanner data for price lookups
+        from app.services.scanner import scanner_service
+
+        spy_df = scanner_service.data_cache.get("SPY")
+        if spy_df is None or spy_df.empty:
+            return {"error": "SPY data not in cache — run a scan first"}
+
+        # Build trading calendar from SPY index
+        start = pd.Timestamp(as_of_date).normalize()
+        today = pd.Timestamp(date.today()).normalize()
+
+        # Normalize SPY index for comparison
+        spy_index = spy_df.index.normalize()
+        trading_days = sorted([d for d in spy_index if start <= d <= today])
+        if not trading_days:
+            return {"error": f"No trading days found between {as_of_date} and today"}
+
+        # Initialize state
+        state = await self._get_or_create_state(db, portfolio_type)
+        summary = {
+            "start_date": str(start.date()),
+            "end_date": str(today.date()),
+            "trading_days": len(trading_days),
+            "entries": 0,
+            "exits": 0,
+            "rebalances": 0,
+            "snapshots": 0,
+        }
+
+        # Get WF boundary dates in range
+        boundaries = set()
+        d = WF_ANCHOR_DATE
+        while d <= today.date():
+            if d >= start.date():
+                boundaries.add(pd.Timestamp(d).normalize())
+            d += timedelta(days=WF_PERIOD_DAYS)
+
+        logger.info(
+            f"[BACKFILL] {len(trading_days)} trading days, "
+            f"{len(boundaries)} WF boundaries"
+        )
+
+        for day in trading_days:
+            day_date = day.date()
+            is_boundary = day in boundaries
+
+            # Get current open positions
+            open_positions = await self._get_open_positions(db, portfolio_type)
+
+            # --- Check exits ---
+            for pos in open_positions:
+                df = scanner_service.data_cache.get(pos.symbol)
+                if df is None or df.empty:
+                    continue
+
+                # Get close price for this day
+                df_norm = df.index.normalize()
+                day_mask = df_norm == day
+                if not day_mask.any():
+                    continue
+
+                close_price = float(df.loc[day_mask, "close"].iloc[-1])
+
+                # Update HWM
+                if close_price > (pos.highest_price or pos.entry_price):
+                    pos.highest_price = close_price
+
+                exit_reason = None
+                if is_boundary:
+                    exit_reason = "rebalance_exit"
+                else:
+                    hwm = pos.highest_price or pos.entry_price
+                    stop_level = hwm * (1 - TRAILING_STOP_PCT / 100)
+                    if close_price <= stop_level:
+                        exit_reason = "trailing_stop"
+
+                if exit_reason:
+                    pnl_dollars = (close_price - pos.entry_price) * pos.shares
+                    pnl_pct = ((close_price / pos.entry_price) - 1) * 100
+
+                    pos.exit_date = datetime.combine(day_date, datetime.min.time())
+                    pos.exit_price = close_price
+                    pos.exit_reason = exit_reason
+                    pos.pnl_dollars = round(pnl_dollars, 2)
+                    pos.pnl_pct = round(pnl_pct, 2)
+                    pos.status = "closed"
+
+                    state.current_cash += pos.cost_basis + pnl_dollars
+                    state.total_trades += 1
+                    state.total_pnl += pnl_dollars
+                    if pnl_pct > 0:
+                        state.winning_trades += 1
+
+                    summary["exits"] += 1
+
+            # --- Enter new positions at boundaries or first day ---
+            if is_boundary or day == trading_days[0]:
+                if is_boundary and day != trading_days[0]:
+                    summary["rebalances"] += 1
+
+                # Load signals for this date
+                signals = await self._get_signals_for_date(day_date)
+                if signals:
+                    open_positions = await self._get_open_positions(db, portfolio_type)
+                    held = {p.symbol for p in open_positions}
+                    slots = MAX_POSITIONS - len(open_positions)
+
+                    fresh = [
+                        s for s in signals
+                        if s.get("is_fresh") and s["symbol"] not in held
+                    ]
+                    fresh.sort(key=lambda x: -x.get("ensemble_score", 0))
+
+                    for sig in fresh[:slots]:
+                        symbol = sig["symbol"]
+                        # Get close price for entry day
+                        df = scanner_service.data_cache.get(symbol)
+                        if df is None or df.empty:
+                            continue
+
+                        df_norm = df.index.normalize()
+                        day_mask = df_norm == day
+                        if not day_mask.any():
+                            continue
+
+                        price = float(df.loc[day_mask, "close"].iloc[-1])
+                        if price <= 0:
+                            continue
+
+                        alloc = state.current_cash * POSITION_SIZE_PCT
+                        if alloc < 100:
+                            break
+
+                        shares = alloc / price
+                        pos = ModelPosition(
+                            portfolio_type=portfolio_type,
+                            symbol=symbol,
+                            entry_date=datetime.combine(day_date, datetime.min.time()),
+                            entry_price=price,
+                            shares=shares,
+                            cost_basis=alloc,
+                            highest_price=price,
+                            status="open",
+                            signal_data_json=json.dumps(sig),
+                        )
+                        db.add(pos)
+                        state.current_cash -= alloc
+                        summary["entries"] += 1
+
+            # --- Take daily snapshot ---
+            open_positions = await self._get_open_positions(db, portfolio_type)
+            positions_value = 0.0
+            for pos in open_positions:
+                df = scanner_service.data_cache.get(pos.symbol)
+                if df is None or df.empty:
+                    continue
+                df_norm = df.index.normalize()
+                day_mask = df_norm == day
+                if day_mask.any():
+                    close_price = float(df.loc[day_mask, "close"].iloc[-1])
+                    positions_value += close_price * pos.shares
+
+            spy_mask = spy_index == day
+            spy_close = float(spy_df.loc[spy_mask, "close"].iloc[-1]) if spy_mask.any() else None
+
+            snapshot = ModelPortfolioSnapshot(
+                portfolio_type=portfolio_type,
+                snapshot_date=datetime.combine(day_date, datetime.min.time()),
+                total_value=round(state.current_cash + positions_value, 2),
+                cash=round(state.current_cash, 2),
+                positions_value=round(positions_value, 2),
+                num_positions=len(open_positions),
+                spy_close=spy_close,
+            )
+            db.add(snapshot)
+            summary["snapshots"] += 1
+
+            # Flush periodically to keep session clean
+            if summary["snapshots"] % 10 == 0:
+                await db.flush()
+
+        state.updated_at = datetime.utcnow()
+        await db.commit()
+
+        logger.info(
+            f"[BACKFILL] Complete: {summary['entries']} entries, "
+            f"{summary['exits']} exits, {summary['rebalances']} rebalances, "
+            f"{summary['snapshots']} snapshots"
+        )
+        return summary
+
+    async def _get_signals_for_date(self, target_date: date) -> Optional[List[dict]]:
+        """Load ensemble signals for a given date from snapshot or live computation."""
+        from app.services.data_export import data_export_service
+
+        date_str = target_date.isoformat()
+
+        # Try snapshot first
+        snapshot = data_export_service.read_snapshot(date_str)
+        if snapshot:
+            return snapshot.get("buy_signals", [])
+
+        # No snapshot available — skip (can't time-travel without cached data)
+        logger.debug(f"[BACKFILL] No snapshot for {date_str}")
+        return None
+
+    # ------------------------------------------------------------------
+    # Daily snapshot for equity curve
+    # ------------------------------------------------------------------
+
+    async def take_daily_snapshot(
+        self, db: AsyncSession, snapshot_date: Optional[date] = None
+    ) -> dict:
+        """
+        Take a snapshot of each portfolio's value for the equity curve.
+        Uses scanner cache for current prices + SPY close.
+        Upserts to avoid duplicates.
+        """
+        from app.services.scanner import scanner_service
+
+        if snapshot_date is None:
+            snapshot_date = date.today()
+
+        snapshot_dt = datetime.combine(snapshot_date, datetime.min.time())
+        results = {}
+
+        for ptype in PORTFOLIO_TYPES:
+            state = await self._get_or_create_state(db, ptype)
+            open_positions = await self._get_open_positions(db, ptype)
+
+            positions_value = 0.0
+            for pos in open_positions:
+                df = scanner_service.data_cache.get(pos.symbol)
+                if df is not None and not df.empty:
+                    positions_value += float(df["close"].iloc[-1]) * pos.shares
+
+            spy_df = scanner_service.data_cache.get("SPY")
+            spy_close = float(spy_df["close"].iloc[-1]) if spy_df is not None and not spy_df.empty else None
+
+            total_value = state.current_cash + positions_value
+
+            # Upsert: check existing
+            existing = await db.execute(
+                select(ModelPortfolioSnapshot).where(
+                    ModelPortfolioSnapshot.portfolio_type == ptype,
+                    ModelPortfolioSnapshot.snapshot_date == snapshot_dt,
+                )
+            )
+            snap = existing.scalar_one_or_none()
+
+            if snap:
+                snap.total_value = round(total_value, 2)
+                snap.cash = round(state.current_cash, 2)
+                snap.positions_value = round(positions_value, 2)
+                snap.num_positions = len(open_positions)
+                snap.spy_close = spy_close
+            else:
+                snap = ModelPortfolioSnapshot(
+                    portfolio_type=ptype,
+                    snapshot_date=snapshot_dt,
+                    total_value=round(total_value, 2),
+                    cash=round(state.current_cash, 2),
+                    positions_value=round(positions_value, 2),
+                    num_positions=len(open_positions),
+                    spy_close=spy_close,
+                )
+                db.add(snap)
+
+            results[ptype] = {
+                "total_value": round(total_value, 2),
+                "positions_value": round(positions_value, 2),
+                "num_positions": len(open_positions),
+            }
+
+        await db.commit()
+        logger.info(f"[SNAPSHOT] Taken for {snapshot_date}: {results}")
+        return results
+
+    # ------------------------------------------------------------------
+    # Equity curve
+    # ------------------------------------------------------------------
+
+    async def get_equity_curve(
+        self, db: AsyncSession, portfolio_type: Optional[str] = None
+    ) -> List[dict]:
+        """
+        Return equity curve data points for charting.
+        Normalizes SPY to $100K starting value for comparison.
+        """
+        from sqlalchemy import asc
+
+        query = select(ModelPortfolioSnapshot).order_by(
+            asc(ModelPortfolioSnapshot.snapshot_date)
+        )
+        if portfolio_type:
+            query = query.where(ModelPortfolioSnapshot.portfolio_type == portfolio_type)
+
+        result = await db.execute(query)
+        snapshots = result.scalars().all()
+
+        if not snapshots:
+            return []
+
+        # Group by date
+        by_date: Dict[str, dict] = {}
+        first_spy = None
+
+        for s in snapshots:
+            date_str = s.snapshot_date.strftime("%Y-%m-%d") if s.snapshot_date else ""
+            if date_str not in by_date:
+                by_date[date_str] = {"date": date_str}
+
+            key = f"{s.portfolio_type}_value"
+            by_date[date_str][key] = s.total_value
+
+            if s.spy_close and first_spy is None:
+                first_spy = s.spy_close
+
+            if s.spy_close and first_spy:
+                by_date[date_str]["spy_value"] = round(
+                    STARTING_CAPITAL * (s.spy_close / first_spy), 2
+                )
+
+        return sorted(by_date.values(), key=lambda x: x["date"])
+
+    # ------------------------------------------------------------------
+    # Trade journal
+    # ------------------------------------------------------------------
+
+    async def get_all_trades(
+        self,
+        db: AsyncSession,
+        portfolio_type: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[dict]:
+        """Return all trades (closed + open) ordered by entry_date desc."""
+        query = select(ModelPosition).order_by(ModelPosition.entry_date.desc())
+        if portfolio_type:
+            query = query.where(ModelPosition.portfolio_type == portfolio_type)
+        query = query.limit(limit)
+
+        result = await db.execute(query)
+        trades = []
+        for t in result.scalars().all():
+            sig = {}
+            if t.signal_data_json:
+                try:
+                    sig = json.loads(t.signal_data_json)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            days_held = None
+            if t.entry_date:
+                end = t.exit_date or datetime.utcnow()
+                days_held = (end - t.entry_date).days
+
+            trades.append({
+                "id": t.id,
+                "portfolio_type": t.portfolio_type,
+                "symbol": t.symbol,
+                "status": t.status,
+                "entry_date": t.entry_date.isoformat() if t.entry_date else None,
+                "exit_date": t.exit_date.isoformat() if t.exit_date else None,
+                "entry_price": t.entry_price,
+                "exit_price": t.exit_price,
+                "shares": round(t.shares, 2) if t.shares else None,
+                "cost_basis": round(t.cost_basis, 2) if t.cost_basis else None,
+                "pnl_pct": t.pnl_pct,
+                "pnl_dollars": t.pnl_dollars,
+                "exit_reason": t.exit_reason,
+                "days_held": days_held,
+                "ensemble_score": sig.get("ensemble_score"),
+                "momentum_rank": sig.get("momentum_rank"),
+            })
+
+        return trades
+
+    async def get_trade_detail(self, db: AsyncSession, trade_id: int) -> Optional[dict]:
+        """Return full detail for a single trade including signal replay."""
+        result = await db.execute(
+            select(ModelPosition).where(ModelPosition.id == trade_id)
+        )
+        t = result.scalar_one_or_none()
+        if not t:
+            return None
+
+        sig = {}
+        if t.signal_data_json:
+            try:
+                sig = json.loads(t.signal_data_json)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        days_held = None
+        if t.entry_date:
+            end = t.exit_date or datetime.utcnow()
+            days_held = (end - t.entry_date).days
+
+        # Calculate max gain during hold
+        max_gain_pct = None
+        if t.highest_price and t.entry_price:
+            max_gain_pct = round(((t.highest_price / t.entry_price) - 1) * 100, 2)
+
+        return {
+            "id": t.id,
+            "portfolio_type": t.portfolio_type,
+            "symbol": t.symbol,
+            "status": t.status,
+            "entry_date": t.entry_date.isoformat() if t.entry_date else None,
+            "exit_date": t.exit_date.isoformat() if t.exit_date else None,
+            "entry_price": t.entry_price,
+            "exit_price": t.exit_price,
+            "shares": round(t.shares, 2) if t.shares else None,
+            "cost_basis": round(t.cost_basis, 2) if t.cost_basis else None,
+            "highest_price": t.highest_price,
+            "pnl_pct": t.pnl_pct,
+            "pnl_dollars": t.pnl_dollars,
+            "exit_reason": t.exit_reason,
+            "days_held": days_held,
+            "max_gain_pct": max_gain_pct,
+            # Signal replay
+            "ensemble_score": sig.get("ensemble_score"),
+            "momentum_rank": sig.get("momentum_rank"),
+            "pct_above_dwap": sig.get("pct_above_dwap"),
+            "sector": sig.get("sector"),
+            "short_momentum": sig.get("short_momentum"),
+            "long_momentum": sig.get("long_momentum"),
+            "volatility": sig.get("volatility"),
+            "dwap_crossover_date": sig.get("dwap_crossover_date"),
+            "ensemble_entry_date": sig.get("ensemble_entry_date"),
+        }
+
+    # ------------------------------------------------------------------
+    # Subscriber preview
+    # ------------------------------------------------------------------
+
+    async def get_subscriber_view(self, db: AsyncSession) -> dict:
+        """
+        Return a subscriber-safe preview of the WF portfolio.
+        Shows positions (symbol + P&L only), recent winners, and aggregate stats.
+        """
+        # Prefer WF portfolio (more history after backfill)
+        state = await self._get_or_create_state(db, "walkforward")
+        open_positions = await self._get_open_positions(db, "walkforward")
+
+        from app.services.scanner import scanner_service
+
+        # Open positions: symbol + P&L only (no shares/sizes)
+        positions = []
+        for pos in open_positions:
+            df = scanner_service.data_cache.get(pos.symbol)
+            current_price = float(df["close"].iloc[-1]) if df is not None and not df.empty else pos.entry_price
+            pnl_pct = ((current_price / pos.entry_price) - 1) * 100
+            positions.append({
+                "symbol": pos.symbol,
+                "pnl_pct": round(pnl_pct, 2),
+            })
+
+        # Recent winners (last 5 profitable closed trades)
+        winners_result = await db.execute(
+            select(ModelPosition)
+            .where(
+                ModelPosition.portfolio_type == "walkforward",
+                ModelPosition.status == "closed",
+                ModelPosition.pnl_pct > 0,
+            )
+            .order_by(ModelPosition.exit_date.desc())
+            .limit(5)
+        )
+        recent_winners = [
+            {
+                "symbol": t.symbol,
+                "pnl_pct": t.pnl_pct,
+                "exit_date": t.exit_date.isoformat() if t.exit_date else None,
+            }
+            for t in winners_result.scalars().all()
+        ]
+
+        # Aggregate stats
+        positions_value = 0.0
+        for pos in open_positions:
+            df = scanner_service.data_cache.get(pos.symbol)
+            if df is not None and not df.empty:
+                positions_value += float(df["close"].iloc[-1]) * pos.shares
+
+        total_value = state.current_cash + positions_value
+        portfolio_return_pct = ((total_value / state.starting_capital) - 1) * 100 if state.starting_capital else 0
+
+        win_rate = (
+            (state.winning_trades / state.total_trades * 100)
+            if state.total_trades > 0
+            else 0
+        )
+
+        # Find inception date from earliest position
+        earliest = await db.execute(
+            select(ModelPosition)
+            .where(ModelPosition.portfolio_type == "walkforward")
+            .order_by(ModelPosition.entry_date.asc())
+            .limit(1)
+        )
+        first_pos = earliest.scalar_one_or_none()
+        inception_date = first_pos.entry_date.date().isoformat() if first_pos and first_pos.entry_date else None
+        active_days = (date.today() - first_pos.entry_date.date()).days if first_pos and first_pos.entry_date else 0
+
+        return {
+            "open_positions": positions,
+            "recent_winners": recent_winners,
+            "portfolio_return_pct": round(portfolio_return_pct, 2),
+            "win_rate": round(win_rate, 1),
+            "total_trades": state.total_trades,
+            "inception_date": inception_date,
+            "active_since_days": active_days,
+        }
 
 
 # Singleton

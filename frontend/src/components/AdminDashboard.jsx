@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw, Beaker, Bot, Settings, Share2, Server, Briefcase } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 import StrategyGenerator from './StrategyGenerator';
 import WalkForwardSimulator from './WalkForwardSimulator';
@@ -1042,6 +1043,11 @@ function UsersTab({ users, usersPagination, searchQuery, setSearchQuery, handleS
 // Model Portfolio Tab Component
 function ModelPortfolioTab({ fetchWithAuth }) {
   const [data, setData] = useState(null);
+  const [equityCurve, setEquityCurve] = useState([]);
+  const [trades, setTrades] = useState([]);
+  const [expandedTrade, setExpandedTrade] = useState(null);
+  const [tradeDetail, setTradeDetail] = useState(null);
+  const [subscriberPreview, setSubscriberPreview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
@@ -1058,23 +1064,70 @@ function ModelPortfolioTab({ fetchWithAuth }) {
     }
   };
 
+  const fetchEquityCurve = async () => {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/model-portfolio/equity-curve`);
+      if (response.ok) setEquityCurve(await response.json());
+    } catch (err) {
+      console.error('Failed to fetch equity curve:', err);
+    }
+  };
+
+  const fetchTrades = async () => {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/model-portfolio/trades?limit=100`);
+      if (response.ok) setTrades(await response.json());
+    } catch (err) {
+      console.error('Failed to fetch trades:', err);
+    }
+  };
+
+  const fetchSubscriberPreview = async () => {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/model-portfolio/subscriber-preview`);
+      if (response.ok) setSubscriberPreview(await response.json());
+    } catch (err) {
+      console.error('Failed to fetch subscriber preview:', err);
+    }
+  };
+
+  const fetchTradeDetail = async (tradeId) => {
+    if (expandedTrade === tradeId) {
+      setExpandedTrade(null);
+      setTradeDetail(null);
+      return;
+    }
+    setExpandedTrade(tradeId);
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/model-portfolio/trades/${tradeId}`);
+      if (response.ok) setTradeDetail(await response.json());
+    } catch (err) {
+      console.error('Failed to fetch trade detail:', err);
+    }
+  };
+
   useEffect(() => {
     fetchPortfolio();
+    fetchEquityCurve();
+    fetchTrades();
+    fetchSubscriberPreview();
     const interval = setInterval(fetchPortfolio, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  const runAction = async (action) => {
+  const runAction = async (action, extra = {}) => {
     setProcessing(true);
     try {
-      // Use Lambda-style invocation via a dedicated admin endpoint
       const response = await fetchWithAuth(`${API_URL}/api/admin/model-portfolio/action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...extra }),
       });
       if (response.ok) {
         await fetchPortfolio();
+        await fetchEquityCurve();
+        await fetchTrades();
+        await fetchSubscriberPreview();
       }
     } catch (err) {
       console.error('Action failed:', err);
@@ -1095,6 +1148,19 @@ function ModelPortfolioTab({ fetchWithAuth }) {
     { key: 'live', label: 'Live Portfolio', desc: 'Intraday monitoring, trailing stop & regime exits' },
     { key: 'walkforward', label: 'Walk-Forward Portfolio', desc: 'Biweekly rebalancing, daily close checks' },
   ];
+
+  const exitReasonBadge = (reason) => {
+    const colors = {
+      trailing_stop: 'bg-red-100 text-red-700',
+      rebalance_exit: 'bg-blue-100 text-blue-700',
+      regime_exit: 'bg-amber-100 text-amber-700',
+    };
+    return (
+      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[reason] || 'bg-gray-100 text-gray-600'}`}>
+        {(reason || 'unknown').replace('_', ' ')}
+      </span>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -1117,7 +1183,6 @@ function ModelPortfolioTab({ fetchWithAuth }) {
               </div>
               <p className="text-xs text-gray-400 mb-4">{desc}</p>
 
-              {/* Metrics row */}
               <div className="grid grid-cols-3 gap-4 mb-4">
                 <div>
                   <p className="text-xs text-gray-500">Total Value</p>
@@ -1197,49 +1262,146 @@ function ModelPortfolioTab({ fetchWithAuth }) {
               {p.open_positions?.length === 0 && (
                 <p className="mt-4 text-sm text-gray-400 italic">No open positions</p>
               )}
-
-              {/* Recent Trades */}
-              {p.recent_trades?.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Recent Trades</h4>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
-                          <th className="pb-2 pr-3">Symbol</th>
-                          <th className="pb-2 pr-3">Entry</th>
-                          <th className="pb-2 pr-3">Exit</th>
-                          <th className="pb-2 pr-3">P&L</th>
-                          <th className="pb-2">Reason</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {p.recent_trades.map((t, i) => {
-                          const pnlColor = t.pnl_pct > 0 ? 'text-green-600' : t.pnl_pct < 0 ? 'text-red-600' : 'text-gray-600';
-                          return (
-                            <tr key={i} className="border-b border-gray-50">
-                              <td className="py-2 pr-3 font-medium text-gray-900">{t.symbol}</td>
-                              <td className="py-2 pr-3 text-gray-600">${t.entry_price?.toFixed(2)}</td>
-                              <td className="py-2 pr-3 text-gray-600">${t.exit_price?.toFixed(2)}</td>
-                              <td className={`py-2 pr-3 font-medium ${pnlColor}`}>
-                                {t.pnl_pct >= 0 ? '+' : ''}{t.pnl_pct?.toFixed(1)}%
-                              </td>
-                              <td className="py-2 text-gray-500 text-xs">{t.exit_reason}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
             </div>
           );
         })}
       </div>
 
-      {/* Refresh button */}
-      <div className="flex justify-end">
+      {/* Equity Curve Chart */}
+      {equityCurve.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Equity Curve</h3>
+          <EquityCurveChart data={equityCurve} />
+        </div>
+      )}
+
+      {/* Trade Journal */}
+      {trades.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Trade Journal ({trades.length})</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
+                  <th className="pb-2 pr-3">Symbol</th>
+                  <th className="pb-2 pr-3">Type</th>
+                  <th className="pb-2 pr-3">Entry</th>
+                  <th className="pb-2 pr-3">Exit</th>
+                  <th className="pb-2 pr-3">P&L</th>
+                  <th className="pb-2 pr-3">Days</th>
+                  <th className="pb-2">Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trades.map((t) => {
+                  const pnlColor = (t.pnl_pct || 0) > 0 ? 'text-green-600' : (t.pnl_pct || 0) < 0 ? 'text-red-600' : 'text-gray-600';
+                  const isOpen = t.status === 'open';
+                  const isExpanded = expandedTrade === t.id;
+                  return (
+                    <React.Fragment key={t.id}>
+                      <tr
+                        className={`border-b border-gray-50 cursor-pointer hover:bg-gray-50 ${isExpanded ? 'bg-gray-50' : ''}`}
+                        onClick={() => fetchTradeDetail(t.id)}
+                      >
+                        <td className="py-2 pr-3 font-medium text-gray-900">{t.symbol}</td>
+                        <td className="py-2 pr-3">
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                            t.portfolio_type === 'live' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'
+                          }`}>
+                            {t.portfolio_type === 'live' ? 'L' : 'WF'}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-3 text-gray-600">${t.entry_price?.toFixed(2)}</td>
+                        <td className="py-2 pr-3 text-gray-600">
+                          {isOpen ? <span className="text-xs text-green-500 font-medium">OPEN</span> : `$${t.exit_price?.toFixed(2)}`}
+                        </td>
+                        <td className={`py-2 pr-3 font-medium ${pnlColor}`}>
+                          {t.pnl_pct != null ? `${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct?.toFixed(1)}%` : '-'}
+                        </td>
+                        <td className="py-2 pr-3 text-gray-500 text-xs">{t.days_held ?? '-'}d</td>
+                        <td className="py-2">{t.exit_reason ? exitReasonBadge(t.exit_reason) : '-'}</td>
+                      </tr>
+                      {isExpanded && tradeDetail && (
+                        <tr>
+                          <td colSpan="7" className="p-0">
+                            <TradeDetailCard detail={tradeDetail} />
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Subscriber Preview Card */}
+      {subscriberPreview && (
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl shadow-lg p-6 text-white">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-amber-400 text-xs font-semibold uppercase tracking-wider">Preview: Subscriber View</span>
+          </div>
+
+          {/* Performance banner */}
+          <div className="grid grid-cols-3 gap-4 mb-5">
+            <div className="text-center">
+              <p className="text-xs text-slate-400">Portfolio Return</p>
+              <p className={`text-2xl font-bold ${subscriberPreview.portfolio_return_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {subscriberPreview.portfolio_return_pct >= 0 ? '+' : ''}{subscriberPreview.portfolio_return_pct}%
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-slate-400">Win Rate</p>
+              <p className="text-2xl font-bold text-amber-400">{subscriberPreview.win_rate}%</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-slate-400">Active Since</p>
+              <p className="text-2xl font-bold text-slate-200">{subscriberPreview.active_since_days}d</p>
+            </div>
+          </div>
+
+          {/* Current positions */}
+          {subscriberPreview.open_positions?.length > 0 && (
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-slate-300 mb-2">Current Positions</h4>
+              <div className="flex flex-wrap gap-2">
+                {subscriberPreview.open_positions.map((pos) => (
+                  <div key={pos.symbol} className="flex items-center gap-2 bg-slate-700/50 rounded-lg px-3 py-1.5">
+                    <span className="font-semibold text-sm text-slate-100">{pos.symbol}</span>
+                    <span className={`text-sm font-medium ${pos.pnl_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {pos.pnl_pct >= 0 ? '+' : ''}{pos.pnl_pct}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recent winners */}
+          {subscriberPreview.recent_winners?.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-slate-300 mb-2">Recent Winners</h4>
+              <div className="flex flex-wrap gap-2">
+                {subscriberPreview.recent_winners.map((w, i) => (
+                  <div key={i} className="flex items-center gap-2 bg-green-900/30 border border-green-800/30 rounded-lg px-3 py-1.5">
+                    <span className="font-semibold text-sm text-slate-100">{w.symbol}</span>
+                    <span className="text-sm font-medium text-green-400">+{w.pnl_pct?.toFixed(1)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs text-slate-500 mt-4">
+            {subscriberPreview.total_trades} trades since {subscriberPreview.inception_date || 'launch'}
+          </p>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-3">
         <button
           onClick={fetchPortfolio}
           className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -1247,6 +1409,123 @@ function ModelPortfolioTab({ fetchWithAuth }) {
           <RefreshCw size={14} />
           Refresh
         </button>
+        <button
+          onClick={() => runAction('backfill', { as_of_date: '2026-02-01', force: true })}
+          disabled={processing}
+          className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 disabled:opacity-50"
+        >
+          {processing ? 'Running...' : 'Backfill WF from Feb 1'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Equity Curve Chart (Recharts)
+function EquityCurveChart({ data }) {
+  const formatDollar = (v) => `$${(v / 1000).toFixed(0)}k`;
+  const formatDate = (d) => {
+    if (!d) return '';
+    const parts = d.split('-');
+    return `${parts[1]}/${parts[2]}`;
+  };
+
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <LineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+        <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+        <YAxis tickFormatter={formatDollar} tick={{ fontSize: 11 }} />
+        <Tooltip
+          formatter={(value, name) => [`$${value?.toLocaleString()}`, name]}
+          labelFormatter={(label) => `Date: ${label}`}
+        />
+        <Legend />
+        <Line type="monotone" dataKey="live_value" name="Live" stroke="#22c55e" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="walkforward_value" name="Walk-Forward" stroke="#3b82f6" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="spy_value" name="SPY (benchmark)" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+// Trade Detail Expansion Card
+function TradeDetailCard({ detail }) {
+  if (!detail) return null;
+
+  const pnlColor = (detail.pnl_pct || 0) > 0 ? 'text-green-600' : (detail.pnl_pct || 0) < 0 ? 'text-red-600' : 'text-gray-600';
+
+  return (
+    <div className="bg-gray-50 border-t border-gray-100 p-4 space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Signal Replay */}
+        {detail.ensemble_score != null && (
+          <div>
+            <p className="text-xs text-gray-400">Ensemble Score</p>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-blue-500 rounded-full h-2"
+                  style={{ width: `${Math.min(detail.ensemble_score, 100)}%` }}
+                />
+              </div>
+              <span className="text-sm font-medium text-gray-700">{detail.ensemble_score?.toFixed(0)}</span>
+            </div>
+          </div>
+        )}
+        {detail.momentum_rank != null && (
+          <div>
+            <p className="text-xs text-gray-400">Momentum Rank</p>
+            <span className="inline-block bg-blue-100 text-blue-700 text-sm font-semibold px-2 py-0.5 rounded">
+              #{detail.momentum_rank}
+            </span>
+          </div>
+        )}
+        {detail.pct_above_dwap != null && (
+          <div>
+            <p className="text-xs text-gray-400">DWAP %</p>
+            <p className="text-sm font-medium text-gray-700">+{detail.pct_above_dwap?.toFixed(1)}%</p>
+          </div>
+        )}
+        {detail.sector && (
+          <div>
+            <p className="text-xs text-gray-400">Sector</p>
+            <span className="inline-block bg-gray-200 text-gray-700 text-xs font-medium px-2 py-0.5 rounded">
+              {detail.sector}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Timing + Performance */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-gray-200">
+        <div>
+          <p className="text-xs text-gray-400">Entry</p>
+          <p className="text-sm text-gray-700">{detail.entry_date?.slice(0, 10)} @ ${detail.entry_price?.toFixed(2)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-400">Exit</p>
+          <p className="text-sm text-gray-700">
+            {detail.exit_date ? `${detail.exit_date.slice(0, 10)} @ $${detail.exit_price?.toFixed(2)}` : 'Open'}
+          </p>
+        </div>
+        {detail.max_gain_pct != null && (
+          <div>
+            <p className="text-xs text-gray-400">Max Gain During Hold</p>
+            <p className="text-sm font-medium text-green-600">+{detail.max_gain_pct}%</p>
+          </div>
+        )}
+        <div>
+          <p className="text-xs text-gray-400">Final P&L</p>
+          <p className={`text-sm font-bold ${pnlColor}`}>
+            {detail.pnl_pct != null ? `${detail.pnl_pct >= 0 ? '+' : ''}${detail.pnl_pct?.toFixed(1)}%` : '-'}
+            {detail.pnl_dollars != null && (
+              <span className="text-xs text-gray-400 ml-1">
+                (${detail.pnl_dollars >= 0 ? '+' : ''}{detail.pnl_dollars?.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})})
+              </span>
+            )}
+          </p>
+        </div>
       </div>
     </div>
   );

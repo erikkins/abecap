@@ -347,6 +347,21 @@ class ModelPosition(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class ModelPortfolioSnapshot(Base):
+    """Daily equity curve snapshots for model portfolios"""
+    __tablename__ = "model_portfolio_snapshots"
+
+    id = Column(Integer, primary_key=True)
+    portfolio_type = Column(String(20), nullable=False, index=True)
+    snapshot_date = Column(DateTime, nullable=False, index=True)
+    total_value = Column(Float, nullable=False)
+    cash = Column(Float, nullable=False)
+    positions_value = Column(Float, nullable=False)
+    num_positions = Column(Integer, nullable=False, default=0)
+    spy_close = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class ModelPortfolioState(Base):
     """Aggregate state for each model portfolio"""
     __tablename__ = "model_portfolio_state"
@@ -679,6 +694,23 @@ async def _run_schema_migrations(conn):
         "CREATE INDEX IF NOT EXISTS idx_mp_status ON model_positions(status)",
         "CREATE INDEX IF NOT EXISTS idx_mp_portfolio ON model_positions(portfolio_type)",
         "CREATE INDEX IF NOT EXISTS idx_mp_symbol ON model_positions(symbol)",
+    ])
+
+    await _run("model_portfolio_snapshots table", [
+        """CREATE TABLE IF NOT EXISTS model_portfolio_snapshots (
+            id SERIAL PRIMARY KEY,
+            portfolio_type VARCHAR(20) NOT NULL,
+            snapshot_date TIMESTAMP NOT NULL,
+            total_value FLOAT NOT NULL,
+            cash FLOAT NOT NULL,
+            positions_value FLOAT NOT NULL,
+            num_positions INTEGER NOT NULL DEFAULT 0,
+            spy_close FLOAT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_mps_portfolio ON model_portfolio_snapshots(portfolio_type)",
+        "CREATE INDEX IF NOT EXISTS idx_mps_date ON model_portfolio_snapshots(snapshot_date)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_mps_type_date ON model_portfolio_snapshots(portfolio_type, snapshot_date)",
     ])
 
     await _run("model_portfolio_state table", """

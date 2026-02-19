@@ -3326,5 +3326,58 @@ async def model_portfolio_action(
         result = await model_portfolio_service.reset_portfolio(db, portfolio_type)
         return {"action": action, **result}
 
+    elif action == "backfill":
+        as_of_date = body.get("as_of_date", "2026-02-01")
+        force = body.get("force", False)
+        result = await model_portfolio_service.backfill_from_date(db, as_of_date, force)
+        return {"action": action, **result}
+
     else:
         raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
+
+
+@router.get("/model-portfolio/equity-curve")
+async def get_equity_curve(
+    portfolio_type: Optional[str] = None,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get equity curve data for charting (live, walkforward, or both + SPY)."""
+    from app.services.model_portfolio_service import model_portfolio_service
+    return await model_portfolio_service.get_equity_curve(db, portfolio_type)
+
+
+@router.get("/model-portfolio/trades")
+async def get_model_trades(
+    portfolio_type: Optional[str] = None,
+    limit: int = Query(default=50, le=200),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get trade journal for model portfolios."""
+    from app.services.model_portfolio_service import model_portfolio_service
+    return await model_portfolio_service.get_all_trades(db, portfolio_type, limit)
+
+
+@router.get("/model-portfolio/trades/{trade_id}")
+async def get_model_trade_detail(
+    trade_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get full signal replay detail for a single model portfolio trade."""
+    from app.services.model_portfolio_service import model_portfolio_service
+    detail = await model_portfolio_service.get_trade_detail(db, trade_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Trade not found")
+    return detail
+
+
+@router.get("/model-portfolio/subscriber-preview")
+async def get_subscriber_preview(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Preview what subscribers would see from the model portfolio."""
+    from app.services.model_portfolio_service import model_portfolio_service
+    return await model_portfolio_service.get_subscriber_view(db)
