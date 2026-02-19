@@ -272,7 +272,7 @@ class ReplyScannerService:
                         source_trade_json=json.dumps(trade),
                         reply_to_tweet_id=tweet_id,
                         reply_to_username=username,
-                        source_tweet_text=tweet_text[:500],
+                        source_tweet_text=tweet_text,
                         ai_generated=True,
                         ai_model=CLAUDE_MODEL,
                     )
@@ -285,10 +285,8 @@ class ReplyScannerService:
         if not dry_run and results["replies_created"] > 0:
             await db.commit()
 
-            # Auto-schedule the new drafts so approval emails go out
-            from app.services.post_scheduler_service import post_scheduler_service
-            scheduled = await post_scheduler_service.auto_schedule_drafts(db)
-            results["posts_scheduled"] = scheduled
+            # Send one-click approval emails for each reply draft
+            results["emails_sent"] = await self._send_approval_emails(db, results["details"])
 
         return results
 
@@ -516,6 +514,44 @@ class ReplyScannerService:
             return content[0]["text"].strip()
 
         return None
+
+    async def _send_approval_emails(self, db, details: list) -> int:
+        """Send one-click approval emails for each created reply draft."""
+        from app.services.email_service import admin_email_service
+        from app.services.post_scheduler_service import post_scheduler_service
+        from app.core.database import SocialPost
+        from sqlalchemy import select, desc
+
+        # Fetch the most recent contextual_reply drafts
+        result = await db.execute(
+            select(SocialPost).where(
+                SocialPost.post_type == "contextual_reply",
+                SocialPost.status == "draft",
+            ).order_by(desc(SocialPost.created_at)).limit(len(details))
+        )
+        posts = result.scalars().all()
+        post_by_tweet = {p.reply_to_tweet_id: p for p in posts}
+
+        sent = 0
+        for detail in details:
+            post = post_by_tweet.get(detail.get("tweet_id"))
+            if not post:
+                continue
+            try:
+                approve_token = post_scheduler_service.generate_approve_token(post.id)
+                approve_url = f"{settings.FRONTEND_URL}/api/admin/social/posts/{post.id}/approve-email?token={approve_token}"
+
+                success = await admin_email_service.send_reply_approval_email(
+                    to_email="erik@rigacap.com",
+                    post=post,
+                    approve_url=approve_url,
+                )
+                if success:
+                    sent += 1
+            except Exception as e:
+                logger.error(f"Failed to send approval email for post {post.id}: {e}")
+
+        return sent
 
     @staticmethod
     def _strip_markdown(text: str) -> str:

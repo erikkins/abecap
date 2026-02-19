@@ -129,6 +129,7 @@ class PostSchedulerService:
                     SocialPost.status == "approved",
                     SocialPost.scheduled_for.isnot(None),
                     SocialPost.scheduled_for <= now,
+                    SocialPost.post_type != "contextual_reply",
                 )
             )
         )
@@ -241,6 +242,29 @@ class PostSchedulerService:
             "exp": datetime.utcnow() + timedelta(hours=expires_hours),
         }
         return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm="HS256")
+
+    def generate_approve_token(self, post_id: int, expires_hours: int = 72) -> str:
+        """Generate a JWT token for one-click approve+publish from email."""
+        payload = {
+            "post_id": post_id,
+            "action": "approve_publish",
+            "exp": datetime.utcnow() + timedelta(hours=expires_hours),
+        }
+        return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm="HS256")
+
+    def verify_approve_token(self, token: str) -> Optional[int]:
+        """Verify an approve JWT token and return the post_id."""
+        try:
+            payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
+            if payload.get("action") != "approve_publish":
+                return None
+            return payload.get("post_id")
+        except ExpiredSignatureError:
+            logger.warning("Approve token expired")
+            return None
+        except JWTError:
+            logger.warning("Invalid approve token")
+            return None
 
     def verify_cancel_token(self, token: str) -> Optional[int]:
         """

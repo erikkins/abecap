@@ -2852,4 +2852,125 @@ If you don't cancel, it will be published automatically."""
         )
 
 
+    async def send_reply_approval_email(
+        self,
+        to_email: str,
+        post,
+        approve_url: str,
+    ) -> bool:
+        """
+        Send admin email for a contextual reply draft with one-click Approve & Post button.
+
+        Shows: who we're replying to, their tweet text, our generated reply, and an approve button.
+        """
+        import html as _html
+
+        username = getattr(post, "reply_to_username", None) or "unknown"
+        source_text = getattr(post, "source_tweet_text", None) or ""
+        reply_text = (post.text_content or "")[:300]
+
+        source_html = _html.escape(source_text).replace("\n", "<br>")
+        reply_html = _html.escape(reply_text).replace("\n", "<br>")
+
+        # Extract trade return from source_trade_json
+        trade_return = ""
+        try:
+            import json
+            trade = json.loads(post.source_trade_json) if post.source_trade_json else {}
+            pnl = trade.get("pnl_pct", 0)
+            symbol = trade.get("symbol", "")
+            if pnl and symbol:
+                trade_return = f'<span style="display:inline-block;background:#059669;color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;margin-left:8px;">${symbol} {pnl:+.1f}%</span>'
+        except Exception:
+            pass
+
+        html = f"""<!DOCTYPE html>
+<html>
+<body style="margin:0; padding:0; background-color:#f9fafb; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px; margin:0 auto;">
+        <tr>
+            <td style="background:linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); padding:32px 24px; text-align:center;">
+                <h1 style="margin:0; color:#ffffff; font-size:22px;">
+                    Reply Draft for @{_html.escape(username)}
+                </h1>
+                <p style="margin:8px 0 0 0; color:rgba(255,255,255,0.9); font-size:14px;">
+                    Approve to post immediately
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td style="background:#ffffff; padding:32px 24px;">
+                <div style="margin-bottom:20px;">
+                    <span style="display:inline-block;background:#1DA1F2;color:#fff;font-size:12px;font-weight:600;padding:4px 12px;border-radius:99px;">
+                        Twitter/X Reply
+                    </span>
+                    <span style="display:inline-block;background:#8b5cf6;color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;margin-left:8px;">
+                        AI Generated
+                    </span>
+                    {trade_return}
+                </div>
+
+                <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px; padding:16px; margin-bottom:16px;">
+                    <p style="margin:0 0 4px 0; font-size:12px; color:#0369a1; font-weight:600;">
+                        @{_html.escape(username)}'s tweet:
+                    </p>
+                    <p style="margin:0; font-size:14px; color:#374151; line-height:1.5;">{source_html}</p>
+                </div>
+
+                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:16px; margin-bottom:24px;">
+                    <p style="margin:0 0 4px 0; font-size:12px; color:#15803d; font-weight:600;">
+                        Our reply:
+                    </p>
+                    <p style="margin:0; font-size:14px; color:#374151; line-height:1.5;">{reply_html}</p>
+                </div>
+
+                <div style="text-align:center; margin:32px 0;">
+                    <a href="{approve_url}"
+                       style="display:inline-block; background:#059669; color:#ffffff; font-size:16px; font-weight:600; padding:16px 40px; border-radius:12px; text-decoration:none;">
+                        Approve &amp; Post Now
+                    </a>
+                </div>
+
+                <p style="margin:0; font-size:13px; color:#6b7280; text-align:center;">
+                    This reply will NOT be posted unless you click approve.<br>
+                    The link expires in 72 hours.
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td style="background-color:#f9fafb; padding:24px; text-align:center; border-top:1px solid #e5e7eb;">
+                <p style="margin:0; font-size:12px; color:#9ca3af;">
+                    RigaCap Reply Scanner
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>"""
+
+        text = f"""Reply Draft for @{username}
+
+--- Their tweet ---
+{source_text}
+---
+
+--- Our reply ---
+{reply_text}
+---
+
+Approve & post now: {approve_url}
+
+This reply will NOT be posted unless you click approve.
+The link expires in 72 hours."""
+
+        subject = f"Reply draft for @{username} — approve to post"
+
+        return await self.send_email(
+            to_email=to_email,
+            subject=subject,
+            html_content=html,
+            text_content=text,
+        )
+
+
 admin_email_service = AdminEmailService()

@@ -538,6 +538,90 @@ async def cancel_post_via_email(
         )
 
 
+@router.get("/posts/{post_id}/approve-email")
+async def approve_and_publish_via_email(
+    post_id: int,
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """One-click approve & publish from email link (JWT-authenticated, no login needed)."""
+    from fastapi.responses import HTMLResponse
+    from app.services.post_scheduler_service import post_scheduler_service
+    from app.services.social_posting_service import social_posting_service
+
+    verified_post_id = post_scheduler_service.verify_approve_token(token)
+    if verified_post_id is None or verified_post_id != post_id:
+        return HTMLResponse(
+            content="<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+            "<h2 style='color:#dc2626;'>Invalid or expired approval link.</h2>"
+            "<p>Please log in to the admin dashboard to manage posts.</p></body></html>",
+            status_code=400,
+        )
+
+    result = await db.execute(
+        select(SocialPost).where(SocialPost.id == post_id)
+    )
+    post = result.scalar_one_or_none()
+
+    if not post:
+        return HTMLResponse(
+            content="<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+            "<h2>Post not found.</h2></body></html>",
+            status_code=404,
+        )
+
+    if post.status == "published":
+        return HTMLResponse(
+            content="<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+            "<h2 style='color:#0ea5e9;'>Already Published</h2>"
+            "<p>This reply has already been posted.</p>"
+            f"<p><a href='{settings.FRONTEND_URL}/app'>Return to Dashboard</a></p></body></html>",
+        )
+
+    if post.status not in ("draft", "approved"):
+        return HTMLResponse(
+            content="<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+            f"<h2>Cannot publish post with status '{post.status}'.</h2>"
+            f"<p><a href='{settings.FRONTEND_URL}/app'>Return to Dashboard</a></p></body></html>",
+            status_code=400,
+        )
+
+    # Approve + publish immediately
+    post.status = "approved"
+    post.reviewed_at = datetime.utcnow()
+    post.reviewed_by = "email_approval"
+    await db.commit()
+
+    try:
+        pub_result = await social_posting_service.publish_post(post)
+        await db.commit()
+
+        if "error" in pub_result:
+            return HTMLResponse(
+                content="<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+                f"<h2 style='color:#dc2626;'>Publish Failed</h2>"
+                f"<p>{pub_result['error']}</p>"
+                f"<p><a href='{settings.FRONTEND_URL}/app'>Return to Dashboard</a></p></body></html>",
+                status_code=500,
+            )
+
+        username = getattr(post, "reply_to_username", "") or ""
+        return HTMLResponse(
+            content="<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+            "<h2 style='color:#059669;'>Reply Posted!</h2>"
+            f"<p>Your reply to @{username} has been published to Twitter/X.</p>"
+            f"<p><a href='{settings.FRONTEND_URL}/app'>Return to Dashboard</a></p></body></html>",
+        )
+    except Exception as e:
+        return HTMLResponse(
+            content="<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+            f"<h2 style='color:#dc2626;'>Error</h2>"
+            f"<p>Something went wrong. Please try from the dashboard.</p>"
+            f"<p><a href='{settings.FRONTEND_URL}/app'>Return to Dashboard</a></p></body></html>",
+            status_code=500,
+        )
+
+
 @router.post("/posts/{post_id}/regenerate-ai")
 async def regenerate_post_ai(
     post_id: int,
