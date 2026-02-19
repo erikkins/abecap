@@ -465,6 +465,21 @@ class ModelPortfolioService:
     # Walk-forward biweekly boundary logic
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _get_close_for_date(df, target_date: date) -> Optional[float]:
+        """Get close price from a DataFrame for a specific date.
+
+        Handles both tz-aware and tz-naive indexes by comparing .date().
+        """
+        try:
+            # Compare by date objects to avoid tz issues
+            mask = [d.date() == target_date if hasattr(d, 'date') else False for d in df.index]
+            if any(mask):
+                return float(df.loc[mask, "close"].iloc[-1])
+            return None
+        except Exception:
+            return None
+
     def _get_wf_period(self, d: date) -> int:
         """Return which biweekly period a date belongs to (-1 if before anchor)."""
         days_since = (d - WF_ANCHOR_DATE).days
@@ -573,9 +588,12 @@ class ModelPortfolioService:
         start = pd.Timestamp(as_of_date).normalize()
         today = pd.Timestamp(date.today()).normalize()
 
-        # Normalize SPY index for comparison
-        spy_index = spy_df.index.normalize()
-        trading_days = sorted([d for d in spy_index if start <= d <= today])
+        # Build trading calendar from SPY index using .date() for tz safety
+        trading_days = sorted([
+            d.date() if hasattr(d, 'date') else d
+            for d in spy_df.index
+            if start.date() <= (d.date() if hasattr(d, 'date') else d) <= today.date()
+        ])
         if not trading_days:
             return {"error": f"No trading days found between {as_of_date} and today"}
 
@@ -596,8 +614,7 @@ class ModelPortfolioService:
         )
 
         prev_trading_day = None
-        for day in trading_days:
-            day_date = day.date()
+        for day_date in trading_days:
             is_boundary = self._is_wf_period_boundary(day_date, prev_trading_day)
 
             # Get current open positions
@@ -609,13 +626,10 @@ class ModelPortfolioService:
                 if df is None or df.empty:
                     continue
 
-                # Get close price for this day
-                df_norm = df.index.normalize()
-                day_mask = df_norm == day
-                if not day_mask.any():
+                # Get close price for this day (handle tz-aware indexes)
+                close_price = self._get_close_for_date(df, day_date)
+                if close_price is None:
                     continue
-
-                close_price = float(df.loc[day_mask, "close"].iloc[-1])
 
                 # Update HWM
                 if close_price > (pos.highest_price or pos.entry_price):
@@ -649,9 +663,13 @@ class ModelPortfolioService:
 
                     summary["exits"] += 1
 
+            # Flush so subsequent queries see closed positions
+            if summary["exits"] > 0:
+                await db.flush()
+
             # --- Enter new positions at boundaries or first day ---
-            if is_boundary or day == trading_days[0]:
-                if is_boundary and day != trading_days[0]:
+            if is_boundary or day_date == trading_days[0]:
+                if is_boundary and day_date != trading_days[0]:
                     summary["rebalances"] += 1
 
                 # Load signals for this date
@@ -674,12 +692,9 @@ class ModelPortfolioService:
                         if df is None or df.empty:
                             continue
 
-                        df_norm = df.index.normalize()
-                        day_mask = df_norm == day
-                        if not day_mask.any():
+                        price = self._get_close_for_date(df, day_date)
+                        if price is None:
                             continue
-
-                        price = float(df.loc[day_mask, "close"].iloc[-1])
                         if price <= 0:
                             continue
 
@@ -710,14 +725,11 @@ class ModelPortfolioService:
                 df = scanner_service.data_cache.get(pos.symbol)
                 if df is None or df.empty:
                     continue
-                df_norm = df.index.normalize()
-                day_mask = df_norm == day
-                if day_mask.any():
-                    close_price = float(df.loc[day_mask, "close"].iloc[-1])
+                close_price = self._get_close_for_date(df, day_date)
+                if close_price is not None:
                     positions_value += close_price * pos.shares
 
-            spy_mask = spy_index == day
-            spy_close = float(spy_df.loc[spy_mask, "close"].iloc[-1]) if spy_mask.any() else None
+            spy_close = self._get_close_for_date(spy_df, day_date)
 
             snapshot = ModelPortfolioSnapshot(
                 portfolio_type=portfolio_type,
