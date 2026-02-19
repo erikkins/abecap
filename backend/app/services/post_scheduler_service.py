@@ -116,7 +116,7 @@ class PostSchedulerService:
     async def check_and_publish(self, db: AsyncSession) -> int:
         """
         Called every 15 minutes by scheduler.
-        Finds posts where status='approved' AND scheduled_for <= now.
+        Finds posts where status in ('approved','scheduled') AND scheduled_for <= now.
         Publishes them via SocialPostingService.
 
         Returns count of posts published.
@@ -126,7 +126,7 @@ class PostSchedulerService:
         result = await db.execute(
             select(SocialPost).where(
                 and_(
-                    SocialPost.status == "approved",
+                    SocialPost.status.in_(["approved", "scheduled"]),
                     SocialPost.scheduled_for.isnot(None),
                     SocialPost.scheduled_for <= now,
                     SocialPost.post_type != "contextual_reply",
@@ -173,7 +173,7 @@ class PostSchedulerService:
         result_24h = await db.execute(
             select(SocialPost).where(
                 and_(
-                    SocialPost.status == "approved",
+                    SocialPost.status.in_(["approved", "scheduled"]),
                     SocialPost.scheduled_for.isnot(None),
                     SocialPost.scheduled_for > now + timedelta(hours=23),
                     SocialPost.scheduled_for <= now + timedelta(hours=25),
@@ -193,7 +193,7 @@ class PostSchedulerService:
         result_1h = await db.execute(
             select(SocialPost).where(
                 and_(
-                    SocialPost.status == "approved",
+                    SocialPost.status.in_(["approved", "scheduled"]),
                     SocialPost.scheduled_for.isnot(None),
                     SocialPost.scheduled_for > now + timedelta(minutes=30),
                     SocialPost.scheduled_for <= now + timedelta(minutes=90),

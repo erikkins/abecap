@@ -146,7 +146,7 @@ stocker-app/
     └── deploy.yml           # CI/CD pipeline
 ```
 
-## Launch Readiness Audit (updated 2026-02-17)
+## Launch Readiness Audit (updated 2026-02-18)
 
 ### Done — Production Ready
 
@@ -155,7 +155,7 @@ stocker-app/
 | **Core Product** | DONE | Dashboard, signals, positions, charts, simple/advanced modes, time-travel (admin) |
 | **Auth** | DONE | Google OAuth, Apple Sign In, email/password, JWT tokens, password reset |
 | **Payments** | DONE | Stripe Checkout, 7-day trial (CC required), cancel via Customer Portal, webhooks |
-| **Email** | DONE | Welcome, daily digest (6 PM ET), sell alerts (intraday), double-signal alerts, password reset, post approval notifications |
+| **Email** | DONE | Welcome, daily digest (6 PM ET), sell alerts (intraday), double-signal alerts, password reset, post approval notifications, SPF/DKIM/DMARC configured, List-Unsubscribe (RFC 8058) |
 | **Data Pipeline** | DONE | Daily scan (4 PM ET via EventBridge), yfinance, S3 caching, pre-computed dashboard JSON |
 | **Infrastructure** | DONE | Lambda + ECR, CloudFront CDN, Route53, ACM SSL, API Gateway, CI/CD (GitHub Actions) |
 | **Legal** | DONE | Terms of Service, Privacy Policy (GDPR/CCPA), financial disclaimer, contact page |
@@ -192,6 +192,7 @@ AI-powered social media automation: real walk-forward trades → Claude API cont
 | **CloudWatch alarms** | MEDIUM | DONE | 8 alarms (Lambda errors/throttles/duration, API 5xx/4xx, RDS CPU/storage/connections) → SNS email |
 | **Mobile responsive polish** | MEDIUM | DONE | Header, metric grids, tables, modals — tested on phone |
 | **Custom 404 page** | LOW | DONE | Dark theme catch-all with back-to-home button |
+| **Email deliverability** | HIGH | DONE | SPF + DKIM + DMARC DNS records, List-Unsubscribe + List-Unsubscribe-Post headers (RFC 8058) |
 | **Email verification** | LOW | DEFERRED | Not critical — Stripe CC verification is stronger |
 
 ### Growth — Road to 5,000 Subscribers
