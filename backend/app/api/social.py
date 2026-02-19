@@ -405,8 +405,8 @@ async def compose_post(
     admin=Depends(get_admin_user),
 ):
     """Create a new manual social post."""
-    if body.platform not in ("twitter", "instagram"):
-        raise HTTPException(status_code=400, detail="Platform must be 'twitter' or 'instagram'")
+    if body.platform not in ("twitter", "instagram", "threads"):
+        raise HTTPException(status_code=400, detail="Platform must be 'twitter', 'instagram', or 'threads'")
     if body.status not in ("draft", "approved"):
         raise HTTPException(status_code=400, detail="Status must be 'draft' or 'approved'")
 
