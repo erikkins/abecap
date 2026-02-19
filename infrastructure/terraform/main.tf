@@ -156,6 +156,17 @@ variable "instagram_business_account_id" {
   default     = ""
 }
 
+variable "threads_access_token" {
+  description = "Threads API long-lived access token (auto-refreshed weekly)"
+  sensitive   = true
+  default     = ""
+}
+
+variable "threads_user_id" {
+  description = "Threads User ID"
+  default     = ""
+}
+
 variable "lambda_image_tag" {
   description = "Docker image tag for Lambda container"
   default     = "latest"
@@ -527,6 +538,26 @@ resource "aws_iam_role_policy" "lambda_cloudwatch_read" {
   })
 }
 
+# Lambda self-configuration — allows token auto-refresh to persist env vars
+resource "aws_iam_role_policy" "lambda_self_config" {
+  name = "${local.prefix}-lambda-self-config"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:GetFunctionConfiguration",
+          "lambda:UpdateFunctionConfiguration"
+        ]
+        Resource = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.prefix}-api"
+      }
+    ]
+  })
+}
+
 # Lambda Function - Using Container Image (10GB limit instead of 250MB)
 resource "aws_lambda_function" "api" {
   function_name = "${local.prefix}-api"
@@ -564,6 +595,8 @@ resource "aws_lambda_function" "api" {
       TWITTER_ACCESS_TOKEN_SECRET   = var.twitter_access_token_secret
       INSTAGRAM_ACCESS_TOKEN        = var.instagram_access_token
       INSTAGRAM_BUSINESS_ACCOUNT_ID = var.instagram_business_account_id
+      THREADS_ACCESS_TOKEN          = var.threads_access_token
+      THREADS_USER_ID               = var.threads_user_id
     }
   }
 
