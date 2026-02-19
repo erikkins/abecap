@@ -466,16 +466,32 @@ class ModelPortfolioService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _get_close_for_date(df, target_date: date) -> Optional[float]:
+    def _get_close_for_date(df, target_date: date, fallback_latest: bool = False) -> Optional[float]:
         """Get close price from a DataFrame for a specific date.
 
         Handles both tz-aware and tz-naive indexes by comparing .date().
+        If fallback_latest=True and exact date not found, returns most recent
+        close on or before target_date.
         """
         try:
-            # Compare by date objects to avoid tz issues
-            mask = [d.date() == target_date if hasattr(d, 'date') else False for d in df.index]
-            if any(mask):
-                return float(df.loc[mask, "close"].iloc[-1])
+            dates = [d.date() if hasattr(d, 'date') else d for d in df.index]
+            # Exact match
+            for i, d in enumerate(dates):
+                if d == target_date:
+                    return float(df.iloc[i]["close"])
+
+            # Fallback: most recent close on or before target_date
+            if fallback_latest:
+                best_idx = None
+                best_date = None
+                for i, d in enumerate(dates):
+                    if d <= target_date:
+                        if best_date is None or d > best_date:
+                            best_date = d
+                            best_idx = i
+                if best_idx is not None:
+                    return float(df.iloc[best_idx]["close"])
+
             return None
         except Exception:
             return None
@@ -626,8 +642,8 @@ class ModelPortfolioService:
                 if df is None or df.empty:
                     continue
 
-                # Get close price for this day (handle tz-aware indexes)
-                close_price = self._get_close_for_date(df, day_date)
+                # Get close price for this day (fallback to latest on boundary)
+                close_price = self._get_close_for_date(df, day_date, fallback_latest=is_boundary)
                 if close_price is None:
                     continue
 
@@ -725,7 +741,7 @@ class ModelPortfolioService:
                 df = scanner_service.data_cache.get(pos.symbol)
                 if df is None or df.empty:
                     continue
-                close_price = self._get_close_for_date(df, day_date)
+                close_price = self._get_close_for_date(df, day_date, fallback_latest=True)
                 if close_price is not None:
                     positions_value += close_price * pos.shares
 
