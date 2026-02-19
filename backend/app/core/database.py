@@ -344,6 +344,7 @@ class ModelPosition(Base):
     signal_data_json = Column(Text, nullable=True)
     status = Column(String(20), default="open", index=True)
     social_post_generated = Column(Boolean, default=False)
+    autopsy_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -374,6 +375,22 @@ class ModelPortfolioState(Base):
     winning_trades = Column(Integer, default=0)
     total_pnl = Column(Float, default=0.0)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class RegimeForecastSnapshot(Base):
+    """Daily regime forecast snapshots for historical tracking"""
+    __tablename__ = "regime_forecast_snapshots"
+
+    id = Column(Integer, primary_key=True)
+    snapshot_date = Column(DateTime, nullable=False, unique=True, index=True)
+    current_regime = Column(String(30), nullable=False)
+    probabilities_json = Column(Text, nullable=False)
+    outlook = Column(String(20))
+    recommended_action = Column(String(30))
+    risk_change = Column(String(20))
+    spy_close = Column(Float)
+    vix_close = Column(Float)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class User(Base):
@@ -725,6 +742,26 @@ async def _run_schema_migrations(conn):
             updated_at TIMESTAMP DEFAULT NOW()
         )
     """)
+
+    await _run("autopsy_json column on model_positions", """
+        ALTER TABLE model_positions ADD COLUMN IF NOT EXISTS autopsy_json TEXT
+    """)
+
+    await _run("regime_forecast_snapshots table", [
+        """CREATE TABLE IF NOT EXISTS regime_forecast_snapshots (
+            id SERIAL PRIMARY KEY,
+            snapshot_date TIMESTAMP NOT NULL UNIQUE,
+            current_regime VARCHAR(30) NOT NULL,
+            probabilities_json TEXT NOT NULL,
+            outlook VARCHAR(20),
+            recommended_action VARCHAR(30),
+            risk_change VARCHAR(20),
+            spy_close FLOAT,
+            vix_close FLOAT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_rfs_date ON regime_forecast_snapshots(snapshot_date)",
+    ])
 
 
 async def init_db():

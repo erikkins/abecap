@@ -166,6 +166,7 @@ stocker-app/
 | **GA4 Analytics** | DONE | Measurement ID `G-0QKQRXTFSX` configured in index.html |
 | **Landing Page Copy** | DONE | "Credit card required" in 3 places (monthly, annual, CTA), hero spacing fixed |
 | **"We Called It" Engine** | DONE | Full AI-powered social content pipeline (see below) |
+| **Deep Intelligence Suite** | DONE | AI trade autopsies, ghost portfolios (3 parallel universes), regime shift forecast dashboard, "What If You Followed Us" calculator |
 
 ### "We Called It" Content Engine (added 2026-02-17)
 
@@ -204,7 +205,7 @@ AI-powered social media automation: real walk-forward trades → Claude API cont
 | **Social proof / testimonials** | TODO | Landing page section with real user results |
 | **Content / SEO strategy** | TODO | Blog posts, market commentary — organic discovery |
 | **Churn prevention** | TODO | Cancel survey, win-back emails, usage alerts |
-| **User performance dashboard** | TODO | Personal ROI tracking — "am I making money?" |
+| **User performance dashboard** | DONE | "Your RigaCap Journey" card — personalized what-if from signup date vs SPY, shareable results |
 
 ### Key Metrics to Track (GA4 live)
 - Landing page → trial signup conversion rate

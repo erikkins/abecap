@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw, Beaker, Bot, Settings, Share2, Server, Briefcase } from 'lucide-react';
+import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw, Beaker, Bot, Settings, Share2, Server, Briefcase, Sparkles, Crown, Calculator, Shield } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 import StrategyGenerator from './StrategyGenerator';
@@ -1048,6 +1048,12 @@ function ModelPortfolioTab({ fetchWithAuth }) {
   const [expandedTrade, setExpandedTrade] = useState(null);
   const [tradeDetail, setTradeDetail] = useState(null);
   const [subscriberPreview, setSubscriberPreview] = useState(null);
+  const [ghostComparison, setGhostComparison] = useState(null);
+  const [regimeHistory, setRegimeHistory] = useState([]);
+  const [regimeAccuracy, setRegimeAccuracy] = useState(null);
+  const [whatIfResult, setWhatIfResult] = useState(null);
+  const [whatIfDate, setWhatIfDate] = useState('2026-02-01');
+  const [whatIfCapital, setWhatIfCapital] = useState(10000);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
@@ -1091,6 +1097,39 @@ function ModelPortfolioTab({ fetchWithAuth }) {
     }
   };
 
+  const fetchGhostComparison = async () => {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/model-portfolio/ghost-comparison`);
+      if (response.ok) setGhostComparison(await response.json());
+    } catch (err) {
+      console.error('Failed to fetch ghost comparison:', err);
+    }
+  };
+
+  const fetchRegimeData = async () => {
+    try {
+      const [histResp, accResp] = await Promise.all([
+        fetchWithAuth(`${API_URL}/api/admin/regime-forecast/history?days=90`),
+        fetchWithAuth(`${API_URL}/api/admin/regime-forecast/accuracy?days=90`),
+      ]);
+      if (histResp.ok) setRegimeHistory(await histResp.json());
+      if (accResp.ok) setRegimeAccuracy(await accResp.json());
+    } catch (err) {
+      console.error('Failed to fetch regime data:', err);
+    }
+  };
+
+  const fetchWhatIf = async () => {
+    try {
+      const response = await fetchWithAuth(
+        `${API_URL}/api/admin/model-portfolio/what-if?start_date=${whatIfDate}&capital=${whatIfCapital}`
+      );
+      if (response.ok) setWhatIfResult(await response.json());
+    } catch (err) {
+      console.error('Failed to calculate what-if:', err);
+    }
+  };
+
   const fetchTradeDetail = async (tradeId) => {
     if (expandedTrade === tradeId) {
       setExpandedTrade(null);
@@ -1106,11 +1145,28 @@ function ModelPortfolioTab({ fetchWithAuth }) {
     }
   };
 
+  const generateAutopsy = async (tradeId) => {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/model-portfolio/trades/${tradeId}/autopsy`, {
+        method: 'POST',
+      });
+      if (response.ok) {
+        // Refresh trade detail to show autopsy
+        const detailResp = await fetchWithAuth(`${API_URL}/api/admin/model-portfolio/trades/${tradeId}`);
+        if (detailResp.ok) setTradeDetail(await detailResp.json());
+      }
+    } catch (err) {
+      console.error('Failed to generate autopsy:', err);
+    }
+  };
+
   useEffect(() => {
     fetchPortfolio();
     fetchEquityCurve();
     fetchTrades();
     fetchSubscriberPreview();
+    fetchGhostComparison();
+    fetchRegimeData();
     const interval = setInterval(fetchPortfolio, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -1128,6 +1184,7 @@ function ModelPortfolioTab({ fetchWithAuth }) {
         await fetchEquityCurve();
         await fetchTrades();
         await fetchSubscriberPreview();
+        if (action === 'backfill_ghosts') await fetchGhostComparison();
       }
     } catch (err) {
       console.error('Action failed:', err);
@@ -1275,6 +1332,227 @@ function ModelPortfolioTab({ fetchWithAuth }) {
         </div>
       )}
 
+      {/* Ghost Portfolio Comparison */}
+      {ghostComparison && Object.keys(ghostComparison).filter(k => !k.startsWith('_')).length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Ghost Portfolios</h3>
+            <span className="text-xs text-gray-400">Parallel universes with different parameters</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Object.entries(ghostComparison).filter(([k]) => !k.startsWith('_')).map(([key, g]) => {
+              const isBest = ghostComparison._best === key;
+              const returnColor = g.total_return_pct > 0 ? 'text-green-600' : g.total_return_pct < 0 ? 'text-red-600' : 'text-gray-600';
+              return (
+                <div key={key} className={`rounded-lg border p-4 ${isBest ? 'border-amber-300 bg-amber-50' : 'border-gray-200'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-sm text-gray-900">{g.label}</span>
+                    {isBest && <Crown size={16} className="text-amber-500" />}
+                  </div>
+                  <p className="text-xs text-gray-400 mb-3">{g.description}</p>
+                  <div className={`text-2xl font-bold ${returnColor} mb-2`}>
+                    {g.total_return_pct >= 0 ? '+' : ''}{g.total_return_pct?.toFixed(1)}%
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><span className="text-gray-400">Win Rate</span> <span className="font-medium text-gray-700 ml-1">{g.win_rate}%</span></div>
+                    <div><span className="text-gray-400">Trades</span> <span className="font-medium text-gray-700 ml-1">{g.total_trades}</span></div>
+                    <div><span className="text-gray-400">Stop</span> <span className="font-medium text-gray-700 ml-1">{g.trailing_stop}%</span></div>
+                    <div><span className="text-gray-400">Slots</span> <span className="font-medium text-gray-700 ml-1">{g.max_positions}</span></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {ghostComparison._best && (
+            <p className="text-sm text-gray-500 mt-3">
+              {ghostComparison._best === 'walkforward'
+                ? "You're in the best timeline — the canonical WF portfolio is winning."
+                : `${ghostComparison._best_label} is ahead — consider parameter adjustments.`}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Regime Intelligence */}
+      {regimeHistory.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Shield size={18} className="text-blue-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Regime Intelligence</h3>
+          </div>
+
+          {/* Current Forecast */}
+          {regimeHistory.length > 0 && (() => {
+            const latest = regimeHistory[regimeHistory.length - 1];
+            const regimeColors = {
+              strong_bull: 'bg-green-100 text-green-700',
+              weak_bull: 'bg-emerald-100 text-emerald-700',
+              rotating_bull: 'bg-lime-100 text-lime-700',
+              range_bound: 'bg-amber-100 text-amber-700',
+              weak_bear: 'bg-orange-100 text-orange-700',
+              panic_crash: 'bg-red-100 text-red-700',
+              recovery: 'bg-blue-100 text-blue-700',
+            };
+            const outlookColors = {
+              stable: 'text-green-600',
+              improving: 'text-blue-600',
+              deteriorating: 'text-red-600',
+            };
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Current Regime</p>
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${regimeColors[latest.regime] || 'bg-gray-100 text-gray-600'}`}>
+                    {latest.regime?.replace('_', ' ')}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Outlook</p>
+                  <span className={`text-sm font-semibold ${outlookColors[latest.outlook] || 'text-gray-600'}`}>
+                    {latest.outlook}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Recommended</p>
+                  <span className="text-sm font-medium text-gray-700">
+                    {latest.recommended_action?.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Risk</p>
+                  <span className={`text-sm font-semibold ${
+                    latest.risk_change === 'increasing' ? 'text-red-600' :
+                    latest.risk_change === 'decreasing' ? 'text-green-600' : 'text-gray-600'
+                  }`}>
+                    {latest.risk_change}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Regime Timeline */}
+          <div className="mb-4">
+            <p className="text-xs text-gray-400 mb-2">Regime Timeline (last {regimeHistory.length} days)</p>
+            <div className="flex h-6 rounded-md overflow-hidden">
+              {regimeHistory.map((s, i) => {
+                const colors = {
+                  strong_bull: '#22c55e', weak_bull: '#10b981', rotating_bull: '#84cc16',
+                  range_bound: '#f59e0b', weak_bear: '#f97316', panic_crash: '#ef4444', recovery: '#3b82f6',
+                };
+                return (
+                  <div
+                    key={i}
+                    className="flex-1"
+                    style={{ backgroundColor: colors[s.regime] || '#d1d5db' }}
+                    title={`${s.date}: ${s.regime}`}
+                  />
+                );
+              })}
+            </div>
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>{regimeHistory[0]?.date?.slice(5)}</span>
+              <span>{regimeHistory[regimeHistory.length - 1]?.date?.slice(5)}</span>
+            </div>
+          </div>
+
+          {/* Accuracy */}
+          {regimeAccuracy && regimeAccuracy.accuracy_pct != null && (
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-sm text-gray-600">
+                Forecast accuracy: <span className="font-bold text-gray-900">{regimeAccuracy.accuracy_pct}%</span>
+                <span className="text-xs text-gray-400 ml-2">
+                  ({regimeAccuracy.correct}/{regimeAccuracy.total_forecasts} correct predictions)
+                </span>
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* What-If Calculator */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Calculator size={18} className="text-indigo-600" />
+          <h3 className="text-lg font-semibold text-gray-900">What If Calculator</h3>
+        </div>
+        <div className="flex items-end gap-3 mb-4">
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Start Date</label>
+            <input
+              type="date"
+              value={whatIfDate}
+              onChange={(e) => setWhatIfDate(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Capital ($)</label>
+            <input
+              type="number"
+              value={whatIfCapital}
+              onChange={(e) => setWhatIfCapital(Number(e.target.value))}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-32"
+              min={100}
+            />
+          </div>
+          <button
+            onClick={fetchWhatIf}
+            className="px-4 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            Calculate
+          </button>
+        </div>
+        {whatIfResult && !whatIfResult.error && (
+          <div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div>
+                <p className="text-xs text-gray-400">Final Value</p>
+                <p className="text-xl font-bold text-gray-900">
+                  ${whatIfResult.current_value?.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Your Return</p>
+                <p className={`text-xl font-bold ${whatIfResult.total_return_pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {whatIfResult.total_return_pct >= 0 ? '+' : ''}{whatIfResult.total_return_pct}%
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">SPY Return</p>
+                <p className="text-xl font-bold text-gray-600">
+                  {whatIfResult.spy_return_pct != null ? `${whatIfResult.spy_return_pct >= 0 ? '+' : ''}${whatIfResult.spy_return_pct}%` : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Alpha vs SPY</p>
+                <p className={`text-xl font-bold ${(whatIfResult.alpha_pct || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {whatIfResult.alpha_pct != null ? `${whatIfResult.alpha_pct >= 0 ? '+' : ''}${whatIfResult.alpha_pct}%` : 'N/A'}
+                </p>
+              </div>
+            </div>
+            {whatIfResult.equity_curve?.length > 2 && (
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={whatIfResult.equity_curve} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" tickFormatter={(d) => d?.slice(5)} />
+                  <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+                  <Tooltip formatter={(value) => [`$${value?.toLocaleString()}`, '']} />
+                  <Line type="monotone" dataKey="value" name="Your Portfolio" stroke="#4f46e5" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="spy" name="SPY" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+            <p className="text-xs text-gray-400 mt-2 italic">
+              "If you'd invested ${whatIfCapital.toLocaleString()} on {whatIfResult.start_date} and followed our signals, you'd have ${whatIfResult.current_value?.toLocaleString(undefined, {minimumFractionDigits: 2})} today."
+            </p>
+          </div>
+        )}
+        {whatIfResult?.error && (
+          <p className="text-sm text-red-500">{whatIfResult.error}</p>
+        )}
+      </div>
+
       {/* Trade Journal */}
       {trades.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -1324,7 +1602,7 @@ function ModelPortfolioTab({ fetchWithAuth }) {
                       {isExpanded && tradeDetail && (
                         <tr>
                           <td colSpan="7" className="p-0">
-                            <TradeDetailCard detail={tradeDetail} />
+                            <TradeDetailCard detail={tradeDetail} onGenerateAutopsy={generateAutopsy} />
                           </td>
                         </tr>
                       )}
@@ -1401,7 +1679,7 @@ function ModelPortfolioTab({ fetchWithAuth }) {
       )}
 
       {/* Actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={fetchPortfolio}
           className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -1415,6 +1693,13 @@ function ModelPortfolioTab({ fetchWithAuth }) {
           className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 disabled:opacity-50"
         >
           {processing ? 'Running...' : 'Backfill WF from Feb 1'}
+        </button>
+        <button
+          onClick={() => runAction('backfill_ghosts', { as_of_date: '2026-02-01', force: true })}
+          disabled={processing}
+          className="flex items-center gap-2 px-4 py-2 text-sm text-purple-600 border border-purple-300 rounded-lg hover:bg-purple-50 disabled:opacity-50"
+        >
+          {processing ? 'Running...' : 'Backfill Ghosts'}
         </button>
       </div>
     </div>
@@ -1430,6 +1715,9 @@ function EquityCurveChart({ data }) {
     return `${parts[1]}/${parts[2]}`;
   };
 
+  // Check if ghost data exists
+  const hasGhosts = data.some(d => d.ghost_aggressive_value || d.ghost_conservative_value || d.ghost_top3_value);
+
   return (
     <ResponsiveContainer width="100%" height={300}>
       <LineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
@@ -1444,16 +1732,31 @@ function EquityCurveChart({ data }) {
         <Line type="monotone" dataKey="live_value" name="Live" stroke="#22c55e" strokeWidth={2} dot={false} />
         <Line type="monotone" dataKey="walkforward_value" name="Walk-Forward" stroke="#3b82f6" strokeWidth={2} dot={false} />
         <Line type="monotone" dataKey="spy_value" name="SPY (benchmark)" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+        {hasGhosts && (
+          <>
+            <Line type="monotone" dataKey="ghost_aggressive_value" name="Aggressive" stroke="#ef4444" strokeWidth={1} strokeDasharray="4 4" dot={false} />
+            <Line type="monotone" dataKey="ghost_conservative_value" name="Conservative" stroke="#14b8a6" strokeWidth={1} strokeDasharray="4 4" dot={false} />
+            <Line type="monotone" dataKey="ghost_top3_value" name="Top-3" stroke="#8b5cf6" strokeWidth={1} strokeDasharray="4 4" dot={false} />
+          </>
+        )}
       </LineChart>
     </ResponsiveContainer>
   );
 }
 
 // Trade Detail Expansion Card
-function TradeDetailCard({ detail }) {
+function TradeDetailCard({ detail, onGenerateAutopsy }) {
   if (!detail) return null;
 
   const pnlColor = (detail.pnl_pct || 0) > 0 ? 'text-green-600' : (detail.pnl_pct || 0) < 0 ? 'text-red-600' : 'text-gray-600';
+
+  const verdictColors = {
+    good_entry: 'bg-green-100 text-green-700',
+    bad_entry: 'bg-red-100 text-red-700',
+    good_exit: 'bg-green-100 text-green-700',
+    bad_exit: 'bg-red-100 text-red-700',
+    unlucky: 'bg-amber-100 text-amber-700',
+  };
 
   return (
     <div className="bg-gray-50 border-t border-gray-100 p-4 space-y-3">
@@ -1527,6 +1830,42 @@ function TradeDetailCard({ detail }) {
           </p>
         </div>
       </div>
+
+      {/* AI Autopsy */}
+      {detail.autopsy ? (
+        <div className="pt-2 border-t border-gray-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={14} className="text-purple-500" />
+            <span className="text-xs font-semibold text-purple-700 uppercase tracking-wider">AI Autopsy</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${verdictColors[detail.autopsy.verdict] || 'bg-gray-100 text-gray-600'}`}>
+              {detail.autopsy.verdict?.replace('_', ' ')}
+            </span>
+            {detail.autopsy.score != null && (
+              <span className="text-xs text-gray-400 ml-auto">Score: {detail.autopsy.score}/10</span>
+            )}
+          </div>
+          <div className="space-y-1.5 text-sm text-gray-600">
+            {detail.autopsy.entry_analysis && <p><strong className="text-gray-700">Entry:</strong> {detail.autopsy.entry_analysis}</p>}
+            {detail.autopsy.exit_analysis && <p><strong className="text-gray-700">Exit:</strong> {detail.autopsy.exit_analysis}</p>}
+            {detail.autopsy.regime_impact && <p><strong className="text-gray-700">Regime:</strong> {detail.autopsy.regime_impact}</p>}
+            {detail.autopsy.lesson_learned && (
+              <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mt-2">
+                <p className="text-xs text-blue-700"><strong>Lesson:</strong> {detail.autopsy.lesson_learned}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : detail.status === 'closed' && onGenerateAutopsy ? (
+        <div className="pt-2 border-t border-gray-200">
+          <button
+            onClick={() => onGenerateAutopsy(detail.id)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-purple-600 border border-purple-300 rounded-lg hover:bg-purple-50"
+          >
+            <Sparkles size={12} />
+            Generate AI Autopsy
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -3332,6 +3332,12 @@ async def model_portfolio_action(
         result = await model_portfolio_service.backfill_from_date(db, as_of_date, force)
         return {"action": action, **result}
 
+    elif action == "backfill_ghosts":
+        as_of_date = body.get("as_of_date", "2026-02-01")
+        force = body.get("force", False)
+        result = await model_portfolio_service.backfill_ghosts(db, as_of_date, force)
+        return {"action": action, **result}
+
     else:
         raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
 
@@ -3381,3 +3387,98 @@ async def get_subscriber_preview(
     """Preview what subscribers would see from the model portfolio."""
     from app.services.model_portfolio_service import model_portfolio_service
     return await model_portfolio_service.get_subscriber_view(db)
+
+
+# ============================================================================
+# Trade Autopsies
+# ============================================================================
+
+@router.post("/model-portfolio/trades/{trade_id}/autopsy")
+async def generate_trade_autopsy(
+    trade_id: int,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate AI autopsy for a single closed trade."""
+    from app.services.trade_autopsy_service import trade_autopsy_service
+    return await trade_autopsy_service.generate_autopsy(db, trade_id)
+
+
+@router.post("/model-portfolio/autopsies/bulk")
+async def bulk_generate_autopsies(
+    body: dict = {},
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate autopsies for all un-autopsied closed trades."""
+    from app.services.trade_autopsy_service import trade_autopsy_service
+    portfolio_type = body.get("portfolio_type") if body else None
+    limit = body.get("limit", 20) if body else 20
+    return await trade_autopsy_service.bulk_generate(db, portfolio_type, limit)
+
+
+# ============================================================================
+# Ghost Portfolio Comparison
+# ============================================================================
+
+@router.get("/model-portfolio/ghost-comparison")
+async def get_ghost_comparison(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get side-by-side metrics for WF + ghost portfolios."""
+    from app.services.model_portfolio_service import model_portfolio_service
+    return await model_portfolio_service.get_ghost_comparison(db)
+
+
+# ============================================================================
+# Regime Forecast
+# ============================================================================
+
+@router.get("/regime-forecast/history")
+async def get_regime_forecast_history(
+    days: int = Query(default=90, le=365),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get regime forecast history."""
+    from app.services.regime_forecast_service import regime_forecast_service
+    return await regime_forecast_service.get_forecast_history(db, days)
+
+
+@router.get("/regime-forecast/accuracy")
+async def get_regime_forecast_accuracy(
+    days: int = Query(default=90, le=365),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get regime forecast accuracy with confusion matrix."""
+    from app.services.regime_forecast_service import regime_forecast_service
+    return await regime_forecast_service.get_forecast_accuracy(db, days)
+
+
+@router.get("/regime-forecast/heatmap")
+async def get_regime_forecast_heatmap(
+    days: int = Query(default=60, le=365),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get transition probability heatmap data."""
+    from app.services.regime_forecast_service import regime_forecast_service
+    return await regime_forecast_service.get_transition_heatmap(db, days)
+
+
+# ============================================================================
+# What-If Calculator
+# ============================================================================
+
+@router.get("/model-portfolio/what-if")
+async def calculate_what_if(
+    start_date: str = Query(..., description="Start date YYYY-MM-DD"),
+    capital: float = Query(default=10000, ge=100, le=10000000),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Calculate hypothetical returns from a start date with given capital."""
+    from app.services.model_portfolio_service import model_portfolio_service
+    return await model_portfolio_service.calculate_what_if(db, start_date, capital)

@@ -30,6 +30,17 @@ STARTING_CAPITAL = 100_000.0
 WF_ANCHOR_DATE = date(2026, 2, 1)  # Canonical biweekly boundaries
 WF_PERIOD_DAYS = 14
 
+# Ghost portfolio configurations for parallel universe comparison
+GHOST_CONFIGS = {
+    "ghost_aggressive": {"trailing_stop": 8.0, "max_positions": 8, "position_size": 0.12,
+                         "label": "Aggressive", "description": "Tight stops, more positions"},
+    "ghost_conservative": {"trailing_stop": 18.0, "max_positions": 4, "position_size": 0.20,
+                           "label": "Conservative", "description": "Wide stops, fewer positions"},
+    "ghost_top3": {"trailing_stop": 12.0, "max_positions": 3, "position_size": 0.30,
+                   "label": "Top-3 Only", "description": "Concentrated best picks"},
+}
+ALL_PORTFOLIO_TYPES = PORTFOLIO_TYPES + tuple(GHOST_CONFIGS.keys())
+
 
 class ModelPortfolioService:
     """Track dual model portfolios: live (intraday) and walk-forward (biweekly)."""
@@ -573,25 +584,36 @@ class ModelPortfolioService:
         db: AsyncSession,
         as_of_date: str = "2026-02-01",
         force: bool = False,
+        portfolio_type: str = "walkforward",
+        config_override: Optional[dict] = None,
     ) -> dict:
         """
-        Backfill the WF portfolio from a historical date through today.
+        Backfill a portfolio from a historical date through today.
 
         Steps:
-        1. Reset WF portfolio if force=True
+        1. Reset portfolio if force=True
         2. Load signals from snapshot or live computation for the start date
         3. Enter top fresh ensemble signals
         4. Walk forward day by day: update HWM, check trailing stop, rebalance at boundaries
         5. Take daily snapshots for equity curve
+
+        config_override: {"trailing_stop": 8.0, "max_positions": 8, "position_size": 0.12}
         """
         import pandas as pd
         from sqlalchemy import delete
 
-        portfolio_type = "walkforward"
+        # Use config override or defaults
+        trailing_stop = TRAILING_STOP_PCT
+        max_pos = MAX_POSITIONS
+        pos_size = POSITION_SIZE_PCT
+        if config_override:
+            trailing_stop = config_override.get("trailing_stop", TRAILING_STOP_PCT)
+            max_pos = config_override.get("max_positions", MAX_POSITIONS)
+            pos_size = config_override.get("position_size", POSITION_SIZE_PCT)
 
         if force:
             await self.reset_portfolio(db, portfolio_type)
-            logger.info("[BACKFILL] Reset WF portfolio")
+            logger.info(f"[BACKFILL] Reset {portfolio_type} portfolio")
 
         # Get scanner data for price lookups
         from app.services.scanner import scanner_service
@@ -616,6 +638,7 @@ class ModelPortfolioService:
         # Initialize state
         state = await self._get_or_create_state(db, portfolio_type)
         summary = {
+            "portfolio_type": portfolio_type,
             "start_date": str(start.date()),
             "end_date": str(today.date()),
             "trading_days": len(trading_days),
@@ -626,7 +649,8 @@ class ModelPortfolioService:
         }
 
         logger.info(
-            f"[BACKFILL] {len(trading_days)} trading days"
+            f"[BACKFILL-{portfolio_type.upper()}] {len(trading_days)} trading days, "
+            f"stop={trailing_stop}%, max={max_pos}, size={pos_size*100:.0f}%"
         )
 
         prev_trading_day = None
@@ -656,7 +680,7 @@ class ModelPortfolioService:
                     exit_reason = "rebalance_exit"
                 else:
                     hwm = pos.highest_price or pos.entry_price
-                    stop_level = hwm * (1 - TRAILING_STOP_PCT / 100)
+                    stop_level = hwm * (1 - trailing_stop / 100)
                     if close_price <= stop_level:
                         exit_reason = "trailing_stop"
 
@@ -693,7 +717,7 @@ class ModelPortfolioService:
                 if signals:
                     open_positions = await self._get_open_positions(db, portfolio_type)
                     held = {p.symbol for p in open_positions}
-                    slots = MAX_POSITIONS - len(open_positions)
+                    slots = max_pos - len(open_positions)
 
                     fresh = [
                         s for s in signals
@@ -714,7 +738,7 @@ class ModelPortfolioService:
                         if price <= 0:
                             continue
 
-                        alloc = state.current_cash * POSITION_SIZE_PCT
+                        alloc = state.current_cash * pos_size
                         if alloc < 100:
                             break
 
@@ -769,11 +793,26 @@ class ModelPortfolioService:
         await db.commit()
 
         logger.info(
-            f"[BACKFILL] Complete: {summary['entries']} entries, "
+            f"[BACKFILL-{portfolio_type.upper()}] Complete: {summary['entries']} entries, "
             f"{summary['exits']} exits, {summary['rebalances']} rebalances, "
             f"{summary['snapshots']} snapshots"
         )
         return summary
+
+    async def backfill_ghosts(
+        self, db: AsyncSession, as_of_date: str = "2026-02-01", force: bool = False
+    ) -> dict:
+        """Backfill all ghost portfolios with their respective configurations."""
+        results = {}
+        for ghost_type, config in GHOST_CONFIGS.items():
+            logger.info(f"[GHOST] Backfilling {ghost_type} ({config['label']})")
+            result = await self.backfill_from_date(
+                db, as_of_date, force,
+                portfolio_type=ghost_type,
+                config_override=config,
+            )
+            results[ghost_type] = result
+        return results
 
     async def _get_signals_for_date(self, target_date: date) -> Optional[List[dict]]:
         """Load ensemble signals for a given date from snapshot or live computation."""
@@ -810,7 +849,7 @@ class ModelPortfolioService:
         snapshot_dt = datetime.combine(snapshot_date, datetime.min.time())
         results = {}
 
-        for ptype in PORTFOLIO_TYPES:
+        for ptype in ALL_PORTFOLIO_TYPES:
             state = await self._get_or_create_state(db, ptype)
             open_positions = await self._get_open_positions(db, ptype)
 
@@ -987,6 +1026,14 @@ class ModelPortfolioService:
         if t.highest_price and t.entry_price:
             max_gain_pct = round(((t.highest_price / t.entry_price) - 1) * 100, 2)
 
+        # Parse autopsy if available
+        autopsy = None
+        if t.autopsy_json:
+            try:
+                autopsy = json.loads(t.autopsy_json)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
         return {
             "id": t.id,
             "portfolio_type": t.portfolio_type,
@@ -1014,6 +1061,138 @@ class ModelPortfolioService:
             "volatility": sig.get("volatility"),
             "dwap_crossover_date": sig.get("dwap_crossover_date"),
             "ensemble_entry_date": sig.get("ensemble_entry_date"),
+            # AI autopsy
+            "autopsy": autopsy,
+        }
+
+    # ------------------------------------------------------------------
+    # Ghost portfolio comparison
+    # ------------------------------------------------------------------
+
+    async def get_ghost_comparison(self, db: AsyncSession) -> dict:
+        """Return side-by-side metrics for all portfolio types (WF + ghosts)."""
+        from sqlalchemy import asc, func as sqlfunc
+
+        comparison = {}
+        for ptype in ["walkforward"] + list(GHOST_CONFIGS.keys()):
+            state = await self._get_or_create_state(db, ptype)
+
+            # Get latest snapshot value
+            latest_snap = await db.execute(
+                select(ModelPortfolioSnapshot)
+                .where(ModelPortfolioSnapshot.portfolio_type == ptype)
+                .order_by(ModelPortfolioSnapshot.snapshot_date.desc())
+                .limit(1)
+            )
+            snap = latest_snap.scalar_one_or_none()
+
+            total_value = snap.total_value if snap else state.starting_capital
+            total_return = ((total_value / state.starting_capital) - 1) * 100 if state.starting_capital else 0
+            win_rate = (state.winning_trades / state.total_trades * 100) if state.total_trades > 0 else 0
+
+            config = GHOST_CONFIGS.get(ptype, {})
+            comparison[ptype] = {
+                "label": config.get("label", "Walk-Forward"),
+                "description": config.get("description", "Canonical ensemble strategy"),
+                "total_value": round(total_value, 2),
+                "total_return_pct": round(total_return, 2),
+                "win_rate": round(win_rate, 1),
+                "total_trades": state.total_trades,
+                "trailing_stop": config.get("trailing_stop", TRAILING_STOP_PCT),
+                "max_positions": config.get("max_positions", MAX_POSITIONS),
+                "position_size": config.get("position_size", POSITION_SIZE_PCT),
+            }
+
+        # Find the best-performing portfolio
+        best = max(comparison.items(), key=lambda x: x[1]["total_return_pct"])
+        comparison["_best"] = best[0]
+        comparison["_best_label"] = best[1]["label"]
+
+        return comparison
+
+    # ------------------------------------------------------------------
+    # "What If You Followed Us" Calculator
+    # ------------------------------------------------------------------
+
+    async def calculate_what_if(
+        self,
+        db: AsyncSession,
+        start_date: str,
+        initial_capital: float = 10000,
+    ) -> dict:
+        """
+        Calculate what a user's portfolio would look like if they followed
+        our model portfolio signals from a given date.
+        """
+        from sqlalchemy import asc
+
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+
+        # Get WF snapshots from start_date onward
+        result = await db.execute(
+            select(ModelPortfolioSnapshot)
+            .where(
+                ModelPortfolioSnapshot.portfolio_type == "walkforward",
+                ModelPortfolioSnapshot.snapshot_date >= start_dt,
+            )
+            .order_by(asc(ModelPortfolioSnapshot.snapshot_date))
+        )
+        snapshots = list(result.scalars().all())
+
+        if not snapshots:
+            return {"error": f"No walkforward snapshots found from {start_date}"}
+
+        first_snap = snapshots[0]
+        first_value = first_snap.total_value
+        first_spy = first_snap.spy_close
+
+        if not first_value or first_value <= 0:
+            return {"error": "First snapshot has no value"}
+
+        equity_curve = []
+        best_day_pct = 0
+        worst_day_pct = 0
+        prev_value = initial_capital
+
+        for snap in snapshots:
+            user_value = initial_capital * (snap.total_value / first_value)
+            spy_value = None
+            if first_spy and snap.spy_close:
+                spy_value = round(initial_capital * (snap.spy_close / first_spy), 2)
+
+            day_return = ((user_value / prev_value) - 1) * 100 if prev_value else 0
+            if day_return > best_day_pct:
+                best_day_pct = day_return
+            if day_return < worst_day_pct:
+                worst_day_pct = day_return
+
+            equity_curve.append({
+                "date": snap.snapshot_date.strftime("%Y-%m-%d") if snap.snapshot_date else "",
+                "value": round(user_value, 2),
+                "spy": spy_value,
+            })
+            prev_value = user_value
+
+        current_value = equity_curve[-1]["value"] if equity_curve else initial_capital
+        total_return = ((current_value / initial_capital) - 1) * 100
+
+        spy_return = None
+        alpha = None
+        if first_spy and snapshots[-1].spy_close:
+            spy_return = ((snapshots[-1].spy_close / first_spy) - 1) * 100
+            alpha = total_return - spy_return
+
+        return {
+            "start_date": start_date,
+            "initial_capital": initial_capital,
+            "current_value": round(current_value, 2),
+            "total_return_pct": round(total_return, 2),
+            "spy_return_pct": round(spy_return, 2) if spy_return is not None else None,
+            "alpha_pct": round(alpha, 2) if alpha is not None else None,
+            "best_day_pct": round(best_day_pct, 2),
+            "worst_day_pct": round(worst_day_pct, 2),
+            "days_invested": len(equity_curve),
+            "equity_curve": equity_curve,
         }
 
     # ------------------------------------------------------------------

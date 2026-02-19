@@ -1669,6 +1669,8 @@ function Dashboard() {
   const [showEmailPrefsModal, setShowEmailPrefsModal] = useState(false);
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [referralCopied, setReferralCopied] = useState(false);
+  const [journeyData, setJourneyData] = useState(null);
+  const [journeyCopied, setJourneyCopied] = useState(false);
   const [emailPrefs, setEmailPrefs] = useState({ daily_digest: true, sell_alerts: true, double_signals: true, intraday_signals: true });
   const [emailPrefsSaving, setEmailPrefsSaving] = useState(false);
   const [emailPrefsToast, setEmailPrefsToast] = useState(null); // null | 'saved' | 'unsubscribed'
@@ -1904,6 +1906,29 @@ function Dashboard() {
       setTimeout(() => setTimeTravelEmailStatus(null), 4000);
     });
   }, [timeTravelEmailPending, dashboardData, timeTravelDate]);
+
+  // Fetch "Your RigaCap Journey" data for subscribers
+  useEffect(() => {
+    if (!isAuthenticated || !user?.subscription?.is_valid) return;
+    // Only show after 7 days
+    const created = user?.created_at ? new Date(user.created_at) : null;
+    if (!created || (Date.now() - created.getTime()) < 7 * 24 * 60 * 60 * 1000) return;
+
+    const fetchJourney = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/signals/what-if?capital=10000`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (!data.error) setJourneyData(data);
+        }
+      } catch (err) {
+        console.log('Journey fetch failed:', err);
+      }
+    };
+    fetchJourney();
+  }, [isAuthenticated, user]);
 
   // Merge live quotes into positions for display
   const positionsWithLiveQuotes = positions.map(p => {
@@ -2479,6 +2504,48 @@ function Dashboard() {
           </div>
         )}
         {isAuthenticated && !checkoutSuccess && <SubscriptionBanner />}
+
+        {/* Your RigaCap Journey — subscriber personalized return card */}
+        {journeyData && !journeyData.error && activeTab === 'signals' && (
+          <div className="mb-4 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-5 text-white shadow-lg">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-lg">Your RigaCap Journey</h3>
+              <span className="text-xs text-indigo-200">Since {journeyData.start_date}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-4 mb-3">
+              <div className="text-center">
+                <p className="text-xs text-indigo-200">Your Return</p>
+                <p className="text-2xl font-bold">
+                  {journeyData.total_return_pct >= 0 ? '+' : ''}{journeyData.total_return_pct}%
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-indigo-200">Portfolio Value</p>
+                <p className="text-2xl font-bold">${journeyData.current_value?.toLocaleString()}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-indigo-200">Alpha vs SPY</p>
+                <p className={`text-2xl font-bold ${(journeyData.alpha_pct || 0) >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+                  {journeyData.alpha_pct != null ? `${journeyData.alpha_pct >= 0 ? '+' : ''}${journeyData.alpha_pct}%` : 'N/A'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-indigo-200">{journeyData.days_invested} trading days</p>
+              <button
+                onClick={() => {
+                  const text = `If I'd invested $10,000 on ${journeyData.start_date} following @RigaCap signals, I'd have $${journeyData.current_value?.toLocaleString()} today (${journeyData.total_return_pct >= 0 ? '+' : ''}${journeyData.total_return_pct}%). rigacap.com/track-record`;
+                  navigator.clipboard.writeText(text);
+                  setJourneyCopied(true);
+                  setTimeout(() => setJourneyCopied(false), 2000);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+              >
+                {journeyCopied ? <><Check size={12} /> Copied!</> : <><Copy size={12} /> Share</>}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Admin Dashboard */}
         {activeTab === 'admin' && isAdmin && (

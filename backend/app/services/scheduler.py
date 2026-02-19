@@ -167,6 +167,17 @@ class SchedulerService:
             except Exception as e:
                 logger.error(f"[MODEL-PORTFOLIO] Entry/exit processing failed: {e}")
 
+            # Regime forecast snapshot
+            try:
+                from app.services.regime_forecast_service import regime_forecast_service
+                from app.core.database import async_session as rfs_session
+
+                async with rfs_session() as rfs_db:
+                    forecast_result = await regime_forecast_service.take_snapshot(rfs_db)
+                    logger.info(f"[REGIME-FORECAST] {forecast_result}")
+            except Exception as e:
+                logger.error(f"[REGIME-FORECAST] Snapshot failed: {e}")
+
             # Update status
             self.last_run = datetime.now(ET)
             self.last_run_status = "success"

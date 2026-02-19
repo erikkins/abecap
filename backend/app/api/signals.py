@@ -18,6 +18,26 @@ from app.services.data_export import data_export_service
 router = APIRouter()
 
 
+# ============================================================================
+# "What If You Followed Us" — Subscriber-facing calculator
+# ============================================================================
+
+@router.get("/what-if")
+async def subscriber_what_if(
+    capital: float = 10000,
+    user: User = Depends(require_valid_subscription),
+    db: AsyncSession = Depends(get_db),
+):
+    """Calculate personalized returns from user's signup date."""
+    from app.services.model_portfolio_service import model_portfolio_service
+
+    if not user.created_at:
+        return {"error": "No signup date found"}
+
+    start_date = user.created_at.strftime("%Y-%m-%d")
+    return await model_portfolio_service.calculate_what_if(db, start_date, capital)
+
+
 # Pydantic models for API
 class SignalResponse(BaseModel):
     id: Optional[int] = None

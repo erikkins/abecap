@@ -826,6 +826,16 @@ def handler(event, context):
                     force = config.get("force", False)
                     return await model_portfolio_service.backfill_from_date(db, as_of_date, force)
 
+                elif action == "backfill_ghosts":
+                    as_of_date = config.get("as_of_date", "2026-02-01")
+                    force = config.get("force", False)
+                    return await model_portfolio_service.backfill_ghosts(db, as_of_date, force)
+
+                elif action == "generate_autopsies":
+                    from app.services.trade_autopsy_service import trade_autopsy_service
+                    limit = config.get("limit", 20)
+                    return await trade_autopsy_service.bulk_generate(db, portfolio_type, limit)
+
                 else:
                     return {"error": f"Unknown action: {action}"}
 
