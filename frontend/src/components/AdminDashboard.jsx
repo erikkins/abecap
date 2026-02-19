@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw, Beaker, Bot, Settings, Share2, Server } from 'lucide-react';
+import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw, Beaker, Bot, Settings, Share2, Server, Briefcase } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import StrategyGenerator from './StrategyGenerator';
 import WalkForwardSimulator from './WalkForwardSimulator';
@@ -12,6 +12,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: Activity },
+  { id: 'portfolio', label: 'Portfolio', icon: Briefcase },
   { id: 'strategies', label: 'Strategies', icon: TrendingUp },
   { id: 'lab', label: 'Strategy Lab', icon: Beaker },
   { id: 'autopilot', label: 'Auto-Pilot', icon: Bot },
@@ -357,6 +358,10 @@ export default function AdminDashboard() {
           activeStrategy={activeStrategy}
           awsHealth={awsHealth}
         />
+      )}
+
+      {activeTab === 'portfolio' && (
+        <ModelPortfolioTab fetchWithAuth={fetchWithAuth} />
       )}
 
       {activeTab === 'strategies' && (
@@ -1029,6 +1034,219 @@ function UsersTab({ users, usersPagination, searchQuery, setSearchQuery, handleS
             <ChevronRight size={16} />
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Model Portfolio Tab Component
+function ModelPortfolioTab({ fetchWithAuth }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+
+  const fetchPortfolio = async () => {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/admin/model-portfolio`);
+      if (response.ok) {
+        setData(await response.json());
+      }
+    } catch (err) {
+      console.error('Failed to fetch model portfolio:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPortfolio();
+    const interval = setInterval(fetchPortfolio, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const runAction = async (action) => {
+    setProcessing(true);
+    try {
+      // Use Lambda-style invocation via a dedicated admin endpoint
+      const response = await fetchWithAuth(`${API_URL}/api/admin/model-portfolio/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      if (response.ok) {
+        await fetchPortfolio();
+      }
+    } catch (err) {
+      console.error('Action failed:', err);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-12 text-gray-500">Loading portfolios...</div>;
+  }
+
+  if (!data) {
+    return <div className="text-center py-12 text-gray-500">No portfolio data available</div>;
+  }
+
+  const portfolios = [
+    { key: 'live', label: 'Live Portfolio', desc: 'Intraday monitoring, trailing stop & regime exits' },
+    { key: 'walkforward', label: 'Walk-Forward Portfolio', desc: 'Biweekly rebalancing, daily close checks' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {portfolios.map(({ key, label, desc }) => {
+          const p = data[key];
+          if (!p) return null;
+          const returnPct = p.total_return_pct || 0;
+          const returnColor = returnPct > 0 ? 'text-green-600' : returnPct < 0 ? 'text-red-600' : 'text-gray-600';
+          return (
+            <div key={key} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-lg font-semibold text-gray-900">{label}</h3>
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                  key === 'live' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {key === 'live' ? 'LIVE' : 'WF'}
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mb-4">{desc}</p>
+
+              {/* Metrics row */}
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                  <p className="text-xs text-gray-500">Total Value</p>
+                  <p className="text-lg font-bold text-gray-900">${p.total_value?.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Return</p>
+                  <p className={`text-lg font-bold ${returnColor}`}>{returnPct >= 0 ? '+' : ''}{returnPct.toFixed(1)}%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Cash</p>
+                  <p className="text-lg font-bold text-gray-900">${p.current_cash?.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-3 text-center">
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-xs text-gray-400">Trades</p>
+                  <p className="font-semibold text-gray-900">{p.total_trades}</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-xs text-gray-400">Win Rate</p>
+                  <p className="font-semibold text-gray-900">{p.win_rate}%</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-xs text-gray-400">Realized</p>
+                  <p className={`font-semibold ${p.realized_pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ${p.realized_pnl?.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}
+                  </p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <p className="text-xs text-gray-400">Unrealized</p>
+                  <p className={`font-semibold ${p.unrealized_pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ${p.unrealized_pnl?.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}
+                  </p>
+                </div>
+              </div>
+
+              {/* Open Positions */}
+              {p.open_positions?.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Open Positions ({p.open_positions.length})</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
+                          <th className="pb-2 pr-3">Symbol</th>
+                          <th className="pb-2 pr-3">Entry</th>
+                          <th className="pb-2 pr-3">Current</th>
+                          <th className="pb-2 pr-3">P&L</th>
+                          <th className="pb-2">Shares</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {p.open_positions.map((pos) => {
+                          const pnlColor = pos.pnl_pct > 0 ? 'text-green-600' : pos.pnl_pct < 0 ? 'text-red-600' : 'text-gray-600';
+                          return (
+                            <tr key={pos.symbol} className="border-b border-gray-50">
+                              <td className="py-2 pr-3 font-medium text-gray-900">{pos.symbol}</td>
+                              <td className="py-2 pr-3 text-gray-600">${pos.entry_price?.toFixed(2)}</td>
+                              <td className="py-2 pr-3 text-gray-600">${pos.current_price?.toFixed(2)}</td>
+                              <td className={`py-2 pr-3 font-medium ${pnlColor}`}>
+                                {pos.pnl_pct >= 0 ? '+' : ''}{pos.pnl_pct?.toFixed(1)}%
+                                <span className="text-xs text-gray-400 ml-1">
+                                  (${pos.pnl_dollars >= 0 ? '+' : ''}{pos.pnl_dollars?.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})})
+                                </span>
+                              </td>
+                              <td className="py-2 text-gray-600">{pos.shares?.toFixed(1)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              {p.open_positions?.length === 0 && (
+                <p className="mt-4 text-sm text-gray-400 italic">No open positions</p>
+              )}
+
+              {/* Recent Trades */}
+              {p.recent_trades?.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Recent Trades</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
+                          <th className="pb-2 pr-3">Symbol</th>
+                          <th className="pb-2 pr-3">Entry</th>
+                          <th className="pb-2 pr-3">Exit</th>
+                          <th className="pb-2 pr-3">P&L</th>
+                          <th className="pb-2">Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {p.recent_trades.map((t, i) => {
+                          const pnlColor = t.pnl_pct > 0 ? 'text-green-600' : t.pnl_pct < 0 ? 'text-red-600' : 'text-gray-600';
+                          return (
+                            <tr key={i} className="border-b border-gray-50">
+                              <td className="py-2 pr-3 font-medium text-gray-900">{t.symbol}</td>
+                              <td className="py-2 pr-3 text-gray-600">${t.entry_price?.toFixed(2)}</td>
+                              <td className="py-2 pr-3 text-gray-600">${t.exit_price?.toFixed(2)}</td>
+                              <td className={`py-2 pr-3 font-medium ${pnlColor}`}>
+                                {t.pnl_pct >= 0 ? '+' : ''}{t.pnl_pct?.toFixed(1)}%
+                              </td>
+                              <td className="py-2 text-gray-500 text-xs">{t.exit_reason}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Refresh button */}
+      <div className="flex justify-end">
+        <button
+          onClick={fetchPortfolio}
+          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+        >
+          <RefreshCw size={14} />
+          Refresh
+        </button>
       </div>
     </div>
   );

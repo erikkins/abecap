@@ -3296,3 +3296,35 @@ async def get_model_portfolio(
     """Get model portfolio summary (live, walkforward, or both)."""
     from app.services.model_portfolio_service import model_portfolio_service
     return await model_portfolio_service.get_portfolio_summary(db, portfolio_type)
+
+
+@router.post("/model-portfolio/action")
+async def model_portfolio_action(
+    body: dict,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Run a model portfolio action: process_entries, process_exits, reset."""
+    from app.services.model_portfolio_service import model_portfolio_service
+
+    action = body.get("action", "")
+    portfolio_type = body.get("portfolio_type")
+
+    if action == "process_entries":
+        results = {}
+        for ptype in ([portfolio_type] if portfolio_type else ["live", "walkforward"]):
+            results[ptype] = await model_portfolio_service.process_entries(db, ptype)
+        return {"action": action, "results": results}
+
+    elif action == "process_exits":
+        results = {}
+        if not portfolio_type or portfolio_type == "walkforward":
+            results["walkforward"] = await model_portfolio_service.process_wf_exits(db)
+        return {"action": action, "results": results}
+
+    elif action == "reset":
+        result = await model_portfolio_service.reset_portfolio(db, portfolio_type)
+        return {"action": action, **result}
+
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
