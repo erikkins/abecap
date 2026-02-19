@@ -146,7 +146,7 @@ async def create_portal_session(
     if not user.stripe_customer_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No billing account found"
+            detail="No active subscription found. Subscribe first to manage billing."
         )
 
     import stripe
@@ -158,6 +158,15 @@ async def create_portal_session(
             return_url=f"{settings.FRONTEND_URL}/dashboard"
         )
         return PortalResponse(portal_url=session.url)
+    except stripe.InvalidRequestError as e:
+        # Stale customer ID (e.g. sandbox/test-mode customer in live mode) — clear it
+        print(f"⚠️ Stale Stripe customer for {user.email}: {e}")
+        user.stripe_customer_id = None
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active subscription found. Subscribe first to manage billing."
+        )
     except stripe.StripeError as e:
         print(f"❌ Stripe error in portal: {e}")
         raise HTTPException(
