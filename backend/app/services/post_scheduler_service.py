@@ -56,8 +56,7 @@ class PostSchedulerService:
             return False
 
         post.scheduled_for = publish_at
-        if post.status == "draft":
-            post.status = "approved"
+        post.status = "scheduled"
         await db.commit()
 
         logger.info(f"Post {post_id} scheduled for {publish_at.isoformat()}")
