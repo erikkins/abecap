@@ -2255,6 +2255,23 @@ def handler(event, context):
 
                     return {"status": post.status, "post_id": post_id}
 
+                elif action == "requeue":
+                    post_id = config.get("post_id")
+                    if not post_id:
+                        return {"error": "post_id required"}
+                    result = await db.execute(
+                        select(SocialPost).where(SocialPost.id == post_id)
+                    )
+                    post = result.scalar_one_or_none()
+                    if not post:
+                        return {"error": f"Post {post_id} not found"}
+                    post.status = "draft"
+                    post.scheduled_for = None
+                    post.platform_post_id = None
+                    await db.commit()
+                    print(f"🔄 Requeued post {post_id} to draft")
+                    return {"status": "requeued", "post_id": post_id}
+
                 elif action == "delete":
                     post_ids = config.get("post_ids")
                     if not post_ids:
