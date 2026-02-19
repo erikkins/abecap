@@ -839,7 +839,7 @@ function ComposeModal({ onClose, onSubmit }) {
                   <RigaCapLogo size={32} className="shrink-0" />
                   <span className="font-semibold text-sm text-gray-900">rigacap</span>
                 </div>
-                <div className="w-full aspect-square bg-gray-50 flex items-center justify-center">
+                <div className="w-full aspect-[4/5] bg-gray-50 flex items-center justify-center">
                   <Image size={40} className="text-gray-300" />
                 </div>
                 <div className="px-3 py-2.5">
@@ -1218,11 +1218,11 @@ function InstagramCard({ post, preview, actionLoading, onApprove, onReject, onRe
             <img
               src={imageUrl}
               alt="Chart card"
-              className="w-full aspect-square object-cover bg-gray-100"
+              className="w-full aspect-[4/5] object-cover bg-gray-100"
               onError={(e) => { e.target.style.display = 'none'; }}
             />
           ) : (canGenerateChart || post.image_s3_key) && (
-            <div className="w-full aspect-square bg-gray-50 flex flex-col items-center justify-center gap-3">
+            <div className="w-full aspect-[4/5] bg-gray-50 flex flex-col items-center justify-center gap-3">
               <Image size={40} className="text-gray-300" />
               {post.image_s3_key ? (
                 <span className="text-xs text-gray-400">Image loading...</span>

@@ -437,7 +437,7 @@ function drawGoldLine(ctx, y, w) {
   const cy1 = fy + cardH/2;
   const cy2 = fy + (cardH + cardGap) + cardH/2;
   const cy3 = fy + 2*(cardH + cardGap) + cardH/2;
-  const arrowY = cy3 + circleR + 40;
+  const arrowY = fy + 3 * cardH + 2 * cardGap + 20; // below all 3 cards
   const resultMidY = arrowY + 45;
 
   ctx.strokeStyle = GOLD;
@@ -463,6 +463,14 @@ function drawGoldLine(ctx, y, w) {
   ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('All 3 must align = High-conviction entry', w/2, arrowY + 55);
+
+  // Footer
+  ctx.fillStyle = GRAY_LIGHT;
+  ctx.font = '22px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('Walk-forward tested: no future data used in any period.', w/2, h - 70);
+  ctx.fillStyle = GOLD;
+  ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('rigacap.com', w/2, h - 40);
 
 })();
 
