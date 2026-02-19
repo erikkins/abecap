@@ -456,9 +456,29 @@ class ModelPortfolioService:
     # ------------------------------------------------------------------
 
     def _is_wf_period_boundary(self, today: date) -> bool:
-        """Check if today is a biweekly boundary from WF_ANCHOR_DATE."""
+        """Check if today is the first trading day of a new biweekly period.
+
+        Boundaries fall on Sundays (Feb 1 2026 anchor + 14-day periods),
+        so we check if today is Monday (or the first weekday) after a boundary.
+        Specifically: the boundary that *just passed* (within 0-2 days ago)
+        should not already have been the boundary for a previous trading day.
+        """
         days_since = (today - WF_ANCHOR_DATE).days
-        return days_since >= 0 and days_since % WF_PERIOD_DAYS == 0
+        if days_since < 0:
+            return False
+        # Check if a boundary falls on today or within the last 2 days
+        # (covers Sat/Sun boundaries triggering on Monday)
+        for offset in range(3):
+            check_date = today - timedelta(days=offset)
+            ds = (check_date - WF_ANCHOR_DATE).days
+            if ds >= 0 and ds % WF_PERIOD_DAYS == 0:
+                # Boundary is on check_date. Today triggers if it's the first
+                # weekday on or after check_date.
+                first_weekday = check_date
+                while first_weekday.weekday() >= 5:  # Sat=5, Sun=6
+                    first_weekday += timedelta(days=1)
+                return today == first_weekday
+        return False
 
     # ------------------------------------------------------------------
     # Reset (admin/testing)
