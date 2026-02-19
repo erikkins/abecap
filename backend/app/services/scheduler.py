@@ -307,79 +307,12 @@ class SchedulerService:
                 except Exception as cache_err:
                     logger.error(f"[NIGHTLY-WF] Dashboard cache re-export failed: {cache_err}")
 
-                # Generate social content from trades
-                try:
-                    # Try AI-powered content first
-                    ai_posts = []
-                    try:
-                        from app.services.ai_content_service import ai_content_service
-                        if ai_content_service.enabled and result.trades_json:
-                            import json as _json
-                            trades = _json.loads(result.trades_json) if isinstance(result.trades_json, str) else []
-                            profitable = [
-                                t for t in trades
-                                if t.get("pnl_pct", 0) > 5.0 and t.get("exit_date")
-                            ]
-                            profitable.sort(key=lambda t: t.get("pnl_pct", 0), reverse=True)
-
-                            for trade in profitable[:3]:
-                                for platform in ("twitter", "instagram"):
-                                    post = await ai_content_service.generate_post(
-                                        trade=trade,
-                                        post_type="trade_result",
-                                        platform=platform,
-                                    )
-                                    if post:
-                                        post.source_simulation_id = job_id
-                                        db.add(post)
-                                        ai_posts.append(post)
-
-                            # Try "we called it" posts with news context
-                            for trade in profitable[:2]:
-                                headlines = await ai_content_service.enrich_with_news(trade.get("symbol", ""))
-                                if headlines:
-                                    for platform in ("twitter", "instagram"):
-                                        post = await ai_content_service.generate_we_called_it(
-                                            trade=trade,
-                                            news_headlines=headlines,
-                                            platform=platform,
-                                        )
-                                        if post:
-                                            post.source_simulation_id = job_id
-                                            db.add(post)
-                                            ai_posts.append(post)
-
-                            if ai_posts:
-                                await db.commit()
-                                logger.info(f"[NIGHTLY-WF] Generated {len(ai_posts)} AI social posts")
-                    except Exception as ai_err:
-                        logger.warning(f"[NIGHTLY-WF] AI content generation failed, falling back to templates: {ai_err}")
-
-                    # Fall back to template-based generation if AI produced nothing
-                    if not ai_posts:
-                        from app.services.social_content_service import social_content_service
-                        posts = await social_content_service.generate_from_nightly_wf(db, job_id)
-                        logger.info(f"[NIGHTLY-WF] Generated {len(posts)} template social posts")
-                    else:
-                        posts = ai_posts
-
-                    # On Fridays, also generate weekly recap
-                    if now.weekday() == 4:  # Friday
-                        from app.services.social_content_service import social_content_service
-                        recap_posts = await social_content_service.generate_weekly_recap(db)
-                        logger.info(f"[NIGHTLY-WF] Generated {len(recap_posts)} weekly recap posts")
-
-                    # Auto-schedule all new draft posts
-                    try:
-                        from app.services.post_scheduler_service import post_scheduler_service
-                        scheduled = await post_scheduler_service.auto_schedule_drafts(db)
-                        if scheduled:
-                            logger.info(f"[NIGHTLY-WF] Auto-scheduled {scheduled} posts")
-                    except Exception as sched_err:
-                        logger.error(f"[NIGHTLY-WF] Auto-scheduling failed: {sched_err}")
-
-                except Exception as social_err:
-                    logger.error(f"[NIGHTLY-WF] Social content generation failed: {social_err}")
+                # Social content generation from WF trades — DISABLED
+                # Re-enable once we have real tracked positions producing exits.
+                # The nightly WF uses simulated trades, not real user-tracked positions.
+                # When ready: generate posts from real position exits (sell alerts),
+                # not walk-forward simulation results.
+                logger.info("[NIGHTLY-WF] Social content generation skipped (waiting for real trades)")
 
             except Exception as e:
                 logger.error(f"[NIGHTLY-WF] Failed: {e}")
