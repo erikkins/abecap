@@ -605,12 +605,31 @@ def handler(event, context):
                 today_str = date.today().strftime("%Y-%m-%d")
                 snap_result = data_export_service.export_snapshot(today_str, data)
 
+            # 6. Persist ensemble signals to DB for audit trail + email consistency
+            persisted = 0
+            try:
+                from app.services.ensemble_signal_service import ensemble_signal_service
+                if data.get('buy_signals'):
+                    async with async_session() as sig_db:
+                        sig_result = await ensemble_signal_service.persist_signals(
+                            sig_db, data['buy_signals'], date.today()
+                        )
+                        await ensemble_signal_service.invalidate_stale_signals(
+                            sig_db, date.today(),
+                            {s['symbol'] for s in data['buy_signals']}
+                        )
+                        persisted = sig_result['inserted']
+                        print(f"📝 Persisted {persisted} ensemble signal(s)")
+            except Exception as pe:
+                print(f"⚠️ Signal persistence failed (non-fatal): {pe}")
+
             return {
                 "status": "success",
                 "signals": len(signals),
                 "symbols_cached": len(scanner_service.data_cache),
                 "dashboard": dash_result,
                 "snapshot": snap_result,
+                "ensemble_signals_persisted": persisted,
             }
 
         try:
@@ -646,6 +665,49 @@ def handler(event, context):
         except Exception as e:
             import traceback
             print(f"❌ Dashboard cache export failed: {e}")
+            traceback.print_exc()
+            return {"status": "failed", "error": str(e)}
+
+    # Handle persist_signals (manual backfill or re-run)
+    if event.get("persist_signals"):
+        print("📝 Persist signals triggered")
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _persist_signals():
+            from app.services.ensemble_signal_service import ensemble_signal_service
+            from app.services.data_export import data_export_service
+            from datetime import date
+
+            dashboard_data = data_export_service.read_dashboard_json()
+            if not dashboard_data or not dashboard_data.get('buy_signals'):
+                return {"status": "no_signals", "message": "No buy_signals in dashboard cache"}
+
+            today = date.today()
+            async with async_session() as db:
+                result = await ensemble_signal_service.persist_signals(
+                    db, dashboard_data['buy_signals'], today
+                )
+                invalidated = await ensemble_signal_service.invalidate_stale_signals(
+                    db, today, {s['symbol'] for s in dashboard_data['buy_signals']}
+                )
+                return {
+                    "status": "success",
+                    "date": today.isoformat(),
+                    "signals_persisted": result['inserted'],
+                    "signals_invalidated": invalidated,
+                    "symbols": [s['symbol'] for s in dashboard_data['buy_signals']],
+                }
+
+        try:
+            result = loop.run_until_complete(_persist_signals())
+            print(f"📝 Persist signals result: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Persist signals failed: {e}")
             traceback.print_exc()
             return {"status": "failed", "error": str(e)}
 

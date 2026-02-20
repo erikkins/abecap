@@ -145,6 +145,30 @@ class SchedulerService:
             except Exception as cache_err:
                 logger.error(f"⚠️ Dashboard cache export failed: {cache_err}")
 
+            # Persist ensemble signals to database for audit trail + email consistency
+            try:
+                from app.services.ensemble_signal_service import ensemble_signal_service
+                from app.core.database import async_session as es_session
+
+                dashboard_data = data_export_service.read_dashboard_json()
+                if dashboard_data and dashboard_data.get('buy_signals'):
+                    async with es_session() as sig_db:
+                        result = await ensemble_signal_service.persist_signals(
+                            sig_db, dashboard_data['buy_signals'], trading_today()
+                        )
+                        invalidated = await ensemble_signal_service.invalidate_stale_signals(
+                            sig_db, trading_today(),
+                            {s['symbol'] for s in dashboard_data['buy_signals']}
+                        )
+                        logger.info(
+                            f"📝 Persisted {result['inserted']} ensemble signal(s), "
+                            f"invalidated {invalidated}"
+                        )
+                else:
+                    logger.info("📝 No buy signals to persist")
+            except Exception as e:
+                logger.error(f"⚠️ Signal persistence failed: {e}")
+
             # Model portfolio: process entries + WF exits after dashboard cache
             try:
                 from app.services.model_portfolio_service import model_portfolio_service
@@ -1245,109 +1269,125 @@ class SchedulerService:
                 logger.info("📅 Not a trading day, skipping emails")
                 return
 
-            from app.api.signals import find_dwap_crossover_date, find_ensemble_entry_date
+            # Read persisted signals from 4 PM scan (guaranteed same as dashboard)
+            from app.services.ensemble_signal_service import ensemble_signal_service
+            from app.core.database import async_session as email_session
 
-            # Build ensemble signals (same as dashboard endpoint)
-            dwap_signals = await scanner_service.scan(refresh_data=False, apply_market_filter=True)
-            dwap_by_symbol = {s.symbol: s for s in dwap_signals}
-
-            momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True)
-            momentum_top_n = 30
-            fresh_days = 5
-            momentum_by_symbol = {
-                r.symbol: {'rank': i + 1, 'data': r}
-                for i, r in enumerate(momentum_rankings[:momentum_top_n])
-            }
-
-            # Threshold for ensemble entry date (same as dashboard)
-            threshold_rank = momentum_top_n // 2
-            mom_threshold = momentum_rankings[threshold_rank - 1].composite_score if len(momentum_rankings) >= threshold_rank else 0
-
-            # Build ensemble buy signals with freshness
             buy_signals = []
-            for symbol in dwap_by_symbol:
-                if symbol in momentum_by_symbol:
-                    dwap = dwap_by_symbol[symbol]
-                    mom = momentum_by_symbol[symbol]
-                    mom_data = mom['data']
-                    mom_rank = mom['rank']
+            async with email_session() as sig_db:
+                db_signals = await ensemble_signal_service.get_signals_for_date(
+                    sig_db, trading_today()
+                )
+                buy_signals = [
+                    {
+                        'symbol': s.symbol,
+                        'price': s.price,
+                        'pct_above_dwap': s.pct_above_dwap,
+                        'is_strong': s.is_strong,
+                        'momentum_rank': s.momentum_rank,
+                        'ensemble_score': s.ensemble_score,
+                        'dwap_crossover_date': s.dwap_crossover_date.isoformat() if s.dwap_crossover_date else None,
+                        'ensemble_entry_date': s.ensemble_entry_date.isoformat() if s.ensemble_entry_date else None,
+                        'days_since_crossover': s.days_since_crossover,
+                        'days_since_entry': s.days_since_entry,
+                        'is_fresh': s.is_fresh,
+                    }
+                    for s in db_signals
+                ]
 
-                    dwap_score = min(dwap.pct_above_dwap * 10, 50)
-                    rank_score = (momentum_top_n - mom_rank + 1) * 2.5
-                    ensemble_score = dwap_score + rank_score
+            # Fallback: if no persisted signals (first deploy, DB issue), regenerate
+            if not buy_signals:
+                logger.warning("📧 No persisted signals found, falling back to live scan")
+                from app.api.signals import find_dwap_crossover_date, find_ensemble_entry_date
 
-                    crossover_date, days_since = find_dwap_crossover_date(symbol)
-                    fresh_by_crossover = days_since is not None and days_since <= fresh_days
-
-                    # Also check ensemble entry date (momentum qualification)
-                    entry_date = None
-                    days_since_entry = None
-                    if crossover_date:
-                        entry_date = find_ensemble_entry_date(symbol, crossover_date, mom_threshold)
-                        if entry_date:
-                            from app.core.timezone import trading_today
-                            import pandas as pd
-                            today_et = pd.Timestamp(trading_today())
-                            entry_ts = pd.Timestamp(entry_date).normalize()
-                            days_since_entry = (today_et - entry_ts).days
-
-                    fresh_by_entry = days_since_entry is not None and days_since_entry <= fresh_days
-                    is_fresh = fresh_by_crossover or fresh_by_entry
-
-                    buy_signals.append({
-                        'symbol': symbol,
-                        'price': float(dwap.price),
-                        'pct_above_dwap': float(dwap.pct_above_dwap),
-                        'is_strong': bool(dwap.is_strong),
-                        'momentum_rank': int(mom_rank),
-                        'ensemble_score': round(float(ensemble_score), 1),
-                        'dwap_crossover_date': crossover_date,
-                        'ensemble_entry_date': entry_date,
-                        'days_since_crossover': int(days_since) if days_since is not None else None,
-                        'days_since_entry': days_since_entry,
-                        'is_fresh': bool(is_fresh),
-                    })
-
-            buy_signals.sort(key=lambda x: (
-                0 if x['is_fresh'] else 1,
-                x.get('days_since_crossover') or 999,
-                -x['ensemble_score']
-            ))
-
-            # Build watchlist (approaching trigger)
-            watchlist = []
-            for r in momentum_rankings[:momentum_top_n]:
-                if r.symbol not in dwap_by_symbol:
-                    df = scanner_service.data_cache.get(r.symbol)
-                    if df is not None and len(df) >= 200:
-                        price = float(df['close'].iloc[-1])
-                        dwap_val = float(df['dwap'].iloc[-1]) if 'dwap' in df.columns else 0
-                        if dwap_val > 0:
-                            pct_above = (price / dwap_val - 1) * 100
-                            distance = 5.0 - pct_above
-                            if 0 < distance <= 3.0:
-                                watchlist.append({
-                                    'symbol': r.symbol,
-                                    'price': price,
-                                    'pct_above_dwap': round(pct_above, 1),
-                                    'distance_to_trigger': round(distance, 1),
-                                })
-
-            watchlist.sort(key=lambda x: x['distance_to_trigger'])
-
-            # Get market regime (7-regime detector, same as dashboard)
-            from app.services.market_regime import market_regime_service
-            spy_df = scanner_service.data_cache.get('SPY')
-            vix_df = scanner_service.data_cache.get('^VIX')
-            if spy_df is not None and len(spy_df) >= 200:
-                regime_obj = market_regime_service.detect_regime(spy_df, scanner_service.data_cache, vix_df)
-                regime = {
-                    'regime': regime_obj.regime_type.value,
-                    'spy_price': round(float(spy_df['close'].iloc[-1]), 2),
-                    'vix_level': round(float(vix_df['close'].iloc[-1]), 1) if vix_df is not None and len(vix_df) > 0 else 'N/A',
+                dwap_signals = await scanner_service.scan(refresh_data=False, apply_market_filter=True)
+                dwap_by_symbol = {s.symbol: s for s in dwap_signals}
+                momentum_rankings = scanner_service.rank_stocks_momentum(apply_market_filter=True)
+                momentum_top_n = 30
+                fresh_days = 5
+                momentum_by_symbol = {
+                    r.symbol: {'rank': i + 1, 'data': r}
+                    for i, r in enumerate(momentum_rankings[:momentum_top_n])
                 }
+                threshold_rank = momentum_top_n // 2
+                mom_threshold = momentum_rankings[threshold_rank - 1].composite_score if len(momentum_rankings) >= threshold_rank else 0
+
+                for symbol in dwap_by_symbol:
+                    if symbol in momentum_by_symbol:
+                        dwap = dwap_by_symbol[symbol]
+                        mom = momentum_by_symbol[symbol]
+                        mom_data = mom['data']
+                        mom_rank = mom['rank']
+                        dwap_score = min(dwap.pct_above_dwap * 10, 50)
+                        rank_score = (momentum_top_n - mom_rank + 1) * 2.5
+                        ensemble_score = dwap_score + rank_score
+                        crossover_date, days_since = find_dwap_crossover_date(symbol)
+                        entry_date = None
+                        days_since_entry = None
+                        if crossover_date:
+                            entry_date = find_ensemble_entry_date(symbol, crossover_date, mom_threshold)
+                            if entry_date:
+                                import pandas as pd
+                                today_et = pd.Timestamp(trading_today())
+                                entry_ts = pd.Timestamp(entry_date).normalize()
+                                days_since_entry = (today_et - entry_ts).days
+                        fresh_by_crossover = days_since is not None and days_since <= fresh_days
+                        fresh_by_entry = days_since_entry is not None and days_since_entry <= fresh_days
+                        is_fresh = fresh_by_crossover or fresh_by_entry
+                        buy_signals.append({
+                            'symbol': symbol,
+                            'price': float(dwap.price),
+                            'pct_above_dwap': float(dwap.pct_above_dwap),
+                            'is_strong': bool(dwap.is_strong),
+                            'momentum_rank': int(mom_rank),
+                            'ensemble_score': round(float(ensemble_score), 1),
+                            'dwap_crossover_date': crossover_date,
+                            'ensemble_entry_date': entry_date,
+                            'days_since_crossover': int(days_since) if days_since is not None else None,
+                            'days_since_entry': days_since_entry,
+                            'is_fresh': bool(is_fresh),
+                        })
+                buy_signals.sort(key=lambda x: (
+                    0 if x['is_fresh'] else 1,
+                    x.get('days_since_crossover') or 999,
+                    -x['ensemble_score']
+                ))
             else:
-                regime = {'regime': 'range_bound', 'spy_price': 'N/A', 'vix_level': 'N/A'}
+                logger.info(f"📧 Using {len(buy_signals)} persisted signal(s) from 4 PM scan")
+
+            # Read watchlist + regime from dashboard cache (same 4 PM data)
+            watchlist = []
+            regime = {'regime': 'range_bound', 'spy_price': 'N/A', 'vix_level': 'N/A'}
+            try:
+                dashboard_data = data_export_service.read_dashboard_json()
+                if dashboard_data:
+                    watchlist = dashboard_data.get('watchlist', [])
+                    regime_forecast = dashboard_data.get('regime_forecast')
+                    market_stats = dashboard_data.get('market_stats', {})
+                    if regime_forecast:
+                        regime = {
+                            'regime': regime_forecast.get('current_regime', 'range_bound'),
+                            'spy_price': market_stats.get('spy_price', 'N/A'),
+                            'vix_level': market_stats.get('vix_level', 'N/A'),
+                        }
+            except Exception as cache_err:
+                logger.warning(f"📧 Could not read dashboard cache for watchlist/regime: {cache_err}")
+
+            # Fallback: compute regime from live data if cache failed
+            if regime.get('spy_price') == 'N/A':
+                try:
+                    from app.services.market_regime import market_regime_service
+                    spy_df = scanner_service.data_cache.get('SPY')
+                    vix_df = scanner_service.data_cache.get('^VIX')
+                    if spy_df is not None and len(spy_df) >= 200:
+                        regime_obj = market_regime_service.detect_regime(spy_df, scanner_service.data_cache, vix_df)
+                        regime = {
+                            'regime': regime_obj.regime_type.value,
+                            'spy_price': round(float(spy_df['close'].iloc[-1]), 2),
+                            'vix_level': round(float(vix_df['close'].iloc[-1]), 1) if vix_df is not None and len(vix_df) > 0 else 'N/A',
+                        }
+                except Exception:
+                    pass
 
             # Query subscribers with valid subscriptions (trial or active)
             from app.core.database import async_session, User as DBUser, Subscription as DBSub

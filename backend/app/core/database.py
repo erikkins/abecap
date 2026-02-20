@@ -5,7 +5,7 @@ Database configuration and connection
 import uuid
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text, JSON
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text, JSON, Date, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -74,6 +74,40 @@ class Signal(Base):
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     expires_at = Column(DateTime)
     status = Column(String(20), default="active")  # active, executed, expired
+
+
+class EnsembleSignal(Base):
+    """Persisted ensemble buy signals for audit trail and email consistency"""
+    __tablename__ = "ensemble_signals"
+
+    id = Column(Integer, primary_key=True)
+    signal_date = Column(Date, nullable=False, index=True)
+    symbol = Column(String(10), nullable=False, index=True)
+    price = Column(Float)
+    dwap = Column(Float)
+    pct_above_dwap = Column(Float)
+    volume = Column(Float)
+    volume_ratio = Column(Float)
+    momentum_rank = Column(Integer)
+    momentum_score = Column(Float)
+    short_momentum = Column(Float)
+    long_momentum = Column(Float)
+    ensemble_score = Column(Float)
+    dwap_crossover_date = Column(Date)
+    ensemble_entry_date = Column(Date)
+    days_since_crossover = Column(Integer)
+    days_since_entry = Column(Integer)
+    is_fresh = Column(Boolean, default=False)
+    is_strong = Column(Boolean, default=False)
+    sector = Column(String(50))
+    status = Column(String(20), default="active", index=True)  # active, expired, invalidated
+    invalidated_at = Column(DateTime, nullable=True)
+    invalidation_reason = Column(String(100), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('signal_date', 'symbol', name='uq_ensemble_signal_date_symbol'),
+    )
 
 
 class Position(Base):
@@ -772,6 +806,39 @@ async def _run_schema_migrations(conn):
             created_at TIMESTAMP DEFAULT NOW()
         )""",
         "CREATE INDEX IF NOT EXISTS idx_rfs_date ON regime_forecast_snapshots(snapshot_date)",
+    ])
+
+    await _run("ensemble_signals table", [
+        """CREATE TABLE IF NOT EXISTS ensemble_signals (
+            id SERIAL PRIMARY KEY,
+            signal_date DATE NOT NULL,
+            symbol VARCHAR(10) NOT NULL,
+            price FLOAT,
+            dwap FLOAT,
+            pct_above_dwap FLOAT,
+            volume FLOAT,
+            volume_ratio FLOAT,
+            momentum_rank INTEGER,
+            momentum_score FLOAT,
+            short_momentum FLOAT,
+            long_momentum FLOAT,
+            ensemble_score FLOAT,
+            dwap_crossover_date DATE,
+            ensemble_entry_date DATE,
+            days_since_crossover INTEGER,
+            days_since_entry INTEGER,
+            is_fresh BOOLEAN DEFAULT FALSE,
+            is_strong BOOLEAN DEFAULT FALSE,
+            sector VARCHAR(50),
+            status VARCHAR(20) DEFAULT 'active',
+            invalidated_at TIMESTAMP,
+            invalidation_reason VARCHAR(100),
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(signal_date, symbol)
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_es_signal_date ON ensemble_signals(signal_date)",
+        "CREATE INDEX IF NOT EXISTS idx_es_symbol ON ensemble_signals(symbol)",
+        "CREATE INDEX IF NOT EXISTS idx_es_status ON ensemble_signals(status)",
     ])
 
 

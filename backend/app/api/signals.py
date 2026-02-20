@@ -1735,6 +1735,82 @@ async def get_double_signals(
     )
 
 
+@router.get("/ensemble/history")
+async def get_ensemble_signal_history(
+    symbol: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_optional),
+):
+    """
+    Query persisted ensemble signal history. Admin-only.
+
+    Returns full audit trail of signals: when they fired, their scores,
+    and whether they were later invalidated.
+
+    Example: /ensemble/history?symbol=ADI&status=invalidated
+    """
+    from datetime import date as date_type
+    from app.services.ensemble_signal_service import ensemble_signal_service
+
+    if not user or not user.is_admin():
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    parsed_start = None
+    parsed_end = None
+    if start_date:
+        try:
+            parsed_start = date_type.fromisoformat(start_date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format (YYYY-MM-DD)")
+    if end_date:
+        try:
+            parsed_end = date_type.fromisoformat(end_date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format (YYYY-MM-DD)")
+
+    signals = await ensemble_signal_service.query_signals(
+        db,
+        symbol=symbol,
+        start_date=parsed_start,
+        end_date=parsed_end,
+        status=status,
+        limit=min(limit, 500),
+    )
+
+    return {
+        "count": len(signals),
+        "signals": [
+            {
+                "id": s.id,
+                "signal_date": s.signal_date.isoformat(),
+                "symbol": s.symbol,
+                "price": s.price,
+                "dwap": s.dwap,
+                "pct_above_dwap": s.pct_above_dwap,
+                "momentum_rank": s.momentum_rank,
+                "momentum_score": s.momentum_score,
+                "ensemble_score": s.ensemble_score,
+                "dwap_crossover_date": s.dwap_crossover_date.isoformat() if s.dwap_crossover_date else None,
+                "ensemble_entry_date": s.ensemble_entry_date.isoformat() if s.ensemble_entry_date else None,
+                "days_since_crossover": s.days_since_crossover,
+                "days_since_entry": s.days_since_entry,
+                "is_fresh": s.is_fresh,
+                "is_strong": s.is_strong,
+                "sector": s.sector,
+                "status": s.status,
+                "invalidated_at": s.invalidated_at.isoformat() if s.invalidated_at else None,
+                "invalidation_reason": s.invalidation_reason,
+                "created_at": s.created_at.isoformat() if s.created_at else None,
+            }
+            for s in signals
+        ],
+    }
+
+
 @router.get("/simulate-intraday-crossover")
 async def simulate_intraday_crossover(
     as_of_date: str,
