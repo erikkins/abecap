@@ -24,6 +24,11 @@
             "CFBundleURLSchemes": [
               "com.googleusercontent.apps.354552952566-f2oaf115c1pb7e35r54bmrit9f3dle47"
             ]
+          },
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.354552952566-f2oaf115c1pb7e35r54bmrit9f3dle47"
+            ]
           }
         ]
       }
@@ -58,6 +63,12 @@
       "eas": {
         "projectId": "632b1c91-e76c-4b75-812d-8ee3b19b1c4a"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/632b1c91-e76c-4b75-812d-8ee3b19b1c4a"
     }
   }
 }
