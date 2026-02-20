@@ -3,7 +3,7 @@
     "name": "RigaCap",
     "slug": "rigacap",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "scheme": "rigacap",
@@ -47,7 +47,8 @@
           "color": "#C9A54E"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-screen-orientation"
     ],
     "extra": {
       "router": {

@@ -1,18 +1,25 @@
 /**
  * Individual signal detail screen.
+ *
+ * Portrait: data card + compact chart.
+ * Landscape: full-screen interactive chart with pinch-to-zoom.
  */
 
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import api from '@/services/api';
-import RegimeBadge from '@/components/RegimeBadge';
+import PriceChart from '@/components/PriceChart';
+import { useChartData } from '@/hooks/useChartData';
 import { Colors, FontSize, Spacing } from '@/constants/theme';
 
 interface SignalDetail {
@@ -30,15 +37,54 @@ interface SignalDetail {
   sector?: string;
 }
 
+const PERIOD_OPTIONS = [
+  { label: '1M', days: 30 },
+  { label: '3M', days: 90 },
+  { label: '6M', days: 180 },
+  { label: '1Y', days: 252 },
+];
+
 export default function SignalDetailScreen() {
   const { symbol } = useLocalSearchParams<{ symbol: string }>();
   const [signal, setSignal] = useState<SignalDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isLandscape, setIsLandscape] = useState(false);
+  const [chartDays, setChartDays] = useState(180);
 
+  const { data: chartData, isLoading: chartLoading } = useChartData(
+    symbol || '',
+    chartDays
+  );
+
+  // Unlock landscape for this screen, lock back on unmount
+  useEffect(() => {
+    ScreenOrientation.unlockAsync();
+    const sub = ScreenOrientation.addOrientationChangeListener((event) => {
+      const o = event.orientationInfo.orientation;
+      setIsLandscape(
+        o === ScreenOrientation.Orientation.LANDSCAPE_LEFT ||
+        o === ScreenOrientation.Orientation.LANDSCAPE_RIGHT
+      );
+    });
+
+    // Check initial orientation
+    ScreenOrientation.getOrientationAsync().then((o) => {
+      setIsLandscape(
+        o === ScreenOrientation.Orientation.LANDSCAPE_LEFT ||
+        o === ScreenOrientation.Orientation.LANDSCAPE_RIGHT
+      );
+    });
+
+    return () => {
+      sub.remove();
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    };
+  }, []);
+
+  // Fetch signal data
   useEffect(() => {
     (async () => {
       try {
-        // Fetch from dashboard data and find the matching signal
         const { data } = await api.get('/api/signals/dashboard');
         const found = data.buy_signals?.find(
           (s: SignalDetail) => s.symbol === symbol
@@ -55,7 +101,7 @@ export default function SignalDetailScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <Stack.Screen options={{ title: symbol || 'Signal' }} />
+        <Stack.Screen options={{ title: symbol || 'Signal', headerShown: !isLandscape }} />
         <ActivityIndicator size="large" color={Colors.gold} />
       </View>
     );
@@ -64,12 +110,61 @@ export default function SignalDetailScreen() {
   if (!signal) {
     return (
       <View style={styles.center}>
-        <Stack.Screen options={{ title: symbol || 'Signal' }} />
+        <Stack.Screen options={{ title: symbol || 'Signal', headerShown: true }} />
         <Text style={styles.emptyText}>Signal not found for {symbol}</Text>
       </View>
     );
   }
 
+  // ── Landscape: full-screen chart ──
+  if (isLandscape) {
+    return (
+      <View style={styles.landscapeWrap}>
+        <Stack.Screen options={{ headerShown: false }} />
+        {/* Symbol + price overlay */}
+        <View style={styles.landscapeHeader}>
+          <Text style={styles.landscapeSymbol}>{signal.symbol}</Text>
+          <Text style={styles.landscapePrice}>${signal.price.toFixed(2)}</Text>
+        </View>
+        {/* Period selector */}
+        <View style={styles.landscapePeriods}>
+          {PERIOD_OPTIONS.map((p) => (
+            <Pressable
+              key={p.label}
+              onPress={() => setChartDays(p.days)}
+              style={[
+                styles.periodButton,
+                chartDays === p.days && styles.periodActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.periodText,
+                  chartDays === p.days && styles.periodTextActive,
+                ]}
+              >
+                {p.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        {chartLoading ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={Colors.gold} />
+          </View>
+        ) : (
+          <PriceChart
+            data={chartData}
+            entryDate={signal.ensemble_entry_date}
+            isLandscape
+          />
+        )}
+        <Text style={styles.landscapeHint}>Pinch to zoom  |  Drag for crosshair</Text>
+      </View>
+    );
+  }
+
+  // ── Portrait: data card + compact chart ──
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Stack.Screen
@@ -80,6 +175,42 @@ export default function SignalDetailScreen() {
           headerShown: true,
         }}
       />
+
+      {/* Chart */}
+      <View>
+        <View style={styles.periodRow}>
+          {PERIOD_OPTIONS.map((p) => (
+            <Pressable
+              key={p.label}
+              onPress={() => setChartDays(p.days)}
+              style={[
+                styles.periodButton,
+                chartDays === p.days && styles.periodActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.periodText,
+                  chartDays === p.days && styles.periodTextActive,
+                ]}
+              >
+                {p.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        {chartLoading ? (
+          <View style={[styles.chartPlaceholder]}>
+            <ActivityIndicator color={Colors.gold} />
+          </View>
+        ) : (
+          <PriceChart
+            data={chartData}
+            entryDate={signal.ensemble_entry_date}
+          />
+        )}
+        <Text style={styles.rotateHint}>Rotate for full-screen chart</Text>
+      </View>
 
       {/* Header */}
       <View style={styles.header}>
@@ -170,6 +301,86 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: FontSize.md,
   },
+  // Portrait chart
+  periodRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  periodButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: Colors.card,
+  },
+  periodActive: {
+    backgroundColor: Colors.gold + '33',
+  },
+  periodText: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+  },
+  periodTextActive: {
+    color: Colors.gold,
+  },
+  chartPlaceholder: {
+    height: 220,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+  },
+  rotateHint: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
+    textAlign: 'center',
+    marginTop: Spacing.xs,
+  },
+  // Landscape
+  landscapeWrap: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  landscapeHeader: {
+    position: 'absolute',
+    top: Spacing.sm,
+    left: Spacing.lg,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: Spacing.sm,
+  },
+  landscapeSymbol: {
+    color: Colors.textPrimary,
+    fontSize: FontSize.lg,
+    fontWeight: '800',
+  },
+  landscapePrice: {
+    color: Colors.gold,
+    fontSize: FontSize.md,
+    fontWeight: '600',
+  },
+  landscapePeriods: {
+    position: 'absolute',
+    top: Spacing.sm,
+    right: Spacing.lg,
+    zIndex: 10,
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
+  landscapeHint: {
+    position: 'absolute',
+    bottom: 4,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    color: Colors.textMuted,
+    fontSize: 9,
+    opacity: 0.6,
+  },
+  // Data card
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

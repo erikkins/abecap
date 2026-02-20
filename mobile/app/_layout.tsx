@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { Colors } from '@/constants/theme';
 
@@ -70,6 +71,11 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  // Lock to portrait by default — signal detail unlocks landscape for chart
+  useEffect(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+  }, []);
+
   return (
     <SafeAreaProvider>
       <AuthProvider>
