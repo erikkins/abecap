@@ -20,6 +20,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import api from '@/services/api';
 import PriceChart from '@/components/PriceChart';
 import { useChartData } from '@/hooks/useChartData';
+import { useStockInfo } from '@/hooks/useStockInfo';
 import { Colors, FontSize, Spacing } from '@/constants/theme';
 
 interface SignalDetail {
@@ -55,6 +56,7 @@ export default function SignalDetailScreen() {
     symbol || '',
     chartDays
   );
+  const { info: stockInfo } = useStockInfo(symbol || '');
 
   // Unlock landscape for this screen, lock back on unmount
   useEffect(() => {
@@ -101,7 +103,7 @@ export default function SignalDetailScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <Stack.Screen options={{ title: symbol || 'Signal', headerShown: !isLandscape }} />
+        <Stack.Screen options={{ title: symbol || 'Signal', headerShown: !isLandscape, headerBackTitle: 'Back' }} />
         <ActivityIndicator size="large" color={Colors.gold} />
       </View>
     );
@@ -110,7 +112,7 @@ export default function SignalDetailScreen() {
   if (!signal) {
     return (
       <View style={styles.center}>
-        <Stack.Screen options={{ title: symbol || 'Signal', headerShown: true }} />
+        <Stack.Screen options={{ title: symbol || 'Signal', headerShown: true, headerBackTitle: 'Back' }} />
         <Text style={styles.emptyText}>Signal not found for {symbol}</Text>
       </View>
     );
@@ -156,6 +158,7 @@ export default function SignalDetailScreen() {
           <PriceChart
             data={chartData}
             entryDate={signal.ensemble_entry_date}
+            breakoutDate={signal.dwap_crossover_date}
             isLandscape
           />
         )}
@@ -172,6 +175,7 @@ export default function SignalDetailScreen() {
           title: signal.symbol,
           headerStyle: { backgroundColor: Colors.navy },
           headerTintColor: Colors.textPrimary,
+          headerBackTitle: 'Back',
           headerShown: true,
         }}
       />
@@ -207,6 +211,7 @@ export default function SignalDetailScreen() {
           <PriceChart
             data={chartData}
             entryDate={signal.ensemble_entry_date}
+            breakoutDate={signal.dwap_crossover_date}
           />
         )}
         <Text style={styles.rotateHint}>Rotate for full-screen chart</Text>
@@ -216,6 +221,9 @@ export default function SignalDetailScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.symbol}>{signal.symbol}</Text>
+          {stockInfo?.name && (
+            <Text style={styles.companyName}>{stockInfo.name}</Text>
+          )}
           <View style={styles.badges}>
             {signal.is_fresh && (
               <View style={styles.freshBadge}>
@@ -231,6 +239,24 @@ export default function SignalDetailScreen() {
         </View>
         <Text style={styles.price}>${signal.price.toFixed(2)}</Text>
       </View>
+
+      {/* Company Info */}
+      {stockInfo && (
+        <View style={styles.companySection}>
+          {stockInfo.sector && stockInfo.industry && (
+            <View style={styles.industryBadge}>
+              <Text style={styles.industryText}>
+                {stockInfo.sector} — {stockInfo.industry}
+              </Text>
+            </View>
+          )}
+          {stockInfo.description && (
+            <Text style={styles.companyDesc} numberOfLines={4}>
+              {stockInfo.description}
+            </Text>
+          )}
+        </View>
+      )}
 
       {/* Ensemble Score */}
       <View style={styles.scoreCard}>
@@ -424,6 +450,30 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: FontSize.xxl,
     fontWeight: '700',
+  },
+  companyName: {
+    color: Colors.textSecondary,
+    fontSize: FontSize.sm,
+  },
+  companySection: {
+    gap: Spacing.sm,
+  },
+  industryBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#4338CA22',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  industryText: {
+    color: '#818CF8',
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+  },
+  companyDesc: {
+    color: Colors.textMuted,
+    fontSize: FontSize.sm,
+    lineHeight: 18,
   },
   scoreCard: {
     backgroundColor: Colors.gold + '15',

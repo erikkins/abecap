@@ -33,6 +33,7 @@ import { ChartPoint } from '@/hooks/useChartData';
 interface PriceChartProps {
   data: ChartPoint[];
   entryDate?: string | null;
+  breakoutDate?: string | null;
   isLandscape?: boolean;
 }
 
@@ -41,6 +42,7 @@ const PADDING = { top: 20, right: 12, bottom: 28, left: 56 };
 export default function PriceChart({
   data,
   entryDate,
+  breakoutDate,
   isLandscape,
 }: PriceChartProps) {
   const [crosshair, setCrosshair] = useState<{
@@ -152,6 +154,14 @@ export default function PriceChart({
     if (idx < 0) return null;
     return { x: toX(idx), idx };
   }, [entryDate, visibleData, minPrice, maxPrice]);
+
+  // Breakout date marker
+  const breakoutX = useMemo(() => {
+    if (!breakoutDate || !visibleData.length) return null;
+    const idx = visibleData.findIndex((p) => p.date === breakoutDate);
+    if (idx < 0) return null;
+    return { x: toX(idx), idx };
+  }, [breakoutDate, visibleData, minPrice, maxPrice]);
 
   // Y-axis labels
   const yLabels = useMemo(() => {
@@ -334,6 +344,32 @@ export default function PriceChart({
                 />
               ) : null}
 
+              {/* Breakout date marker */}
+              {breakoutX && (
+                <>
+                  <Line
+                    x1={breakoutX.x}
+                    y1={PADDING.top}
+                    x2={breakoutX.x}
+                    y2={PADDING.top + plotH}
+                    stroke={Colors.gold}
+                    strokeWidth={1}
+                    strokeDasharray="4,4"
+                    opacity={0.7}
+                  />
+                  <SvgText
+                    x={breakoutX.x}
+                    y={PADDING.top - 4}
+                    fontSize={9}
+                    fill={Colors.gold}
+                    textAnchor="middle"
+                    fontWeight="600"
+                  >
+                    BREAKOUT
+                  </SvgText>
+                </>
+              )}
+
               {/* Entry date marker */}
               {entryX && (
                 <>
@@ -408,8 +444,14 @@ export default function PriceChart({
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDashed, { borderColor: Colors.green }]} />
-          <Text style={styles.legendText}>Breakout</Text>
+          <Text style={styles.legendText}>Trigger</Text>
         </View>
+        {breakoutDate && (
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDashed, { borderColor: Colors.gold }]} />
+            <Text style={styles.legendText}>Breakout</Text>
+          </View>
+        )}
       </View>
     </View>
   );

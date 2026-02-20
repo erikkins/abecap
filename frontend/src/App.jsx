@@ -987,6 +987,40 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   />
                 )}
 
+                {/* DWAP breakout date vertical line */}
+                {type === 'signal' && data?.dwap_crossover_date && (() => {
+                  const dateStr = data.dwap_crossover_date.split('T')[0];
+                  const match = chartDataWithLive.find(d => d.date === dateStr) || chartDataWithLive.find(d => d.date >= dateStr);
+                  if (!match) return null;
+                  return (
+                    <ReferenceLine
+                      yAxisId="price"
+                      x={match.date}
+                      stroke="#C9A54E"
+                      strokeWidth={1}
+                      strokeDasharray="6 4"
+                      label={{ value: 'BREAKOUT', fill: '#C9A54E', fontSize: 10, position: 'top' }}
+                    />
+                  );
+                })()}
+
+                {/* Ensemble entry date vertical line */}
+                {type === 'signal' && data?.ensemble_entry_date && (() => {
+                  const dateStr = data.ensemble_entry_date.split('T')[0];
+                  const match = chartDataWithLive.find(d => d.date === dateStr) || chartDataWithLive.find(d => d.date >= dateStr);
+                  if (!match) return null;
+                  return (
+                    <ReferenceLine
+                      yAxisId="price"
+                      x={match.date}
+                      stroke="#22C55E"
+                      strokeWidth={1}
+                      strokeDasharray="6 4"
+                      label={{ value: 'ENTRY', fill: '#22C55E', fontSize: 10, position: 'top' }}
+                    />
+                  );
+                })()}
+
                 {/* Live price marker - pulsing dot at current live price */}
                 {livePrice && chartDataWithLive.length > 0 && (
                   <ReferenceDot

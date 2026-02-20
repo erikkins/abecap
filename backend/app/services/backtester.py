@@ -38,7 +38,7 @@ class ExitStrategyConfig:
     strategy_type: ExitStrategyType = ExitStrategyType.TRAILING_STOP
 
     # Trailing stop parameters
-    trailing_stop_pct: float = 15.0  # % drop from high to trigger exit
+    trailing_stop_pct: float = 12.0  # % drop from high to trigger exit
 
     # Fixed target parameters
     profit_target_pct: float = 20.0  # % gain to trigger exit
@@ -72,7 +72,7 @@ class ExitStrategyConfig:
             strategy_type = ExitStrategyType(strategy_type)
         return cls(
             strategy_type=strategy_type,
-            trailing_stop_pct=data.get("trailing_stop_pct", 15.0),
+            trailing_stop_pct=data.get("trailing_stop_pct", 12.0),
             profit_target_pct=data.get("profit_target_pct", 20.0),
             hybrid_initial_target_pct=data.get("hybrid_initial_target_pct", 15.0),
             hybrid_trailing_pct=data.get("hybrid_trailing_pct", 8.0),
@@ -177,7 +177,7 @@ class BacktesterService:
         self.initial_capital = 100000
         self.position_size_pct = settings.POSITION_SIZE_PCT / 100  # 18%
         self.max_positions = settings.MAX_POSITIONS  # 5
-        self.trailing_stop_pct = settings.TRAILING_STOP_PCT / 100  # 15%
+        self.trailing_stop_pct = settings.TRAILING_STOP_PCT / 100  # 12%
         self.short_mom_days = settings.SHORT_MOMENTUM_DAYS  # 10
         self.long_mom_days = settings.LONG_MOMENTUM_DAYS  # 60
         self.min_volume = settings.MIN_VOLUME

@@ -1,11 +1,12 @@
 /**
  * Dashboard — main screen showing market regime, signal summary, and model portfolio.
- * Tabbed layout: Signals | Positions | Missed
+ * Tabbed layout: Signals | Positions | History | Missed
  */
 
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -14,17 +15,65 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useDashboard, Position, MissedOpportunity } from '@/hooks/useSignals';
+import {
+  useDashboard,
+  useTradeHistory,
+  Position,
+  MissedOpportunity,
+  Signal,
+  Trade,
+  trackSignal,
+  sellPosition,
+} from '@/hooks/useSignals';
 import SignalCard from '@/components/SignalCard';
 import RegimeBadge from '@/components/RegimeBadge';
+import ConfirmModal from '@/components/ConfirmModal';
 import { Colors, FontSize, Spacing } from '@/constants/theme';
 
-type Tab = 'signals' | 'positions' | 'missed';
+type Tab = 'signals' | 'positions' | 'history' | 'missed';
 
 export default function DashboardScreen() {
   const { data, isLoading, error, refresh } = useDashboard();
+  const { trades, isLoading: tradesLoading, refresh: refreshTrades } = useTradeHistory();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('signals');
+
+  // Track modal state
+  const [trackModal, setTrackModal] = useState<{ signal: Signal } | null>(null);
+  const [trackLoading, setTrackLoading] = useState(false);
+
+  // Sell modal state
+  const [sellModal, setSellModal] = useState<{ position: Position } | null>(null);
+  const [sellLoading, setSellLoading] = useState(false);
+
+  const handleTrack = async () => {
+    if (!trackModal) return;
+    setTrackLoading(true);
+    try {
+      await trackSignal(trackModal.signal.symbol, trackModal.signal.price);
+      setTrackModal(null);
+      refresh();
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.detail || 'Failed to track signal');
+    } finally {
+      setTrackLoading(false);
+    }
+  };
+
+  const handleSell = async () => {
+    if (!sellModal) return;
+    setSellLoading(true);
+    try {
+      await sellPosition(sellModal.position.id, sellModal.position.current_price);
+      setSellModal(null);
+      refresh();
+      refreshTrades();
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.detail || 'Failed to sell position');
+    } finally {
+      setSellLoading(false);
+    }
+  };
 
   if (isLoading && !data) {
     return (
@@ -53,33 +102,37 @@ export default function DashboardScreen() {
   const missed = data?.missed_opportunities || [];
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl
-          refreshing={isLoading}
-          onRefresh={refresh}
-          tintColor={Colors.gold}
-        />
-      }
-    >
-      {/* Market Regime */}
-      {regime && (
-        <RegimeBadge regime={regime.current_regime} />
-      )}
+    <>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={() => { refresh(); if (activeTab === 'history') refreshTrades(); }}
+            tintColor={Colors.gold}
+          />
+        }
+      >
+        {/* Market Regime */}
+        {regime && (
+          <RegimeBadge forecast={regime} marketStats={stats} />
+        )}
 
-      {/* Market Stats */}
-      {stats && (
+        {/* Key Stats */}
         <View style={styles.statsRow}>
           <StatBox
-            label="S&P 500"
-            value={`$${stats.spy_price?.toFixed(0) ?? '—'}`}
-            change={stats.spy_change_pct}
+            label="Portfolio"
+            value={portfolio ? `$${portfolio.total_value?.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
           />
           <StatBox
-            label="VIX"
-            value={stats.vix_level?.toFixed(1) ?? '—'}
+            label="P&L"
+            value={
+              portfolio
+                ? `${(portfolio.total_return_pct ?? 0) >= 0 ? '+' : ''}${portfolio.total_return_pct?.toFixed(1) ?? '0'}%`
+                : '—'
+            }
+            change={portfolio?.total_return_pct}
           />
           <StatBox
             label="Signals"
@@ -87,62 +140,139 @@ export default function DashboardScreen() {
             sub={freshCount > 0 ? `${freshCount} fresh` : undefined}
           />
         </View>
-      )}
 
-      {/* Model Portfolio Summary */}
-      {portfolio && (
-        <View style={styles.portfolioCard}>
-          <Text style={styles.sectionTitle}>Model Portfolio</Text>
-          <View style={styles.portfolioStats}>
-            <View>
-              <Text style={styles.portfolioValue}>
-                ${portfolio.total_value?.toLocaleString(undefined, { maximumFractionDigits: 0 }) ?? '—'}
-              </Text>
-              <Text style={styles.portfolioLabel}>Total Value</Text>
-            </View>
-            <View>
-              <Text
-                style={[
-                  styles.portfolioReturn,
-                  {
-                    color:
-                      (portfolio.total_return_pct ?? 0) >= 0
-                        ? Colors.green
-                        : Colors.red,
-                  },
-                ]}
-              >
-                {(portfolio.total_return_pct ?? 0) >= 0 ? '+' : ''}
-                {portfolio.total_return_pct?.toFixed(1) ?? '0'}%
-              </Text>
-              <Text style={styles.portfolioLabel}>Total Return</Text>
+        {/* Model Portfolio Summary */}
+        {portfolio && (
+          <View style={styles.portfolioCard}>
+            <Text style={styles.sectionTitle}>Model Portfolio</Text>
+            <View style={styles.portfolioStats}>
+              <View>
+                <Text style={styles.portfolioValue}>
+                  ${portfolio.total_value?.toLocaleString(undefined, { maximumFractionDigits: 0 }) ?? '—'}
+                </Text>
+                <Text style={styles.portfolioLabel}>Total Value</Text>
+              </View>
+              <View>
+                <Text
+                  style={[
+                    styles.portfolioReturn,
+                    {
+                      color:
+                        (portfolio.total_return_pct ?? 0) >= 0
+                          ? Colors.green
+                          : Colors.red,
+                    },
+                  ]}
+                >
+                  {(portfolio.total_return_pct ?? 0) >= 0 ? '+' : ''}
+                  {portfolio.total_return_pct?.toFixed(1) ?? '0'}%
+                </Text>
+                <Text style={styles.portfolioLabel}>Total Return</Text>
+              </View>
             </View>
           </View>
+        )}
+
+        {/* Segmented Tab Bar */}
+        <View style={styles.tabBar}>
+          <TabPill label="Signals" tab="signals" active={activeTab} onPress={setActiveTab} />
+          <TabPill label="Positions" tab="positions" active={activeTab} onPress={setActiveTab} />
+          <TabPill label="History" tab="history" active={activeTab} onPress={setActiveTab} />
+          <TabPill label="Missed" tab="missed" active={activeTab} onPress={setActiveTab} />
         </View>
+
+        {/* Tab Content */}
+        {activeTab === 'signals' && (
+          <SignalsTab
+            freshSignals={freshSignals}
+            monitoringSignals={monitoringSignals}
+            onSignalPress={(symbol) => router.push(`/signal/${symbol}`)}
+            onTrack={(signal) => setTrackModal({ signal })}
+          />
+        )}
+        {activeTab === 'positions' && (
+          <PositionsTab
+            positions={positions}
+            onPositionPress={(symbol) => router.push(`/signal/${symbol}`)}
+            onSell={(position) => setSellModal({ position })}
+          />
+        )}
+        {activeTab === 'history' && (
+          <HistoryTab trades={trades} isLoading={tradesLoading} />
+        )}
+        {activeTab === 'missed' && (
+          <MissedTab
+            missed={missed}
+            onMissedPress={(symbol) => router.push(`/signal/${symbol}`)}
+          />
+        )}
+      </ScrollView>
+
+      {/* Track Confirmation Modal */}
+      {trackModal && (
+        <ConfirmModal
+          visible
+          title={`Track ${trackModal.signal.symbol}`}
+          confirmLabel="Track"
+          confirmColor={Colors.gold}
+          onConfirm={handleTrack}
+          onCancel={() => setTrackModal(null)}
+          loading={trackLoading}
+        >
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>Price</Text>
+            <Text style={styles.modalValue}>${trackModal.signal.price.toFixed(2)}</Text>
+          </View>
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>~Shares ($10k)</Text>
+            <Text style={styles.modalValue}>
+              {Math.floor(10000 / trackModal.signal.price)}
+            </Text>
+          </View>
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>Ensemble Score</Text>
+            <Text style={styles.modalValue}>{trackModal.signal.ensemble_score.toFixed(0)}</Text>
+          </View>
+        </ConfirmModal>
       )}
 
-      {/* Segmented Tab Bar */}
-      <View style={styles.tabBar}>
-        <TabPill label="Signals" tab="signals" active={activeTab} onPress={setActiveTab} />
-        <TabPill label="Positions" tab="positions" active={activeTab} onPress={setActiveTab} />
-        <TabPill label="Missed" tab="missed" active={activeTab} onPress={setActiveTab} />
-      </View>
-
-      {/* Tab Content */}
-      {activeTab === 'signals' && (
-        <SignalsTab
-          freshSignals={freshSignals}
-          monitoringSignals={monitoringSignals}
-          onSignalPress={(symbol) => router.push(`/signal/${symbol}`)}
-        />
+      {/* Sell Confirmation Modal */}
+      {sellModal && (
+        <ConfirmModal
+          visible
+          title={`Sell ${sellModal.position.symbol}`}
+          confirmLabel="Sell"
+          confirmColor={Colors.red}
+          onConfirm={handleSell}
+          onCancel={() => setSellModal(null)}
+          loading={sellLoading}
+        >
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>Entry Price</Text>
+            <Text style={styles.modalValue}>${sellModal.position.entry_price.toFixed(2)}</Text>
+          </View>
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>Current Price</Text>
+            <Text style={styles.modalValue}>${sellModal.position.current_price.toFixed(2)}</Text>
+          </View>
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>P&L</Text>
+            <Text
+              style={[
+                styles.modalValue,
+                { color: sellModal.position.pnl_pct >= 0 ? Colors.green : Colors.red },
+              ]}
+            >
+              {sellModal.position.pnl_pct >= 0 ? '+' : ''}{sellModal.position.pnl_pct.toFixed(1)}%
+            </Text>
+          </View>
+          <View style={styles.modalRow}>
+            <Text style={styles.modalLabel}>Shares</Text>
+            <Text style={styles.modalValue}>{sellModal.position.shares}</Text>
+          </View>
+        </ConfirmModal>
       )}
-      {activeTab === 'positions' && (
-        <PositionsTab positions={positions} />
-      )}
-      {activeTab === 'missed' && (
-        <MissedTab missed={missed} />
-      )}
-    </ScrollView>
+    </>
   );
 }
 
@@ -178,10 +308,12 @@ function SignalsTab({
   freshSignals,
   monitoringSignals,
   onSignalPress,
+  onTrack,
 }: {
-  freshSignals: any[];
-  monitoringSignals: any[];
+  freshSignals: Signal[];
+  monitoringSignals: Signal[];
   onSignalPress: (symbol: string) => void;
+  onTrack: (signal: Signal) => void;
 }) {
   const hasAny = freshSignals.length > 0 || monitoringSignals.length > 0;
 
@@ -205,11 +337,18 @@ function SignalsTab({
       </View>
       {freshSignals.length > 0 ? (
         freshSignals.map((signal) => (
-          <SignalCard
-            key={signal.symbol}
-            signal={signal}
-            onPress={() => onSignalPress(signal.symbol)}
-          />
+          <View key={signal.symbol}>
+            <SignalCard
+              signal={signal}
+              onPress={() => onSignalPress(signal.symbol)}
+            />
+            <Pressable
+              style={styles.trackButton}
+              onPress={() => onTrack(signal)}
+            >
+              <Text style={styles.trackButtonText}>Track</Text>
+            </Pressable>
+          </View>
         ))
       ) : (
         <View style={styles.emptyCard}>
@@ -249,7 +388,15 @@ function SignalsTab({
 
 /* ── Positions Tab ────────────────────────────────────── */
 
-function PositionsTab({ positions }: { positions: Position[] }) {
+function PositionsTab({
+  positions,
+  onPositionPress,
+  onSell,
+}: {
+  positions: Position[];
+  onPositionPress: (symbol: string) => void;
+  onSell: (position: Position) => void;
+}) {
   if (positions.length === 0) {
     return (
       <View style={styles.emptyCard}>
@@ -261,7 +408,11 @@ function PositionsTab({ positions }: { positions: Position[] }) {
   return (
     <>
       {positions.map((pos) => (
-        <View key={pos.symbol} style={styles.positionCard}>
+        <Pressable
+          key={pos.symbol}
+          style={({ pressed }) => [styles.positionCard, pressed && styles.pressed]}
+          onPress={() => onPositionPress(pos.symbol)}
+        >
           <View style={styles.positionHeader}>
             <Text style={styles.positionSymbol}>{pos.symbol}</Text>
             <Text
@@ -296,6 +447,115 @@ function PositionsTab({ positions }: { positions: Position[] }) {
               <Text style={styles.guidanceText}>{pos.sell_guidance}</Text>
             </View>
           )}
+          <Pressable
+            style={styles.sellButton}
+            onPress={() => onSell(pos)}
+          >
+            <Text style={styles.sellButtonText}>Sell</Text>
+          </Pressable>
+        </Pressable>
+      ))}
+    </>
+  );
+}
+
+/* ── History Tab ──────────────────────────────────────── */
+
+function HistoryTab({
+  trades,
+  isLoading,
+}: {
+  trades: Trade[];
+  isLoading: boolean;
+}) {
+  if (isLoading && trades.length === 0) {
+    return (
+      <View style={styles.emptyCard}>
+        <ActivityIndicator color={Colors.gold} />
+      </View>
+    );
+  }
+
+  if (trades.length === 0) {
+    return (
+      <View style={styles.emptyCard}>
+        <Text style={styles.emptyText}>No completed trades yet</Text>
+      </View>
+    );
+  }
+
+  const wins = trades.filter((t) => t.pnl_pct > 0).length;
+  const winRate = ((wins / trades.length) * 100).toFixed(0);
+  const avgReturn = (trades.reduce((sum, t) => sum + t.pnl_pct, 0) / trades.length).toFixed(1);
+
+  return (
+    <>
+      {/* Summary Stats */}
+      <View style={styles.historyStatsRow}>
+        <View style={styles.historyStat}>
+          <Text style={styles.historyStatValue}>{trades.length}</Text>
+          <Text style={styles.historyStatLabel}>Trades</Text>
+        </View>
+        <View style={styles.historyStat}>
+          <Text style={[styles.historyStatValue, { color: Colors.green }]}>{winRate}%</Text>
+          <Text style={styles.historyStatLabel}>Win Rate</Text>
+        </View>
+        <View style={styles.historyStat}>
+          <Text
+            style={[
+              styles.historyStatValue,
+              { color: Number(avgReturn) >= 0 ? Colors.green : Colors.red },
+            ]}
+          >
+            {Number(avgReturn) >= 0 ? '+' : ''}{avgReturn}%
+          </Text>
+          <Text style={styles.historyStatLabel}>Avg Return</Text>
+        </View>
+      </View>
+
+      {/* Trade Cards */}
+      {trades.map((trade) => (
+        <View key={trade.id} style={styles.tradeCard}>
+          <View style={styles.tradeHeader}>
+            <Text style={styles.tradeSymbol}>{trade.symbol}</Text>
+            <Text
+              style={[
+                styles.tradePnl,
+                { color: trade.pnl_pct >= 0 ? Colors.green : Colors.red },
+              ]}
+            >
+              {trade.pnl_pct >= 0 ? '+' : ''}{trade.pnl_pct.toFixed(1)}%
+            </Text>
+          </View>
+          <View style={styles.tradeDetails}>
+            <View style={styles.tradeDetail}>
+              <Text style={styles.tradeDetailLabel}>Entry</Text>
+              <Text style={styles.tradeDetailValue}>
+                ${trade.entry_price.toFixed(2)} · {trade.entry_date}
+              </Text>
+            </View>
+            <View style={styles.tradeDetail}>
+              <Text style={styles.tradeDetailLabel}>Exit</Text>
+              <Text style={styles.tradeDetailValue}>
+                ${trade.exit_price.toFixed(2)} · {trade.exit_date}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.tradeFooter}>
+            <View style={styles.exitBadge}>
+              <Text style={styles.exitBadgeText}>{formatExitReason(trade.exit_reason)}</Text>
+            </View>
+            {trade.pnl !== 0 && (
+              <Text
+                style={[
+                  styles.tradePnlDollar,
+                  { color: trade.pnl >= 0 ? Colors.green : Colors.red },
+                ]}
+              >
+                {trade.pnl >= 0 ? '+' : ''}${Math.abs(trade.pnl).toFixed(0)}
+              </Text>
+            )}
+          </View>
         </View>
       ))}
     </>
@@ -304,7 +564,13 @@ function PositionsTab({ positions }: { positions: Position[] }) {
 
 /* ── Missed Tab ───────────────────────────────────────── */
 
-function MissedTab({ missed }: { missed: MissedOpportunity[] }) {
+function MissedTab({
+  missed,
+  onMissedPress,
+}: {
+  missed: MissedOpportunity[];
+  onMissedPress: (symbol: string) => void;
+}) {
   if (missed.length === 0) {
     return (
       <View style={styles.emptyCard}>
@@ -316,7 +582,11 @@ function MissedTab({ missed }: { missed: MissedOpportunity[] }) {
   return (
     <>
       {missed.map((m, i) => (
-        <View key={`${m.symbol}-${m.entry_date}-${i}`} style={styles.missedCard}>
+        <Pressable
+          key={`${m.symbol}-${m.entry_date}-${i}`}
+          style={({ pressed }) => [styles.missedCard, pressed && styles.pressed]}
+          onPress={() => onMissedPress(m.symbol)}
+        >
           <View style={styles.missedHeader}>
             <Text style={styles.missedSymbol}>{m.symbol}</Text>
             <Text style={[styles.missedReturn, { color: Colors.green }]}>
@@ -344,7 +614,7 @@ function MissedTab({ missed }: { missed: MissedOpportunity[] }) {
           <View style={styles.exitReasonRow}>
             <Text style={styles.exitReasonText}>{formatExitReason(m.exit_reason)}</Text>
           </View>
-        </View>
+        </Pressable>
       ))}
     </>
   );
@@ -369,21 +639,16 @@ function StatBox({
   change?: number;
   sub?: string;
 }) {
+  const valueColor =
+    change != null
+      ? change >= 0
+        ? Colors.green
+        : Colors.red
+      : Colors.textPrimary;
   return (
     <View style={styles.statBox}>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-      {change != null && (
-        <Text
-          style={[
-            styles.statChange,
-            { color: change >= 0 ? Colors.green : Colors.red },
-          ]}
-        >
-          {change >= 0 ? '+' : ''}
-          {change.toFixed(2)}%
-        </Text>
-      )}
+      <Text style={[styles.statValue, { color: valueColor }]}>{value}</Text>
       {sub && <Text style={styles.statSub}>{sub}</Text>}
     </View>
   );
@@ -410,6 +675,9 @@ const styles = StyleSheet.create({
   errorText: {
     color: Colors.red,
     fontSize: FontSize.md,
+  },
+  pressed: {
+    opacity: 0.8,
   },
 
   // Stats row
@@ -543,6 +811,21 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
 
+  // Track button
+  trackButton: {
+    backgroundColor: Colors.gold,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: -4,
+    marginBottom: Spacing.sm,
+  },
+  trackButtonText: {
+    color: Colors.navy,
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+  },
+
   // Position cards
   positionCard: {
     backgroundColor: Colors.card,
@@ -590,6 +873,125 @@ const styles = StyleSheet.create({
   guidanceText: {
     color: Colors.yellow,
     fontSize: FontSize.xs,
+  },
+
+  // Sell button
+  sellButton: {
+    backgroundColor: Colors.red + '22',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: Spacing.sm,
+  },
+  sellButtonText: {
+    color: Colors.red,
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+  },
+
+  // History tab
+  historyStatsRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  historyStat: {
+    flex: 1,
+    backgroundColor: Colors.card,
+    borderRadius: 8,
+    padding: Spacing.md,
+    alignItems: 'center',
+  },
+  historyStatValue: {
+    color: Colors.textPrimary,
+    fontSize: FontSize.lg,
+    fontWeight: '700',
+  },
+  historyStatLabel: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
+    marginTop: 4,
+  },
+
+  // Trade cards
+  tradeCard: {
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    padding: Spacing.md,
+  },
+  tradeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  tradeSymbol: {
+    color: Colors.textPrimary,
+    fontSize: FontSize.lg,
+    fontWeight: '700',
+  },
+  tradePnl: {
+    fontSize: FontSize.lg,
+    fontWeight: '700',
+  },
+  tradeDetails: {
+    gap: Spacing.xs,
+  },
+  tradeDetail: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  tradeDetailLabel: {
+    color: Colors.textMuted,
+    fontSize: FontSize.sm,
+  },
+  tradeDetailValue: {
+    color: Colors.textSecondary,
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+  },
+  tradeFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.cardBorder,
+  },
+  exitBadge: {
+    backgroundColor: Colors.cardBorder,
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  exitBadgeText: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+  },
+  tradePnlDollar: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+  },
+
+  // Modal rows
+  modalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.cardBorder,
+  },
+  modalLabel: {
+    color: Colors.textSecondary,
+    fontSize: FontSize.md,
+  },
+  modalValue: {
+    color: Colors.textPrimary,
+    fontSize: FontSize.md,
+    fontWeight: '600',
   },
 
   // Missed cards

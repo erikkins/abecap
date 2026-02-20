@@ -20,6 +20,7 @@ export interface Signal {
 }
 
 export interface Position {
+  id: number;
   symbol: string;
   shares: number;
   entry_price: number;
@@ -28,6 +29,19 @@ export interface Position {
   highest_price: number;
   pnl_pct: number;
   sell_guidance: string;
+}
+
+export interface Trade {
+  id: number;
+  symbol: string;
+  entry_date: string;
+  entry_price: number;
+  exit_date: string;
+  exit_price: number;
+  shares: number;
+  pnl: number;
+  pnl_pct: number;
+  exit_reason: string;
 }
 
 export interface MissedOpportunity {
@@ -43,10 +57,13 @@ export interface MissedOpportunity {
 
 export interface RegimeForecast {
   current_regime: string;
+  current_regime_name: string;
   outlook: string;
+  outlook_detail: string;
   recommended_action: string;
   risk_change: string;
   probabilities: Record<string, number>;
+  transition_probabilities: Record<string, number>;
 }
 
 export interface DashboardData {
@@ -94,4 +111,39 @@ export function useDashboard() {
   }, [fetch]);
 
   return { data, isLoading, error, refresh: fetch };
+}
+
+export async function trackSignal(symbol: string, price: number) {
+  return api.post('/api/portfolio/positions', { symbol, price });
+}
+
+export async function sellPosition(positionId: number, exitPrice: number) {
+  return api.delete(`/api/portfolio/positions/${positionId}?exit_price=${exitPrice}`);
+}
+
+export function useTradeHistory() {
+  const [trades, setTrades] = useState<Trade[]>([]);
+  const [total, setTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetch = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const resp = await api.get('/api/portfolio/trades?limit=50');
+      setTrades(resp.data.trades || []);
+      setTotal(resp.data.total || 0);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to load trade history');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { trades, total, isLoading, error, refresh: fetch };
 }

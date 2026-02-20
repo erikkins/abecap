@@ -37,7 +37,7 @@ class StrategyParams:
     # Momentum-specific
     short_momentum_days: int = 10
     long_momentum_days: int = 60
-    trailing_stop_pct: float = 15.0
+    trailing_stop_pct: float = 12.0
     market_filter_enabled: bool = True
     rebalance_frequency: str = "weekly"
     short_mom_weight: float = 0.5

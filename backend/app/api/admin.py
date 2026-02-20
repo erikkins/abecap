@@ -2893,7 +2893,7 @@ async def run_flexible_backtest(
             exit_type = ExitStrategyType(request.exit_strategy_type)
             exit_strategy = ExitStrategyConfig(
                 strategy_type=exit_type,
-                trailing_stop_pct=request.trailing_stop_pct or 15.0,
+                trailing_stop_pct=request.trailing_stop_pct or 12.0,
                 profit_target_pct=request.profit_target_pct or 20.0,
                 stop_loss_pct=request.stop_loss_pct or 0.0,
                 hybrid_initial_target_pct=request.hybrid_initial_target_pct or 15.0,
@@ -3035,10 +3035,10 @@ async def compare_exit_strategies(
         # Default comparison set
         exit_configs = [
             {
-                "name": "Trailing 15% (Current)",
+                "name": "Trailing 12% (Current)",
                 "config": ExitStrategyConfig(
                     strategy_type=ExitStrategyType.TRAILING_STOP,
-                    trailing_stop_pct=15.0
+                    trailing_stop_pct=12.0
                 )
             },
             {

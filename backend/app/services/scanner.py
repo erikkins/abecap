@@ -847,7 +847,7 @@ class ScannerService:
         self,
         positions: List[dict],
         regime_forecast=None,
-        trailing_stop_pct: float = 15.0,
+        trailing_stop_pct: float = 12.0,
     ) -> List[dict]:
         """
         For each position, determine: HOLD, WARNING, or SELL.
@@ -856,7 +856,7 @@ class ScannerService:
             positions: List of position dicts with at least symbol, entry_price, shares,
                        and optionally highest_price (tracked high water mark)
             regime_forecast: RegimeForecast from market_regime.py (optional)
-            trailing_stop_pct: Trailing stop percentage (default 15%)
+            trailing_stop_pct: Trailing stop percentage (default 12%)
 
         Returns:
             List of position dicts with added sell guidance fields.

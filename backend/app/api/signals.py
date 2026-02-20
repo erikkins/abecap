@@ -693,7 +693,7 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
 
     # --- Missed opportunities ---
     missed_opportunities = []
-    TRAILING_STOP_PCT = 0.15
+    TRAILING_STOP_PCT = 0.12
     try:
         from app.core.database import WalkForwardSimulation
         import json as _json

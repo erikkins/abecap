@@ -211,7 +211,7 @@ class StrategyGeneratorService:
                 full_params.update({
                     "short_momentum_days": 10,
                     "long_momentum_days": 60,
-                    "trailing_stop_pct": 15.0,
+                    "trailing_stop_pct": 12.0,
                     "market_filter_enabled": True,
                     "rebalance_frequency": "weekly",
                     "short_mom_weight": 0.5,
@@ -349,7 +349,7 @@ class StrategyGeneratorService:
                 full_params.update({
                     "short_momentum_days": best["params"].get("short_momentum_days", 10),
                     "long_momentum_days": best["params"].get("long_momentum_days", 60),
-                    "trailing_stop_pct": best["params"].get("trailing_stop_pct", 15.0),
+                    "trailing_stop_pct": best["params"].get("trailing_stop_pct", 12.0),
                     "market_filter_enabled": True,
                     "rebalance_frequency": "weekly",
                     "short_mom_weight": 0.5,
