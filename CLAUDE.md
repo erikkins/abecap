@@ -377,6 +377,46 @@ Two professional PDF documents are maintained and regenerated as features evolve
   design/documents/rigacap-technical-architecture.html
 ```
 
+## Generating PNG Images from Canvas HTML
+
+Social launch cards (`design/brand/social-launch-cards.html`) render to `<canvas>` elements via JavaScript. The source HTML contains shared helper functions (`drawLogo`, `fillNavyGradient`, `drawGoldLine`, etc.) that all cards depend on.
+
+**To regenerate a single card (e.g., card3):**
+
+1. Extract ALL the JS from the source HTML (helpers are shared)
+2. Create a wrapper HTML with all 5 canvases but only the target visible:
+```python
+# Extract JS and build isolated page
+python3 -c "
+import re
+with open('design/brand/social-launch-cards.html') as f:
+    html = f.read()
+js = re.search(r'<script>(.*?)</script>', html, re.DOTALL).group(1)
+page = '''<!DOCTYPE html>
+<html><head><meta charset=\"UTF-8\"></head>
+<body style=\"margin:0;padding:0;overflow:hidden;background:#172554;\">
+<canvas id=\"card1\" width=\"1080\" height=\"1350\" style=\"display:none;\"></canvas>
+<canvas id=\"card2\" width=\"1080\" height=\"1350\" style=\"display:none;\"></canvas>
+<canvas id=\"card3\" width=\"1080\" height=\"1350\" style=\"display:block;\"></canvas>
+<canvas id=\"card4\" width=\"1080\" height=\"1350\" style=\"display:none;\"></canvas>
+<canvas id=\"card5\" width=\"1080\" height=\"1350\" style=\"display:none;\"></canvas>
+<script>''' + js + '</script></body></html>'
+with open('/tmp/card3-only.html', 'w') as f:
+    f.write(page)
+"
+```
+3. Screenshot with headless Chrome at exact canvas dimensions:
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --headless --disable-gpu \
+  --screenshot="/tmp/card3.png" \
+  --window-size=1080,1350 \
+  "file:///tmp/card3-only.html"
+```
+4. Copy to `frontend/public/launch-cards/launch-N.png`
+
+**Important:** Do NOT create standalone JS — the cards share helper functions (`drawLogo`, `fillNavyGradient`, `drawGoldLine`, color constants like `NAVY = '#172554'`). Always extract the full `<script>` block and include all canvas elements (hidden ones fail silently).
+
 ## Code Style
 
 - Python: Black formatter, type hints preferred
