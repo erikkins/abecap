@@ -1680,6 +1680,10 @@ function Dashboard() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('checkout') === 'success') {
       setCheckoutSuccess(true);
+      // GA4: track purchase conversion
+      if (window.gtag) {
+        window.gtag('event', 'purchase', { currency: 'USD', transaction_id: params.get('session_id') || '' });
+      }
       // Sync subscription status directly from Stripe, then refresh user
       api.post('/api/billing/sync', {}).catch(() => {}).finally(() => refreshUser());
       // Retry after 5s in case sync was slow
@@ -2814,6 +2818,7 @@ function Dashboard() {
                                 setUpgradeLoading(true);
                                 try {
                                   const data = await api.post('/api/billing/create-checkout', { plan: 'annual' });
+                                  if (window.gtag) window.gtag('event', 'begin_checkout', { value: 200, currency: 'USD' });
                                   window.location.href = data.checkout_url;
                                 } catch (err) {
                                   console.error('Checkout error:', err);
@@ -2832,6 +2837,7 @@ function Dashboard() {
                                 setUpgradeLoading(true);
                                 try {
                                   const data = await api.post('/api/billing/create-checkout', { plan: 'monthly' });
+                                  if (window.gtag) window.gtag('event', 'begin_checkout', { value: 20, currency: 'USD' });
                                   window.location.href = data.checkout_url;
                                 } catch (err) {
                                   console.error('Checkout error:', err);
@@ -3693,6 +3699,10 @@ export default function App() {
             <Dashboard />
           </ProtectedRoute>
         } />
+        {/* Vanity redirects for social platform attribution */}
+        <Route path="/x" element={<Navigate to="/?utm_source=twitter&utm_medium=social&utm_campaign=bio" replace />} />
+        <Route path="/ig" element={<Navigate to="/?utm_source=instagram&utm_medium=social&utm_campaign=bio" replace />} />
+        <Route path="/t" element={<Navigate to="/?utm_source=threads&utm_medium=social&utm_campaign=bio" replace />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <CookieConsent />

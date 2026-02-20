@@ -141,6 +141,10 @@ export function AuthProvider({ children }) {
         });
         const data = await res.json();
         if (res.ok && data.checkout_url) {
+          // GA4: track begin_checkout conversion
+          if (window.gtag) {
+            window.gtag('event', 'begin_checkout', { value: plan === 'annual' ? 200 : 20, currency: 'USD' });
+          }
           window.location.href = data.checkout_url;
           return true;
         }
@@ -177,6 +181,11 @@ export function AuthProvider({ children }) {
       localStorage.removeItem('rigacap_referral_code');
       setTokens(data.access_token, data.refresh_token);
       setUser(data.user);
+
+      // GA4: track sign_up conversion
+      if (window.gtag) {
+        window.gtag('event', 'sign_up', { method: 'email' });
+      }
 
       // Redirect new users (no subscription) to Stripe checkout
       if (await redirectToCheckoutIfNeeded(data.user, data.access_token)) {
@@ -250,6 +259,11 @@ export function AuthProvider({ children }) {
       setTokens(data.access_token, data.refresh_token);
       setUser(data.user);
 
+      // GA4: track sign_up for new Google users (no subscription = first time)
+      if (!data.user.subscription && window.gtag) {
+        window.gtag('event', 'sign_up', { method: 'google' });
+      }
+
       // Redirect new users (no subscription) to Stripe checkout
       if (await redirectToCheckoutIfNeeded(data.user, data.access_token)) {
         return { success: true, redirecting: true };
@@ -287,6 +301,11 @@ export function AuthProvider({ children }) {
       localStorage.removeItem('rigacap_referral_code');
       setTokens(data.access_token, data.refresh_token);
       setUser(data.user);
+
+      // GA4: track sign_up for new Apple users (no subscription = first time)
+      if (!data.user.subscription && window.gtag) {
+        window.gtag('event', 'sign_up', { method: 'apple' });
+      }
 
       // Redirect new users (no subscription) to Stripe checkout
       if (await redirectToCheckoutIfNeeded(data.user, data.access_token)) {

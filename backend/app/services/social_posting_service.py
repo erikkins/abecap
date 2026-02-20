@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import logging
 import os
+import re
 import time
 import urllib.parse
 import uuid
@@ -568,6 +569,40 @@ class SocialPostingService:
 
         return {"success": True, "expires_in": expires_in}
 
+    # ── UTM tracking ────────────────────────────────────────────────
+
+    _UTM_PLATFORM_MAP = {
+        "twitter": "twitter",
+        "instagram": "instagram",
+        "threads": "threads",
+    }
+
+    _RIGACAP_URL_RE = re.compile(
+        r'(https?://(?:www\.)?rigacap\.com)(/[^\s)"\']*)?\b',
+        re.IGNORECASE,
+    )
+
+    @staticmethod
+    def _inject_utm(text: str, platform: str) -> str:
+        """Append UTM params to any rigacap.com URL in text."""
+        source = SocialPostingService._UTM_PLATFORM_MAP.get(platform, platform)
+        utm = urllib.parse.urlencode({
+            "utm_source": source,
+            "utm_medium": "social",
+            "utm_campaign": "post",
+        })
+
+        def _add_utm(m):
+            base = m.group(1)
+            path = m.group(2) or ""
+            # Don't double-add if UTM already present
+            if "utm_source" in path:
+                return m.group(0)
+            sep = "&" if "?" in path else "?"
+            return f"{base}{path}{sep}{utm}"
+
+        return SocialPostingService._RIGACAP_URL_RE.sub(_add_utm, text)
+
     # ── Unified publish ──────────────────────────────────────────────
 
     async def publish_post(self, post) -> dict:
@@ -579,6 +614,9 @@ class SocialPostingService:
         text = post.text_content or ""
         if post.hashtags:
             text += f"\n\n{post.hashtags}"
+
+        # Auto-inject UTM tracking params into rigacap.com URLs
+        text = self._inject_utm(text, post.platform)
 
         image_url = None
         if post.image_s3_key:
