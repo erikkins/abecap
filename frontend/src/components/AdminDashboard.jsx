@@ -1786,7 +1786,7 @@ function TradeDetailCard({ detail, onGenerateAutopsy }) {
         )}
         {detail.pct_above_dwap != null && (
           <div>
-            <p className="text-xs text-gray-400">DWAP %</p>
+            <p className="text-xs text-gray-400">Breakout %</p>
             <p className="text-sm font-medium text-gray-700">+{detail.pct_above_dwap?.toFixed(1)}%</p>
           </div>
         )}

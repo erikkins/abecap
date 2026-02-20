@@ -164,7 +164,7 @@ export default function TrackRecordPage() {
             <div>
               <h3 className="text-white font-semibold mb-2">Ensemble strategy</h3>
               <p className="text-gray-400 text-sm leading-relaxed">
-                Our approach combines three proven factors: breakout timing (DWAP), momentum quality ranking,
+                Our approach combines three proven factors: breakout timing, momentum quality ranking,
                 and adaptive risk management with trailing stops. All three must align before generating a signal.
               </p>
             </div>

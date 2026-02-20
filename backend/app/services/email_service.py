@@ -256,7 +256,7 @@ class EmailService:
                     Ensemble Buy Signals{f' ({len(fresh_signals)})' if fresh_signals else ''}
                 </h2>
                 <p style="margin: 0 0 16px 16px; font-size: 13px; color: #6b7280;">
-                    Recent DWAP cross + top momentum — consider adding
+                    Recent breakout + top momentum — consider adding
                 </p>
                 {"".join(self._signal_row(s) for s in fresh_signals[:8]) if fresh_signals else f'''
                 <div style="background-color: #f9fafb; border-radius: 8px; padding: 24px; text-align: center; color: #6b7280;">
@@ -324,7 +324,7 @@ class EmailService:
                             {symbol} {badge}{fresh_chip}
                         </div>
                         <div style="font-size: 14px; color: #6b7280; margin-top: 4px;">
-                            ${price:.2f} &nbsp;•&nbsp; DWAP +{pct_above:.1f}%
+                            ${price:.2f} &nbsp;•&nbsp; Breakout +{pct_above:.1f}%
                         </div>
                     </td>
                     <td style="text-align: right;">
@@ -338,7 +338,7 @@ class EmailService:
         """
 
     def _monitoring_section(self, monitoring_signals: List[Dict]) -> str:
-        """Generate HTML for monitoring section (non-fresh signals above DWAP + top momentum)"""
+        """Generate HTML for monitoring section (non-fresh signals above breakout trigger + top momentum)"""
         if not monitoring_signals:
             return ''
 
@@ -520,7 +520,7 @@ class EmailService:
                 pct = s.get('pct_above_dwap', 0)
                 mom_rank = s.get('momentum_rank', 0)
                 fresh_tag = " [NEW TODAY]" if s.get('days_since_crossover') == 0 else " [FRESH]"
-                lines.append(f"  {symbol}: ${price:.2f} (Rank #{mom_rank}) - DWAP +{pct:.1f}%{fresh_tag}")
+                lines.append(f"  {symbol}: ${price:.2f} (Rank #{mom_rank}) - Breakout +{pct:.1f}%{fresh_tag}")
         else:
             lines.append(f"  No fresh buy signals today")
 
@@ -531,7 +531,7 @@ class EmailService:
                 price = s.get('price', 0)
                 pct = s.get('pct_above_dwap', 0)
                 mom_rank = s.get('momentum_rank', 0)
-                lines.append(f"  {symbol}: ${price:.2f} (Rank #{mom_rank}) - DWAP +{pct:.1f}%")
+                lines.append(f"  {symbol}: ${price:.2f} (Rank #{mom_rank}) - Breakout +{pct:.1f}%")
 
         if not signals and watchlist:
             lines.append(f"  No fresh signals — {len(watchlist)} stock(s) on watchlist")
@@ -1248,7 +1248,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
                         The Ensemble Algorithm
                     </h2>
                     <ol style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
-                        <li><strong>DWAP Timing</strong> — We track when a stock's price crosses 5% above its 200-day weighted average. This catches early breakouts before the crowd.</li>
+                        <li><strong>Breakout Timing</strong> — We detect when a stock clears its long-term accumulation zone. This catches early breakouts before the crowd.</li>
                         <li><strong>Momentum Quality</strong> — We rank stocks by 10-day and 60-day momentum. Only top-ranked stocks make the cut.</li>
                         <li><strong>Confirmation</strong> — Volume surge + near 50-day high = triple-confirmed entry.</li>
                     </ol>
@@ -1287,7 +1287,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
                         Pro Tip #1: Watch the Watchlist
                     </h2>
                     <p style="margin: 0; color: #374151; line-height: 1.6;">
-                        Stocks on the <strong>Watchlist</strong> are approaching the DWAP trigger.
+                        Stocks on the <strong>Watchlist</strong> are approaching the breakout trigger.
                         When they cross, you'll get an alert — often before they show up as full signals.
                         This gives you a head start.
                     </p>
@@ -1319,7 +1319,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
                     <p style="margin: 0; font-size: 14px; color: #374151;">
                         <strong>Simple vs Advanced mode:</strong> Toggle in the top-right corner of your dashboard.
                         Simple mode shows clear buy/sell actions. Advanced mode reveals full technical details
-                        (DWAP levels, momentum scores, regime analysis).
+                        (breakout levels, momentum scores, regime analysis).
                     </p>
                 </div>
 
@@ -1354,7 +1354,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
                 <div style="background-color: #eff6ff; border-radius: 12px; padding: 20px; margin: 24px 0;">
                     <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #1e40af;">What you'll keep with a subscription:</h3>
                     <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
-                        <li>Daily ensemble buy signals (DWAP + momentum + volume)</li>
+                        <li>Daily ensemble buy signals (breakout + momentum + volume)</li>
                         <li>7-regime market detection with adaptive exposure</li>
                         <li>Trailing stop alerts — sell signals delivered to your inbox</li>
                         <li>Watchlist alerts when stocks approach buy triggers</li>
@@ -1737,7 +1737,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
                 </td>
                 <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: right;">
                     <div style="font-size: 16px; font-weight: 600;">${price:.2f}</div>
-                    <div style="font-size: 12px; color: #059669;">DWAP +{pct_above:.1f}%</div>
+                    <div style="font-size: 12px; color: #059669;">Breakout +{pct_above:.1f}%</div>
                 </td>
                 <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: center;">
                     <div style="background-color: #fef3c7; color: #92400e; font-size: 14px; font-weight: 600; padding: 4px 12px; border-radius: 99px; display: inline-block;">
@@ -1899,14 +1899,14 @@ Unsubscribe: https://rigacap.com/unsubscribe
         for s in new_signals[:10]:
             fresh_tag = " [NEW TODAY]" if s.get('days_since_crossover') == 0 else ""
             text_lines.append(
-                f"  • {s.get('symbol')}: ${s.get('price', 0):.2f} (DWAP +{s.get('pct_above_dwap', 0):.1f}%) - Mom #{s.get('momentum_rank', 0)}{fresh_tag}"
+                f"  • {s.get('symbol')}: ${s.get('price', 0):.2f} (Breakout +{s.get('pct_above_dwap', 0):.1f}%) - Mom #{s.get('momentum_rank', 0)}{fresh_tag}"
             )
 
         if approaching:
             text_lines.extend(["", "APPROACHING TRIGGER:"])
             for a in approaching[:5]:
                 text_lines.append(
-                    f"  • {a.get('symbol')}: ${a.get('price', 0):.2f} (DWAP +{a.get('pct_above_dwap', 0):.1f}%) - {a.get('distance_to_trigger', 0):.1f}% to go"
+                    f"  • {a.get('symbol')}: ${a.get('price', 0):.2f} (Breakout +{a.get('pct_above_dwap', 0):.1f}%) - {a.get('distance_to_trigger', 0):.1f}% to go"
                 )
 
         text_lines.extend([
@@ -1939,7 +1939,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
         user_id: str = None,
     ) -> bool:
         """
-        Send alert when a watchlist stock crosses DWAP +5% intraday.
+        Send alert when a watchlist stock crosses the breakout trigger intraday.
 
         Distinct amber/orange styling to differentiate from daily buy/sell emails.
         """
@@ -2008,11 +2008,11 @@ Unsubscribe: https://rigacap.com/unsubscribe
                         <td style="padding: 8px 16px; text-align: right; font-size: 18px; font-weight: 700; color: #059669;">${live_price:.2f}</td>
                     </tr>
                     <tr style="background-color: #fefce8;">
-                        <td style="padding: 8px 16px; color: #6b7280; font-size: 14px;">DWAP (200-day)</td>
+                        <td style="padding: 8px 16px; color: #6b7280; font-size: 14px;">Weighted Avg (200d)</td>
                         <td style="padding: 8px 16px; text-align: right; font-weight: 600; color: #374151;">${dwap:.2f}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 8px 16px; color: #6b7280; font-size: 14px;">% Above DWAP</td>
+                        <td style="padding: 8px 16px; color: #6b7280; font-size: 14px;">% Above Trigger</td>
                         <td style="padding: 8px 16px; text-align: right; font-weight: 700; color: #d97706;">+{pct_above_dwap:.1f}%</td>
                     </tr>{mom_html}{sector_html}
                 </table>
@@ -2061,16 +2061,16 @@ Unsubscribe: https://rigacap.com/unsubscribe
 
         # Plain text version
         text_lines = [
-            f"LIVE SIGNAL: {symbol} just crossed DWAP +{pct_above_dwap:.1f}%",
+            f"LIVE SIGNAL: {symbol} breakout +{pct_above_dwap:.1f}%",
             "=" * 40,
             "",
             greeting,
             "",
-            f"{symbol} just crossed the DWAP +5% threshold during market hours.",
+            f"{symbol} just crossed the breakout trigger during market hours.",
             "",
             f"  Live Price: ${live_price:.2f}",
-            f"  DWAP: ${dwap:.2f}",
-            f"  % Above: +{pct_above_dwap:.1f}%",
+            f"  Weighted Avg: ${dwap:.2f}",
+            f"  % Above Trigger: +{pct_above_dwap:.1f}%",
         ]
         if momentum_rank:
             text_lines.append(f"  Momentum Rank: #{momentum_rank}")
@@ -2088,7 +2088,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
 
         return await self.send_email(
             to_email=to_email,
-            subject=f"🔔 LIVE SIGNAL: {symbol} just crossed DWAP +{pct_above_dwap:.1f}%",
+            subject=f"🔔 LIVE SIGNAL: {symbol} breakout +{pct_above_dwap:.1f}%",
             html_content=html,
             text_content="\n".join(text_lines),
             user_id=user_id

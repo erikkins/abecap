@@ -693,15 +693,15 @@ const LAUNCH_POSTS = [
     label: 'How It Works',
     imageUrl: '/launch-cards/launch-3.png',
     twitter: {
-      text: "How we pick trades:\n\n1\uFE0F\u20E3 Timing \u2014 DWAP catches breakouts before the crowd\n2\uFE0F\u20E3 Quality \u2014 only top-ranked momentum stocks pass\n3\uFE0F\u20E3 Risk \u2014 7 market regimes, adapted daily\n\nAll 3 must agree. Most stocks fail. That's the point.\n\n~6\u20138 make the cut every 2 weeks.",
+      text: "How we pick trades:\n\n1\uFE0F\u20E3 Timing \u2014 proprietary breakout detection catches moves before the crowd\n2\uFE0F\u20E3 Quality \u2014 only top-ranked momentum stocks pass\n3\uFE0F\u20E3 Risk \u2014 7 market regimes, adapted daily\n\nAll 3 must agree. Most stocks fail. That's the point.\n\n~6\u20138 make the cut every 2 weeks.",
       hashtags: '#trading #ensemble #momentum #riskmanagement',
     },
     instagram: {
-      text: "Why three factors instead of one? Because markets are complicated and anyone who says otherwise is selling you something.\n\nFactor 1: Timing (DWAP)\nOur proprietary Daily Weighted Average Price catches breakouts early \u2014 before they show up on everyone's screener.\n\nFactor 2: Momentum Quality\nNot all breakouts deserve your money. We rank by 10-day and 60-day momentum, filter for volatility, and confirm with volume.\n\nFactor 3: Regime Detection\n7 market regimes detected daily. Because \"buy the dip\" is great advice in a bull market and terrible advice in a crash.\n\nAll 3 factors must align for a signal. Out of thousands of stocks, only 6\u20138 make the cut every two weeks. Most days, nothing qualifies.\n\nThat's not a bug \u2014 it's the whole point. Picky systems make money. Trigger-happy ones don't.",
+      text: "Why three factors instead of one? Because markets are complicated and anyone who says otherwise is selling you something.\n\nFactor 1: Breakout Timing\nOur proprietary accumulation breakout model catches moves early \u2014 before they show up on everyone's screener.\n\nFactor 2: Momentum Quality\nNot all breakouts deserve your money. We rank by 10-day and 60-day momentum, filter for volatility, and confirm with volume.\n\nFactor 3: Regime Detection\n7 market regimes detected daily. Because \"buy the dip\" is great advice in a bull market and terrible advice in a crash.\n\nAll 3 factors must align for a signal. Out of thousands of stocks, only 6\u20138 make the cut every two weeks. Most days, nothing qualifies.\n\nThat's not a bug \u2014 it's the whole point. Picky systems make money. Trigger-happy ones don't.",
       hashtags: '#trading #algotrading #ensemble #momentum #riskmanagement #rigacap',
     },
     threads: {
-      text: "How we pick trades:\n\n1. Timing \u2014 DWAP catches breakouts before the crowd\n2. Quality \u2014 only top-ranked momentum stocks pass\n3. Risk \u2014 7 market regimes, adapted daily\n\nAll 3 must agree. Most stocks fail. That's the point.\n\nOut of thousands scanned, ~6\u20138 make the cut every 2 weeks.\n\nrigacap.com",
+      text: "How we pick trades:\n\n1. Timing \u2014 proprietary breakout detection catches moves before the crowd\n2. Quality \u2014 only top-ranked momentum stocks pass\n3. Risk \u2014 7 market regimes, adapted daily\n\nAll 3 must agree. Most stocks fail. That's the point.\n\nOut of thousands scanned, ~6\u20138 make the cut every 2 weeks.\n\nrigacap.com",
     },
   },
   {

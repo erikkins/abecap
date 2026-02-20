@@ -710,8 +710,8 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                         )}
                         {d?.dwap && (
                           <>
-                            <p className="text-purple-600">DWAP: ${d.dwap.toFixed(2)}</p>
-                            <p className="text-yellow-600">Buy Trigger (+5%): ${(d.dwap * 1.05).toFixed(2)}</p>
+                            <p className="text-purple-600">Wtd Avg: ${d.dwap.toFixed(2)}</p>
+                            <p className="text-yellow-600">Breakout (+5%): ${(d.dwap * 1.05).toFixed(2)}</p>
                           </>
                         )}
                         {d?.ma_50 && <p className="text-orange-500">MA50: ${d.ma_50.toFixed(2)}</p>}
@@ -724,8 +724,8 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                 {viewMode !== 'simple' && <Bar yAxisId="volume" dataKey="volume" fill="#E5E7EB" opacity={0.5} />}
                 {viewMode !== 'simple' && chartDataWithLive.some(d => d.dwap) && (
                   <>
-                    <Line yAxisId="price" type="monotone" dataKey="dwap" stroke="#8B5CF6" strokeWidth={2} dot={false} name="DWAP" />
-                    {/* DWAP +5% buy trigger line */}
+                    <Line yAxisId="price" type="monotone" dataKey="dwap" stroke="#8B5CF6" strokeWidth={2} dot={false} name="Wtd Avg" />
+                    {/* Breakout trigger line (+5% above weighted avg) */}
                     <Line
                       yAxisId="price"
                       type="monotone"
@@ -734,7 +734,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                       strokeWidth={2}
                       strokeDasharray="6 3"
                       dot={false}
-                      name="DWAP +5%"
+                      name="Breakout +5%"
                       connectNulls={false}
                     />
                   </>
@@ -1029,7 +1029,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
               ) : (
                 <>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">DWAP Signal</p>
+                    <p className="text-sm text-gray-500">Breakout</p>
                     <p className="text-lg font-semibold text-emerald-600">+{data?.pct_above_dwap}%</p>
                   </div>
                   <div className="text-center">
@@ -1152,7 +1152,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                 <p className="text-lg font-semibold">${(data?.high_52w || stockInfo?.high_52w)?.toFixed(2)}</p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-500">DWAP Price</p>
+                <p className="text-sm text-gray-500">Weighted Avg</p>
                 <p className="text-lg font-semibold">${data?.dwap?.toFixed(2)}</p>
               </div>
             </div>
@@ -1282,7 +1282,7 @@ const SignalCard = ({ signal, onClick }) => {
       <div className="grid grid-cols-3 gap-2 text-sm">
         <div className="flex items-center gap-1">
           <TrendingUp size={14} className="text-emerald-500" />
-          <span className="text-gray-500">DWAP:</span>
+          <span className="text-gray-500">Breakout:</span>
           <span className="font-medium text-emerald-600">+{signal.pct_above_dwap}%</span>
         </div>
         <div className="flex items-center gap-1">
@@ -1470,7 +1470,7 @@ const TOUR_STEPS = [
   },
   {
     title: 'Simple vs Advanced',
-    description: 'Toggle between Simple (clean, just the essentials) and Advanced (momentum scores, DWAP %, Sharpe ratios — the full picture). Find it in the top-right corner.',
+    description: 'Toggle between Simple (clean, just the essentials) and Advanced (momentum scores, breakout strength, Sharpe ratios — the full picture). Find it in the top-right corner.',
     renderIllustration: () => (
       <div className="flex flex-col items-center gap-3">
         <div className="flex items-center gap-4">
@@ -1494,7 +1494,7 @@ const TOUR_STEPS = [
             <span className="text-xs font-mono text-indigo-600">87.4</span>
           </div>
           <div className="flex items-center justify-between mt-1">
-            <span className="text-xs text-gray-500">DWAP %</span>
+            <span className="text-xs text-gray-500">Breakout</span>
             <span className="text-xs font-mono text-indigo-600">+5.8%</span>
           </div>
           <div className="flex items-center justify-between mt-1">
@@ -2755,7 +2755,7 @@ function Dashboard() {
                         const allDates = (dashboardData?.buy_signals || [])
                           .map(s => s.ensemble_entry_date)
                           .filter(Boolean);
-                        if (allDates.length === 0) return 'Ensemble: DWAP + Momentum';
+                        if (allDates.length === 0) return 'Ensemble: Breakout + Momentum';
                         const latest = allDates.sort().reverse()[0];
                         const today = new Date(); today.setHours(0,0,0,0);
                         const signalDate = new Date(latest + 'T00:00:00');
@@ -2988,7 +2988,7 @@ function Dashboard() {
                                     <tr>
                                       <th className="px-3 py-2 text-left font-medium">Symbol</th>
                                       <th className="px-3 py-2 text-right font-medium">Price</th>
-                                      <th className="px-3 py-2 text-right font-medium">DWAP%</th>
+                                      <th className="px-3 py-2 text-right font-medium">Breakout%</th>
                                       <th className="px-3 py-2 text-right font-medium">Rank</th>
                                       <th className="px-3 py-2 text-center font-medium">Action</th>
                                     </tr>
@@ -3036,7 +3036,7 @@ function Dashboard() {
                                     <tr>
                                       <th className="px-3 py-2 text-left font-medium">Symbol</th>
                                       <th className="px-3 py-2 text-right font-medium">Price</th>
-                                      <th className="px-3 py-2 text-right font-medium">DWAP%</th>
+                                      <th className="px-3 py-2 text-right font-medium">Breakout%</th>
                                       <th className="px-3 py-2 text-right font-medium">Rank</th>
                                     </tr>
                                   </thead>
@@ -3102,7 +3102,7 @@ function Dashboard() {
                                 <tr>
                                   <th className="text-left text-xs font-medium pb-1">Symbol</th>
                                   <th className="text-right text-xs font-medium pb-1">Price</th>
-                                  <th className="text-right text-xs font-medium pb-1">DWAP%</th>
+                                  <th className="text-right text-xs font-medium pb-1">Breakout%</th>
                                   <th className="text-right text-xs font-medium pb-1">Distance</th>
                                 </tr>
                               </thead>
@@ -3304,7 +3304,7 @@ function Dashboard() {
                   <div className="px-5 py-3 border-b border-amber-200 flex items-center gap-2">
                     <Eye className="w-4 h-4 text-amber-600" />
                     <h3 className="font-medium text-amber-800">Watchlist — Approaching Trigger</h3>
-                    <span className="text-xs text-amber-600 ml-2">Momentum stocks near +5% DWAP</span>
+                    <span className="text-xs text-amber-600 ml-2">Momentum stocks approaching breakout trigger</span>
                   </div>
                   <div className="flex flex-wrap gap-3 px-5 py-3">
                     {dashboardData.watchlist.map((s) => (
@@ -3315,7 +3315,7 @@ function Dashboard() {
                       >
                         <span className="font-semibold text-gray-900">{s.symbol}</span>
                         <span className="text-xs text-amber-600">#{s.momentum_rank}</span>
-                        <span className="text-xs text-gray-500">+{s.pct_above_dwap?.toFixed(1)}% DWAP</span>
+                        <span className="text-xs text-gray-500">+{s.pct_above_dwap?.toFixed(1)}%</span>
                         <span className="text-xs font-medium text-amber-700">+{s.distance_to_trigger?.toFixed(1)}% to go</span>
                       </div>
                     ))}
@@ -3412,7 +3412,7 @@ function Dashboard() {
                     <p className="text-sm text-gray-500">
                       {backtest.is_walk_forward
                         ? `Adaptive strategy with ${backtest.num_strategy_switches || 0} switches`
-                        : `Based on ${backtest.strategy === 'momentum' ? 'Momentum' : 'DWAP'} strategy`
+                        : `Based on ${backtest.strategy === 'momentum' ? 'Momentum' : 'Breakout'} strategy`
                       }
                       {' '}| {backtest.start_date} to {backtest.end_date}
                     </p>
@@ -3521,8 +3521,8 @@ function Dashboard() {
               {[
                 { key: 'daily_digest', label: 'Daily Digest', desc: '6 PM ET summary with signals + positions' },
                 { key: 'sell_alerts', label: 'Sell Alerts', desc: 'Trailing stop and regime exit alerts' },
-                { key: 'double_signals', label: 'Double Signal Alerts', desc: 'DWAP + momentum confirmation alerts' },
-                { key: 'intraday_signals', label: 'Intraday Signals', desc: 'DWAP crossover during market hours' },
+                { key: 'double_signals', label: 'Double Signal Alerts', desc: 'Breakout + momentum confirmation alerts' },
+                { key: 'intraday_signals', label: 'Intraday Signals', desc: 'Breakout crossover during market hours' },
               ].map(({ key, label, desc }) => (
                 <label key={key} className="flex items-center justify-between cursor-pointer group">
                   <div>
