@@ -34,10 +34,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="signals"
         options={{
-          title: 'Signals',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="pulse" size={size} color={color} />
-          ),
+          href: null, // Accessed via dashboard signal cards, not tab bar
         }}
       />
       <Tabs.Screen
