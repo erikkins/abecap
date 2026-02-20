@@ -21,6 +21,7 @@ from app.core.config import settings
 from app.core.timezone import trading_today, days_since_et
 from app.services.scanner import scanner_service
 from app.services.email_service import email_service, admin_email_service
+from app.services.push_notification_service import push_notification_service
 from app.services.data_export import data_export_service
 from app.services.stock_universe import MUST_INCLUDE
 
@@ -581,6 +582,15 @@ class SchedulerService:
                                 )
                             except Exception as e:
                                 logger.error(f"📡 Failed to send alert for {sym}: {e}")
+
+                            # Push notification (never blocks email delivery)
+                            try:
+                                await push_notification_service.send_sell_alert_push(
+                                    db, str(uid), sym,
+                                    guidance['action'], guidance['reason'],
+                                )
+                            except Exception as e:
+                                logger.debug(f"📡 Push sell alert failed for {sym}: {e}")
 
                 # Persist high water mark updates
                 await db.commit()
@@ -1421,9 +1431,10 @@ class SchedulerService:
 
             logger.info(f"📧 Sending daily summary to {len(subscribers)} subscriber(s)")
 
-            # Send emails to each subscriber
+            # Send emails + push notifications to each subscriber
             sent = 0
             failed = 0
+            push_sent = 0
             for sub in subscribers:
                 try:
                     success = await email_service.send_daily_summary(
@@ -1441,7 +1452,17 @@ class SchedulerService:
                     logger.error(f"Failed to send to {sub['email']}: {e}")
                     failed += 1
 
-            logger.info(f"📧 Daily emails complete: {sent}/{len(subscribers)} sent, {failed} failed")
+                # Push notification (never blocks email delivery)
+                try:
+                    async with email_session() as push_db:
+                        count = await push_notification_service.send_daily_summary_push(
+                            push_db, sub['user_id'], len(buy_signals), fresh_count
+                        )
+                        push_sent += count
+                except Exception as e:
+                    logger.debug(f"Push notification failed for {sub['email']}: {e}")
+
+            logger.info(f"📧 Daily emails complete: {sent}/{len(subscribers)} sent, {failed} failed, {push_sent} push")
 
         except Exception as e:
             logger.error(f"❌ Daily email job failed: {e}")

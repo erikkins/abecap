@@ -76,6 +76,20 @@ class Signal(Base):
     status = Column(String(20), default="active")  # active, executed, expired
 
 
+class PushToken(Base):
+    """Expo push notification tokens for mobile app users"""
+    __tablename__ = "push_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token = Column(String(500), nullable=False, unique=True)
+    platform = Column(String(20), nullable=False)  # "ios", "android"
+    device_id = Column(String(255), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+
+
 class EnsembleSignal(Base):
     """Persisted ensemble buy signals for audit trail and email consistency"""
     __tablename__ = "ensemble_signals"
@@ -806,6 +820,20 @@ async def _run_schema_migrations(conn):
             created_at TIMESTAMP DEFAULT NOW()
         )""",
         "CREATE INDEX IF NOT EXISTS idx_rfs_date ON regime_forecast_snapshots(snapshot_date)",
+    ])
+
+    await _run("push_tokens table", [
+        """CREATE TABLE IF NOT EXISTS push_tokens (
+            id SERIAL PRIMARY KEY,
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            token VARCHAR(500) NOT NULL UNIQUE,
+            platform VARCHAR(20) NOT NULL,
+            device_id VARCHAR(255),
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_push_tokens_user_id ON push_tokens(user_id)",
     ])
 
     await _run("ensemble_signals table", [
