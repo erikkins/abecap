@@ -2449,6 +2449,24 @@ def handler(event, context):
                     print(f"🖼️ Attached image to post {post_id}: {image_s3_key}")
                     return {"post_id": post_id, "image_s3_key": image_s3_key}
 
+                elif action == "edit":
+                    post_id = config.get("post_id")
+                    if not post_id:
+                        return {"error": "post_id required"}
+                    result = await db.execute(
+                        select(SocialPost).where(SocialPost.id == post_id)
+                    )
+                    post = result.scalar_one_or_none()
+                    if not post:
+                        return {"error": f"Post {post_id} not found"}
+                    if config.get("text_content"):
+                        post.text_content = config["text_content"]
+                    if config.get("hashtags") is not None:
+                        post.hashtags = config["hashtags"]
+                    await db.commit()
+                    print(f"✏️ Edited post {post_id}")
+                    return {"status": "edited", "post_id": post_id, "text_preview": (post.text_content or "")[:100]}
+
                 elif action == "bulk_schedule":
                     # Schedule multiple posts: [{"post_id": 97, "publish_at": "2026-02-19T14:00:00"}, ...]
                     schedule_list = config.get("posts", [])
