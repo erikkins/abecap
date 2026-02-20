@@ -51,8 +51,9 @@ export default function DashboardScreen() {
     setTrackLoading(true);
     try {
       await trackSignal(trackModal.signal.symbol, trackModal.signal.price);
+      await refresh();
       setTrackModal(null);
-      refresh();
+      setActiveTab('positions');
     } catch (err: any) {
       Alert.alert('Error', err.response?.data?.detail || 'Failed to track signal');
     } finally {
@@ -65,9 +66,9 @@ export default function DashboardScreen() {
     setSellLoading(true);
     try {
       await sellPosition(sellModal.position.id, sellModal.position.current_price);
+      await Promise.all([refresh(), refreshTrades()]);
       setSellModal(null);
-      refresh();
-      refreshTrades();
+      setActiveTab('history');
     } catch (err: any) {
       Alert.alert('Error', err.response?.data?.detail || 'Failed to sell position');
     } finally {
