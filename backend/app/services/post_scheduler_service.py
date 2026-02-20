@@ -30,6 +30,13 @@ OPTIMAL_HOURS = {
     "weekend": [10, 14],       # Mid-morning, afternoon
 }
 
+# Minimum minutes between posts per platform (prevents spam blocks)
+PLATFORM_COOLDOWN_MINUTES = {
+    "threads": 180,   # 3 hours — Threads aggressively blocks rapid posting
+    "instagram": 120,  # 2 hours
+    "twitter": 30,     # 30 min — Twitter is more lenient
+}
+
 
 class PostSchedulerService:
     """Schedule posts and send admin approval notifications."""
@@ -116,7 +123,8 @@ class PostSchedulerService:
         """
         Called every 15 minutes by scheduler.
         Finds posts where status in ('approved','scheduled') AND scheduled_for <= now.
-        Publishes them via SocialPostingService.
+        Publishes them via SocialPostingService, respecting per-platform cooldowns
+        to avoid spam blocks (especially Threads).
 
         Returns count of posts published.
         """
@@ -130,21 +138,55 @@ class PostSchedulerService:
                     SocialPost.scheduled_for <= now,
                     SocialPost.post_type != "contextual_reply",
                 )
-            )
+            ).order_by(SocialPost.scheduled_for)
         )
         posts = result.scalars().all()
 
         if not posts:
             return 0
 
+        # Query last posted_at per platform to enforce cooldowns
+        last_posted: dict[str, datetime] = {}
+        for platform in PLATFORM_COOLDOWN_MINUTES:
+            last_result = await db.execute(
+                select(SocialPost.posted_at).where(
+                    and_(
+                        SocialPost.platform == platform,
+                        SocialPost.status == "posted",
+                        SocialPost.posted_at.isnot(None),
+                    )
+                ).order_by(SocialPost.posted_at.desc()).limit(1)
+            )
+            last_ts = last_result.scalar_one_or_none()
+            if last_ts:
+                last_posted[platform] = last_ts
+
         from app.services.social_posting_service import social_posting_service
 
         published = 0
+        skipped = 0
         for post in posts:
+            # Check platform cooldown
+            cooldown_min = PLATFORM_COOLDOWN_MINUTES.get(post.platform, 30)
+            platform_last = last_posted.get(post.platform)
+            if platform_last:
+                elapsed = (now - platform_last).total_seconds() / 60
+                if elapsed < cooldown_min:
+                    remaining = int(cooldown_min - elapsed)
+                    logger.info(
+                        f"Skipping post {post.id} ({post.platform}) — "
+                        f"cooldown {remaining}min remaining"
+                    )
+                    skipped += 1
+                    continue
+
             try:
                 pub_result = await social_posting_service.publish_post(post)
                 if "error" not in pub_result:
                     published += 1
+                    # Update last_posted so subsequent posts in this batch
+                    # respect the cooldown within the same run
+                    last_posted[post.platform] = now
                     logger.info(f"Auto-published post {post.id} to {post.platform}")
                 else:
                     logger.error(f"Auto-publish failed for post {post.id}: {pub_result['error']}")
@@ -153,8 +195,11 @@ class PostSchedulerService:
 
         await db.commit()
 
-        if published:
-            logger.info(f"Auto-published {published}/{len(posts)} scheduled posts")
+        if published or skipped:
+            logger.info(
+                f"Auto-publish: {published} published, {skipped} skipped (cooldown) "
+                f"out of {len(posts)} due"
+            )
 
         return published
 

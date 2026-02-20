@@ -48,7 +48,8 @@
         }
       ],
       "expo-web-browser",
-      "expo-screen-orientation"
+      "expo-screen-orientation",
+      "expo-font"
     ],
     "extra": {
       "router": {
