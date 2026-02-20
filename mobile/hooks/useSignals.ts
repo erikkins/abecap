@@ -19,6 +19,28 @@ export interface Signal {
   is_fresh: boolean;
 }
 
+export interface Position {
+  symbol: string;
+  shares: number;
+  entry_price: number;
+  entry_date: string;
+  current_price: number;
+  highest_price: number;
+  pnl_pct: number;
+  sell_guidance: string;
+}
+
+export interface MissedOpportunity {
+  symbol: string;
+  entry_date: string;
+  entry_price: number;
+  sell_date: string;
+  sell_price: number;
+  would_be_return: number;
+  days_held: number;
+  exit_reason: string;
+}
+
 export interface RegimeForecast {
   current_regime: string;
   outlook: string;
@@ -45,6 +67,8 @@ export interface DashboardData {
       pnl_pct: number;
     }>;
   };
+  positions_with_guidance?: Position[];
+  missed_opportunities?: MissedOpportunity[];
 }
 
 export function useDashboard() {
