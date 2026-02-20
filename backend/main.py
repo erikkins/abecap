@@ -2577,6 +2577,64 @@ def handler(event, context):
             traceback.print_exc()
             return {"status": "error", "error": str(e)}
 
+    # Send test push notification (direct Lambda invocation)
+    if event.get("test_push"):
+        print("📱 Sending test push notification")
+        config = event["test_push"]
+
+        async def _test_push():
+            from app.services.push_notification_service import push_notification_service
+            from app.core.database import async_session, PushToken
+            from sqlalchemy import select
+
+            user_email = config.get("email", "erik@rigacap.com")
+            title = config.get("title", "RigaCap")
+            body = config.get("body", "Test push notification!")
+            data = config.get("data", {"screen": "dashboard"})
+
+            async with async_session() as db:
+                # Look up user by email
+                from app.core.database import User
+                result = await db.execute(select(User).where(User.email == user_email))
+                user = result.scalar_one_or_none()
+                if not user:
+                    return {"status": "error", "error": f"User not found: {user_email}"}
+
+                # Check for active tokens
+                tokens_result = await db.execute(
+                    select(PushToken).where(
+                        PushToken.user_id == user.id,
+                        PushToken.is_active == True,
+                    )
+                )
+                tokens = tokens_result.scalars().all()
+                if not tokens:
+                    return {"status": "error", "error": f"No active push tokens for {user_email}"}
+
+                # Send push
+                results = await push_notification_service.send_to_user(
+                    db, user.id, title, body, data
+                )
+                return {
+                    "status": "success",
+                    "user": user_email,
+                    "tokens_found": len(tokens),
+                    "results": results,
+                }
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_test_push())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Test push failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
     # For API Gateway events, use Mangum
     # Create a fresh Mangum handler to avoid event loop issues on warm Lambdas
     global _mangum_handler
