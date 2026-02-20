@@ -1287,18 +1287,22 @@ function ModelPortfolioTab({ fetchWithAuth }) {
                       <thead>
                         <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
                           <th className="pb-2 pr-3">Symbol</th>
+                          <th className="pb-2 pr-3">Entry Date</th>
                           <th className="pb-2 pr-3">Entry</th>
                           <th className="pb-2 pr-3">Current</th>
                           <th className="pb-2 pr-3">P&L</th>
+                          <th className="pb-2 pr-3">Days</th>
                           <th className="pb-2">Shares</th>
                         </tr>
                       </thead>
                       <tbody>
                         {p.open_positions.map((pos) => {
                           const pnlColor = pos.pnl_pct > 0 ? 'text-green-600' : pos.pnl_pct < 0 ? 'text-red-600' : 'text-gray-600';
+                          const daysHeld = pos.entry_date ? Math.floor((Date.now() - new Date(pos.entry_date).getTime()) / 86400000) : null;
                           return (
                             <tr key={pos.symbol} className="border-b border-gray-50">
                               <td className="py-2 pr-3 font-medium text-gray-900">{pos.symbol}</td>
+                              <td className="py-2 pr-3 text-gray-500 text-xs">{pos.entry_date?.slice(0, 10) || '—'}</td>
                               <td className="py-2 pr-3 text-gray-600">${pos.entry_price?.toFixed(2)}</td>
                               <td className="py-2 pr-3 text-gray-600">${pos.current_price?.toFixed(2)}</td>
                               <td className={`py-2 pr-3 font-medium ${pnlColor}`}>
@@ -1307,6 +1311,7 @@ function ModelPortfolioTab({ fetchWithAuth }) {
                                   (${pos.pnl_dollars >= 0 ? '+' : ''}{pos.pnl_dollars?.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})})
                                 </span>
                               </td>
+                              <td className="py-2 pr-3 text-gray-500 text-xs">{daysHeld != null ? `${daysHeld}d` : '—'}</td>
                               <td className="py-2 text-gray-600">{pos.shares?.toFixed(1)}</td>
                             </tr>
                           );
@@ -1318,6 +1323,48 @@ function ModelPortfolioTab({ fetchWithAuth }) {
               )}
               {p.open_positions?.length === 0 && (
                 <p className="mt-4 text-sm text-gray-400 italic">No open positions</p>
+              )}
+
+              {/* Recent Closed Trades */}
+              {p.recent_trades?.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Recent Trades</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
+                          <th className="pb-2 pr-3">Symbol</th>
+                          <th className="pb-2 pr-3">Entry</th>
+                          <th className="pb-2 pr-3">Exit</th>
+                          <th className="pb-2 pr-3">P&L</th>
+                          <th className="pb-2">Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {p.recent_trades.map((t) => {
+                          const tPnlColor = (t.pnl_pct || 0) > 0 ? 'text-green-600' : (t.pnl_pct || 0) < 0 ? 'text-red-600' : 'text-gray-600';
+                          return (
+                            <tr key={t.id} className="border-b border-gray-50">
+                              <td className="py-1.5 pr-3 font-medium text-gray-900">{t.symbol}</td>
+                              <td className="py-1.5 pr-3 text-gray-500 text-xs">
+                                {t.entry_date?.slice(0, 10) || '—'}
+                                <span className="text-gray-400 ml-1">${t.entry_price?.toFixed(2)}</span>
+                              </td>
+                              <td className="py-1.5 pr-3 text-gray-500 text-xs">
+                                {t.exit_date?.slice(0, 10) || '—'}
+                                <span className="text-gray-400 ml-1">${t.exit_price?.toFixed(2)}</span>
+                              </td>
+                              <td className={`py-1.5 pr-3 font-medium ${tPnlColor}`}>
+                                {t.pnl_pct != null ? `${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct?.toFixed(1)}%` : '—'}
+                              </td>
+                              <td className="py-1.5">{t.exit_reason ? exitReasonBadge(t.exit_reason) : '—'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               )}
             </div>
           );
