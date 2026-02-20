@@ -1,5 +1,7 @@
 # RigaCap Marketing Launch Plan
 
+> See also: [Audience & Platform Strategy](marketing-audience-strategy.md) — target demographics, platform analysis, ad budget allocation
+
 ## Phase 1: Foundation (Week 1)
 
 ### Social Intro Posts (X + Instagram)

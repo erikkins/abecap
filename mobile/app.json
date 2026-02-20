@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "RigaCap",
+    "slug": "rigacap",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "rigacap",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A1628"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.rigacap.app",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Allow RigaCap to use Face ID for secure authentication",
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.354552952566-f2oaf115c1pb7e35r54bmrit9f3dle47"
+            ]
+          }
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A1628"
+      },
+      "package": "com.rigacap.app",
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-apple-authentication",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#C9A54E"
+        }
+      ],
+      "expo-web-browser"
+    ],
+    "extra": {
+      "router": {
+        "origin": "https://rigacap.com"
+      },
+      "eas": {
+        "projectId": "632b1c91-e76c-4b75-812d-8ee3b19b1c4a"
+      }
+    }
+  }
+}
