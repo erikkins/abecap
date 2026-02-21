@@ -2776,7 +2776,7 @@ function Dashboard() {
                 </div>
               ) : (
                 /* Advanced mode: full regime bar */
-                <div className={`mb-4 p-4 rounded-xl border ${
+                <div onClick={() => setRegimeExpanded(v => !v)} className={`mb-4 p-4 rounded-xl border cursor-pointer ${
                   dashboardData.regime_forecast.current_regime === 'strong_bull' ? 'bg-emerald-50 border-emerald-200' :
                   dashboardData.regime_forecast.current_regime === 'weak_bull' ? 'bg-green-50 border-green-200' :
                   dashboardData.regime_forecast.current_regime === 'rotating_bull' ? 'bg-violet-50 border-violet-200' :
@@ -2846,8 +2846,13 @@ function Dashboard() {
                         </div>
                       </div>
                     </div>
-                    <div className="text-sm text-gray-600 max-w-sm text-right leading-tight">
-                      {dashboardData.regime_forecast.outlook_detail}
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm text-gray-600 max-w-sm text-right leading-tight">
+                        {dashboardData.regime_forecast.outlook_detail}
+                      </div>
+                      <svg className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${regimeExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
                     </div>
                   </div>
 
@@ -2878,6 +2883,85 @@ function Dashboard() {
                         })}
                     </div>
                   )}
+
+                  {/* Expanded: regime detail panel */}
+                  {regimeExpanded && (() => {
+                    const rf = dashboardData.regime_forecast;
+                    const regimeColors = {
+                      strong_bull: { bg: 'bg-emerald-100', text: 'text-emerald-700', bar: 'bg-emerald-500' },
+                      weak_bull: { bg: 'bg-green-100', text: 'text-green-700', bar: 'bg-green-400' },
+                      rotating_bull: { bg: 'bg-violet-100', text: 'text-violet-700', bar: 'bg-violet-400' },
+                      range_bound: { bg: 'bg-amber-100', text: 'text-amber-700', bar: 'bg-amber-400' },
+                      weak_bear: { bg: 'bg-orange-100', text: 'text-orange-700', bar: 'bg-orange-400' },
+                      panic_crash: { bg: 'bg-red-100', text: 'text-red-700', bar: 'bg-red-500' },
+                      recovery: { bg: 'bg-cyan-100', text: 'text-cyan-700', bar: 'bg-cyan-400' },
+                    };
+                    const regimeDescriptions = {
+                      strong_bull: 'Broad market rally with strong breadth',
+                      weak_bull: 'Advancing market, narrow leadership',
+                      rotating_bull: 'Sector rotation driving gains',
+                      range_bound: 'Sideways, low conviction',
+                      weak_bear: 'Declining with selling pressure',
+                      panic_crash: 'Sharp selloff, elevated volatility',
+                      recovery: 'Rebounding from recent lows',
+                    };
+                    const regimeNames = {
+                      strong_bull: 'Strong Bull', weak_bull: 'Weak Bull', rotating_bull: 'Rotating Bull',
+                      range_bound: 'Range Bound', weak_bear: 'Weak Bear', panic_crash: 'Panic / Crash', recovery: 'Recovery',
+                    };
+                    const probs = rf.transition_probabilities || rf.probabilities || {};
+                    const sortedProbs = Object.entries(probs).filter(([, p]) => p > 3).sort((a, b) => b[1] - a[1]);
+                    const allRegimes = ['strong_bull', 'weak_bull', 'rotating_bull', 'range_bound', 'weak_bear', 'panic_crash', 'recovery'];
+
+                    return (
+                      <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
+                        {/* Probability bar with labels */}
+                        {sortedProbs.length > 0 && (
+                          <div>
+                            <p className="text-xs text-gray-500 font-medium mb-1">Transition Probabilities</p>
+                            <div className="flex h-2 rounded-full overflow-hidden bg-gray-100">
+                              {sortedProbs.map(([r, pct]) => (
+                                <div key={r} className={`h-full ${regimeColors[r]?.bar || 'bg-gray-300'}`} style={{ width: `${pct}%` }} />
+                              ))}
+                            </div>
+                            <div className="flex flex-wrap gap-3 mt-1">
+                              {sortedProbs.map(([r, pct]) => (
+                                <div key={r} className="flex items-center gap-1">
+                                  <div className={`w-2 h-2 rounded-full ${regimeColors[r]?.bar || 'bg-gray-300'}`} />
+                                  <span className="text-xs text-gray-500">{regimeNames[r]} {pct.toFixed(0)}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* All 7 regimes */}
+                        <div className="space-y-1">
+                          {allRegimes.map(r => {
+                            const isCurrent = r === rf.current_regime;
+                            const c = regimeColors[r] || { bg: 'bg-gray-100', text: 'text-gray-600', bar: 'bg-gray-300' };
+                            const prob = probs[r];
+                            return (
+                              <div key={r} className={`flex items-center justify-between px-2 py-1.5 rounded-lg ${isCurrent ? c.bg : ''}`}>
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-2.5 h-2.5 rounded-full ${c.bar}`} />
+                                  <div>
+                                    <span className={`text-sm font-medium ${isCurrent ? c.text : 'text-gray-700'}`}>
+                                      {regimeNames[r]}{isCurrent ? ' \u25CF' : ''}
+                                    </span>
+                                    <span className="text-xs text-gray-400 ml-2">{regimeDescriptions[r]}</span>
+                                  </div>
+                                </div>
+                                {prob != null && (
+                                  <span className={`text-sm font-semibold ${isCurrent ? c.text : 'text-gray-500'}`}>{prob.toFixed(0)}%</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )
             )}

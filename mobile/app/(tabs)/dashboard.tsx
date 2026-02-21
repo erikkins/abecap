@@ -199,7 +199,7 @@ export default function DashboardScreen() {
           />
         )}
         {activeTab === 'history' && (
-          <HistoryTab trades={trades} isLoading={tradesLoading} />
+          <HistoryTab trades={trades} isLoading={tradesLoading} onTradePress={(symbol) => router.push(`/signal/${symbol}`)} />
         )}
         {activeTab === 'missed' && (
           <MissedTab
@@ -465,9 +465,11 @@ function PositionsTab({
 function HistoryTab({
   trades,
   isLoading,
+  onTradePress,
 }: {
   trades: Trade[];
   isLoading: boolean;
+  onTradePress: (symbol: string) => void;
 }) {
   if (isLoading && trades.length === 0) {
     return (
@@ -516,7 +518,7 @@ function HistoryTab({
 
       {/* Trade Cards */}
       {trades.map((trade) => (
-        <View key={trade.id} style={styles.tradeCard}>
+        <Pressable key={trade.id} onPress={() => onTradePress(trade.symbol)} style={styles.tradeCard}>
           <View style={styles.tradeHeader}>
             <Text style={styles.tradeSymbol}>{trade.symbol}</Text>
             <Text
@@ -557,7 +559,7 @@ function HistoryTab({
               </Text>
             )}
           </View>
-        </View>
+        </Pressable>
       ))}
     </>
   );

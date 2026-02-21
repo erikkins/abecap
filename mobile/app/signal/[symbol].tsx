@@ -23,19 +23,36 @@ import { useChartData } from '@/hooks/useChartData';
 import { useStockInfo } from '@/hooks/useStockInfo';
 import { Colors, FontSize, Spacing } from '@/constants/theme';
 
-interface SignalDetail {
+type DataSource = 'signal' | 'position' | 'missed' | 'chart_only';
+
+interface StockData {
+  source: DataSource;
   symbol: string;
   price: number;
-  pct_above_dwap: number;
-  is_strong: boolean;
-  is_fresh: boolean;
-  momentum_rank: number;
-  ensemble_score: number;
-  dwap_crossover_date: string | null;
-  ensemble_entry_date: string | null;
-  days_since_crossover: number | null;
-  days_since_entry: number | null;
+  // Signal fields
+  pct_above_dwap?: number;
+  is_strong?: boolean;
+  is_fresh?: boolean;
+  momentum_rank?: number;
+  ensemble_score?: number;
+  dwap_crossover_date?: string | null;
+  ensemble_entry_date?: string | null;
+  days_since_crossover?: number | null;
+  days_since_entry?: number | null;
   sector?: string;
+  // Position fields
+  entry_price?: number;
+  entry_date?: string | null;
+  shares?: number;
+  pnl_pct?: number;
+  high_water_mark?: number;
+  trailing_stop_level?: number;
+  distance_to_stop_pct?: number;
+  action?: string;
+  action_reason?: string;
+  // Missed fields
+  missed_gain_pct?: number;
+  signal_date?: string;
 }
 
 const PERIOD_OPTIONS = [
@@ -47,7 +64,7 @@ const PERIOD_OPTIONS = [
 
 export default function SignalDetailScreen() {
   const { symbol } = useLocalSearchParams<{ symbol: string }>();
-  const [signal, setSignal] = useState<SignalDetail | null>(null);
+  const [stockData, setStockData] = useState<StockData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isLandscape, setIsLandscape] = useState(false);
   const [chartDays, setChartDays] = useState(180);
@@ -83,17 +100,58 @@ export default function SignalDetailScreen() {
     };
   }, []);
 
-  // Fetch signal data
+  // Fetch data — search buy_signals, positions, and missed opportunities
   useEffect(() => {
     (async () => {
       try {
         const { data } = await api.get('/api/signals/dashboard');
-        const found = data.buy_signals?.find(
-          (s: SignalDetail) => s.symbol === symbol
-        );
-        setSignal(found || null);
+
+        // Check buy signals
+        const sig = data.buy_signals?.find((s: any) => s.symbol === symbol);
+        if (sig) {
+          setStockData({ source: 'signal', ...sig });
+          return;
+        }
+
+        // Check positions
+        const pos = data.positions_with_guidance?.find((p: any) => p.symbol === symbol);
+        if (pos) {
+          setStockData({
+            source: 'position',
+            symbol: pos.symbol,
+            price: pos.current_price,
+            entry_price: pos.entry_price,
+            entry_date: pos.entry_date,
+            shares: pos.shares,
+            pnl_pct: pos.pnl_pct,
+            high_water_mark: pos.high_water_mark,
+            trailing_stop_level: pos.trailing_stop_level,
+            distance_to_stop_pct: pos.distance_to_stop_pct,
+            action: pos.action,
+            action_reason: pos.action_reason,
+          });
+          return;
+        }
+
+        // Check missed opportunities
+        const missed = data.missed_opportunities?.find((m: any) => m.symbol === symbol);
+        if (missed) {
+          setStockData({
+            source: 'missed',
+            symbol: missed.symbol,
+            price: missed.current_price || missed.price || 0,
+            missed_gain_pct: missed.gain_pct,
+            signal_date: missed.signal_date,
+            ensemble_score: missed.ensemble_score,
+          });
+          return;
+        }
+
+        // Not found in any list — still show chart
+        setStockData({ source: 'chart_only', symbol: symbol || '', price: 0 });
       } catch {
-        // Ignore — show empty state
+        // On error, still show chart
+        setStockData({ source: 'chart_only', symbol: symbol || '', price: 0 });
       } finally {
         setLoading(false);
       }
@@ -103,62 +161,44 @@ export default function SignalDetailScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <Stack.Screen options={{ title: symbol || 'Signal', headerShown: !isLandscape, headerBackTitle: 'Back' }} />
+        <Stack.Screen options={{ title: symbol || 'Stock', headerShown: !isLandscape, headerBackTitle: 'Back' }} />
         <ActivityIndicator size="large" color={Colors.gold} />
       </View>
     );
   }
 
-  if (!signal) {
-    return (
-      <View style={styles.center}>
-        <Stack.Screen options={{ title: symbol || 'Signal', headerShown: true, headerBackTitle: 'Back' }} />
-        <Text style={styles.emptyText}>Signal not found for {symbol}</Text>
-      </View>
-    );
-  }
+  const d = stockData!;
+  const displayPrice = d.price || (chartData.length > 0 ? chartData[chartData.length - 1]?.close : 0) || 0;
 
   // ── Landscape: full-screen chart ──
   if (isLandscape) {
     return (
       <View style={styles.landscapeWrap}>
         <Stack.Screen options={{ headerShown: false }} />
-        {/* Symbol + price overlay */}
         <View style={styles.landscapeHeader}>
-          <Text style={styles.landscapeSymbol}>{signal.symbol}</Text>
-          <Text style={styles.landscapePrice}>${signal.price.toFixed(2)}</Text>
+          <Text style={styles.landscapeSymbol}>{d.symbol}</Text>
+          {displayPrice > 0 && <Text style={styles.landscapePrice}>${displayPrice.toFixed(2)}</Text>}
         </View>
-        {/* Period selector */}
         <View style={styles.landscapePeriods}>
           {PERIOD_OPTIONS.map((p) => (
             <Pressable
               key={p.label}
               onPress={() => setChartDays(p.days)}
-              style={[
-                styles.periodButton,
-                chartDays === p.days && styles.periodActive,
-              ]}
+              style={[styles.periodButton, chartDays === p.days && styles.periodActive]}
             >
-              <Text
-                style={[
-                  styles.periodText,
-                  chartDays === p.days && styles.periodTextActive,
-                ]}
-              >
+              <Text style={[styles.periodText, chartDays === p.days && styles.periodTextActive]}>
                 {p.label}
               </Text>
             </Pressable>
           ))}
         </View>
         {chartLoading ? (
-          <View style={styles.center}>
-            <ActivityIndicator color={Colors.gold} />
-          </View>
+          <View style={styles.center}><ActivityIndicator color={Colors.gold} /></View>
         ) : (
           <PriceChart
             data={chartData}
-            entryDate={signal.ensemble_entry_date}
-            breakoutDate={signal.dwap_crossover_date}
+            entryDate={d.ensemble_entry_date || d.entry_date}
+            breakoutDate={d.dwap_crossover_date}
             isLandscape
           />
         )}
@@ -167,12 +207,12 @@ export default function SignalDetailScreen() {
     );
   }
 
-  // ── Portrait: data card + compact chart ──
+  // ── Portrait: chart + data card ──
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Stack.Screen
         options={{
-          title: signal.symbol,
+          title: d.symbol,
           headerStyle: { backgroundColor: Colors.navy },
           headerTintColor: Colors.textPrimary,
           headerBackTitle: 'Back',
@@ -187,17 +227,9 @@ export default function SignalDetailScreen() {
             <Pressable
               key={p.label}
               onPress={() => setChartDays(p.days)}
-              style={[
-                styles.periodButton,
-                chartDays === p.days && styles.periodActive,
-              ]}
+              style={[styles.periodButton, chartDays === p.days && styles.periodActive]}
             >
-              <Text
-                style={[
-                  styles.periodText,
-                  chartDays === p.days && styles.periodTextActive,
-                ]}
-              >
+              <Text style={[styles.periodText, chartDays === p.days && styles.periodTextActive]}>
                 {p.label}
               </Text>
             </Pressable>
@@ -210,8 +242,8 @@ export default function SignalDetailScreen() {
         ) : (
           <PriceChart
             data={chartData}
-            entryDate={signal.ensemble_entry_date}
-            breakoutDate={signal.dwap_crossover_date}
+            entryDate={d.ensemble_entry_date || d.entry_date}
+            breakoutDate={d.dwap_crossover_date}
           />
         )}
         <Text style={styles.rotateHint}>Rotate for full-screen chart</Text>
@@ -220,24 +252,35 @@ export default function SignalDetailScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.symbol}>{signal.symbol}</Text>
+          <Text style={styles.symbol}>{d.symbol}</Text>
           {stockInfo?.name && (
             <Text style={styles.companyName}>{stockInfo.name}</Text>
           )}
           <View style={styles.badges}>
-            {signal.is_fresh && (
-              <View style={styles.freshBadge}>
-                <Text style={styles.freshText}>FRESH</Text>
+            {d.source === 'signal' && d.is_fresh && (
+              <View style={styles.freshBadge}><Text style={styles.freshText}>FRESH</Text></View>
+            )}
+            {d.source === 'signal' && d.is_strong && (
+              <View style={styles.strongBadge}><Text style={styles.strongText}>STRONG</Text></View>
+            )}
+            {d.source === 'position' && (
+              <View style={[styles.freshBadge, { backgroundColor: Colors.gold + '22' }]}>
+                <Text style={[styles.freshText, { color: Colors.gold }]}>POSITION</Text>
               </View>
             )}
-            {signal.is_strong && (
-              <View style={styles.strongBadge}>
-                <Text style={styles.strongText}>STRONG</Text>
+            {d.source === 'position' && d.action === 'sell' && (
+              <View style={[styles.freshBadge, { backgroundColor: Colors.red + '22' }]}>
+                <Text style={[styles.freshText, { color: Colors.red }]}>SELL</Text>
+              </View>
+            )}
+            {d.source === 'position' && d.action === 'warning' && (
+              <View style={[styles.freshBadge, { backgroundColor: '#F59E0B22' }]}>
+                <Text style={[styles.freshText, { color: '#F59E0B' }]}>WARNING</Text>
               </View>
             )}
           </View>
         </View>
-        <Text style={styles.price}>${signal.price.toFixed(2)}</Text>
+        {displayPrice > 0 && <Text style={styles.price}>${displayPrice.toFixed(2)}</Text>}
       </View>
 
       {/* Company Info */}
@@ -258,41 +301,67 @@ export default function SignalDetailScreen() {
         </View>
       )}
 
-      {/* Ensemble Score */}
-      <View style={styles.scoreCard}>
-        <Text style={styles.scoreLabel}>Ensemble Score</Text>
-        <Text style={styles.scoreValue}>{signal.ensemble_score.toFixed(1)}</Text>
-      </View>
+      {/* Signal-specific data */}
+      {d.source === 'signal' && (
+        <>
+          <View style={styles.scoreCard}>
+            <Text style={styles.scoreLabel}>Ensemble Score</Text>
+            <Text style={styles.scoreValue}>{(d.ensemble_score ?? 0).toFixed(1)}</Text>
+          </View>
+          <View style={styles.grid}>
+            <DetailRow label="Breakout %" value={`+${(d.pct_above_dwap ?? 0).toFixed(1)}%`} />
+            <DetailRow label="Momentum Rank" value={`#${d.momentum_rank}`} />
+            <DetailRow label="Breakout Date" value={d.dwap_crossover_date || '—'} />
+            <DetailRow label="Days Since Breakout" value={d.days_since_crossover != null ? `${d.days_since_crossover}` : '—'} />
+            <DetailRow label="Ensemble Entry" value={d.ensemble_entry_date || '—'} />
+            <DetailRow label="Days Since Entry" value={d.days_since_entry != null ? `${d.days_since_entry}` : '—'} />
+            {d.sector && <DetailRow label="Sector" value={d.sector} />}
+          </View>
+        </>
+      )}
 
-      {/* Stats Grid */}
-      <View style={styles.grid}>
-        <DetailRow label="Breakout %" value={`+${signal.pct_above_dwap.toFixed(1)}%`} />
-        <DetailRow label="Momentum Rank" value={`#${signal.momentum_rank}`} />
-        <DetailRow
-          label="Breakout Date"
-          value={signal.dwap_crossover_date || '—'}
-        />
-        <DetailRow
-          label="Days Since Breakout"
-          value={signal.days_since_crossover != null ? `${signal.days_since_crossover}` : '—'}
-        />
-        <DetailRow
-          label="Ensemble Entry"
-          value={signal.ensemble_entry_date || '—'}
-        />
-        <DetailRow
-          label="Days Since Entry"
-          value={signal.days_since_entry != null ? `${signal.days_since_entry}` : '—'}
-        />
-        {signal.sector && (
-          <DetailRow label="Sector" value={signal.sector} />
-        )}
-      </View>
+      {/* Position-specific data */}
+      {d.source === 'position' && (
+        <>
+          {d.pnl_pct != null && (
+            <View style={[styles.scoreCard, { borderColor: (d.pnl_pct >= 0 ? Colors.green : Colors.red) + '33', backgroundColor: (d.pnl_pct >= 0 ? Colors.green : Colors.red) + '15' }]}>
+              <Text style={[styles.scoreLabel, { color: d.pnl_pct >= 0 ? Colors.green : Colors.red }]}>P&L</Text>
+              <Text style={[styles.scoreValue, { color: d.pnl_pct >= 0 ? Colors.green : Colors.red }]}>
+                {d.pnl_pct >= 0 ? '+' : ''}{d.pnl_pct.toFixed(1)}%
+              </Text>
+            </View>
+          )}
+          <View style={styles.grid}>
+            <DetailRow label="Entry Price" value={d.entry_price ? `$${d.entry_price.toFixed(2)}` : '—'} />
+            <DetailRow label="Entry Date" value={d.entry_date || '—'} />
+            <DetailRow label="Shares" value={d.shares != null ? `${d.shares}` : '—'} />
+            <DetailRow label="High Water Mark" value={d.high_water_mark ? `$${d.high_water_mark.toFixed(2)}` : '—'} />
+            <DetailRow label="Trailing Stop" value={d.trailing_stop_level ? `$${d.trailing_stop_level.toFixed(2)}` : '—'} />
+            <DetailRow label="Distance to Stop" value={d.distance_to_stop_pct != null ? `${d.distance_to_stop_pct.toFixed(1)}%` : '—'} />
+          </View>
+          {d.action_reason && (
+            <View style={[styles.scoreCard, { borderColor: Colors.cardBorder, backgroundColor: Colors.card }]}>
+              <Text style={[styles.scoreLabel, { color: Colors.textSecondary }]}>Guidance</Text>
+              <Text style={[styles.detailValue, { textAlign: 'center', lineHeight: 20 }]}>{d.action_reason}</Text>
+            </View>
+          )}
+        </>
+      )}
+
+      {/* Missed opportunity data */}
+      {d.source === 'missed' && (
+        <View style={styles.grid}>
+          {d.missed_gain_pct != null && <DetailRow label="Missed Gain" value={`+${d.missed_gain_pct.toFixed(1)}%`} />}
+          {d.signal_date && <DetailRow label="Signal Date" value={d.signal_date} />}
+          {d.ensemble_score != null && <DetailRow label="Ensemble Score" value={d.ensemble_score.toFixed(1)} />}
+        </View>
+      )}
 
       {/* Disclaimer */}
       <Text style={styles.disclaimer}>
-        This is a buy signal, not a recommendation. Execute via your broker.
-        Always do your own research.
+        {d.source === 'signal'
+          ? 'This is a buy signal, not a recommendation. Execute via your broker. Always do your own research.'
+          : 'Past performance does not guarantee future results. Always do your own research.'}
       </Text>
     </ScrollView>
   );
