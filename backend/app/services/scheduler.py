@@ -1277,12 +1277,15 @@ class SchedulerService:
             import traceback
             traceback.print_exc()
 
-    async def send_daily_emails(self):
+    async def send_daily_emails(self, target_emails: list = None):
         """
         Send daily summary emails to subscribers
 
         Runs at 6 PM ET (dinnertime) on trading days.
         Builds ensemble signals (same logic as dashboard) with freshness tracking.
+
+        Args:
+            target_emails: If provided, only send to these email addresses.
         """
         logger.info("📧 Starting daily email job...")
 
@@ -1427,7 +1430,10 @@ class SchedulerService:
                 all_users = result.scalars().all()
 
             subscribers = []
+            target_set = {e.strip().lower() for e in target_emails} if target_emails else None
             for u in all_users:
+                if target_set and (u.email or '').lower() not in target_set:
+                    continue
                 if u.subscription and u.subscription.is_valid():
                     if not u.get_email_preference('daily_digest'):
                         continue

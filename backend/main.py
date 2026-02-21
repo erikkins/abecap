@@ -1785,14 +1785,17 @@ def handler(event, context):
             return {"status": "error", "error": str(e)}
 
     # Handle daily email digest (EventBridge: 6 PM ET Mon-Fri)
+    # Optional: {"daily_emails": {"target_emails": ["user@example.com"]}}
     if event.get("daily_emails"):
-        print("📧 Daily email digest triggered")
+        daily_config = event.get("daily_emails") if isinstance(event.get("daily_emails"), dict) else {}
+        target_emails = daily_config.get("target_emails")
+        print(f"📧 Daily email digest triggered" + (f" for {target_emails}" if target_emails else ""))
         try:
             loop = asyncio.get_event_loop()
             if loop.is_closed():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(scheduler_service.send_daily_emails())
+            result = loop.run_until_complete(scheduler_service.send_daily_emails(target_emails=target_emails))
 
             # Export dashboard cache + daily snapshot after daily emails
             async def _export_dashboard_and_snapshot():
