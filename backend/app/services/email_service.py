@@ -15,6 +15,14 @@ from typing import List, Dict, Optional
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
+import pytz
+
+_ET = pytz.timezone('US/Eastern')
+
+
+def _now_et() -> datetime:
+    """Current time in US/Eastern (naive, for display formatting)."""
+    return datetime.now(_ET).replace(tzinfo=None)
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +213,7 @@ class EmailService:
             HTML string for email body
         """
         if date is None:
-            date = datetime.now()
+            date = _now_et()
 
         date_str = date.strftime("%A, %B %d, %Y")
         fresh_signals = [s for s in signals if s.get('is_fresh')]
@@ -519,7 +527,7 @@ class EmailService:
     ) -> str:
         """Generate plain text fallback for email"""
         if date is None:
-            date = datetime.now()
+            date = _now_et()
         watchlist = watchlist or []
 
         date_str = date.strftime("%A, %B %d, %Y")
@@ -612,7 +620,7 @@ class EmailService:
 
         fresh_count = len([s for s in signals if s.get('is_fresh')])
         # Include date in subject for historical (time-travel) emails
-        is_historical = date and date.date() != datetime.now().date()
+        is_historical = date and date.date() != _now_et().date()
         date_label = f" [{date.strftime('%b %d, %Y')}]" if is_historical else ""
         if fresh_count > 0:
             subject = f"📊 RigaCap Daily{date_label}: {fresh_count} Ensemble Signal{'s' if fresh_count != 1 else ''}"
