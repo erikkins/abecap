@@ -471,6 +471,12 @@ class User(Base):
     # Onboarding drip sequence: 0=none sent, 1-5=last step sent
     onboarding_step = Column(Integer, default=0)
 
+    # TOTP 2FA
+    totp_secret = Column(String(64), nullable=True)
+    totp_enabled = Column(Boolean, default=False)
+    totp_backup_codes = Column(Text, nullable=True)      # JSON array of bcrypt hashes
+    totp_trusted_devices = Column(Text, nullable=True)    # JSON array of {device_id, expires_at}
+
     # Referral program
     referral_code = Column(String(12), unique=True, nullable=True, index=True)
     referred_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
@@ -518,6 +524,7 @@ class User(Base):
             "email_preferences": prefs,
             "referral_code": self.referral_code,
             "referral_count": self.referral_count or 0,
+            "totp_enabled": bool(self.totp_enabled),
         }
         return result
 
@@ -840,6 +847,13 @@ async def _run_schema_migrations(conn):
             updated_at TIMESTAMP
         )""",
         "CREATE INDEX IF NOT EXISTS idx_push_tokens_user_id ON push_tokens(user_id)",
+    ])
+
+    await _run("TOTP 2FA columns on users", [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(64)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_backup_codes TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_trusted_devices TEXT",
     ])
 
     await _run("ensemble_signals table", [

@@ -15,7 +15,7 @@ import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { Colors } from '@/constants/theme';
 
 function RootNavigator() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, twoFactorRequired } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -24,12 +24,21 @@ function RootNavigator() {
 
     const inAuthGroup = segments[0] === '(auth)';
 
+    // 2FA required — redirect to verify screen
+    if (twoFactorRequired) {
+      const currentScreen = (segments as string[])[1];
+      if (currentScreen !== 'verify-2fa') {
+        router.replace('/(auth)/verify-2fa' as any);
+      }
+      return;
+    }
+
     if (!user && !inAuthGroup) {
       router.replace('/(auth)/login');
     } else if (user && inAuthGroup) {
       router.replace('/(tabs)/dashboard');
     }
-  }, [user, isLoading, segments]);
+  }, [user, isLoading, segments, twoFactorRequired]);
 
   // Handle notification taps — navigate to relevant screen
   useEffect(() => {
@@ -82,13 +91,17 @@ export default function RootLayout() {
     if (__DEV__) return;
     (async () => {
       try {
+        console.log('[OTA] Checking for updates...');
         const update = await Updates.checkForUpdateAsync();
+        console.log('[OTA] Update available:', update.isAvailable);
         if (update.isAvailable) {
+          console.log('[OTA] Fetching update...');
           await Updates.fetchUpdateAsync();
+          console.log('[OTA] Reloading...');
           await Updates.reloadAsync();
         }
-      } catch {
-        // Silent fail — will retry next launch
+      } catch (e) {
+        console.log('[OTA] Error:', e);
       }
     })();
   }, []);

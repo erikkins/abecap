@@ -84,6 +84,29 @@ def create_refresh_token(user_id: str) -> str:
     return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
+def create_challenge_token(user_id: str) -> str:
+    """Create a short-lived JWT for 2FA challenge (5-minute expiry)."""
+    expire = datetime.utcnow() + timedelta(minutes=5)
+    to_encode = {
+        "sub": user_id,
+        "exp": expire,
+        "type": "2fa_challenge",
+    }
+    return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def create_2fa_trust_token(user_id: str, device_id: str) -> str:
+    """Create a 30-day trust token for a verified 2FA device."""
+    expire = datetime.utcnow() + timedelta(days=30)
+    to_encode = {
+        "sub": user_id,
+        "exp": expire,
+        "type": "2fa_trust",
+        "device_id": device_id,
+    }
+    return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
 def decode_token(token: str) -> Optional[dict]:
     """Decode and validate a JWT token."""
     try:

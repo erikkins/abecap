@@ -16,6 +16,7 @@ from app.core.security import (
     verify_password,
     create_access_token,
     create_refresh_token,
+    create_challenge_token,
     decode_token,
     get_current_user,
     rate_limiter,
@@ -143,6 +144,37 @@ class AppleAuthRequest(BaseModel):
     referral_code: Optional[str] = None
 
 
+class LoginResponse(BaseModel):
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    token_type: str = "bearer"
+    user: Optional[dict] = None
+    requires_2fa: bool = False
+    challenge_token: Optional[str] = None
+
+
+def _check_2fa_required(user: User, trust_token: Optional[str] = None) -> bool:
+    """Check if 2FA verification is needed for this login."""
+    if not user.totp_enabled:
+        return False
+
+    # Check trust token
+    if trust_token:
+        payload = decode_token(trust_token)
+        if (
+            payload
+            and payload.get("type") == "2fa_trust"
+            and payload.get("sub") == str(user.id)
+        ):
+            device_id = payload.get("device_id")
+            # Verify device is still in trusted list
+            from app.api.two_factor import _check_trusted_device
+            if _check_trusted_device(user, device_id):
+                return False
+
+    return True
+
+
 @router.post("/register", response_model=TokenResponse)
 async def register(
     request: RegisterRequest,
@@ -225,7 +257,7 @@ async def register(
     )
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login")
 async def login(
     request: LoginRequest,
     req: Request,
@@ -260,6 +292,12 @@ async def login(
             detail="Account is disabled"
         )
 
+    # Check 2FA
+    trust_token = req.headers.get("X-2FA-Trust")
+    if _check_2fa_required(user, trust_token):
+        challenge = create_challenge_token(str(user.id))
+        return LoginResponse(requires_2fa=True, challenge_token=challenge)
+
     # Update last login
     user.last_login = datetime.utcnow()
     await db.commit()
@@ -279,7 +317,7 @@ async def login(
     access_token = create_access_token(str(user.id))
     refresh_token = create_refresh_token(str(user.id))
 
-    return TokenResponse(
+    return LoginResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         user=user_dict
@@ -369,7 +407,7 @@ async def logout(user: User = Depends(get_current_user)):
     return {"message": "Logged out successfully"}
 
 
-@router.post("/google", response_model=TokenResponse)
+@router.post("/google")
 async def google_auth(
     request: GoogleAuthRequest,
     req: Request,
@@ -462,6 +500,13 @@ async def google_auth(
             )
         )
 
+    # Check 2FA (skip for brand-new users)
+    if not is_new_user:
+        trust_token = req.headers.get("X-2FA-Trust")
+        if _check_2fa_required(user, trust_token):
+            challenge = create_challenge_token(str(user.id))
+            return LoginResponse(requires_2fa=True, challenge_token=challenge)
+
     # Load subscription
     result = await db.execute(
         select(Subscription).where(Subscription.user_id == user.id)
@@ -476,14 +521,14 @@ async def google_auth(
     access_token = create_access_token(str(user.id))
     refresh_token = create_refresh_token(str(user.id))
 
-    return TokenResponse(
+    return LoginResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         user=user_dict
     )
 
 
-@router.post("/apple", response_model=TokenResponse)
+@router.post("/apple")
 async def apple_auth(
     request: AppleAuthRequest,
     req: Request,
@@ -582,6 +627,13 @@ async def apple_auth(
             )
         )
 
+    # Check 2FA (skip for brand-new users)
+    if not is_new_user:
+        trust_token = req.headers.get("X-2FA-Trust")
+        if _check_2fa_required(user, trust_token):
+            challenge = create_challenge_token(str(user.id))
+            return LoginResponse(requires_2fa=True, challenge_token=challenge)
+
     # Load subscription
     result = await db.execute(
         select(Subscription).where(Subscription.user_id == user.id)
@@ -596,7 +648,7 @@ async def apple_auth(
     access_token = create_access_token(str(user.id))
     refresh_token = create_refresh_token(str(user.id))
 
-    return TokenResponse(
+    return LoginResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         user=user_dict

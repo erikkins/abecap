@@ -20,6 +20,7 @@ import AdminDashboard from './components/AdminDashboard';
 import SubscriptionBanner from './components/SubscriptionBanner';
 import { ForgotPasswordPage, ResetPasswordPage } from './components/PasswordReset';
 import CookieConsent from './components/CookieConsent';
+import TwoFactorSettings from './components/TwoFactorSettings';
 // DoubleSignals, MomentumRankings, ApproachingTrigger removed — absorbed into unified dashboard
 
 // ============================================================================
@@ -1703,6 +1704,7 @@ function Dashboard() {
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [showEmailPrefsModal, setShowEmailPrefsModal] = useState(false);
   const [showReferralModal, setShowReferralModal] = useState(false);
+  const [show2FASettings, setShow2FASettings] = useState(false);
   const [referralCopied, setReferralCopied] = useState(false);
   const [journeyData, setJourneyData] = useState(null);
   const [journeyCopied, setJourneyCopied] = useState(false);
@@ -2486,6 +2488,18 @@ function Dashboard() {
                           <span className="ml-auto bg-green-100 text-green-700 text-xs font-medium px-1.5 py-0.5 rounded-full">{user.referral_count}</span>
                         )}
                       </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => { setShowUserMenu(false); setShow2FASettings(true); }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          <Shield size={14} />
+                          Two-Factor Auth
+                          {user?.totp_enabled && (
+                            <span className="ml-auto bg-green-100 text-green-700 text-xs font-medium px-1.5 py-0.5 rounded-full">On</span>
+                          )}
+                        </button>
+                      )}
                       <button
                         onClick={() => { setShowUserMenu(false); logout(); }}
                         className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
@@ -3877,6 +3891,9 @@ function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* 2FA Settings Modal */}
+      <TwoFactorSettings isOpen={show2FASettings} onClose={() => setShow2FASettings(false)} />
 
       {/* Email Preferences Toast */}
       {emailPrefsToast && (

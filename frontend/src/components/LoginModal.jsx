@@ -1,13 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Mail, Lock, User, Eye, EyeOff, Chrome, Apple } from 'lucide-react';
+import { X, Mail, Lock, User, Eye, EyeOff, Chrome, Apple, Shield } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 export default function LoginModal({ isOpen = true, onClose, onSuccess, initialMode = 'login', selectedPlan = 'monthly' }) {
-  const { login, register, loginWithGoogle, loginWithApple, error, clearError } = useAuth();
+  const { login, register, loginWithGoogle, loginWithApple, verify2FA, cancel2FA, twoFactorRequired, error, clearError } = useAuth();
   const [mode, setMode] = useState(initialMode);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [trustDevice, setTrustDevice] = useState(false);
+  const [useBackupCode, setUseBackupCode] = useState(false);
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+  const [twoFactorError, setTwoFactorError] = useState('');
+  const twoFactorInputRef = useRef(null);
 
   // Store selected plan in localStorage for use during checkout
   useEffect(() => {
@@ -86,21 +92,18 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
           setLocalError(result.error);
         }
       } else {
-        console.log('LoginModal: Attempting login for', email);
         const result = await login(email, password);
-        console.log('LoginModal: Login result:', result);
         if (result.success) {
-          console.log('LoginModal: Login successful, calling onSuccess callback');
-          // Call the success callback - this should navigate away
+          if (result.requires_2fa) {
+            // 2FA step will be shown automatically via twoFactorRequired state
+            return;
+          }
           if (onSuccess) {
-            console.log('LoginModal: onSuccess provided, calling it');
             onSuccess();
           } else if (onClose) {
-            console.log('LoginModal: No onSuccess, calling onClose');
             onClose();
           }
         } else {
-          console.log('LoginModal: Login failed:', result.error);
           setLocalError(result.error || 'Login failed');
         }
       }
@@ -134,6 +137,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
             const result = await loginWithGoogle(response.credential);
             setLoading(false);
             if (result.success) {
+              if (result.requires_2fa) return;
               if (!result.redirecting) {
                 onSuccess ? onSuccess() : onClose();
               }
@@ -189,6 +193,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
       setLoading(false);
 
       if (result.success) {
+        if (result.requires_2fa) return;
         if (!result.redirecting) {
           onSuccess ? onSuccess() : onClose();
         }
@@ -203,7 +208,119 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
     }
   };
 
+  // Handle 2FA code submission
+  const handle2FASubmit = async (e) => {
+    e.preventDefault();
+    setTwoFactorLoading(true);
+    setTwoFactorError('');
+    try {
+      const result = await verify2FA(twoFactorCode, trustDevice, useBackupCode);
+      if (result.success) {
+        setTwoFactorCode('');
+        setTrustDevice(false);
+        setUseBackupCode(false);
+        onSuccess ? onSuccess() : onClose();
+      } else {
+        setTwoFactorError(result.error || 'Invalid code');
+      }
+    } catch (err) {
+      setTwoFactorError(err.message);
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
+  // Auto-focus 2FA input
+  useEffect(() => {
+    if (twoFactorRequired && twoFactorInputRef.current) {
+      twoFactorInputRef.current.focus();
+    }
+  }, [twoFactorRequired, useBackupCode]);
+
   if (!isOpen) return null;
+
+  // Show 2FA verification step
+  if (twoFactorRequired) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex justify-between items-center">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <Shield size={20} /> Two-Factor Authentication
+            </h2>
+            <button
+              onClick={() => { cancel2FA(); setTwoFactorCode(''); setTwoFactorError(''); setUseBackupCode(false); }}
+              className="text-white/80 hover:text-white transition-colors"
+            >
+              <X size={24} />
+            </button>
+          </div>
+          <div className="p-6">
+            <p className="text-sm text-gray-600 mb-4">
+              {useBackupCode
+                ? 'Enter one of your 8-character backup codes.'
+                : 'Enter the 6-digit code from your authenticator app.'}
+            </p>
+
+            {(twoFactorError || error) && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                {twoFactorError || error}
+              </div>
+            )}
+
+            <form onSubmit={handle2FASubmit} className="space-y-4">
+              <div>
+                <input
+                  ref={twoFactorInputRef}
+                  type="text"
+                  value={twoFactorCode}
+                  onChange={(e) => setTwoFactorCode(e.target.value)}
+                  placeholder={useBackupCode ? 'ABCD1234' : '000000'}
+                  maxLength={useBackupCode ? 8 : 6}
+                  autoComplete="one-time-code"
+                  inputMode={useBackupCode ? 'text' : 'numeric'}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-center text-2xl font-mono tracking-widest focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={trustDevice}
+                  onChange={(e) => setTrustDevice(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded"
+                />
+                <span className="text-sm text-gray-600">Trust this device for 30 days</span>
+              </label>
+
+              <button
+                type="submit"
+                disabled={twoFactorLoading || (!useBackupCode && twoFactorCode.length !== 6) || (useBackupCode && twoFactorCode.length < 8)}
+                className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {twoFactorLoading ? 'Verifying...' : 'Verify'}
+              </button>
+            </form>
+
+            <div className="mt-4 flex justify-between text-sm">
+              <button
+                onClick={() => { setUseBackupCode(!useBackupCode); setTwoFactorCode(''); setTwoFactorError(''); }}
+                className="text-blue-600 hover:text-blue-700"
+              >
+                {useBackupCode ? 'Use authenticator app' : 'Use a backup code'}
+              </button>
+              <button
+                onClick={() => { cancel2FA(); setTwoFactorCode(''); setTwoFactorError(''); setUseBackupCode(false); }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

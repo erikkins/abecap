@@ -37,6 +37,7 @@ from app.api.billing import router as billing_router
 from app.api.admin import router as admin_router
 from app.api.social import router as social_router
 from app.api.push import router as push_router
+from app.api.two_factor import router as two_factor_router
 from app.services.scanner import scanner_service
 from app.services.scheduler import scheduler_service
 from app.services.backtester import backtester_service
@@ -257,6 +258,7 @@ app.include_router(billing_router, prefix="/api/billing", tags=["billing"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 app.include_router(social_router, prefix="/api/admin/social", tags=["social"])
 app.include_router(push_router, prefix="/api/push", tags=["push"])
+app.include_router(two_factor_router, prefix="/api/auth/2fa", tags=["2fa"])
 
 # Lambda handler (for AWS Lambda deployment)
 # lifespan="off" avoids issues with event loop reuse on warm Lambdas

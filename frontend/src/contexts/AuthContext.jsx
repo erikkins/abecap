@@ -16,6 +16,18 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+  const [challengeToken, setChallengeToken] = useState(null);
+
+  // Get or create device fingerprint
+  const getDeviceFingerprint = useCallback(() => {
+    let fp = localStorage.getItem('device_fingerprint');
+    if (!fp) {
+      fp = crypto.randomUUID();
+      localStorage.setItem('device_fingerprint', fp);
+    }
+    return fp;
+  }, []);
 
   // Get stored tokens
   const getTokens = useCallback(() => {
@@ -204,12 +216,18 @@ export function AuthProvider({ children }) {
     setError(null);
 
     try {
+      const trustToken = localStorage.getItem('2fa_trust_token');
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+      if (trustToken) {
+        headers['X-2FA-Trust'] = trustToken;
+      }
+
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ email, password }),
       });
 
@@ -222,6 +240,13 @@ export function AuthProvider({ children }) {
 
       if (!response.ok) {
         throw new Error(data.detail || 'Login failed');
+      }
+
+      // Check if 2FA is required
+      if (data.requires_2fa) {
+        setChallengeToken(data.challenge_token);
+        setTwoFactorRequired(true);
+        return { success: true, requires_2fa: true };
       }
 
       setTokens(data.access_token, data.refresh_token);
@@ -239,9 +264,15 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const referralCode = localStorage.getItem('rigacap_referral_code');
+      const trustToken = localStorage.getItem('2fa_trust_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (trustToken) {
+        headers['X-2FA-Trust'] = trustToken;
+      }
+
       const response = await fetch(`${API_URL}/api/auth/google`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           id_token: idToken,
           turnstile_token: turnstileToken,
@@ -253,6 +284,13 @@ export function AuthProvider({ children }) {
 
       if (!response.ok) {
         throw new Error(data.detail || 'Google login failed');
+      }
+
+      // Check if 2FA is required
+      if (data.requires_2fa) {
+        setChallengeToken(data.challenge_token);
+        setTwoFactorRequired(true);
+        return { success: true, requires_2fa: true };
       }
 
       localStorage.removeItem('rigacap_referral_code');
@@ -281,9 +319,15 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const referralCode = localStorage.getItem('rigacap_referral_code');
+      const trustToken = localStorage.getItem('2fa_trust_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (trustToken) {
+        headers['X-2FA-Trust'] = trustToken;
+      }
+
       const response = await fetch(`${API_URL}/api/auth/apple`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           id_token: idToken,
           user_data: userData,
@@ -296,6 +340,13 @@ export function AuthProvider({ children }) {
 
       if (!response.ok) {
         throw new Error(data.detail || 'Apple login failed');
+      }
+
+      // Check if 2FA is required
+      if (data.requires_2fa) {
+        setChallengeToken(data.challenge_token);
+        setTwoFactorRequired(true);
+        return { success: true, requires_2fa: true };
       }
 
       localStorage.removeItem('rigacap_referral_code');
@@ -319,6 +370,52 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Verify 2FA code after login challenge
+  const verify2FA = async (code, trustDevice = false, isBackupCode = false) => {
+    setError(null);
+    try {
+      const deviceId = getDeviceFingerprint();
+      const response = await fetch(`${API_URL}/api/auth/2fa/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          challenge_token: challengeToken,
+          code,
+          device_id: deviceId,
+          trust_device: trustDevice,
+          is_backup_code: isBackupCode,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Verification failed');
+      }
+
+      // Store trust token if provided
+      if (data.trust_token) {
+        localStorage.setItem('2fa_trust_token', data.trust_token);
+      }
+
+      setTokens(data.access_token, data.refresh_token);
+      setUser(data.user);
+      setTwoFactorRequired(false);
+      setChallengeToken(null);
+      return { success: true };
+    } catch (err) {
+      setError(err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  // Cancel 2FA flow — go back to login
+  const cancel2FA = useCallback(() => {
+    setTwoFactorRequired(false);
+    setChallengeToken(null);
+    setError(null);
+  }, []);
+
   // Logout
   const logout = useCallback(async () => {
     try {
@@ -333,7 +430,10 @@ export function AuthProvider({ children }) {
       console.error('Logout error:', err);
     } finally {
       clearTokens();
+      localStorage.removeItem('2fa_trust_token');
       setUser(null);
+      setTwoFactorRequired(false);
+      setChallengeToken(null);
     }
   }, [getTokens, clearTokens]);
 
@@ -371,11 +471,14 @@ export function AuthProvider({ children }) {
     isAdmin,
     hasValidSubscription,
     trialDaysRemaining,
+    twoFactorRequired,
     register,
     login,
     loginWithGoogle,
     loginWithApple,
     logout,
+    verify2FA,
+    cancel2FA,
     fetchWithAuth,
     refreshUser,
     clearError: () => setError(null),
