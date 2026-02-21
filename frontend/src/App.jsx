@@ -1690,6 +1690,7 @@ function Dashboard() {
   const [chartModal, setChartModal] = useState(null);
   const [dataStatus, setDataStatus] = useState({ loaded: 0, status: 'loading' });
   const [marketRegime, setMarketRegime] = useState(null);
+  const [regimeExpanded, setRegimeExpanded] = useState(false);
   const [liveQuotes, setLiveQuotes] = useState({});
   const [quotesLastUpdate, setQuotesLastUpdate] = useState(null);
   const [viewMode, setViewMode] = useState(() => localStorage.getItem(CACHE_KEYS.VIEW_MODE) || 'simple');
@@ -2620,26 +2621,158 @@ function Dashboard() {
             {/* Regime Forecast Bar */}
             {dashboardData?.regime_forecast && (
               viewMode === 'simple' ? (
-                /* Simple mode: traffic light + one sentence */
-                <div className="mb-4 p-3 rounded-xl border border-gray-200 bg-white flex items-center gap-3">
-                  <div className={`w-4 h-4 rounded-full flex-shrink-0 ${
-                    ['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-emerald-500' :
-                    ['rotating_bull', 'range_bound'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-amber-400' :
-                    'bg-red-500'
-                  }`} />
-                  <span className="text-sm text-gray-700">
-                    {['strong_bull', 'weak_bull'].includes(dashboardData.regime_forecast.current_regime)
-                      ? 'Market looks good. Stay invested.'
-                      : dashboardData.regime_forecast.current_regime === 'recovery'
-                      ? 'Market is recovering. Good time to look for opportunities.'
-                      : dashboardData.regime_forecast.current_regime === 'rotating_bull'
-                      ? 'Market is rotating between sectors. Be selective.'
-                      : dashboardData.regime_forecast.current_regime === 'range_bound'
-                      ? 'Market is moving sideways. Wait for clearer direction.'
-                      : dashboardData.regime_forecast.current_regime === 'weak_bear'
-                      ? 'Caution: market weakening. Consider tightening stops.'
-                      : 'Market under stress. Protect your positions.'}
-                  </span>
+                /* Simple mode: traffic light + one sentence, click to expand */
+                <div className="mb-4">
+                  <div
+                    className="p-3 rounded-xl border border-gray-200 bg-white flex items-center gap-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => setRegimeExpanded(prev => !prev)}
+                  >
+                    <div className={`w-4 h-4 rounded-full flex-shrink-0 ${
+                      ['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-emerald-500' :
+                      ['rotating_bull', 'range_bound'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-amber-400' :
+                      'bg-red-500'
+                    }`} />
+                    <span className="text-sm text-gray-700 flex-1">
+                      {['strong_bull', 'weak_bull'].includes(dashboardData.regime_forecast.current_regime)
+                        ? 'Market looks good. Stay invested.'
+                        : dashboardData.regime_forecast.current_regime === 'recovery'
+                        ? 'Market is recovering. Good time to look for opportunities.'
+                        : dashboardData.regime_forecast.current_regime === 'rotating_bull'
+                        ? 'Market is rotating between sectors. Be selective.'
+                        : dashboardData.regime_forecast.current_regime === 'range_bound'
+                        ? 'Market is moving sideways. Wait for clearer direction.'
+                        : dashboardData.regime_forecast.current_regime === 'weak_bear'
+                        ? 'Caution: market weakening. Consider tightening stops.'
+                        : 'Market under stress. Protect your positions.'}
+                    </span>
+                    <svg className={`w-4 h-4 text-gray-400 transition-transform ${regimeExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                  {regimeExpanded && (() => {
+                    const rf = dashboardData.regime_forecast;
+                    const regimeColors = {
+                      strong_bull: { bg: 'bg-emerald-100', text: 'text-emerald-700', bar: 'bg-emerald-500' },
+                      weak_bull: { bg: 'bg-green-100', text: 'text-green-700', bar: 'bg-green-400' },
+                      rotating_bull: { bg: 'bg-violet-100', text: 'text-violet-700', bar: 'bg-violet-400' },
+                      range_bound: { bg: 'bg-amber-100', text: 'text-amber-700', bar: 'bg-amber-400' },
+                      weak_bear: { bg: 'bg-orange-100', text: 'text-orange-700', bar: 'bg-orange-400' },
+                      panic_crash: { bg: 'bg-red-100', text: 'text-red-700', bar: 'bg-red-500' },
+                      recovery: { bg: 'bg-cyan-100', text: 'text-cyan-700', bar: 'bg-cyan-400' },
+                    };
+                    const regimeDescriptions = {
+                      strong_bull: 'Broad market rally with strong breadth',
+                      weak_bull: 'Advancing market, narrow leadership',
+                      rotating_bull: 'Sector rotation driving gains',
+                      range_bound: 'Sideways, low conviction',
+                      weak_bear: 'Declining with selling pressure',
+                      panic_crash: 'Sharp selloff, elevated volatility',
+                      recovery: 'Rebounding from recent lows',
+                    };
+                    const regimeNames = {
+                      strong_bull: 'Strong Bull', weak_bull: 'Weak Bull', rotating_bull: 'Rotating Bull',
+                      range_bound: 'Range Bound', weak_bear: 'Weak Bear', panic_crash: 'Panic / Crash', recovery: 'Recovery',
+                    };
+                    const probs = rf.transition_probabilities || rf.probabilities || {};
+                    const sortedProbs = Object.entries(probs).filter(([, p]) => p > 3).sort((a, b) => b[1] - a[1]);
+                    const allRegimes = ['strong_bull', 'weak_bull', 'rotating_bull', 'range_bound', 'weak_bear', 'panic_crash', 'recovery'];
+
+                    return (
+                      <div className="mt-1 p-4 rounded-xl border border-gray-200 bg-white space-y-4">
+                        {/* Regime name + pills */}
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <span className="font-semibold text-gray-900">{rf.current_regime_name || regimeNames[rf.current_regime]} Market</span>
+                          <div className="flex gap-2 flex-wrap">
+                            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                              rf.outlook === 'stable' ? 'bg-green-100 text-green-700' :
+                              rf.outlook === 'improving' ? 'bg-emerald-100 text-emerald-700' :
+                              'bg-orange-100 text-orange-700'
+                            }`}>Outlook: {rf.outlook}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                              rf.risk_change === 'decreasing' ? 'bg-green-100 text-green-700' :
+                              rf.risk_change === 'stable' ? 'bg-gray-100 text-gray-600' :
+                              'bg-red-100 text-red-700'
+                            }`}>Risk: {rf.risk_change}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                              rf.recommended_action === 'stay_invested' ? 'bg-green-100 text-green-700' :
+                              rf.recommended_action === 'tighten_stops' ? 'bg-yellow-100 text-yellow-700' :
+                              rf.recommended_action === 'reduce_exposure' ? 'bg-orange-100 text-orange-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>{(rf.recommended_action || '').replace(/_/g, ' ')}</span>
+                          </div>
+                        </div>
+
+                        {/* Outlook detail */}
+                        {rf.outlook_detail && (
+                          <p className="text-sm text-gray-600 leading-relaxed">{rf.outlook_detail}</p>
+                        )}
+
+                        {/* SPY + VIX */}
+                        {dashboardData.market_stats && (
+                          <div className="flex gap-6 text-sm">
+                            <div>
+                              <span className="text-gray-500">S&P 500</span>
+                              <span className="ml-2 font-semibold text-gray-900">${dashboardData.market_stats.spy_price?.toFixed(0)}</span>
+                              {dashboardData.market_stats.spy_change_pct != null && (
+                                <span className={`ml-1 text-xs font-medium ${dashboardData.market_stats.spy_change_pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                  {dashboardData.market_stats.spy_change_pct >= 0 ? '+' : ''}{dashboardData.market_stats.spy_change_pct.toFixed(2)}%
+                                </span>
+                              )}
+                            </div>
+                            <div>
+                              <span className="text-gray-500">VIX</span>
+                              <span className="ml-2 font-semibold text-gray-900">{dashboardData.market_stats.vix_level?.toFixed(1)}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Transition probability bar */}
+                        {sortedProbs.length > 0 && (
+                          <div>
+                            <p className="text-xs text-gray-500 font-medium mb-1">Transition Probabilities</p>
+                            <div className="flex h-2 rounded-full overflow-hidden bg-gray-100">
+                              {sortedProbs.map(([r, pct]) => (
+                                <div key={r} className={`h-full ${regimeColors[r]?.bar || 'bg-gray-300'}`} style={{ width: `${pct}%` }} title={`${regimeNames[r]}: ${pct.toFixed(0)}%`} />
+                              ))}
+                            </div>
+                            <div className="flex flex-wrap gap-3 mt-1">
+                              {sortedProbs.map(([r, pct]) => (
+                                <div key={r} className="flex items-center gap-1">
+                                  <div className={`w-2 h-2 rounded-full ${regimeColors[r]?.bar || 'bg-gray-300'}`} />
+                                  <span className="text-xs text-gray-500">{regimeNames[r]} {pct.toFixed(0)}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* All 7 regimes */}
+                        <div className="border-t border-gray-100 pt-3 space-y-1">
+                          {allRegimes.map(r => {
+                            const isCurrent = r === rf.current_regime;
+                            const c = regimeColors[r] || { bg: 'bg-gray-100', text: 'text-gray-600', bar: 'bg-gray-300' };
+                            const prob = probs[r];
+                            return (
+                              <div key={r} className={`flex items-center justify-between px-2 py-1.5 rounded-lg ${isCurrent ? c.bg : ''}`}>
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-2.5 h-2.5 rounded-full ${c.bar}`} />
+                                  <div>
+                                    <span className={`text-sm font-medium ${isCurrent ? c.text : 'text-gray-700'}`}>
+                                      {regimeNames[r]}{isCurrent ? ' \u25CF' : ''}
+                                    </span>
+                                    <span className="text-xs text-gray-400 ml-2">{regimeDescriptions[r]}</span>
+                                  </div>
+                                </div>
+                                {prob != null && (
+                                  <span className={`text-sm font-semibold ${isCurrent ? c.text : 'text-gray-500'}`}>{prob.toFixed(0)}%</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : (
                 /* Advanced mode: full regime bar */
