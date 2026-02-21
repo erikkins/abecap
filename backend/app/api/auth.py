@@ -345,7 +345,20 @@ async def get_me(
 
     user_dict = user.to_dict()
     if subscription:
-        user_dict["subscription"] = subscription.to_dict()
+        sub_dict = subscription.to_dict()
+        # Admins always have a valid subscription
+        if user.is_admin():
+            sub_dict["is_valid"] = True
+            sub_dict["status"] = "active"
+        user_dict["subscription"] = sub_dict
+    elif user.is_admin():
+        # Admin with no subscription record at all — synthesize one
+        user_dict["subscription"] = {
+            "status": "active",
+            "is_valid": True,
+            "days_remaining": 999,
+            "has_stripe_subscription": False,
+        }
 
     return user_dict
 
