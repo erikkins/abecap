@@ -2,6 +2,7 @@
 Database configuration and connection
 """
 
+import os
 import uuid
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
@@ -483,8 +484,13 @@ class User(Base):
     subscription = relationship("Subscription", back_populates="user", uselist=False)
 
     def is_admin(self) -> bool:
-        """Check if user has admin privileges."""
-        return self.role == "admin" and self.email == "erik@rigacap.com"
+        """Check if user has admin privileges via email allowlist."""
+        admin_emails = set(
+            e.strip().lower()
+            for e in os.environ.get('ADMIN_EMAILS', 'erik@rigacap.com').split(',')
+            if e.strip()
+        )
+        return (self.email or '').lower() in admin_emails
 
     def get_email_preference(self, pref_key: str) -> bool:
         """Returns True unless explicitly set to False."""
