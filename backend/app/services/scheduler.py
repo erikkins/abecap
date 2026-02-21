@@ -1579,12 +1579,15 @@ class SchedulerService:
             import traceback
             traceback.print_exc()
 
-    async def send_onboarding_drip_emails(self):
+    async def send_onboarding_drip_emails(self, target_emails: list = None):
         """
         Daily check: send next onboarding email based on signup age.
 
         Schedule: {1: day 1, 2: day 3, 3: day 5, 4: day 6, 5: day 8}
         Skips: fully unsubscribed users, admins, already-converted (steps 3-5).
+
+        Args:
+            target_emails: If provided, only process these email addresses.
         """
         logger.info("📧 Starting onboarding drip check...")
 
@@ -1596,11 +1599,15 @@ class SchedulerService:
             step_schedule = {1: 1, 2: 3, 3: 5, 4: 6, 5: 8}
 
             async with async_session() as db:
-                result = await db.execute(
+                query = (
                     select(DBUser)
                     .options(selectinload(DBUser.subscription))
                     .where(DBUser.is_active == True)
                 )
+                if target_emails:
+                    normalized = [e.strip().lower() for e in target_emails]
+                    query = query.where(DBUser.email.in_(normalized))
+                result = await db.execute(query)
                 users = result.scalars().all()
 
                 sent = 0

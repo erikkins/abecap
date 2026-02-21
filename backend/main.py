@@ -1902,14 +1902,17 @@ def handler(event, context):
             return {"status": "error", "error": str(e)}
 
     # Handle onboarding drip emails (EventBridge: 10 AM ET daily)
+    # Optional: {"onboarding_drip": {"target_emails": ["user@example.com"]}}
     if event.get("onboarding_drip"):
-        print("📧 Onboarding drip emails triggered")
+        drip_config = event.get("onboarding_drip") if isinstance(event.get("onboarding_drip"), dict) else {}
+        target_emails = drip_config.get("target_emails")
+        print(f"📧 Onboarding drip emails triggered" + (f" for {target_emails}" if target_emails else ""))
         try:
             loop = asyncio.get_event_loop()
             if loop.is_closed():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(scheduler_service.send_onboarding_drip_emails())
+            result = loop.run_until_complete(scheduler_service.send_onboarding_drip_emails(target_emails=target_emails))
             return {"status": "success", "result": result}
         except Exception as e:
             import traceback
