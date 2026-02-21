@@ -33,6 +33,19 @@ ADMIN_EMAILS = set(
     if e.strip()
 )
 
+# Module-level failure log (per Lambda container lifetime)
+_failure_log: list[dict] = []
+
+
+def get_email_failures() -> list[dict]:
+    """Return accumulated email failures since last clear."""
+    return list(_failure_log)
+
+
+def clear_email_failures():
+    """Clear the failure log (after admin report is sent)."""
+    _failure_log.clear()
+
 
 class EmailService:
     """
@@ -93,7 +106,7 @@ class EmailService:
         user_id: str = None
     ) -> bool:
         """
-        Send an email to a single recipient
+        Send an email to a single recipient with retry + exponential backoff.
 
         Args:
             to_email: Recipient email address
@@ -111,48 +124,61 @@ class EmailService:
 
         try:
             import aiosmtplib
-
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = f"{FROM_NAME} <{FROM_EMAIL}>"
-            msg['To'] = to_email
-            msg['Reply-To'] = f"{FROM_NAME} <{FROM_EMAIL}>"
-
-            # RFC 8058 one-click unsubscribe headers (required by Gmail/Yahoo since Feb 2024)
-            if user_id:
-                token = self._generate_email_token(str(user_id), purpose="email_unsubscribe")
-                unsub_url = f"https://api.rigacap.com/auth/unsubscribe?token={token}"
-                msg['List-Unsubscribe'] = f"<{unsub_url}>"
-                msg['List-Unsubscribe-Post'] = "List-Unsubscribe=One-Click"
-
-            # Add plain text part
-            if text_content:
-                text_part = MIMEText(text_content, 'plain', 'utf-8')
-                msg.attach(text_part)
-
-            # Add HTML part
-            html_part = MIMEText(html_content, 'html', 'utf-8')
-            msg.attach(html_part)
-
-            # Send via SMTP
-            await aiosmtplib.send(
-                msg,
-                hostname=SMTP_HOST,
-                port=SMTP_PORT,
-                username=SMTP_USER,
-                password=SMTP_PASS,
-                start_tls=True
-            )
-
-            logger.info(f"Email sent to {to_email}: {subject}")
-            return True
-
         except ImportError:
             logger.error("aiosmtplib not installed. Run: pip install aiosmtplib")
             return False
-        except Exception as e:
-            logger.error(f"Failed to send email to {to_email}: {e}")
-            return False
+
+        # Build message once, retry only the send
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = f"{FROM_NAME} <{FROM_EMAIL}>"
+        msg['To'] = to_email
+        msg['Reply-To'] = f"{FROM_NAME} <{FROM_EMAIL}>"
+
+        if user_id:
+            token = self._generate_email_token(str(user_id), purpose="email_unsubscribe")
+            unsub_url = f"https://api.rigacap.com/auth/unsubscribe?token={token}"
+            msg['List-Unsubscribe'] = f"<{unsub_url}>"
+            msg['List-Unsubscribe-Post'] = "List-Unsubscribe=One-Click"
+
+        if text_content:
+            text_part = MIMEText(text_content, 'plain', 'utf-8')
+            msg.attach(text_part)
+
+        html_part = MIMEText(html_content, 'html', 'utf-8')
+        msg.attach(html_part)
+
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                await aiosmtplib.send(
+                    msg,
+                    hostname=SMTP_HOST,
+                    port=SMTP_PORT,
+                    username=SMTP_USER,
+                    password=SMTP_PASS,
+                    start_tls=True
+                )
+                logger.info(f"Email sent to {to_email}: {subject}")
+                return True
+            except Exception as e:
+                if attempt < max_retries:
+                    delay = 2 ** attempt  # 2s, 4s
+                    logger.warning(
+                        f"Email to {to_email} failed (attempt {attempt}/{max_retries}), "
+                        f"retrying in {delay}s: {e}"
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(f"Email to {to_email} failed after {max_retries} attempts: {e}")
+                    _failure_log.append({
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "to_email": to_email,
+                        "subject": subject,
+                        "error": str(e),
+                        "attempts": max_retries,
+                    })
+                    return False
 
     def generate_daily_summary_html(
         self,
@@ -2971,6 +2997,91 @@ The link expires in 72 hours."""
             html_content=html,
             text_content=text,
         )
+
+
+    async def send_email_failure_report(self, to_email: str, failures: list[dict]) -> bool:
+        """Send a summary report of email delivery failures to an admin."""
+        if not failures:
+            return True
+
+        def mask_email(email: str) -> str:
+            local, domain = email.split("@", 1) if "@" in email else (email, "")
+            if len(local) <= 2:
+                masked = local[0] + "***"
+            else:
+                masked = local[:2] + "***"
+            return f"{masked}@{domain}" if domain else masked
+
+        date_str = datetime.utcnow().strftime("%Y-%m-%d")
+        count = len(failures)
+
+        rows_html = ""
+        for f in failures:
+            ts = f.get("timestamp", "")
+            # Convert UTC ISO to ET display
+            try:
+                from pytz import timezone as _tz
+                dt = datetime.fromisoformat(ts)
+                dt_et = dt.replace(tzinfo=_tz("UTC")).astimezone(_tz("US/Eastern"))
+                time_str = dt_et.strftime("%I:%M %p ET")
+            except Exception:
+                time_str = ts[:19] if ts else "unknown"
+
+            recipient = mask_email(f.get("to_email", "unknown"))
+            subj = f.get("subject", "")[:80]
+            error = f.get("error", "")[:100]
+            attempts = f.get("attempts", "?")
+
+            rows_html += f"""<tr>
+                <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; color: #374151;">{time_str}</td>
+                <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; color: #374151;">{recipient}</td>
+                <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; color: #374151;">{subj}</td>
+                <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; color: #dc2626;">{error}</td>
+                <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; color: #374151; text-align: center;">{attempts}</td>
+            </tr>"""
+
+        html = f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width: 700px; margin: 0 auto;">
+<tr>
+    <td style="background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); padding: 24px; text-align: center;">
+        <h1 style="margin: 0; color: #f59e0b; font-size: 20px; font-weight: 700;">Email Failure Report</h1>
+        <p style="margin: 6px 0 0 0; color: #94a3b8; font-size: 14px;">{count} failed delivery{'s' if count != 1 else ''} on {date_str}</p>
+    </td>
+</tr>
+<tr>
+    <td style="background-color: #ffffff; padding: 24px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+            <thead>
+                <tr style="background-color: #f9fafb;">
+                    <th style="padding: 10px 12px; text-align: left; font-size: 12px; color: #6b7280; font-weight: 600; text-transform: uppercase;">Time</th>
+                    <th style="padding: 10px 12px; text-align: left; font-size: 12px; color: #6b7280; font-weight: 600; text-transform: uppercase;">Recipient</th>
+                    <th style="padding: 10px 12px; text-align: left; font-size: 12px; color: #6b7280; font-weight: 600; text-transform: uppercase;">Subject</th>
+                    <th style="padding: 10px 12px; text-align: left; font-size: 12px; color: #6b7280; font-weight: 600; text-transform: uppercase;">Error</th>
+                    <th style="padding: 10px 12px; text-align: center; font-size: 12px; color: #6b7280; font-weight: 600; text-transform: uppercase;">Tries</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows_html}
+            </tbody>
+        </table>
+        <p style="margin: 16px 0 0 0; font-size: 12px; color: #9ca3af;">
+            Each email was retried 3 times with exponential backoff before being marked as failed.
+            Recipient emails are masked for privacy.
+        </p>
+    </td>
+</tr>
+<tr>
+    <td style="background-color: #f9fafb; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb;">
+        <p style="margin: 0; font-size: 12px; color: #9ca3af;">&copy; {datetime.now().year} RigaCap — Admin Notification</p>
+    </td>
+</tr>
+</table>
+</body></html>"""
+
+        subject = f"[RigaCap] Email Failure Report — {count} failed ({date_str})"
+        return await self.send_email(to_email=to_email, subject=subject, html_content=html)
 
 
 admin_email_service = AdminEmailService()

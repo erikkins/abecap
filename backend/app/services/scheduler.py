@@ -20,7 +20,7 @@ import pytz
 from app.core.config import settings
 from app.core.timezone import trading_today, days_since_et
 from app.services.scanner import scanner_service
-from app.services.email_service import email_service, admin_email_service
+from app.services.email_service import email_service, admin_email_service, ADMIN_EMAILS, get_email_failures, clear_email_failures
 from app.services.push_notification_service import push_notification_service
 from app.services.data_export import data_export_service
 from app.services.stock_universe import MUST_INCLUDE
@@ -948,6 +948,20 @@ class SchedulerService:
             replace_existing=True
         )
 
+        # Nightly email failure report at 9 PM ET (after all daily email jobs)
+        self.scheduler.add_job(
+            self._send_email_failure_report,
+            CronTrigger(
+                day_of_week='mon-fri',
+                hour=21,
+                minute=0,
+                timezone=ET
+            ),
+            id='email_failure_report',
+            name='Email Failure Report',
+            replace_existing=True
+        )
+
         self.scheduler.start()
         self.is_running = True
 
@@ -1752,6 +1766,21 @@ class SchedulerService:
             logger.error(f"❌ Strategy auto-analysis failed: {e}")
             import traceback
             traceback.print_exc()
+
+    async def _send_email_failure_report(self):
+        """Send nightly admin report of any email delivery failures."""
+        failures = get_email_failures()
+        if not failures:
+            logger.info("No email failures to report")
+            return
+
+        logger.info(f"Sending email failure report: {len(failures)} failures")
+        for admin in ADMIN_EMAILS:
+            try:
+                await admin_email_service.send_email_failure_report(admin, failures)
+            except Exception as e:
+                logger.error(f"Failed to send failure report to {admin}: {e}")
+        clear_email_failures()
 
 
 # Singleton instance
