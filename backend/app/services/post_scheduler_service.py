@@ -129,6 +129,7 @@ class PostSchedulerService:
         Returns count of posts published.
         """
         now = datetime.utcnow()
+        logger.info(f"[PUBLISH] check_and_publish running, now={now.isoformat()}")
 
         result = await db.execute(
             select(SocialPost).where(
@@ -141,6 +142,7 @@ class PostSchedulerService:
             ).order_by(SocialPost.scheduled_for)
         )
         posts = result.scalars().all()
+        logger.info(f"[PUBLISH] Found {len(posts)} post(s) ready to publish")
 
         if not posts:
             return 0
