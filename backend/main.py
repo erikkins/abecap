@@ -1658,7 +1658,7 @@ def handler(event, context):
             )
             await _try("post_notification_twitter", admin_email_service.send_post_approval_notification(
                 to_email=to, post=twitter_post, hours_before=24,
-                cancel_url="https://rigacap.com/api/admin/social/posts/999/cancel-email?token=test-preview",
+                cancel_url="https://api.rigacap.com/api/admin/social/posts/999/cancel-email?token=test-preview",
             ))
 
             # 14. Social Post Notification (Instagram T-1h with chart)
@@ -1673,7 +1673,7 @@ def handler(event, context):
             )
             await _try("post_notification_instagram", admin_email_service.send_post_approval_notification(
                 to_email=to, post=insta_post, hours_before=1,
-                cancel_url="https://rigacap.com/api/admin/social/posts/998/cancel-email?token=test-preview",
+                cancel_url="https://api.rigacap.com/api/admin/social/posts/998/cancel-email?token=test-preview",
             ))
 
             # 15-19. Onboarding drip emails (steps 1-5)

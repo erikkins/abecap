@@ -336,7 +336,7 @@ class PostSchedulerService:
             from app.services.email_service import admin_email_service
 
             cancel_token = self.generate_cancel_token(post.id)
-            cancel_url = f"{settings.FRONTEND_URL}/api/admin/social/posts/{post.id}/cancel-email?token={cancel_token}"
+            cancel_url = f"https://api.rigacap.com/api/admin/social/posts/{post.id}/cancel-email?token={cancel_token}"
 
             return await admin_email_service.send_post_approval_notification(
                 to_email=ADMIN_EMAIL,
