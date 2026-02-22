@@ -41,6 +41,10 @@ PLATFORM_COOLDOWN_MINUTES = {
 class PostSchedulerService:
     """Schedule posts and send admin approval notifications."""
 
+    def __init__(self):
+        # Track which posts we've already emailed about to avoid spam
+        self._failure_emailed: set[int] = set()
+
     async def schedule_post(
         self, post_id: int, publish_at: datetime, db: AsyncSession
     ) -> bool:
@@ -191,9 +195,12 @@ class PostSchedulerService:
                     last_posted[post.platform] = now
                     logger.info(f"Auto-published post {post.id} to {post.platform}")
                 else:
-                    logger.error(f"Auto-publish failed for post {post.id}: {pub_result['error']}")
+                    error_msg = pub_result['error']
+                    logger.error(f"Auto-publish failed for post {post.id}: {error_msg}")
+                    await self._send_publish_failure_email(post, str(error_msg))
             except Exception as e:
                 logger.error(f"Auto-publish error for post {post.id}: {e}")
+                await self._send_publish_failure_email(post, str(e))
 
         await db.commit()
 
@@ -204,6 +211,49 @@ class PostSchedulerService:
             )
 
         return published
+
+    async def _send_publish_failure_email(self, post, error_msg: str):
+        """Send admin email when a scheduled post fails to publish (once per post)."""
+        if post.id in self._failure_emailed:
+            return
+        self._failure_emailed.add(post.id)
+        try:
+            from app.services.email_service import admin_email_service
+
+            content_preview = (post.content or "")[:120]
+            html = f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;">
+<tr><td style="background:linear-gradient(135deg,#172554,#1e3a5f);padding:24px;text-align:center;">
+    <h1 style="margin:0;color:#ef4444;font-size:20px;">Post Publish Failed</h1>
+    <p style="margin:6px 0 0;color:#94a3b8;font-size:14px;">Post #{post.id} &middot; {post.platform}</p>
+</td></tr>
+<tr><td style="background:#fff;padding:24px;">
+    <table width="100%" style="font-size:14px;color:#374151;">
+        <tr><td style="padding:6px 0;font-weight:600;width:100px;">Platform</td><td>{post.platform}</td></tr>
+        <tr><td style="padding:6px 0;font-weight:600;">Post ID</td><td>{post.id}</td></tr>
+        <tr><td style="padding:6px 0;font-weight:600;">Type</td><td>{post.post_type or 'unknown'}</td></tr>
+        <tr><td style="padding:6px 0;font-weight:600;">Content</td><td style="color:#6b7280;">{content_preview}{'...' if len(post.content or '') > 120 else ''}</td></tr>
+    </table>
+    <div style="margin:16px 0;padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;">
+        <p style="margin:0;font-size:13px;font-weight:600;color:#dc2626;">Error</p>
+        <p style="margin:4px 0 0;font-size:13px;color:#7f1d1d;word-break:break-all;">{error_msg[:300]}</p>
+    </div>
+    <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">
+        The post status remains 'scheduled' and will be retried on the next 15-minute cycle.
+        Check the Threads/Instagram app for account restrictions if this persists.
+    </p>
+</td></tr>
+</table></body></html>"""
+
+            await admin_email_service.send_email(
+                to_email=ADMIN_EMAIL,
+                subject=f"[RigaCap] Post #{post.id} failed to publish ({post.platform})",
+                html_content=html,
+            )
+        except Exception as e:
+            logger.error(f"Failed to send publish failure email for post {post.id}: {e}")
 
     async def send_notifications(self, db: AsyncSession) -> int:
         """
