@@ -220,7 +220,7 @@ class PostSchedulerService:
         try:
             from app.services.email_service import admin_email_service
 
-            content_preview = (post.content or "")[:120]
+            content_preview = (post.text_content or "")[:120]
             html = f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
@@ -234,7 +234,7 @@ class PostSchedulerService:
         <tr><td style="padding:6px 0;font-weight:600;width:100px;">Platform</td><td>{post.platform}</td></tr>
         <tr><td style="padding:6px 0;font-weight:600;">Post ID</td><td>{post.id}</td></tr>
         <tr><td style="padding:6px 0;font-weight:600;">Type</td><td>{post.post_type or 'unknown'}</td></tr>
-        <tr><td style="padding:6px 0;font-weight:600;">Content</td><td style="color:#6b7280;">{content_preview}{'...' if len(post.content or '') > 120 else ''}</td></tr>
+        <tr><td style="padding:6px 0;font-weight:600;">Content</td><td style="color:#6b7280;">{content_preview}{'...' if len(post.text_content or '') > 120 else ''}</td></tr>
     </table>
     <div style="margin:16px 0;padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;">
         <p style="margin:0;font-size:13px;font-weight:600;color:#dc2626;">Error</p>

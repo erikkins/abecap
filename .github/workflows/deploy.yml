@@ -143,12 +143,18 @@ jobs:
             --function-name rigacap-prod-api \
             --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
+      # Wait for Lambda update to fully propagate (invalidates all warm containers)
+      - name: Wait for Lambda update
+        run: |
+          echo "⏳ Waiting for Lambda function update to complete..."
+          aws lambda wait function-updated \
+            --function-name rigacap-prod-api
+          echo "✅ Lambda update propagated — all old containers invalidated"
+
       # Post-deploy: Warmup Lambda to preload data
       - name: Warmup Lambda
         run: |
           echo "🔥 Warming up Lambda..."
-          # Wait a moment for Lambda to be ready
-          sleep 10
           # Call warmup endpoint to preload data from S3
           curl -X POST "https://api.rigacap.com/api/warmup" \
             -H "Content-Type: application/json" \
