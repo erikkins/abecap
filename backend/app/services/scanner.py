@@ -319,8 +319,8 @@ class ScannerService:
 
         from datetime import timedelta
 
-        BATCH_SIZE = 20  # Can be larger for incremental since less data
-        DELAY_BETWEEN_BATCHES = 1.0
+        BATCH_SIZE = 100  # Large batches OK for incremental (only a few days of data)
+        DELAY_BETWEEN_BATCHES = 0.5
 
         updated = 0
         failed = 0
