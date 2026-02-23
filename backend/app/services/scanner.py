@@ -326,7 +326,7 @@ class ScannerService:
         failed = 0
         skipped = 0
 
-        today = pd.Timestamp.now(tz='UTC').normalize()
+        today = pd.Timestamp.now().normalize().tz_localize(None)
 
         logger.info(f"📊 Incremental update for {len(symbols)} symbols...")
 
@@ -339,6 +339,9 @@ class ScannerService:
             for symbol in batch:
                 if symbol in self.data_cache and len(self.data_cache[symbol]) > 0:
                     last_date = self.data_cache[symbol].index.max()
+                    # Strip tz for safe comparison (cache may be tz-aware or naive)
+                    if hasattr(last_date, 'tz') and last_date.tz is not None:
+                        last_date = last_date.tz_localize(None)
                     if last_date < oldest_last_date:
                         oldest_last_date = last_date
 
