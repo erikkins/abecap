@@ -581,15 +581,26 @@ def handler(event, context):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        async def _run_daily_scan():
+        async def _run_daily_scan(lambda_context=None):
             from app.services.data_export import data_export_service
             from app.api.signals import compute_shared_dashboard_data
             from datetime import date
 
-            # 1. Force-refresh data from yfinance (scan() skips yfinance in Lambda mode)
-            print("📡 Fetching fresh price data from yfinance...")
-            await scanner_service.fetch_data()
-            print(f"📡 Fetched {len(scanner_service.data_cache)} symbols from yfinance")
+            # 1a. Ensure universe is loaded (may have new symbols since last pickle)
+            await scanner_service.ensure_universe_loaded()
+
+            # 1b. Fetch full data for NEW symbols not yet in cache (usually 0-10)
+            existing_symbols = set(scanner_service.data_cache.keys())
+            universe_symbols = set(scanner_service.universe)
+            new_symbols = list(universe_symbols - existing_symbols)
+            if new_symbols:
+                print(f"📡 Fetching full data for {len(new_symbols)} new symbols...")
+                await scanner_service.fetch_data(symbols=new_symbols)
+
+            # 1c. Incremental update for existing cached symbols (today's prices only)
+            print(f"📡 Incremental update for {len(existing_symbols)} cached symbols...")
+            inc_result = await scanner_service.fetch_incremental()
+            print(f"📡 Incremental: {inc_result}")
 
             # 2. Run scan on fresh data
             signals = await scanner_service.scan(refresh_data=False)
@@ -601,6 +612,29 @@ def handler(event, context):
 
             # 4. Store signals in DB + export to S3
             await store_signals_callback(signals)
+
+            # 4b. Safety net: check remaining Lambda time before expensive dashboard export
+            remaining_ms = lambda_context.get_remaining_time_in_millis() if lambda_context else 900000
+            if remaining_ms < 180000:  # < 3 minutes remaining
+                print(f"⏰ Only {remaining_ms/1000:.0f}s remaining, deferring dashboard export via async self-invoke...")
+                import boto3, json as _json
+                boto3.client('lambda', region_name='us-east-1').invoke(
+                    FunctionName='rigacap-prod-api',
+                    InvocationType='Event',  # async fire-and-forget
+                    Payload=_json.dumps({
+                        "export_dashboard_cache": True,
+                        "include_snapshot": True,
+                        "include_ensemble": True
+                    })
+                )
+                return {
+                    "status": "success",
+                    "signals": len(signals),
+                    "symbols_cached": len(scanner_service.data_cache),
+                    "dashboard": {"deferred": True},
+                    "snapshot": {"deferred": True},
+                    "ensemble_signals_persisted": "deferred",
+                }
 
             # 5. Export dashboard JSON + daily snapshot
             async with async_session() as db:
@@ -637,7 +671,7 @@ def handler(event, context):
             }
 
         try:
-            result = loop.run_until_complete(_run_daily_scan())
+            result = loop.run_until_complete(_run_daily_scan(lambda_context=context))
             print(f"📡 Daily scan result: {result}")
             return result
         except Exception as e:
@@ -657,10 +691,41 @@ def handler(event, context):
         async def _export_dashboard():
             from app.api.signals import compute_shared_dashboard_data
             from app.services.data_export import data_export_service
+            from datetime import date
+
             async with async_session() as db:
                 data = await compute_shared_dashboard_data(db)
-                result = data_export_service.export_dashboard_json(data)
-                return {"status": "success", **result}
+                dash_result = data_export_service.export_dashboard_json(data)
+
+            result = {"status": "success", **dash_result}
+
+            # Export daily snapshot if requested (phase 2 of deferred daily scan)
+            if event.get("include_snapshot"):
+                today_str = date.today().strftime("%Y-%m-%d")
+                snap_result = data_export_service.export_snapshot(today_str, data)
+                result["snapshot"] = snap_result
+                print(f"📸 Snapshot exported: {snap_result}")
+
+            # Persist ensemble signals if requested (phase 2 of deferred daily scan)
+            if event.get("include_ensemble"):
+                try:
+                    from app.services.ensemble_signal_service import ensemble_signal_service
+                    if data.get('buy_signals'):
+                        async with async_session() as sig_db:
+                            sig_result = await ensemble_signal_service.persist_signals(
+                                sig_db, data['buy_signals'], date.today()
+                            )
+                            await ensemble_signal_service.invalidate_stale_signals(
+                                sig_db, date.today(),
+                                {s['symbol'] for s in data['buy_signals']}
+                            )
+                            result["ensemble_signals_persisted"] = sig_result['inserted']
+                            print(f"📝 Persisted {sig_result['inserted']} ensemble signal(s)")
+                except Exception as pe:
+                    print(f"⚠️ Signal persistence failed (non-fatal): {pe}")
+                    result["ensemble_signals_error"] = str(pe)
+
+            return result
 
         try:
             result = loop.run_until_complete(_export_dashboard())
