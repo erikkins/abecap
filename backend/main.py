@@ -589,13 +589,12 @@ def handler(event, context):
             # 1a. Ensure universe is loaded (may have new symbols since last pickle)
             await scanner_service.ensure_universe_loaded()
 
-            # 1b. Fetch full data for NEW symbols not yet in cache (usually 0-10)
+            # 1b. Log new symbols not in cache (added to universe since last pickle rebuild)
             existing_symbols = set(scanner_service.data_cache.keys())
             universe_symbols = set(scanner_service.universe)
-            new_symbols = list(universe_symbols - existing_symbols)
+            new_symbols = universe_symbols - existing_symbols
             if new_symbols:
-                print(f"📡 Fetching full data for {len(new_symbols)} new symbols...")
-                await scanner_service.fetch_data(symbols=new_symbols)
+                print(f"ℹ️ {len(new_symbols)} new symbols in universe not in cache (skipping — will be included on next pickle rebuild)")
 
             # 1c. Incremental update for existing cached symbols (today's prices only)
             print(f"📡 Incremental update for {len(existing_symbols)} cached symbols...")
