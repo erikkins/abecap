@@ -179,11 +179,12 @@ class ModelPortfolioService:
         db: AsyncSession,
         live_prices: Dict[str, float],
         regime_forecast: Optional[dict] = None,
+        day_highs: Optional[Dict[str, float]] = None,
     ) -> List[dict]:
         """
         Called by intraday monitor every 5 min.
         Checks all open live positions for trailing stop (12% from HWM) and regime exit.
-        Updates highest_price if new high.
+        Updates highest_price using day_high to capture peaks between checks.
         """
         positions = await self._get_open_positions(db, "live")
         if not positions:
@@ -195,9 +196,10 @@ class ModelPortfolioService:
             if price is None:
                 continue
 
-            # Update HWM
-            if price > (pos.highest_price or pos.entry_price):
-                pos.highest_price = price
+            # Update HWM using day_high to capture peaks between 5-min checks
+            hwm_price = max(price, (day_highs or {}).get(pos.symbol, price))
+            if hwm_price > (pos.highest_price or pos.entry_price):
+                pos.highest_price = hwm_price
 
             hwm = pos.highest_price or pos.entry_price
             trailing_stop_level = hwm * (1 - TRAILING_STOP_PCT / 100)

@@ -735,7 +735,7 @@ def handler(event, context):
             async with async_sess() as db:
                 # Query all open positions with user email
                 result = await db.execute(
-                    select(DBPosition, DBUser.email, DBUser.full_name)
+                    select(DBPosition, DBUser.email, DBUser.name)
                     .join(DBUser, DBPosition.user_id == DBUser.id)
                     .where(DBPosition.status == 'open')
                 )
@@ -747,12 +747,15 @@ def handler(event, context):
                 # Fetch live prices
                 symbols = list({row[0].symbol for row in rows})
                 live_prices = {}
+                day_highs = {}
                 tickers = yf.Tickers(' '.join(symbols))
                 for sym in symbols:
                     try:
                         ticker = tickers.tickers.get(sym)
                         if ticker:
-                            live_prices[sym] = ticker.fast_info.last_price
+                            fi = ticker.fast_info
+                            live_prices[sym] = fi.last_price
+                            day_highs[sym] = fi.day_high
                     except Exception:
                         continue
 
@@ -775,8 +778,10 @@ def handler(event, context):
 
                     live_price = live_prices[sym]
 
-                    if live_price > (position.highest_price or position.entry_price):
-                        position.highest_price = live_price
+                    # Use day_high for HWM to capture peaks between 5-min checks
+                    hwm_price = max(live_price, day_highs.get(sym, live_price))
+                    if hwm_price > (position.highest_price or position.entry_price):
+                        position.highest_price = hwm_price
 
                     guidance = sched._check_sell_trigger(position, live_price, regime_forecast)
 

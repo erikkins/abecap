@@ -511,13 +511,16 @@ class SchedulerService:
                     pass  # Model tables may not exist yet
 
                 live_prices = {}
+                day_highs = {}
                 try:
                     tickers = yf.Tickers(' '.join(symbols))
                     for sym in symbols:
                         try:
                             ticker = tickers.tickers.get(sym)
                             if ticker:
-                                live_prices[sym] = ticker.fast_info.last_price
+                                fi = ticker.fast_info
+                                live_prices[sym] = fi.last_price
+                                day_highs[sym] = fi.day_high
                         except Exception:
                             continue
                 except Exception as e:
@@ -546,9 +549,10 @@ class SchedulerService:
 
                     live_price = live_prices[sym]
 
-                    # Update high water mark if new high
-                    if live_price > (position.highest_price or position.entry_price):
-                        position.highest_price = live_price
+                    # Use day_high for HWM to capture peaks between 5-min checks
+                    hwm_price = max(live_price, day_highs.get(sym, live_price))
+                    if hwm_price > (position.highest_price or position.entry_price):
+                        position.highest_price = hwm_price
 
                     # Check sell trigger
                     guidance = self._check_sell_trigger(
@@ -599,7 +603,7 @@ class SchedulerService:
                 try:
                     from app.services.model_portfolio_service import model_portfolio_service
                     mp_closed = await model_portfolio_service.process_live_exits(
-                        db, live_prices, regime_forecast
+                        db, live_prices, regime_forecast, day_highs=day_highs
                     )
                     if mp_closed:
                         logger.info(f"[MODEL-LIVE] Closed {len(mp_closed)} position(s)")
