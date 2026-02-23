@@ -2585,7 +2585,7 @@ def handler(event, context):
             expires_days = expires_in // 86400
 
             # Update Lambda env var with new token
-            import boto3
+            import os, boto3
             lambda_client = boto3.client("lambda", region_name=settings.AWS_REGION)
             func_config = lambda_client.get_function_configuration(
                 FunctionName=os.environ.get("AWS_LAMBDA_FUNCTION_NAME", "rigacap-prod-api")
