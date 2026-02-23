@@ -344,7 +344,7 @@ class SocialPost(Base):
     id = Column(Integer, primary_key=True)
     post_type = Column(String(50))  # trade_result, missed_opportunity, weekly_recap, regime_commentary
     platform = Column(String(20))  # twitter, instagram
-    status = Column(String(20), default="draft")  # draft, approved, rejected, posted, cancelled, scheduled
+    status = Column(String(20), default="draft")  # draft, approved, rejected, posted, cancelled, scheduled, publish_failed
     text_content = Column(Text)
     hashtags = Column(Text, nullable=True)
     image_s3_key = Column(String(500), nullable=True)
@@ -374,6 +374,7 @@ class SocialPost(Base):
     # Instagram comment reply columns
     reply_to_instagram_comment_id = Column(String(50), nullable=True)
     reply_to_instagram_media_id = Column(String(50), nullable=True)
+    publish_attempts = Column(Integer, default=0)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -707,6 +708,10 @@ async def _run_schema_migrations(conn):
         "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_thread_id VARCHAR(50)",
         "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_instagram_comment_id VARCHAR(50)",
         "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_instagram_media_id VARCHAR(50)",
+    ])
+
+    await _run("social_posts publish retry tracking", [
+        "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS publish_attempts INTEGER DEFAULT 0",
     ])
 
     await _run("walk_forward_period_results table", [

@@ -169,9 +169,22 @@ class PostSchedulerService:
 
         from app.services.social_posting_service import social_posting_service
 
+        MAX_PUBLISH_ATTEMPTS = 3
+
         published = 0
         skipped = 0
         for post in posts:
+            # Check if post has exhausted retries
+            attempts = getattr(post, 'publish_attempts', 0) or 0
+            if attempts >= MAX_PUBLISH_ATTEMPTS:
+                post.status = "publish_failed"
+                logger.warning(
+                    f"Post {post.id} ({post.platform}) failed after "
+                    f"{attempts} attempts — marking as publish_failed"
+                )
+                skipped += 1
+                continue
+
             # Check platform cooldown
             cooldown_min = PLATFORM_COOLDOWN_MINUTES.get(post.platform, 30)
             platform_last = last_posted.get(post.platform)
@@ -186,6 +199,9 @@ class PostSchedulerService:
                     skipped += 1
                     continue
 
+            # Increment attempt counter before trying
+            post.publish_attempts = attempts + 1
+
             try:
                 pub_result = await social_posting_service.publish_post(post)
                 if "error" not in pub_result:
@@ -196,10 +212,22 @@ class PostSchedulerService:
                     logger.info(f"Auto-published post {post.id} to {post.platform}")
                 else:
                     error_msg = pub_result['error']
-                    logger.error(f"Auto-publish failed for post {post.id}: {error_msg}")
+                    logger.error(
+                        f"Auto-publish failed for post {post.id} "
+                        f"(attempt {post.publish_attempts}/{MAX_PUBLISH_ATTEMPTS}): {error_msg}"
+                    )
+                    if post.publish_attempts >= MAX_PUBLISH_ATTEMPTS:
+                        post.status = "publish_failed"
+                        logger.warning(f"Post {post.id} marked as publish_failed")
                     await self._send_publish_failure_email(post, str(error_msg))
             except Exception as e:
-                logger.error(f"Auto-publish error for post {post.id}: {e}")
+                logger.error(
+                    f"Auto-publish error for post {post.id} "
+                    f"(attempt {post.publish_attempts}/{MAX_PUBLISH_ATTEMPTS}): {e}"
+                )
+                if post.publish_attempts >= MAX_PUBLISH_ATTEMPTS:
+                    post.status = "publish_failed"
+                    logger.warning(f"Post {post.id} marked as publish_failed")
                 await self._send_publish_failure_email(post, str(e))
 
         await db.commit()
