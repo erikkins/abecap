@@ -914,6 +914,22 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
     except Exception as e:
         print(f"Recent signals error: {e}")
 
+    # --- Last ensemble entry date (from persisted signals, survives top-N churn) ---
+    last_ensemble_entry_date = None
+    try:
+        from app.core.database import EnsembleSignal
+        result = await db.execute(
+            select(EnsembleSignal.ensemble_entry_date)
+            .where(EnsembleSignal.ensemble_entry_date.isnot(None))
+            .order_by(desc(EnsembleSignal.ensemble_entry_date))
+            .limit(1)
+        )
+        row = result.scalar_one_or_none()
+        if row:
+            last_ensemble_entry_date = str(row)
+    except Exception as e:
+        print(f"Last ensemble entry date error: {e}")
+
     return {
         'regime_forecast': regime_forecast_data,
         'buy_signals': buy_signals,
@@ -921,6 +937,7 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
         'market_stats': market_stats,
         'missed_opportunities': missed_opportunities,
         'recent_signals': recent_signals,
+        'last_ensemble_entry_date': last_ensemble_entry_date,
         'generated_at': datetime.now().isoformat(),
     }
 

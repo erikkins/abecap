@@ -3014,25 +3014,21 @@ function Dashboard() {
                   </div>
                   <span className="text-xs text-gray-500">
                     {(() => {
-                      // Find the most recent ensemble entry date (ignore raw scanner signals)
-                      const dates = (dashboardData?.buy_signals || [])
+                      // Find the most recent ensemble entry date
+                      // Priority: fresh signals > current signals > persisted DB date
+                      const freshDates = (dashboardData?.buy_signals || [])
                         .filter(s => s.is_fresh)
                         .map(s => s.ensemble_entry_date)
                         .filter(Boolean);
-                      if (dates.length === 0) {
-                        // Fall back to any ensemble entry date
-                        const allDates = (dashboardData?.buy_signals || [])
-                          .map(s => s.ensemble_entry_date)
-                          .filter(Boolean);
-                        if (allDates.length === 0) return 'Ensemble: Breakout + Momentum';
-                        const latest = allDates.sort().reverse()[0];
-                        const today = new Date(); today.setHours(0,0,0,0);
-                        const signalDate = new Date(latest + 'T00:00:00');
-                        const diffDays = Math.round((today - signalDate) / 86400000);
-                        if (diffDays === 0) return 'Last signal: Today';
-                        if (diffDays === 1) return 'Last signal: Yesterday';
-                        return `Last signal: ${diffDays}d ago`;
+                      const allDates = (dashboardData?.buy_signals || [])
+                        .map(s => s.ensemble_entry_date)
+                        .filter(Boolean);
+                      // Include the persisted last_ensemble_entry_date (survives top-N churn)
+                      if (dashboardData?.last_ensemble_entry_date) {
+                        allDates.push(dashboardData.last_ensemble_entry_date);
                       }
+                      const dates = freshDates.length > 0 ? freshDates : allDates;
+                      if (dates.length === 0) return 'Ensemble: Breakout + Momentum';
                       const latest = dates.sort().reverse()[0];
                       const today = new Date(); today.setHours(0,0,0,0);
                       const signalDate = new Date(latest + 'T00:00:00');
@@ -3138,6 +3134,10 @@ function Dashboard() {
                         const allDates = (dashboardData?.buy_signals || [])
                           .map(s => s.ensemble_entry_date)
                           .filter(Boolean);
+                        // Include persisted last_ensemble_entry_date (survives top-N churn)
+                        if (dashboardData?.last_ensemble_entry_date) {
+                          allDates.push(dashboardData.last_ensemble_entry_date);
+                        }
                         if (allDates.length === 0) return null;
                         const latest = allDates.sort().reverse()[0];
                         const today = new Date(); today.setHours(0,0,0,0);
