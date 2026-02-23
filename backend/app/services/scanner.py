@@ -326,7 +326,7 @@ class ScannerService:
         failed = 0
         skipped = 0
 
-        today = pd.Timestamp.now().normalize()
+        today = pd.Timestamp.now(tz='UTC').normalize()
 
         logger.info(f"📊 Incremental update for {len(symbols)} symbols...")
 
