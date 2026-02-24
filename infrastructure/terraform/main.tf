@@ -552,56 +552,106 @@ resource "aws_iam_role_policy" "lambda_self_config" {
           "lambda:GetFunctionConfiguration",
           "lambda:UpdateFunctionConfiguration"
         ]
-        Resource = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.prefix}-api"
+        Resource = [
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.prefix}-api",
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.prefix}-worker"
+        ]
       }
     ]
   })
 }
 
-# Lambda Function - Using Container Image (10GB limit instead of 250MB)
+# Lambda invoke — allows API and Worker to invoke the Worker (for self-chaining)
+resource "aws_iam_role_policy" "lambda_invoke_worker" {
+  name = "${local.prefix}-lambda-invoke-worker"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "lambda:InvokeFunction"
+        Resource = aws_lambda_function.worker.arn
+      }
+    ]
+  })
+}
+
+# Shared env vars for both API and Worker Lambdas (same image, different roles)
+locals {
+  lambda_env_vars = {
+    DATABASE_URL                  = "postgresql://${aws_db_instance.main.username}:${var.db_password}@${aws_db_instance.main.endpoint}/${aws_db_instance.main.db_name}"
+    ENVIRONMENT                   = var.environment
+    FRONTEND_URL                  = "https://${var.domain_name}"
+    JWT_SECRET_KEY                = var.jwt_secret_key
+    STRIPE_SECRET_KEY             = var.stripe_secret_key
+    STRIPE_WEBHOOK_SECRET         = var.stripe_webhook_secret
+    STRIPE_PRICE_ID               = var.stripe_price_id
+    STRIPE_PRICE_ID_ANNUAL        = var.stripe_price_id_annual
+    TURNSTILE_SECRET_KEY          = var.turnstile_secret_key
+    PRICE_DATA_BUCKET             = aws_s3_bucket.price_data.bucket
+    SMTP_HOST                     = "smtp.gmail.com"
+    SMTP_PORT                     = "587"
+    SMTP_USER                     = var.smtp_user
+    SMTP_PASS                     = var.smtp_pass
+    FROM_EMAIL                    = "daily@rigacap.com"
+    FROM_NAME                     = "RigaCap Signals"
+    ADMIN_EMAILS                  = var.admin_emails
+    STEP_FUNCTIONS_ARN            = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current.account_id}:stateMachine:${local.prefix}-walk-forward"
+    ANTHROPIC_API_KEY             = var.anthropic_api_key
+    APPLE_CLIENT_ID               = var.apple_client_id
+    TWITTER_API_KEY               = var.twitter_api_key
+    TWITTER_API_SECRET            = var.twitter_api_secret
+    TWITTER_ACCESS_TOKEN          = var.twitter_access_token
+    TWITTER_ACCESS_TOKEN_SECRET   = var.twitter_access_token_secret
+    INSTAGRAM_ACCESS_TOKEN        = var.instagram_access_token
+    INSTAGRAM_BUSINESS_ACCOUNT_ID = var.instagram_business_account_id
+    THREADS_ACCESS_TOKEN          = var.threads_access_token
+    THREADS_USER_ID               = var.threads_user_id
+    WORKER_FUNCTION_NAME          = "${local.prefix}-worker"
+  }
+}
+
+# Lambda Function — API (HTTP requests only, no pickle, fast cold starts)
 resource "aws_lambda_function" "api" {
   function_name = "${local.prefix}-api"
   role          = aws_iam_role.lambda.arn
   package_type  = "Image"
   image_uri     = "${aws_ecr_repository.api.repository_url}:${var.lambda_image_tag}"
-  timeout       = 900  # 15 minutes (max for Lambda)
-  memory_size   = 3008 # Max for this AWS account (limit is 3008 MB)
+  timeout       = 30   # API Gateway limit is 29s
+  memory_size   = 1024 # No pickle needed — dashboard reads from S3 JSON cache
 
   environment {
-    variables = {
-      DATABASE_URL                  = "postgresql://${aws_db_instance.main.username}:${var.db_password}@${aws_db_instance.main.endpoint}/${aws_db_instance.main.db_name}"
-      ENVIRONMENT                   = var.environment
-      FRONTEND_URL                  = "https://${var.domain_name}"
-      JWT_SECRET_KEY                = var.jwt_secret_key
-      STRIPE_SECRET_KEY             = var.stripe_secret_key
-      STRIPE_WEBHOOK_SECRET         = var.stripe_webhook_secret
-      STRIPE_PRICE_ID               = var.stripe_price_id
-      STRIPE_PRICE_ID_ANNUAL        = var.stripe_price_id_annual
-      TURNSTILE_SECRET_KEY          = var.turnstile_secret_key
-      PRICE_DATA_BUCKET             = aws_s3_bucket.price_data.bucket
-      SMTP_HOST                     = "smtp.gmail.com"
-      SMTP_PORT                     = "587"
-      SMTP_USER                     = var.smtp_user
-      SMTP_PASS                     = var.smtp_pass
-      FROM_EMAIL                    = "daily@rigacap.com"
-      FROM_NAME                     = "RigaCap Signals"
-      ADMIN_EMAILS                  = var.admin_emails
-      STEP_FUNCTIONS_ARN            = "arn:aws:states:${var.aws_region}:${data.aws_caller_identity.current.account_id}:stateMachine:${local.prefix}-walk-forward"
-      ANTHROPIC_API_KEY             = var.anthropic_api_key
-      APPLE_CLIENT_ID               = var.apple_client_id
-      TWITTER_API_KEY               = var.twitter_api_key
-      TWITTER_API_SECRET            = var.twitter_api_secret
-      TWITTER_ACCESS_TOKEN          = var.twitter_access_token
-      TWITTER_ACCESS_TOKEN_SECRET   = var.twitter_access_token_secret
-      INSTAGRAM_ACCESS_TOKEN        = var.instagram_access_token
-      INSTAGRAM_BUSINESS_ACCOUNT_ID = var.instagram_business_account_id
-      THREADS_ACCESS_TOKEN          = var.threads_access_token
-      THREADS_USER_ID               = var.threads_user_id
-    }
+    variables = merge(local.lambda_env_vars, {
+      LAMBDA_ROLE = "api"
+    })
   }
 
   tags = {
     Name = "${local.prefix}-api"
+  }
+
+  depends_on = [aws_ecr_repository.api]
+}
+
+# Lambda Function — Worker (background jobs: scans, WF simulations, emails, social)
+resource "aws_lambda_function" "worker" {
+  function_name = "${local.prefix}-worker"
+  role          = aws_iam_role.lambda.arn
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.api.repository_url}:${var.lambda_image_tag}"
+  timeout       = 900  # 15 minutes (max for Lambda)
+  memory_size   = 4096 # Headroom for pickle + WF simulation
+
+  environment {
+    variables = merge(local.lambda_env_vars, {
+      LAMBDA_ROLE = "worker"
+    })
+  }
+
+  tags = {
+    Name = "${local.prefix}-worker"
   }
 
   depends_on = [aws_ecr_repository.api]
@@ -736,15 +786,15 @@ resource "aws_cloudwatch_event_rule" "scanner" {
 
 resource "aws_cloudwatch_event_target" "scanner" {
   rule      = aws_cloudwatch_event_rule.scanner.name
-  target_id = "lambda"
-  arn       = aws_lambda_function.api.arn
+  target_id = "lambda-worker"
+  arn       = aws_lambda_function.worker.arn
   input     = jsonencode({ daily_scan = true })
 }
 
 resource "aws_lambda_permission" "eventbridge" {
   statement_id  = "AllowEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.api.function_name
+  function_name = aws_lambda_function.worker.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.scanner.arn
 }
@@ -762,14 +812,14 @@ resource "aws_cloudwatch_event_rule" "warmer" {
 resource "aws_cloudwatch_event_target" "warmer" {
   rule      = aws_cloudwatch_event_rule.warmer.name
   target_id = "lambda-warmer"
-  arn       = aws_lambda_function.api.arn
-  input     = jsonencode({ path = "/health", httpMethod = "GET", warmer = true })
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ warmer = true })
 }
 
 resource "aws_lambda_permission" "warmer" {
   statement_id  = "AllowWarmerEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.api.function_name
+  function_name = aws_lambda_function.worker.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.warmer.arn
 }
@@ -787,14 +837,14 @@ resource "aws_cloudwatch_event_rule" "daily_emails" {
 resource "aws_cloudwatch_event_target" "daily_emails" {
   rule      = aws_cloudwatch_event_rule.daily_emails.name
   target_id = "lambda-daily-emails"
-  arn       = aws_lambda_function.api.arn
+  arn       = aws_lambda_function.worker.arn
   input     = jsonencode({ daily_emails = true })
 }
 
 resource "aws_lambda_permission" "daily_emails" {
   statement_id  = "AllowDailyEmailsEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.api.function_name
+  function_name = aws_lambda_function.worker.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.daily_emails.arn
 }
@@ -812,14 +862,14 @@ resource "aws_cloudwatch_event_rule" "double_signals" {
 resource "aws_cloudwatch_event_target" "double_signals" {
   rule      = aws_cloudwatch_event_rule.double_signals.name
   target_id = "lambda-double-signals"
-  arn       = aws_lambda_function.api.arn
+  arn       = aws_lambda_function.worker.arn
   input     = jsonencode({ double_signal_alerts = true })
 }
 
 resource "aws_lambda_permission" "double_signals" {
   statement_id  = "AllowDoubleSignalsEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.api.function_name
+  function_name = aws_lambda_function.worker.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.double_signals.arn
 }
@@ -837,14 +887,14 @@ resource "aws_cloudwatch_event_rule" "ticker_health" {
 resource "aws_cloudwatch_event_target" "ticker_health" {
   rule      = aws_cloudwatch_event_rule.ticker_health.name
   target_id = "lambda-ticker-health"
-  arn       = aws_lambda_function.api.arn
+  arn       = aws_lambda_function.worker.arn
   input     = jsonencode({ ticker_health_check = true })
 }
 
 resource "aws_lambda_permission" "ticker_health" {
   statement_id  = "AllowTickerHealthEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.api.function_name
+  function_name = aws_lambda_function.worker.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.ticker_health.arn
 }
@@ -862,14 +912,14 @@ resource "aws_cloudwatch_event_rule" "nightly_wf" {
 resource "aws_cloudwatch_event_target" "nightly_wf" {
   rule      = aws_cloudwatch_event_rule.nightly_wf.name
   target_id = "lambda-nightly-wf"
-  arn       = aws_lambda_function.api.arn
+  arn       = aws_lambda_function.worker.arn
   input     = jsonencode({ nightly_wf_job = {} })
 }
 
 resource "aws_lambda_permission" "nightly_wf" {
   statement_id  = "AllowNightlyWfEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.api.function_name
+  function_name = aws_lambda_function.worker.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.nightly_wf.arn
 }
@@ -887,14 +937,14 @@ resource "aws_cloudwatch_event_rule" "intraday_monitor" {
 resource "aws_cloudwatch_event_target" "intraday_monitor" {
   rule      = aws_cloudwatch_event_rule.intraday_monitor.name
   target_id = "lambda-intraday-monitor"
-  arn       = aws_lambda_function.api.arn
+  arn       = aws_lambda_function.worker.arn
   input     = jsonencode({ intraday_monitor = true })
 }
 
 resource "aws_lambda_permission" "intraday_monitor" {
   statement_id  = "AllowIntradayMonitorEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.api.function_name
+  function_name = aws_lambda_function.worker.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.intraday_monitor.arn
 }
@@ -912,14 +962,14 @@ resource "aws_cloudwatch_event_rule" "publish_posts" {
 resource "aws_cloudwatch_event_target" "publish_posts" {
   rule      = aws_cloudwatch_event_rule.publish_posts.name
   target_id = "lambda-publish-posts"
-  arn       = aws_lambda_function.api.arn
+  arn       = aws_lambda_function.worker.arn
   input     = jsonencode({ publish_scheduled_posts = true })
 }
 
 resource "aws_lambda_permission" "publish_posts" {
   statement_id  = "AllowPublishPostsEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.api.function_name
+  function_name = aws_lambda_function.worker.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.publish_posts.arn
 }
@@ -937,14 +987,14 @@ resource "aws_cloudwatch_event_rule" "post_notifications" {
 resource "aws_cloudwatch_event_target" "post_notifications" {
   rule      = aws_cloudwatch_event_rule.post_notifications.name
   target_id = "lambda-post-notifications"
-  arn       = aws_lambda_function.api.arn
+  arn       = aws_lambda_function.worker.arn
   input     = jsonencode({ post_notifications = true })
 }
 
 resource "aws_lambda_permission" "post_notifications" {
   statement_id  = "AllowPostNotificationsEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.api.function_name
+  function_name = aws_lambda_function.worker.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.post_notifications.arn
 }
@@ -962,14 +1012,14 @@ resource "aws_cloudwatch_event_rule" "strategy_analysis" {
 resource "aws_cloudwatch_event_target" "strategy_analysis" {
   rule      = aws_cloudwatch_event_rule.strategy_analysis.name
   target_id = "lambda-strategy-analysis"
-  arn       = aws_lambda_function.api.arn
+  arn       = aws_lambda_function.worker.arn
   input     = jsonencode({ strategy_auto_analysis = true })
 }
 
 resource "aws_lambda_permission" "strategy_analysis" {
   statement_id  = "AllowStrategyAnalysisEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.api.function_name
+  function_name = aws_lambda_function.worker.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.strategy_analysis.arn
 }
@@ -987,14 +1037,14 @@ resource "aws_cloudwatch_event_rule" "onboarding_drip" {
 resource "aws_cloudwatch_event_target" "onboarding_drip" {
   rule      = aws_cloudwatch_event_rule.onboarding_drip.name
   target_id = "lambda-onboarding-drip"
-  arn       = aws_lambda_function.api.arn
+  arn       = aws_lambda_function.worker.arn
   input     = jsonencode({ onboarding_drip = true })
 }
 
 resource "aws_lambda_permission" "onboarding_drip" {
   statement_id  = "AllowOnboardingDripEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.api.function_name
+  function_name = aws_lambda_function.worker.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.onboarding_drip.arn
 }
@@ -1010,14 +1060,14 @@ resource "aws_cloudwatch_event_rule" "pickle_rebuild" {
 resource "aws_cloudwatch_event_target" "pickle_rebuild" {
   rule      = aws_cloudwatch_event_rule.pickle_rebuild.name
   target_id = "lambda-pickle-rebuild"
-  arn       = aws_lambda_function.api.arn
+  arn       = aws_lambda_function.worker.arn
   input     = jsonencode({ pickle_rebuild = true })
 }
 
 resource "aws_lambda_permission" "pickle_rebuild" {
   statement_id  = "AllowPickleRebuildEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.api.function_name
+  function_name = aws_lambda_function.worker.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.pickle_rebuild.arn
 }
@@ -1044,7 +1094,7 @@ resource "aws_iam_role" "step_functions" {
   })
 }
 
-# Allow Step Functions to invoke Lambda
+# Allow Step Functions to invoke Worker Lambda
 resource "aws_iam_role_policy" "step_functions_lambda" {
   name = "${local.prefix}-sfn-lambda"
   role = aws_iam_role.step_functions.id
@@ -1055,7 +1105,7 @@ resource "aws_iam_role_policy" "step_functions_lambda" {
       {
         Effect   = "Allow"
         Action   = "lambda:InvokeFunction"
-        Resource = aws_lambda_function.api.arn
+        Resource = aws_lambda_function.worker.arn
       }
     ]
   })
@@ -1106,7 +1156,7 @@ resource "aws_sfn_state_machine" "walk_forward" {
   role_arn = aws_iam_role.step_functions.arn
 
   definition = templatefile("${path.module}/step-functions/walk-forward.json", {
-    lambda_arn = aws_lambda_function.api.arn
+    lambda_arn = aws_lambda_function.worker.arn
   })
 
   logging_configuration {

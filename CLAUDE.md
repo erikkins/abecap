@@ -419,6 +419,31 @@ with open('/tmp/card3-only.html', 'w') as f:
 
 **Important:** Do NOT create standalone JS — the cards share helper functions (`drawLogo`, `fillNavyGradient`, `drawGoldLine`, color constants like `NAVY = '#172554'`). Always extract the full `<script>` block and include all canvas elements (hidden ones fail silently).
 
+## Lambda Architecture (API + Worker Split)
+
+Two Lambda functions from the same Docker image, separated by `LAMBDA_ROLE` env var:
+
+- **API Lambda** (`rigacap-prod-api`): `LAMBDA_ROLE=api`, 1024 MB, 30s timeout. Handles HTTP requests only. Skips pickle loading entirely — dashboard reads S3 JSON cache, positions from DB. Fast cold starts (~2-3s).
+- **Worker Lambda** (`rigacap-prod-worker`): `LAMBDA_ROLE=worker`, 4096 MB, 900s timeout. Handles all EventBridge jobs (daily scan, emails, WF simulations, social publishing, pickle rebuild). Loads full 2+ GB pickle on cold start.
+
+Both Lambdas share the same IAM role. Self-invocations (chained jobs) use `WORKER_FUNCTION_NAME` env var.
+
+**Manual invoke always targets worker:**
+```bash
+aws lambda invoke --function-name rigacap-prod-worker --profile rigacap ...
+```
+
+## Security Review Cadence
+
+Run a security audit every 2-3 weeks. Verify:
+
+- All signal/dashboard/portfolio endpoints require auth (`require_valid_subscription` or `get_current_user`)
+- S3 price-data bucket is private (block all public access)
+- No signal data served via CDN or public S3 — all signal data flows through authenticated Lambda
+- CORS whitelist in API Gateway and FastAPI middleware matches only `rigacap.com` + localhost dev
+- Any new endpoints added since last review have proper auth guards
+- No secrets in frontend bundle or git history
+
 ## Code Style
 
 - Python: Black formatter, type hints preferred

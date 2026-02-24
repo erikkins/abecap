@@ -277,6 +277,13 @@ def _ensure_lambda_data_loaded():
         _lambda_data_loaded = True
         return
 
+    # API Lambda skips pickle loading entirely — dashboard reads from S3 JSON cache,
+    # positions from DB. This keeps API cold starts fast and memory under 1 GB.
+    if os.environ.get("LAMBDA_ROLE") == "api":
+        print("⚡ API Lambda: skipping pickle load (LAMBDA_ROLE=api)")
+        _lambda_data_loaded = True
+        return
+
     # Only load if cache is empty
     if not scanner_service.data_cache:
         print("📦 Lambda cold start: Loading data from S3...")
@@ -561,9 +568,36 @@ def handler(event, context):
     4. API Gateway HTTP API events (via Mangum)
     """
     import asyncio
+    import os
 
     # Ensure data is loaded on cold start
     _ensure_lambda_data_loaded()
+
+    # API Lambda skips all event payload checks — go straight to Mangum for HTTP requests.
+    # Worker Lambda (or unset LAMBDA_ROLE for backward compat) processes event payloads.
+    if os.environ.get("LAMBDA_ROLE") == "api":
+        # Only handle health-check warmers on API Lambda
+        if event.get("warmer"):
+            return {
+                "statusCode": 200,
+                "body": '{"status": "warm", "role": "api"}'
+            }
+        # Fall through to Mangum for API Gateway events
+        global _mangum_handler
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                asyncio.set_event_loop(asyncio.new_event_loop())
+                _mangum_handler = None
+        except RuntimeError:
+            asyncio.set_event_loop(asyncio.new_event_loop())
+            _mangum_handler = None
+
+        if _mangum_handler is None:
+            _mangum_handler = Mangum(app, lifespan="off")
+
+        return _mangum_handler(event, context)
 
     # Handle warmer events - just return success to keep Lambda warm
     if event.get("warmer"):
@@ -619,7 +653,7 @@ def handler(event, context):
                 print(f"⏰ Only {remaining_ms/1000:.0f}s remaining, deferring dashboard export via async self-invoke...")
                 import boto3, json as _json
                 boto3.client('lambda', region_name='us-east-1').invoke(
-                    FunctionName='rigacap-prod-api',
+                    FunctionName=os.environ.get('WORKER_FUNCTION_NAME', 'rigacap-prod-api'),
                     InvocationType='Event',  # async fire-and-forget
                     Payload=_json.dumps({
                         "export_dashboard_cache": True,
@@ -675,7 +709,7 @@ def handler(event, context):
             try:
                 import boto3, json as _json
                 boto3.client('lambda', region_name='us-east-1').invoke(
-                    FunctionName='rigacap-prod-api',
+                    FunctionName=os.environ.get('WORKER_FUNCTION_NAME', 'rigacap-prod-api'),
                     InvocationType='Event',
                     Payload=_json.dumps({"daily_wf_cache": True})
                 )
@@ -764,7 +798,7 @@ def handler(event, context):
                 try:
                     import boto3, json as _json
                     boto3.client('lambda', region_name='us-east-1').invoke(
-                        FunctionName='rigacap-prod-api',
+                        FunctionName=os.environ.get('WORKER_FUNCTION_NAME', 'rigacap-prod-api'),
                         InvocationType='Event',
                         Payload=_json.dumps({"daily_wf_cache": True})
                     )
@@ -844,7 +878,7 @@ def handler(event, context):
                 import boto3, json as _json
                 print(f"🔗 Self-chaining for {remaining_after} remaining symbols...")
                 boto3.client('lambda', region_name='us-east-1').invoke(
-                    FunctionName='rigacap-prod-api',
+                    FunctionName=os.environ.get('WORKER_FUNCTION_NAME', 'rigacap-prod-api'),
                     InvocationType='Event',  # async fire-and-forget
                     Payload=_json.dumps({"pickle_rebuild": True})
                 )

@@ -132,8 +132,8 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-      # Deploy Lambda with new container image
-      - name: Deploy Lambda
+      # Deploy same image to both API and Worker Lambdas
+      - name: Deploy Lambda (API + Worker)
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: rigacap-prod-api
@@ -142,28 +142,34 @@ jobs:
           aws lambda update-function-code \
             --function-name rigacap-prod-api \
             --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          aws lambda update-function-code \
+            --function-name rigacap-prod-worker \
+            --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      # Wait for Lambda update to fully propagate (invalidates all warm containers)
-      - name: Wait for Lambda update
+      # Wait for both Lambda updates to propagate
+      - name: Wait for Lambda updates
         run: |
-          echo "⏳ Waiting for Lambda function update to complete..."
-          aws lambda wait function-updated \
-            --function-name rigacap-prod-api
-          echo "✅ Lambda update propagated — all old containers invalidated"
+          echo "⏳ Waiting for Lambda updates to complete..."
+          aws lambda wait function-updated --function-name rigacap-prod-api
+          aws lambda wait function-updated --function-name rigacap-prod-worker
+          echo "✅ Both Lambdas updated — old containers invalidated"
 
-      # Post-deploy: Warmup Lambda to preload data
-      - name: Warmup Lambda
+      # Post-deploy: Warmup both Lambdas
+      - name: Warmup Lambdas
         run: |
-          echo "🔥 Warming up Lambda..."
-          # Call warmup endpoint to preload data from S3
-          curl -X POST "https://api.rigacap.com/api/warmup" \
-            -H "Content-Type: application/json" \
-            --max-time 300 || echo "⚠️ Warmup timed out - data will load on first request"
-          echo "✅ Lambda warmed up!"
+          echo "🔥 Warming up API Lambda..."
+          curl -s "https://api.rigacap.com/health" --max-time 30 || echo "⚠️ API warmup timed out"
+          echo "🔥 Warming up Worker Lambda..."
+          aws lambda invoke \
+            --function-name rigacap-prod-worker \
+            --payload '{"warmer": true}' \
+            --cli-read-timeout 300 \
+            /tmp/warmup-result.json || echo "⚠️ Worker warmup timed out"
+          echo "✅ Lambdas warmed up!"
 
       # Done
       - name: Deployment complete
         run: |
           echo "✅ Deployment complete!"
-          echo "Frontend: https://d1234567890.cloudfront.net"
-          echo "API: https://api123456.execute-api.us-east-1.amazonaws.com"
+          echo "API: https://api.rigacap.com"
+          echo "Worker: rigacap-prod-worker (EventBridge + direct invoke)"
