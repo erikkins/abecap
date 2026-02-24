@@ -228,7 +228,9 @@ class SchedulerService:
         from app.services.walk_forward_service import walk_forward_service
         from sqlalchemy import select, delete
 
-        end_date = datetime.now()
+        from zoneinfo import ZoneInfo
+        now_et = datetime.now(ZoneInfo("America/New_York"))
+        end_date = now_et.replace(tzinfo=None)
         start_date = end_date - timedelta(days=365)  # 1 year lookback
 
         async with async_session() as db:
