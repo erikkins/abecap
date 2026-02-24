@@ -671,6 +671,18 @@ def handler(event, context):
             except Exception as pe:
                 print(f"⚠️ Portfolio entry processing failed (non-fatal): {pe}")
 
+            # 8. Chain daily WF cache refresh (async, separate Lambda invocation)
+            try:
+                import boto3, json as _json
+                boto3.client('lambda', region_name='us-east-1').invoke(
+                    FunctionName='rigacap-prod-api',
+                    InvocationType='Event',
+                    Payload=_json.dumps({"daily_wf_cache": True})
+                )
+                print("📊 Chained daily WF cache refresh")
+            except Exception as ce:
+                print(f"⚠️ Failed to chain WF cache (non-fatal): {ce}")
+
             return {
                 "status": "success",
                 "signals": len(signals),
@@ -747,6 +759,18 @@ def handler(event, context):
                 except Exception as pe:
                     print(f"⚠️ Portfolio entry processing failed (non-fatal): {pe}")
                     result["portfolio_entries_error"] = str(pe)
+
+                # Chain daily WF cache refresh (async, separate Lambda invocation)
+                try:
+                    import boto3, json as _json
+                    boto3.client('lambda', region_name='us-east-1').invoke(
+                        FunctionName='rigacap-prod-api',
+                        InvocationType='Event',
+                        Payload=_json.dumps({"daily_wf_cache": True})
+                    )
+                    print("📊 Chained daily WF cache refresh")
+                except Exception as ce:
+                    print(f"⚠️ Failed to chain WF cache (non-fatal): {ce}")
 
             return result
 
@@ -839,6 +863,29 @@ def handler(event, context):
         except Exception as e:
             import traceback
             print(f"❌ Pickle rebuild failed: {e}")
+            traceback.print_exc()
+            return {"status": "failed", "error": str(e)}
+
+    # Handle daily WF cache (chained from daily scan — refreshes simulated portfolio)
+    if event.get("daily_wf_cache"):
+        print(f"📊 Daily WF cache triggered - {len(scanner_service.data_cache)} symbols in cache")
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _run_daily_wf_cache():
+            from app.services.scheduler import scheduler_service
+            await scheduler_service._run_daily_walk_forward()
+            return {"status": "success"}
+
+        try:
+            result = loop.run_until_complete(_run_daily_wf_cache())
+            print(f"📊 Daily WF cache result: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Daily WF cache failed: {e}")
             traceback.print_exc()
             return {"status": "failed", "error": str(e)}
 
