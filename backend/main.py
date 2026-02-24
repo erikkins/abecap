@@ -639,21 +639,29 @@ def handler(event, context):
             signals = await scanner_service.scan(refresh_data=False)
             print(f"📡 Scan complete: {len(signals)} signals")
 
-            # 3. Persist refreshed cache to S3 pickle for future cold starts
-            export_result = data_export_service.export_pickle(scanner_service.data_cache)
-            print(f"💾 Data cache persisted to S3: {export_result.get('count', 0)} symbols")
-
-            # 4. Store signals in DB + export to S3
+            # 3. Store signals in DB + export to S3 (fast, do before time check)
             await store_signals_callback(signals)
 
-            # 4b. Safety net: check remaining Lambda time before expensive dashboard export
+            # 3b. Check remaining time — pickle export is slow (~3-5 min for 344 MB)
+            # Defer it and dashboard export if running low on time
             remaining_ms = lambda_context.get_remaining_time_in_millis() if lambda_context else 900000
-            if remaining_ms < 180000:  # < 3 minutes remaining
-                print(f"⏰ Only {remaining_ms/1000:.0f}s remaining, deferring dashboard export via async self-invoke...")
+            print(f"⏱️ {remaining_ms/1000:.0f}s remaining after scan")
+
+            if remaining_ms < 300000:  # < 5 minutes remaining
+                print(f"⏰ Deferring pickle + dashboard export via async self-invoke...")
                 import boto3, json as _json
-                boto3.client('lambda', region_name='us-east-1').invoke(
-                    FunctionName=os.environ.get('WORKER_FUNCTION_NAME', 'rigacap-prod-api'),
-                    InvocationType='Event',  # async fire-and-forget
+                _lambda = boto3.client('lambda', region_name='us-east-1')
+                _worker = os.environ.get('WORKER_FUNCTION_NAME', 'rigacap-prod-api')
+                # Defer pickle rebuild
+                _lambda.invoke(
+                    FunctionName=_worker,
+                    InvocationType='Event',
+                    Payload=_json.dumps({"pickle_rebuild_from_scan": True})
+                )
+                # Defer dashboard export
+                _lambda.invoke(
+                    FunctionName=_worker,
+                    InvocationType='Event',
                     Payload=_json.dumps({
                         "export_dashboard_cache": True,
                         "include_snapshot": True,
@@ -664,10 +672,15 @@ def handler(event, context):
                     "status": "success",
                     "signals": len(signals),
                     "symbols_cached": len(scanner_service.data_cache),
+                    "pickle": {"deferred": True},
                     "dashboard": {"deferred": True},
                     "snapshot": {"deferred": True},
                     "ensemble_signals_persisted": "deferred",
                 }
+
+            # 4. Persist refreshed cache to S3 pickle (slow — only if time permits)
+            export_result = data_export_service.export_pickle(scanner_service.data_cache)
+            print(f"💾 Data cache persisted to S3: {export_result.get('count', 0)} symbols")
 
             # 5. Export dashboard JSON + daily snapshot
             async with async_session() as db:
@@ -814,6 +827,47 @@ def handler(event, context):
         except Exception as e:
             import traceback
             print(f"❌ Dashboard cache export failed: {e}")
+            traceback.print_exc()
+            return {"status": "failed", "error": str(e)}
+
+    # Handle pickle rebuild after daily scan (deferred from scan due to time constraints)
+    # Fresh Lambda = fresh 900s budget. Incremental fetch + pickle export.
+    if event.get("pickle_rebuild_from_scan"):
+        print(f"🔨 Deferred pickle rebuild - {len(scanner_service.data_cache)} symbols in cache")
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _deferred_pickle():
+            from app.services.data_export import data_export_service
+
+            # Re-run incremental fetch (cold start reloaded old pickle)
+            inc_result = await scanner_service.fetch_incremental()
+            print(f"📡 Incremental: {inc_result}")
+
+            # Export updated pickle
+            export_result = data_export_service.export_pickle(scanner_service.data_cache)
+            print(f"💾 Pickle saved: {export_result.get('count', 0)} symbols")
+
+            # Also export individual CSVs for API Lambda per-symbol loading
+            csv_result = data_export_service.export_all(scanner_service.data_cache)
+            print(f"💾 CSVs saved: {csv_result.get('count', 0)} symbols")
+
+            return {
+                "status": "success",
+                "incremental": inc_result,
+                "pickle": export_result,
+                "csvs": csv_result,
+            }
+
+        try:
+            result = loop.run_until_complete(_deferred_pickle())
+            print(f"🔨 Deferred pickle result: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Deferred pickle failed: {e}")
             traceback.print_exc()
             return {"status": "failed", "error": str(e)}
 
