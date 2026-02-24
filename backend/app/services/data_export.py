@@ -149,6 +149,72 @@ class DataExportService:
 
         return data_cache
 
+    def import_symbols(self, symbols: List[str]) -> Dict[str, pd.DataFrame]:
+        """
+        Import specific symbols from individual S3 CSVs (~250KB each).
+
+        Used by the API Lambda to load only the data needed for a request,
+        avoiding the full pickle download that would OOM on 1024 MB.
+
+        Args:
+            symbols: List of ticker symbols to load
+
+        Returns:
+            Dict mapping symbol to DataFrame (date-indexed)
+        """
+        data_cache = {}
+
+        if self._use_s3():
+            s3 = self._get_s3_client()
+            for symbol in symbols:
+                try:
+                    response = s3.get_object(
+                        Bucket=S3_BUCKET,
+                        Key=f"prices/{symbol}.csv"
+                    )
+                    csv_content = response['Body'].read().decode('utf-8')
+                    df = pd.read_csv(io.StringIO(csv_content))
+
+                    # Set date as index
+                    if 'date' in df.columns:
+                        df['date'] = pd.to_datetime(df['date'])
+                        df = df.set_index('date').sort_index()
+                    elif 'Date' in df.columns:
+                        df['Date'] = pd.to_datetime(df['Date'])
+                        df = df.set_index('Date').sort_index()
+                        df.index.name = 'date'
+
+                    # Strip timezone if present
+                    if df.index.tz is not None:
+                        df.index = df.index.tz_localize(None)
+
+                    data_cache[symbol] = df
+                    logger.info(f"Loaded {symbol} from S3 CSV ({len(df)} rows)")
+
+                except Exception as e:
+                    if 'NoSuchKey' in str(e):
+                        logger.debug(f"No S3 CSV for {symbol}")
+                    else:
+                        logger.error(f"Failed to load {symbol} from S3: {e}")
+        else:
+            # Local dev: load from parquet files
+            for symbol in symbols:
+                filepath = LOCAL_DATA_DIR / f"{symbol}.parquet"
+                if filepath.exists():
+                    try:
+                        df = pd.read_parquet(filepath)
+                        if 'date' in df.columns:
+                            df['date'] = pd.to_datetime(df['date'])
+                            df = df.set_index('date').sort_index()
+                        if 'dwap' not in df.columns:
+                            df = self._compute_indicators(df)
+                        data_cache[symbol] = df
+                        logger.info(f"Loaded {symbol} from local parquet ({len(df)} rows)")
+                    except Exception as e:
+                        logger.error(f"Failed to load {symbol} from local: {e}")
+
+        return data_cache
+
     def _compute_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Compute technical indicators on a price DataFrame"""
         if len(df) < 50:

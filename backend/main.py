@@ -3304,9 +3304,11 @@ async def get_market_regime(user: User = Depends(require_valid_subscription)):
     from app.services.market_regime import market_regime_service
 
     try:
-        # Ensure data is loaded
-        if not scanner_service.data_cache:
-            await scanner_service.ensure_data_loaded()
+        # Load SPY and VIX from S3 if not already cached
+        missing = [s for s in ['SPY', '^VIX'] if s not in scanner_service.data_cache]
+        if missing:
+            loaded = data_export_service.import_symbols(missing)
+            scanner_service.data_cache.update(loaded)
 
         spy_df = scanner_service.data_cache.get('SPY')
         if spy_df is None or len(spy_df) < 200:
@@ -3884,18 +3886,13 @@ async def get_stock_history(symbol: str, days: int = 252, user: User = Depends(r
     """Get historical price data for a symbol from cache"""
     symbol = symbol.upper()
 
-    # If cache is empty, try to load from S3 first (Lambda mode)
-    if not scanner_service.data_cache:
-        import os
-        is_lambda = os.environ.get("ENVIRONMENT") == "prod"
-        if is_lambda:
-            try:
-                cached_data = data_export_service.import_all()
-                if cached_data:
-                    scanner_service.data_cache = cached_data
-                    print(f"📦 Loaded {len(cached_data)} symbols from S3 for history request")
-            except Exception as e:
-                print(f"⚠️ Failed to load from S3: {e}")
+    # Load this symbol from S3 CSV if not already cached
+    if symbol not in scanner_service.data_cache:
+        try:
+            loaded = data_export_service.import_symbols([symbol])
+            scanner_service.data_cache.update(loaded)
+        except Exception as e:
+            logger.warning(f"Failed to load {symbol} from S3: {e}")
 
     if symbol not in scanner_service.data_cache:
         # Try to fetch it from yfinance
