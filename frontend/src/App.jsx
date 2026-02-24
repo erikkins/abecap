@@ -3015,11 +3015,13 @@ function Dashboard() {
                   <span className="text-xs text-gray-500">
                     {(() => {
                       // Find the most recent ensemble entry date
-                      // Priority: fresh signals > current signals > persisted DB date
-                      const freshDates = (dashboardData?.buy_signals || [])
-                        .filter(s => s.is_fresh)
-                        .map(s => s.ensemble_entry_date)
-                        .filter(Boolean);
+                      // Priority: unfiltered fresh dates (includes held positions) > current signals > persisted DB date
+                      const freshDates = dashboardData?.fresh_signal_dates?.length > 0
+                        ? [...dashboardData.fresh_signal_dates]
+                        : (dashboardData?.buy_signals || [])
+                            .filter(s => s.is_fresh)
+                            .map(s => s.ensemble_entry_date)
+                            .filter(Boolean);
                       const allDates = (dashboardData?.buy_signals || [])
                         .map(s => s.ensemble_entry_date)
                         .filter(Boolean);
@@ -3130,20 +3132,22 @@ function Dashboard() {
                       const monitoringSignals = (dashboardData?.buy_signals || []).filter(s => !s.is_fresh);
 
                       // Days since last ensemble signal (for dynamic empty-state messaging)
+                      // Use unfiltered fresh_signal_dates to include signals already held as positions
                       const daysSinceLastSignal = (() => {
-                        const allDates = (dashboardData?.buy_signals || [])
-                          .map(s => s.ensemble_entry_date)
-                          .filter(Boolean);
-                        // Include persisted last_ensemble_entry_date (survives top-N churn)
+                        const allDates = [
+                          ...(dashboardData?.fresh_signal_dates || []),
+                          ...(dashboardData?.buy_signals || []).map(s => s.ensemble_entry_date).filter(Boolean),
+                        ];
                         if (dashboardData?.last_ensemble_entry_date) {
                           allDates.push(dashboardData.last_ensemble_entry_date);
                         }
                         if (allDates.length === 0) return null;
-                        const latest = allDates.sort().reverse()[0];
+                        const latest = [...new Set(allDates)].sort().reverse()[0];
                         const today = new Date(); today.setHours(0,0,0,0);
                         const signalDate = new Date(latest + 'T00:00:00');
                         return Math.round((today - signalDate) / 86400000);
                       })();
+                      const heldFreshCount = (dashboardData?.total_fresh_count || 0) - freshSignals.length;
 
                       const renderSimpleSignal = (s) => {
                         const confidenceDots = Math.min(5, Math.max(1, Math.round((s.ensemble_score || 0) / 20)));
@@ -3273,8 +3277,10 @@ function Dashboard() {
                             </div>
                           ) : (
                             <div className="px-4 py-4 text-center text-sm text-gray-500 bg-gray-50 border-b border-gray-100">
-                              <p>No fresh buy signals today</p>
-                              {daysSinceLastSignal > 7 && (
+                              <p>{heldFreshCount > 0
+                                ? `All ${heldFreshCount} fresh signal${heldFreshCount > 1 ? 's' : ''} already in your positions`
+                                : 'No fresh buy signals today'}</p>
+                              {heldFreshCount === 0 && daysSinceLastSignal > 7 && (
                                 <p className="text-xs text-gray-400 mt-1.5 max-w-xs mx-auto">
                                   {daysSinceLastSignal <= 14
                                     ? "Quiet week. The ensemble is being selective — it waits for all three factors to line up."

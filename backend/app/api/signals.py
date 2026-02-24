@@ -1070,9 +1070,18 @@ async def get_dashboard_data(
         db, user, cached.get('regime_forecast')
     )
 
+    # Capture unfiltered fresh signal metadata before position filtering
+    all_buy_signals = cached.get('buy_signals', [])
+    fresh_signal_dates = [
+        s.get('ensemble_entry_date') or s.get('crossover_date')
+        for s in all_buy_signals if s.get('is_fresh')
+    ]
+    fresh_signal_dates = [d for d in fresh_signal_dates if d]  # remove None
+    total_fresh_count = sum(1 for s in all_buy_signals if s.get('is_fresh'))
+
     # Filter buy signals by user's open positions
     open_syms = {p.get('symbol', '') for p in positions_with_guidance}
-    buy_signals = [s for s in cached.get('buy_signals', []) if s['symbol'] not in open_syms]
+    buy_signals = [s for s in all_buy_signals if s['symbol'] not in open_syms]
 
     # Filter missed opportunities by user's open positions
     missed_opportunities = [
@@ -1089,6 +1098,9 @@ async def get_dashboard_data(
         'recent_signals': cached.get('recent_signals', []),
         'missed_opportunities': missed_opportunities,
         'generated_at': cached.get('generated_at', datetime.now().isoformat()),
+        'last_ensemble_entry_date': cached.get('last_ensemble_entry_date'),
+        'fresh_signal_dates': fresh_signal_dates,
+        'total_fresh_count': total_fresh_count,
     }
 
 
