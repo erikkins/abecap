@@ -999,6 +999,29 @@ resource "aws_lambda_permission" "onboarding_drip" {
   source_arn    = aws_cloudwatch_event_rule.onboarding_drip.arn
 }
 
+# Weekly pickle rebuild — Saturday 8 PM ET (Sunday 01:00 UTC)
+# Catches new symbols added to universe, rebuilds missing symbol cache
+resource "aws_cloudwatch_event_rule" "pickle_rebuild" {
+  name                = "${local.prefix}-pickle-rebuild"
+  description         = "Weekly pickle rebuild for missing universe symbols"
+  schedule_expression = "cron(0 1 ? * SUN *)"
+}
+
+resource "aws_cloudwatch_event_target" "pickle_rebuild" {
+  rule      = aws_cloudwatch_event_rule.pickle_rebuild.name
+  target_id = "lambda-pickle-rebuild"
+  arn       = aws_lambda_function.api.arn
+  input     = jsonencode({ pickle_rebuild = true })
+}
+
+resource "aws_lambda_permission" "pickle_rebuild" {
+  statement_id  = "AllowPickleRebuildEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.pickle_rebuild.arn
+}
+
 # ============================================================================
 # Step Functions - Walk-Forward Simulation
 # ============================================================================

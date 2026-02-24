@@ -269,6 +269,8 @@ docker buildx build --platform linux/amd64 --provenance=false --sbom=false -f Do
 
 **Note:** The Lambda init phase has a 10-second timeout. Database connections are initialized lazily on first request to avoid this timeout.
 
+**CRITICAL: NEVER use `aws lambda update-function-configuration --environment`** to force cold starts or change a single env var. This flag **REPLACES ALL environment variables**, wiping DATABASE_URL, Stripe keys, JWT secrets, etc. — causing a full production outage. To force a cold start, use `aws lambda update-function-code` with the current image URI instead.
+
 ### Invoking Lambda Directly (IMPORTANT)
 
 **API Gateway has a 29-second timeout.** For long-running operations (walk-forward simulations, backtests, AI optimization), you MUST invoke Lambda directly:

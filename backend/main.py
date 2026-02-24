@@ -557,7 +557,8 @@ def handler(event, context):
     Lambda handler that supports:
     1. Warmer events (from EventBridge scheduled warmer)
     2. Walk-forward async jobs (from async Lambda invocation)
-    3. API Gateway HTTP API events (via Mangum)
+    3. Pickle rebuild (self-chaining catch-up for missing symbols)
+    4. API Gateway HTTP API events (via Mangum)
     """
     import asyncio
 
@@ -660,6 +661,16 @@ def handler(event, context):
             except Exception as pe:
                 print(f"⚠️ Signal persistence failed (non-fatal): {pe}")
 
+            # 7. Auto-trigger model portfolio entries from fresh signals
+            entry_result = None
+            try:
+                from app.services.model_portfolio_service import model_portfolio_service
+                async with async_session() as mp_db:
+                    entry_result = await model_portfolio_service.process_entries(mp_db, "live")
+                    print(f"📈 Live portfolio entries: {entry_result}")
+            except Exception as pe:
+                print(f"⚠️ Portfolio entry processing failed (non-fatal): {pe}")
+
             return {
                 "status": "success",
                 "signals": len(signals),
@@ -667,6 +678,7 @@ def handler(event, context):
                 "dashboard": dash_result,
                 "snapshot": snap_result,
                 "ensemble_signals_persisted": persisted,
+                "portfolio_entries": entry_result,
             }
 
         try:
@@ -724,6 +736,18 @@ def handler(event, context):
                     print(f"⚠️ Signal persistence failed (non-fatal): {pe}")
                     result["ensemble_signals_error"] = str(pe)
 
+            # Auto-trigger model portfolio entries (deferred phase 2)
+            if event.get("include_ensemble"):
+                try:
+                    from app.services.model_portfolio_service import model_portfolio_service
+                    async with async_session() as mp_db:
+                        entry_result = await model_portfolio_service.process_entries(mp_db, "live")
+                        result["portfolio_entries"] = entry_result
+                        print(f"📈 Live portfolio entries: {entry_result}")
+                except Exception as pe:
+                    print(f"⚠️ Portfolio entry processing failed (non-fatal): {pe}")
+                    result["portfolio_entries_error"] = str(pe)
+
             return result
 
         try:
@@ -733,6 +757,72 @@ def handler(event, context):
         except Exception as e:
             import traceback
             print(f"❌ Dashboard cache export failed: {e}")
+            traceback.print_exc()
+            return {"status": "failed", "error": str(e)}
+
+    # Handle pickle rebuild (self-chaining catch-up queue for missing symbols)
+    if event.get("pickle_rebuild"):
+        print(f"🔨 Pickle rebuild triggered - {len(scanner_service.data_cache)} symbols in cache")
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _run_pickle_rebuild():
+            from app.services.data_export import data_export_service
+
+            # 1. Ensure universe is loaded
+            await scanner_service.ensure_universe_loaded()
+            universe_symbols = set(scanner_service.universe)
+            cached_symbols = set(scanner_service.data_cache.keys())
+            missing = sorted(universe_symbols - cached_symbols)
+
+            if not missing:
+                print("✅ All universe symbols already in cache")
+                return {
+                    "status": "complete",
+                    "fetched": 0,
+                    "remaining": 0,
+                    "total_cache": len(scanner_service.data_cache),
+                }
+
+            # 2. Take next chunk
+            CHUNK_SIZE = 200
+            chunk = missing[:CHUNK_SIZE]
+            remaining_after = len(missing) - len(chunk)
+            print(f"🔨 Fetching {len(chunk)} missing symbols ({remaining_after} remaining after this chunk)...")
+
+            # 3. Fetch full 5y history for chunk
+            await scanner_service.fetch_data(symbols=chunk)
+
+            # 4. Persist progress to S3
+            export_result = data_export_service.export_pickle(scanner_service.data_cache)
+            print(f"💾 Pickle saved: {export_result.get('count', 0)} symbols")
+
+            # 5. Self-chain if more remaining
+            if remaining_after > 0:
+                import boto3, json as _json
+                print(f"🔗 Self-chaining for {remaining_after} remaining symbols...")
+                boto3.client('lambda', region_name='us-east-1').invoke(
+                    FunctionName='rigacap-prod-api',
+                    InvocationType='Event',  # async fire-and-forget
+                    Payload=_json.dumps({"pickle_rebuild": True})
+                )
+
+            return {
+                "status": "success" if remaining_after > 0 else "complete",
+                "fetched": len(chunk),
+                "remaining": remaining_after,
+                "total_cache": len(scanner_service.data_cache),
+            }
+
+        try:
+            result = loop.run_until_complete(_run_pickle_rebuild())
+            print(f"🔨 Pickle rebuild result: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Pickle rebuild failed: {e}")
             traceback.print_exc()
             return {"status": "failed", "error": str(e)}
 
