@@ -1680,10 +1680,8 @@ function Dashboard() {
   const [trades, setTrades] = useState([]);
   const [missedOpportunities, setMissedOpportunities] = useState([]);
   const [backtest, setBacktest] = useState(null);
-  const [scanning, setScanning] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [lastScan, setLastScan] = useState(null);
   const [activeTab, setActiveTab] = useState('signals');
   const [dashboardData, setDashboardData] = useState(null); // Unified dashboard data
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -2053,11 +2051,6 @@ function Dashboard() {
       try {
         const health = await api.get('/health');
         setDataStatus({ loaded: health.symbols_loaded, status: 'ready' });
-        if (health.last_scan) {
-          // Ensure timestamp is parsed as UTC (backend returns UTC without Z suffix)
-          const ts = health.last_scan.endsWith('Z') ? health.last_scan : health.last_scan + 'Z';
-          setLastScan(new Date(ts));
-        }
         setLoading(false); // Definitely show dashboard now
       } catch (err) {
         // If health check fails but we have cached data, still show dashboard
@@ -2138,9 +2131,7 @@ function Dashboard() {
             const filteredSignals = signalsResult.value.signals.filter(s => !positionSymbols.has(s.symbol));
             setSignals(filteredSignals);
             setCache(CACHE_KEYS.SIGNALS, filteredSignals);
-            if (signalsResult.value.timestamp) {
-              setLastScan(new Date(signalsResult.value.timestamp));
-            }
+            // timestamp available in signalsResult.value.timestamp if needed
           }
 
           // Process market regime
@@ -2161,40 +2152,6 @@ function Dashboard() {
     loadData();
   }, []);
 
-  const runScan = async () => {
-    setScanning(true);
-    try {
-      // Refresh signals from API (memory-scan exports to CDN automatically)
-      const signalsResult = await api.get('/api/signals/memory-scan?refresh=true&apply_market_filter=true&export_to_cdn=true');
-
-      // Filter out signals for stocks user already has positions in
-      const positionSymbols = new Set(positions.map(p => p.symbol));
-      const filteredSignals = (signalsResult.signals || []).filter(s => !positionSymbols.has(s.symbol));
-      setSignals(filteredSignals);
-      setCache(CACHE_KEYS.SIGNALS, filteredSignals);
-      setLastScan(new Date(signalsResult.timestamp));
-
-      // Update market regime
-      const marketResult = await api.get('/api/market/regime');
-      setMarketRegime(marketResult);
-
-      // Re-run backtest for stats only (NOT for positions/trades)
-      // Note: We use simple backtest here for speed; daily walk-forward runs in background
-      try {
-        const backtestResult = await api.get('/api/backtest/run?days=252');
-        setBacktest({ ...backtestResult.backtest, strategy: backtestResult.strategy || 'momentum', is_walk_forward: false });
-        setCache(CACHE_KEYS.BACKTEST, backtestResult);
-        // Don't set positions/trades from backtest - use real user data only
-      } catch (btErr) {
-        console.log('Backtest failed - data may still be loading');
-      }
-
-    } catch (err) {
-      console.error('Scan failed:', err);
-    } finally {
-      setScanning(false);
-    }
-  };
 
   // Reload positions after a buy/sell - user data only, no backtest fallback
   const reloadPositions = async () => {
@@ -2423,20 +2380,8 @@ function Dashboard() {
               </div>
             )}
             <div className="text-right text-sm hidden md:block">
-              <span className="text-gray-500">Last scan: </span>
-              <span className="text-gray-700 font-medium">{lastScan ? lastScan.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : 'Never'}</span>
               <div className="text-xs text-gray-400">{dataStatus.loaded} symbols loaded</div>
             </div>
-            <button
-              onClick={runScan}
-              disabled={scanning}
-              className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 ${
-                scanning ? 'bg-gray-100 text-gray-400' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20'
-              }`}
-            >
-              <RefreshCw size={16} className={scanning ? 'animate-spin' : ''} />
-              <span className="hidden sm:inline">{scanning ? 'Scanning...' : 'Scan'}</span>
-            </button>
             {user ? (
               <div className="relative">
                 <button
@@ -2613,7 +2558,7 @@ function Dashboard() {
               <h3 className="font-semibold text-amber-800">Market Data Loading</h3>
               <p className="text-sm text-amber-700">
                 Historical data is being fetched. This may take a moment.
-                Click "Scan" to retry, or wait for the automatic refresh.
+                Data refreshes automatically — check back in a few minutes.
               </p>
             </div>
           </div>
