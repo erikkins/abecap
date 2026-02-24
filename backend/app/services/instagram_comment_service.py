@@ -34,7 +34,7 @@ TONE: Friendly, engaging, brief. Like a human social media manager.
 
 FORMAT: Under 200 chars. Plain text only. No markdown. No emojis at start."""
 
-INSTAGRAM_API_BASE = "https://graph.facebook.com/v24.0"
+INSTAGRAM_API_BASE = "https://graph.instagram.com/v24.0"
 
 
 class InstagramCommentService:
