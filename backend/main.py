@@ -569,6 +569,7 @@ def handler(event, context):
     """
     import asyncio
     import os
+    global _mangum_handler
 
     # Ensure data is loaded on cold start
     _ensure_lambda_data_loaded()
@@ -583,8 +584,6 @@ def handler(event, context):
                 "body": '{"status": "warm", "role": "api"}'
             }
         # Fall through to Mangum for API Gateway events
-        global _mangum_handler
-
         try:
             loop = asyncio.get_event_loop()
             if loop.is_closed():
@@ -2919,8 +2918,6 @@ def handler(event, context):
 
     # For API Gateway events, use Mangum
     # Create a fresh Mangum handler to avoid event loop issues on warm Lambdas
-    global _mangum_handler
-
     # Check if event loop is closed and reset if needed
     try:
         loop = asyncio.get_event_loop()
