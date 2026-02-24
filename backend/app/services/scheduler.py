@@ -261,7 +261,7 @@ class SchedulerService:
 
                 logger.info(f"[DAILY-WF] Starting 1-year walk-forward (job {job_id})")
 
-                # Run walk-forward without AI optimization (faster)
+                # Run walk-forward with ensemble strategy (production strategy)
                 result = await walk_forward_service.run_walk_forward_simulation(
                     db=db,
                     start_date=start_date,
@@ -270,7 +270,8 @@ class SchedulerService:
                     min_score_diff=10.0,
                     enable_ai_optimization=False,  # No AI for speed
                     max_symbols=100,  # Smaller universe for speed
-                    existing_job_id=job_id
+                    existing_job_id=job_id,
+                    fixed_strategy_id=5,  # Ensemble (DWAP+Momentum)
                 )
 
                 logger.info(f"[DAILY-WF] Complete: {result.total_return_pct:.1f}% return, "
