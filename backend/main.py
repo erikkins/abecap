@@ -795,7 +795,23 @@ def handler(event, context):
             # 3. Fetch full 5y history for chunk
             await scanner_service.fetch_data(symbols=chunk)
 
-            # 4. Persist progress to S3
+            # 4. Merge with latest S3 pickle (prevent concurrent chains from clobbering progress)
+            try:
+                import pickle, gzip as _gzip
+                import boto3 as _boto3
+                _s3 = _boto3.client('s3', region_name='us-east-1')
+                from app.services.data_export import S3_BUCKET as _bucket
+                _resp = _s3.get_object(Bucket=_bucket, Key='prices/all_data.pkl.gz')
+                s3_cache = pickle.loads(_gzip.decompress(_resp['Body'].read()))
+                if len(s3_cache) > len(scanner_service.data_cache) - len(chunk):
+                    # S3 has progress from another chain — merge our new symbols in
+                    s3_cache.update({k: v for k, v in scanner_service.data_cache.items() if k not in s3_cache})
+                    scanner_service.data_cache = s3_cache
+                    print(f"🔀 Merged with S3 pickle ({len(s3_cache)} symbols)")
+            except Exception as me:
+                print(f"⚠️ Merge skipped (non-fatal): {me}")
+
+            # 5. Persist progress to S3
             export_result = data_export_service.export_pickle(scanner_service.data_cache)
             print(f"💾 Pickle saved: {export_result.get('count', 0)} symbols")
 
