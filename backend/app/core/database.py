@@ -918,8 +918,8 @@ async def get_db():
     from fastapi import HTTPException, status
     global db_available, db_init_attempted
 
-    # Lazy initialization: try to init DB on first request if not done during startup
-    if not db_init_attempted:
+    # Lazy initialization: try to init DB on first request, or retry if previous attempt failed
+    if not db_available:
         try:
             await init_db()
         except Exception as e:
