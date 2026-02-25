@@ -2024,6 +2024,8 @@ function Dashboard() {
         current_price: livePrice,
         pnl_pct: pnlPct,
         high_water_mark: hwm,
+        trailing_stop_price: stopPrice,
+        trailing_stop_level: stopPrice,
         distance_to_stop_pct: distToStop,
         action,
         action_reason: actionReason,
