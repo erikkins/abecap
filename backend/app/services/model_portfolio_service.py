@@ -14,7 +14,7 @@ import logging
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import asc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import ModelPosition, ModelPortfolioState, ModelPortfolioSnapshot
@@ -1126,8 +1126,6 @@ class ModelPortfolioService:
         Calculate what a user's portfolio would look like if they followed
         our model portfolio signals from a given date.
         """
-        from sqlalchemy import asc
-
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
 
         # Get WF snapshots from start_date onward
@@ -1184,6 +1182,51 @@ class ModelPortfolioService:
             spy_return = ((snapshots[-1].spy_close / first_spy) - 1) * 100
             alpha = total_return - spy_return
 
+        # Inception return — earliest WF snapshot to latest
+        inception_return_pct = None
+        inception_date = None
+        inception_result = await db.execute(
+            select(ModelPortfolioSnapshot)
+            .where(ModelPortfolioSnapshot.portfolio_type == "walkforward")
+            .order_by(asc(ModelPortfolioSnapshot.snapshot_date))
+            .limit(1)
+        )
+        inception_snap = inception_result.scalar_one_or_none()
+        last_snap = snapshots[-1]
+        if inception_snap and inception_snap.total_value and inception_snap.total_value > 0:
+            inception_return_pct = round(
+                ((last_snap.total_value / inception_snap.total_value) - 1) * 100, 1
+            )
+            inception_date = inception_snap.snapshot_date.strftime("%Y-%m-%d")
+
+        # Best trade since user's start date
+        best_trade_result = await db.execute(
+            select(ModelPosition)
+            .where(
+                ModelPosition.portfolio_type == "walkforward",
+                ModelPosition.status == "closed",
+                ModelPosition.entry_date >= start_dt,
+                ModelPosition.pnl_pct.isnot(None),
+            )
+            .order_by(ModelPosition.pnl_pct.desc())
+            .limit(1)
+        )
+        best_trade = best_trade_result.scalar_one_or_none()
+
+        # Win/loss count since signup
+        trade_stats = await db.execute(
+            select(
+                func.count().label("total"),
+                func.count().filter(ModelPosition.pnl_pct > 0).label("wins"),
+            )
+            .where(
+                ModelPosition.portfolio_type == "walkforward",
+                ModelPosition.status == "closed",
+                ModelPosition.entry_date >= start_dt,
+            )
+        )
+        stats_row = trade_stats.one()
+
         return {
             "start_date": start_date,
             "initial_capital": initial_capital,
@@ -1195,6 +1238,16 @@ class ModelPortfolioService:
             "worst_day_pct": round(worst_day_pct, 2),
             "days_invested": len(equity_curve),
             "equity_curve": equity_curve,
+            "inception_return_pct": inception_return_pct,
+            "inception_date": inception_date,
+            "best_trade": {
+                "symbol": best_trade.symbol,
+                "pnl_pct": round(best_trade.pnl_pct, 1),
+                "entry_date": best_trade.entry_date.strftime("%Y-%m-%d"),
+                "exit_date": best_trade.exit_date.strftime("%Y-%m-%d"),
+            } if best_trade and best_trade.pnl_pct and best_trade.pnl_pct > 0 else None,
+            "trades_since_signup": stats_row.total,
+            "wins_since_signup": stats_row.wins,
         }
 
     # ------------------------------------------------------------------

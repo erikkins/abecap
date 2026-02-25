@@ -2545,29 +2545,85 @@ function Dashboard() {
               <h3 className="font-semibold text-lg">Your RigaCap Journey</h3>
               <span className="text-xs text-indigo-200">Since {journeyData.start_date}</span>
             </div>
+
+            {/* Sparkline — portfolio vs SPY */}
+            {journeyData.equity_curve && journeyData.equity_curve.length >= 3 && (
+              <div className="mb-3 -mx-1">
+                <ResponsiveContainer width="100%" height={60}>
+                  <AreaChart data={journeyData.equity_curve} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="journeyGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ffffff" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#ffffff" stopOpacity={0.05} />
+                      </linearGradient>
+                      <linearGradient id="spyGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <Area type="monotone" dataKey="value" stroke="#ffffff" strokeWidth={2}
+                          fill="url(#journeyGradient)" dot={false} />
+                    <Area type="monotone" dataKey="spy" stroke="#fbbf24" strokeWidth={1}
+                          fill="url(#spyGradient)" dot={false} strokeDasharray="4 2" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Metrics — alpha headline, return, portfolio value */}
             <div className="grid grid-cols-3 gap-4 mb-3">
               <div className="text-center">
+                <p className="text-xs text-indigo-200">Beating SPY</p>
+                <p className={`text-2xl font-bold ${journeyData.alpha_pct != null ? ((journeyData.alpha_pct >= 0) ? 'text-green-300' : 'text-red-300') : ''}`}>
+                  {journeyData.alpha_pct != null
+                    ? `${journeyData.alpha_pct >= 0 ? '+' : ''}${journeyData.alpha_pct}%`
+                    : `${journeyData.total_return_pct >= 0 ? '+' : ''}${journeyData.total_return_pct}%`}
+                </p>
+              </div>
+              <div className="text-center">
                 <p className="text-xs text-indigo-200">Your Return</p>
-                <p className="text-2xl font-bold">
+                <p className="text-xl font-semibold">
                   {journeyData.total_return_pct >= 0 ? '+' : ''}{journeyData.total_return_pct}%
                 </p>
               </div>
               <div className="text-center">
                 <p className="text-xs text-indigo-200">Portfolio Value</p>
-                <p className="text-2xl font-bold">${journeyData.current_value?.toLocaleString()}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-indigo-200">Alpha vs SPY</p>
-                <p className={`text-2xl font-bold ${(journeyData.alpha_pct || 0) >= 0 ? 'text-green-300' : 'text-red-300'}`}>
-                  {journeyData.alpha_pct != null ? `${journeyData.alpha_pct >= 0 ? '+' : ''}${journeyData.alpha_pct}%` : 'N/A'}
-                </p>
+                <p className="text-xl font-semibold">${journeyData.current_value?.toLocaleString()}</p>
               </div>
             </div>
+
+            {/* Badges — best trade + inception */}
+            {(journeyData.best_trade || journeyData.inception_return_pct != null) && (
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {journeyData.best_trade && (
+                  <span className="inline-flex items-center px-2.5 py-1 text-xs bg-white/15 rounded-full">
+                    Best trade: {journeyData.best_trade.symbol} +{journeyData.best_trade.pnl_pct}%
+                  </span>
+                )}
+                {journeyData.inception_return_pct != null && journeyData.inception_date && (
+                  <span className="inline-flex items-center px-2.5 py-1 text-xs bg-white/15 rounded-full">
+                    Since {journeyData.inception_date.slice(0, 4)}: +{journeyData.inception_return_pct}%
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Footer — trading days, W/L, share */}
             <div className="flex items-center justify-between">
-              <p className="text-xs text-indigo-200">{journeyData.days_invested} trading days</p>
+              <p className="text-xs text-indigo-200">
+                {journeyData.days_invested} trading days
+                {journeyData.trades_since_signup > 0
+                  ? ` \u00B7 ${journeyData.wins_since_signup}W ${journeyData.trades_since_signup - journeyData.wins_since_signup}L`
+                  : journeyData.trades_since_signup === 0 ? ' \u00B7 0 trades yet' : ''}
+              </p>
               <button
                 onClick={() => {
-                  const text = `If I'd invested $10,000 on ${journeyData.start_date} following @RigaCap signals, I'd have $${journeyData.current_value?.toLocaleString()} today (${journeyData.total_return_pct >= 0 ? '+' : ''}${journeyData.total_return_pct}%). rigacap.com/track-record`;
+                  let text = journeyData.alpha_pct != null
+                    ? `Following @RigaCap signals, I'm beating the S&P 500 by ${journeyData.alpha_pct >= 0 ? '+' : ''}${journeyData.alpha_pct}% since ${journeyData.start_date}.`
+                    : `Following @RigaCap signals: ${journeyData.total_return_pct >= 0 ? '+' : ''}${journeyData.total_return_pct}% since ${journeyData.start_date}.`;
+                  if (journeyData.best_trade) text += ` Best trade: ${journeyData.best_trade.symbol} +${journeyData.best_trade.pnl_pct}%.`;
+                  if (journeyData.inception_return_pct != null && journeyData.inception_date) text += ` Full track record: +${journeyData.inception_return_pct}% since ${journeyData.inception_date.slice(0, 4)}.`;
+                  text += ' rigacap.com/track-record';
                   navigator.clipboard.writeText(text);
                   setJourneyCopied(true);
                   setTimeout(() => setJourneyCopied(false), 2000);
