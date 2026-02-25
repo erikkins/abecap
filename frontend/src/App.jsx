@@ -2548,84 +2548,82 @@ function Dashboard() {
         )}
         {isAuthenticated && !checkoutSuccess && <SubscriptionBanner />}
 
-        {/* Your RigaCap Journey — subscriber personalized return card */}
+        {/* Your RigaCap Journey — compact card with sparkline background */}
         {journeyData && !journeyData.error && activeTab === 'signals' && (
-          <div className="mb-4 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-5 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-lg">Your RigaCap Journey</h3>
-              <span className="text-xs text-indigo-200">Since {journeyData.start_date}</span>
+          <div className="mb-4 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl text-white shadow-lg overflow-hidden">
+            {/* Main body — sparkline as background, metrics overlaid */}
+            <div className="relative px-5 pt-4 pb-3">
+              {/* Sparkline background */}
+              {journeyData.equity_curve && journeyData.equity_curve.length >= 3 && (
+                <div className="absolute inset-0 opacity-30 pointer-events-none">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={journeyData.equity_curve} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="journeyBg" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ffffff" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <Area type="monotone" dataKey="value" stroke="#ffffff" strokeWidth={1.5}
+                            fill="url(#journeyBg)" dot={false} />
+                      <Area type="monotone" dataKey="spy" stroke="#fbbf24" strokeWidth={1}
+                            fill="none" dot={false} strokeDasharray="4 2" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Content overlaid on sparkline */}
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-sm">Your RigaCap Journey</h3>
+                  <span className="text-xs text-indigo-200">Since {journeyData.start_date}</span>
+                </div>
+
+                {/* Metrics row */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="text-center">
+                    <p className="text-[10px] text-indigo-200 uppercase tracking-wide">Beating SPY</p>
+                    <p className={`text-xl font-bold ${journeyData.alpha_pct != null ? ((journeyData.alpha_pct >= 0) ? 'text-green-300' : 'text-red-300') : ''}`}>
+                      {journeyData.alpha_pct != null
+                        ? `${journeyData.alpha_pct >= 0 ? '+' : ''}${journeyData.alpha_pct}%`
+                        : `${journeyData.total_return_pct >= 0 ? '+' : ''}${journeyData.total_return_pct}%`}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-indigo-200 uppercase tracking-wide">Your Return</p>
+                    <p className="text-lg font-semibold">
+                      {journeyData.total_return_pct >= 0 ? '+' : ''}{journeyData.total_return_pct}%
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-indigo-200 uppercase tracking-wide">$10K would be</p>
+                    <p className="text-lg font-semibold">${journeyData.current_value?.toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Sparkline — portfolio vs SPY */}
-            {journeyData.equity_curve && journeyData.equity_curve.length >= 3 && (
-              <div className="mb-3 -mx-1">
-                <ResponsiveContainer width="100%" height={60}>
-                  <AreaChart data={journeyData.equity_curve} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="journeyGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ffffff" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#ffffff" stopOpacity={0.05} />
-                      </linearGradient>
-                      <linearGradient id="spyGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <Area type="monotone" dataKey="value" stroke="#ffffff" strokeWidth={2}
-                          fill="url(#journeyGradient)" dot={false} />
-                    <Area type="monotone" dataKey="spy" stroke="#fbbf24" strokeWidth={1}
-                          fill="url(#spyGradient)" dot={false} strokeDasharray="4 2" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
-            {/* Metrics — alpha headline, return, portfolio value */}
-            <div className="grid grid-cols-3 gap-4 mb-3">
-              <div className="text-center">
-                <p className="text-xs text-indigo-200">Beating SPY</p>
-                <p className={`text-2xl font-bold ${journeyData.alpha_pct != null ? ((journeyData.alpha_pct >= 0) ? 'text-green-300' : 'text-red-300') : ''}`}>
-                  {journeyData.alpha_pct != null
-                    ? `${journeyData.alpha_pct >= 0 ? '+' : ''}${journeyData.alpha_pct}%`
-                    : `${journeyData.total_return_pct >= 0 ? '+' : ''}${journeyData.total_return_pct}%`}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-indigo-200">Your Return</p>
-                <p className="text-xl font-semibold">
-                  {journeyData.total_return_pct >= 0 ? '+' : ''}{journeyData.total_return_pct}%
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-indigo-200">Portfolio Value</p>
-                <p className="text-xl font-semibold">${journeyData.current_value?.toLocaleString()}</p>
-              </div>
-            </div>
-
-            {/* Badges — best trade + inception */}
-            {(journeyData.best_trade || journeyData.inception_return_pct != null) && (
-              <div className="flex flex-wrap items-center gap-2 mb-3">
+            {/* Footer — badges, stats, share in one row */}
+            <div className="px-5 py-2 bg-black/10 flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap text-xs">
                 {journeyData.best_trade && (
-                  <span className="inline-flex items-center px-2.5 py-1 text-xs bg-white/15 rounded-full">
-                    Best trade: {journeyData.best_trade.symbol} +{journeyData.best_trade.pnl_pct}%
+                  <span className="inline-flex items-center px-2 py-0.5 bg-white/15 rounded-full">
+                    Best: {journeyData.best_trade.symbol} +{journeyData.best_trade.pnl_pct}%
                   </span>
                 )}
                 {journeyData.inception_return_pct != null && journeyData.inception_date && (
-                  <span className="inline-flex items-center px-2.5 py-1 text-xs bg-white/15 rounded-full">
+                  <span className="inline-flex items-center px-2 py-0.5 bg-white/15 rounded-full">
                     Since {journeyData.inception_date.slice(0, 4)}: +{journeyData.inception_return_pct}%
                   </span>
                 )}
+                <span className="text-indigo-200">
+                  {journeyData.days_invested}d
+                  {journeyData.trades_since_signup > 0
+                    ? ` \u00B7 ${journeyData.wins_since_signup}W ${journeyData.trades_since_signup - journeyData.wins_since_signup}L`
+                    : journeyData.trades_since_signup === 0 ? ' \u00B7 0 trades yet' : ''}
+                </span>
               </div>
-            )}
-
-            {/* Footer — trading days, W/L, share */}
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-indigo-200">
-                {journeyData.days_invested} trading days
-                {journeyData.trades_since_signup > 0
-                  ? ` \u00B7 ${journeyData.wins_since_signup}W ${journeyData.trades_since_signup - journeyData.wins_since_signup}L`
-                  : journeyData.trades_since_signup === 0 ? ' \u00B7 0 trades yet' : ''}
-              </p>
               <button
                 onClick={() => {
                   let text = journeyData.alpha_pct != null
@@ -2638,9 +2636,9 @@ function Dashboard() {
                   setJourneyCopied(true);
                   setTimeout(() => setJourneyCopied(false), 2000);
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                className="flex items-center gap-1 px-2 py-1 text-xs bg-white/20 hover:bg-white/30 rounded-md transition-colors shrink-0"
               >
-                {journeyCopied ? <><Check size={12} /> Copied!</> : <><Copy size={12} /> Share</>}
+                {journeyCopied ? <><Check size={11} /> Copied!</> : <><Copy size={11} /> Share</>}
               </button>
             </div>
           </div>
