@@ -75,11 +75,12 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       return data.access_token;
     } catch (err) {
-      clearTokens();
-      setUser(null);
+      console.warn('Token refresh failed:', err.message);
+      // Don't clear tokens on transient failures — keep stale token
+      // and retry on next request. Only clear on explicit logout.
       return null;
     }
-  }, [getTokens, setTokens, clearTokens]);
+  }, [getTokens, setTokens]);
 
   // Fetch with auth (auto-refresh on 401)
   const fetchWithAuth = useCallback(async (url, options = {}) => {
@@ -123,13 +124,21 @@ export function AuthProvider({ children }) {
           setUser(userData);
         } else if (response.status === 401) {
           // Try refresh
-          await refreshAccessToken();
-        } else {
-          clearTokens();
+          const newToken = await refreshAccessToken();
+          if (newToken) {
+            // Retry /me with new token
+            const retry = await fetch(`${API_URL}/api/auth/me`, {
+              headers: { 'Authorization': `Bearer ${newToken}` },
+            });
+            if (retry.ok) {
+              setUser(await retry.json());
+            }
+          }
         }
+        // Don't clear tokens on non-401 errors — could be transient
       } catch (err) {
         console.error('Failed to load user:', err);
-        clearTokens();
+        // Don't clear tokens on network errors — keep session for retry
       } finally {
         setLoading(false);
       }
