@@ -3694,6 +3694,15 @@ async def get_positions(user: User = Depends(get_current_user), db: AsyncSession
     )
     db_positions = result.scalars().all()
 
+    # Load any missing position symbols from S3 CSVs (API Lambda has no pickle)
+    missing_symbols = [p.symbol for p in db_positions if p.symbol not in scanner_service.data_cache]
+    if missing_symbols:
+        try:
+            loaded = data_export_service.import_symbols(missing_symbols)
+            scanner_service.data_cache.update(loaded)
+        except Exception as e:
+            logger.warning(f"Failed to load position symbols from S3: {e}")
+
     positions = []
     total_value = 0.0
     total_cost = 0.0
