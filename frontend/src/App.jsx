@@ -1804,8 +1804,9 @@ function Dashboard() {
       if (isInitial) setQuotesReady(true);
     };
 
-    // Initial fetch
+    // Initial fetch — reset quotesReady so positions show skeleton until live prices arrive
     if (positions.length > 0 || signals.length > 0) {
+      setQuotesReady(false);
       fetchLiveQuotes(true);
     } else {
       setQuotesReady(true);
