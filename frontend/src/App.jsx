@@ -1698,6 +1698,7 @@ function Dashboard() {
   const [regimeExpanded, setRegimeExpanded] = useState(false);
   const [liveQuotes, setLiveQuotes] = useState({});
   const [quotesLastUpdate, setQuotesLastUpdate] = useState(null);
+  const [quotesReady, setQuotesReady] = useState(false); // true after first live quotes fetch (or skip)
   const [viewMode, setViewMode] = useState(() => localStorage.getItem(CACHE_KEYS.VIEW_MODE) || 'simple');
   const [timeTravelDate, setTimeTravelDate] = useState(null); // "YYYY-MM-DD" or null
   const [timeTravelOpen, setTimeTravelOpen] = useState(false);
@@ -1778,18 +1779,18 @@ function Dashboard() {
 
   // Live quotes polling - updates prices every 30 seconds during market hours
   useEffect(() => {
-    if (timeTravelDate) return; // No live quotes in time-travel mode
+    if (timeTravelDate) { setQuotesReady(true); return; } // No live quotes in time-travel mode
 
-    const fetchLiveQuotes = async () => {
+    const fetchLiveQuotes = async (isInitial = false) => {
       // Skip if not authenticated (CDN data doesn't need live quotes)
-      if (!localStorage.getItem('accessToken')) return;
+      if (!localStorage.getItem('accessToken')) { if (isInitial) setQuotesReady(true); return; }
 
       // Get symbols from positions and signals
       const positionSymbols = positions.map(p => p.symbol);
       const signalSymbols = signals.slice(0, 10).map(s => s.symbol); // Top 10 signals
       const allSymbols = [...new Set([...positionSymbols, ...signalSymbols])];
 
-      if (allSymbols.length === 0) return;
+      if (allSymbols.length === 0) { if (isInitial) setQuotesReady(true); return; }
 
       try {
         const response = await api.get(`/api/quotes/live?symbols=${allSymbols.join(',')}`);
@@ -1800,15 +1801,18 @@ function Dashboard() {
       } catch (err) {
         console.log('Live quotes fetch failed:', err);
       }
+      if (isInitial) setQuotesReady(true);
     };
 
     // Initial fetch
     if (positions.length > 0 || signals.length > 0) {
-      fetchLiveQuotes();
+      fetchLiveQuotes(true);
+    } else {
+      setQuotesReady(true);
     }
 
     // Poll every 30 seconds
-    const interval = setInterval(fetchLiveQuotes, 30000);
+    const interval = setInterval(() => fetchLiveQuotes(false), 30000);
 
     return () => clearInterval(interval);
   }, [positions.length, signals.length, timeTravelDate]); // Re-run when positions or signals change
@@ -3485,7 +3489,14 @@ function Dashboard() {
                 </div>
 
                 <div className="max-h-[500px] overflow-y-auto">
-                  {(guidanceWithLiveQuotes.length > 0 ? guidanceWithLiveQuotes : positionsWithLiveQuotes).length > 0 ? (
+                  {!quotesReady && (guidanceWithLiveQuotes.length > 0 || positionsWithLiveQuotes.length > 0) ? (
+                    <div className="px-5 py-8 text-center text-sm text-gray-400">
+                      <div className="animate-pulse space-y-3">
+                        {[1,2,3].map(i => <div key={i} className="h-10 bg-gray-100 rounded" />)}
+                      </div>
+                      <p className="mt-3">Loading live prices...</p>
+                    </div>
+                  ) : (guidanceWithLiveQuotes.length > 0 ? guidanceWithLiveQuotes : positionsWithLiveQuotes).length > 0 ? (
                     viewMode === 'simple' ? (
                       /* Simple mode: list items with friendly status */
                       <div className="divide-y divide-gray-100">
@@ -3595,8 +3606,8 @@ function Dashboard() {
                   )}
                 </div>
 
-                {/* Action reasons for positions needing attention */}
-                {viewMode !== 'simple' && guidanceWithLiveQuotes.filter(p => p.action !== 'hold').length > 0 && (
+                {/* Action reasons for positions needing attention (wait for live prices) */}
+                {quotesReady && viewMode !== 'simple' && guidanceWithLiveQuotes.filter(p => p.action !== 'hold').length > 0 && (
                   <div className="border-t border-gray-100 px-4 py-3 space-y-1">
                     {guidanceWithLiveQuotes.filter(p => p.action !== 'hold').map(p => (
                       <div key={p.symbol} className={`text-xs px-2 py-1 rounded ${
