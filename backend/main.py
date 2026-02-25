@@ -1659,6 +1659,22 @@ def handler(event, context):
         async def _generate_social_posts():
             from app.core.database import ModelPosition, SocialPost
             from app.services.ai_content_service import ai_content_service
+            from sqlalchemy import delete as sa_delete, or_
+
+            # Delete draft posts by symbol list (cleanup tool)
+            delete_symbols = config.get("delete_symbols")
+            if delete_symbols:
+                async with async_session() as db:
+                    conditions = [SocialPost.text_content.ilike(f"%${s}%") | SocialPost.text_content.ilike(f"%{s} %") | SocialPost.text_content.ilike(f"%{s}:%") for s in delete_symbols]
+                    result = await db.execute(
+                        sa_delete(SocialPost).where(
+                            SocialPost.status == "draft",
+                            or_(*conditions),
+                        )
+                    )
+                    deleted = result.rowcount
+                    await db.commit()
+                    return {"status": "success", "deleted": deleted, "symbols": delete_symbols}
 
             min_pnl = config.get("min_pnl_pct", 5.0)
             platforms = config.get("platforms", ["twitter", "instagram", "threads"])
