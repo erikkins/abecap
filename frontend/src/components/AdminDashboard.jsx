@@ -1187,7 +1187,8 @@ function ModelPortfolioTab({ fetchWithAuth }) {
         const livePrice = quote.price;
         const pnlPct = pos.entry_price > 0 ? ((livePrice - pos.entry_price) / pos.entry_price) * 100 : 0;
         const pnlDollars = (livePrice - pos.entry_price) * (pos.shares || 0);
-        return { ...pos, current_price: livePrice, pnl_pct: pnlPct, pnl_dollars: pnlDollars };
+        const hwm = Math.max(pos.highest_price || pos.entry_price, livePrice);
+        return { ...pos, current_price: livePrice, pnl_pct: pnlPct, pnl_dollars: pnlDollars, highest_price: hwm };
       }
       return pos;
     });

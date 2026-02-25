@@ -2003,7 +2003,7 @@ function Dashboard() {
 
       // Recalculate trailing stop distance and action with live price
       const hwm = Math.max(p.high_water_mark || p.entry_price, livePrice);
-      const stopPrice = p.trailing_stop_price || (hwm * 0.88); // 12% trailing stop
+      const stopPrice = hwm * 0.88; // 12% trailing stop, always derived from live HWM
       const distToStop = stopPrice > 0 ? ((livePrice - stopPrice) / stopPrice) * 100 : 100;
       let action = p.action || 'hold';
       let actionReason = p.action_reason || '';
