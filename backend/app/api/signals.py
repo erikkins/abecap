@@ -1040,14 +1040,14 @@ async def get_dashboard_data(
             raise HTTPException(status_code=403, detail="Admin only")
         return await _compute_dashboard_live(db, user, momentum_top_n, fresh_days, as_of_date)
 
-    if not scanner_service.data_cache:
-        raise HTTPException(status_code=503, detail="Price data not loaded")
-
     # --- Normal mode: read pre-computed cache from S3 ---
+    # (API Lambda doesn't load the full pickle — dashboard.json is pre-computed by worker)
     cached = data_export_service.read_dashboard_json()
 
-    if cached is None:
-        # Fallback: compute live if S3 cache missing
+    if cached is None and not scanner_service.data_cache:
+        raise HTTPException(status_code=503, detail="Price data not loaded")
+    elif cached is None:
+        # Fallback: compute live if S3 cache missing but data is loaded
         cached = await compute_shared_dashboard_data(db, momentum_top_n, fresh_days)
 
     # --- Subscription gating ---
