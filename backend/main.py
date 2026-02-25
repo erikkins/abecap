@@ -649,6 +649,33 @@ def handler(event, context):
 
             if remaining_ms < 300000:  # < 5 minutes remaining
                 print(f"⏰ Deferring pickle + dashboard export via async self-invoke...")
+
+                # Export CSVs for critical symbols NOW (we have fresh data in memory)
+                # This ensures charts + positions show today's data even though full export is deferred
+                critical_symbols = set()
+                # Today's signal symbols
+                for sig in signals:
+                    sym = sig.get('symbol') or sig.get('Symbol', '')
+                    if sym:
+                        critical_symbols.add(sym)
+                # SPY + VIX for market regime
+                critical_symbols.update(['SPY', '^VIX'])
+                # Open position symbols
+                try:
+                    async with async_session() as pos_db:
+                        from sqlalchemy import text as _text
+                        pos_rows = (await pos_db.execute(
+                            _text("SELECT DISTINCT symbol FROM model_portfolio_positions WHERE status = 'open'")
+                        )).fetchall()
+                        critical_symbols.update(r[0] for r in pos_rows)
+                except Exception as pe:
+                    print(f"⚠️ Failed to get position symbols: {pe}")
+
+                critical_cache = {s: scanner_service.data_cache[s] for s in critical_symbols if s in scanner_service.data_cache}
+                if critical_cache:
+                    csv_result = data_export_service.export_all(critical_cache)
+                    print(f"📝 Exported {csv_result.get('count', 0)} critical CSVs (signals + positions)")
+
                 import boto3, json as _json
                 _lambda = boto3.client('lambda', region_name='us-east-1')
                 _worker = os.environ.get('WORKER_FUNCTION_NAME', 'rigacap-prod-api')
@@ -672,6 +699,7 @@ def handler(event, context):
                     "status": "success",
                     "signals": len(signals),
                     "symbols_cached": len(scanner_service.data_cache),
+                    "critical_csvs": len(critical_cache),
                     "pickle": {"deferred": True},
                     "dashboard": {"deferred": True},
                     "snapshot": {"deferred": True},
