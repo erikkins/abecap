@@ -3092,4 +3092,188 @@ The link expires in 72 hours."""
         return await self.send_email(to_email=to_email, subject=subject, html_content=html)
 
 
+    async def send_health_report(self, to_email: str, report) -> bool:
+        """
+        Send daily pipeline health report email.
+
+        Args:
+            to_email: Admin email address
+            report: HealthReport instance from health_monitor_service
+
+        Only sends when there are warnings/errors (unless always_send=True at caller).
+        """
+        from app.services.health_monitor_service import HealthStatus
+
+        total = len(report.checks)
+        green = report.green_count
+        yellow = report.yellow_count
+        red = report.red_count
+
+        # Subject line varies by severity
+        if red > 0:
+            subject = f"ALERT Pipeline Health: {red} Error(s)"
+            if yellow > 0:
+                subject += f", {yellow} Warning(s)"
+        elif yellow > 0:
+            names = ", ".join(report.yellow_names[:3])
+            subject = f"Pipeline Health: {yellow} Warning(s) -- {names}"
+        else:
+            subject = f"Pipeline Health: All Clear ({green}/{total} green)"
+
+        # Header color based on overall status
+        if report.overall_status == HealthStatus.RED:
+            header_bg = "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)"
+            header_label = "ERRORS DETECTED"
+        elif report.overall_status == HealthStatus.YELLOW:
+            header_bg = "linear-gradient(135deg, #d97706 0%, #b45309 100%)"
+            header_label = "WARNINGS"
+        else:
+            header_bg = "linear-gradient(135deg, #172554 0%, #1e3a5f 100%)"
+            header_label = "ALL SYSTEMS HEALTHY"
+
+        # Status icons
+        status_icons = {
+            HealthStatus.GREEN: "&#9989;",   # green checkmark
+            HealthStatus.YELLOW: "&#9888;&#65039;",  # warning
+            HealthStatus.RED: "&#10060;",    # red X
+        }
+
+        # Build rows grouped by category
+        check_rows = ""
+        current_category = None
+        for check in report.checks:
+            if check.category != current_category:
+                current_category = check.category
+                check_rows += f"""
+                <tr>
+                    <td colspan="4" style="padding: 12px 12px 6px; font-size: 11px; font-weight: 700;
+                        text-transform: uppercase; color: #6b7280; letter-spacing: 0.05em;
+                        border-top: 2px solid #e5e7eb;">
+                        {current_category}
+                    </td>
+                </tr>"""
+
+            row_bg = "#ffffff"
+            if check.status == HealthStatus.RED:
+                row_bg = "#fef2f2"
+            elif check.status == HealthStatus.YELLOW:
+                row_bg = "#fffbeb"
+
+            icon = status_icons.get(check.status, "")
+            check_rows += f"""
+                <tr style="background-color: {row_bg};">
+                    <td style="padding: 8px 12px; border-bottom: 1px solid #f3f4f6; font-size: 14px; width: 30px;">
+                        {icon}
+                    </td>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid #f3f4f6; font-size: 14px; font-weight: 600; color: #111827;">
+                        {check.name}
+                    </td>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid #f3f4f6; font-size: 14px; color: #374151;">
+                        {check.value}
+                    </td>
+                    <td style="padding: 8px 12px; border-bottom: 1px solid #f3f4f6; font-size: 13px; color: #6b7280;">
+                        {check.message}
+                    </td>
+                </tr>"""
+
+            # Resolution row for non-green checks
+            if check.status != HealthStatus.GREEN and check.resolution:
+                res_bg = "#fef3c7" if check.status == HealthStatus.YELLOW else "#fee2e2"
+                res_color = "#92400e" if check.status == HealthStatus.YELLOW else "#991b1b"
+                check_rows += f"""
+                <tr>
+                    <td colspan="4" style="padding: 4px 12px 10px 42px; font-size: 13px;
+                        color: {res_color}; background-color: {res_bg};">
+                        &#8594; {check.resolution}
+                    </td>
+                </tr>"""
+
+        # Summary banner
+        summary_parts = []
+        if green > 0:
+            summary_parts.append(f'<span style="color: #16a34a; font-weight: 700;">{green} green</span>')
+        if yellow > 0:
+            summary_parts.append(f'<span style="color: #d97706; font-weight: 700;">{yellow} yellow</span>')
+        if red > 0:
+            summary_parts.append(f'<span style="color: #dc2626; font-weight: 700;">{red} red</span>')
+        summary_text = " &bull; ".join(summary_parts)
+
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 650px; margin: 0 auto; background-color: #ffffff;">
+        <!-- Header -->
+        <tr>
+            <td style="background: {header_bg}; padding: 28px 24px; text-align: center;">
+                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="36" height="36"
+                    style="display: block; margin: 0 auto 10px auto; border-radius: 50%;" />
+                <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 700;">
+                    Pipeline Health Report
+                </h1>
+                <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
+                    {header_label}
+                </p>
+            </td>
+        </tr>
+
+        <!-- Summary Banner -->
+        <tr>
+            <td style="padding: 16px 24px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                <p style="margin: 0; font-size: 15px; text-align: center;">
+                    {summary_text} &mdash; {total} checks total
+                </p>
+            </td>
+        </tr>
+
+        <!-- Check Table -->
+        <tr>
+            <td style="padding: 8px 16px 16px;">
+                <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                    {check_rows}
+                </table>
+            </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+            <td style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                    Daily Pipeline Health Report &mdash; RigaCap Admin
+                </p>
+                <p style="margin: 6px 0 0 0; font-size: 12px; color: #9ca3af;">
+                    {report.timestamp.strftime('%Y-%m-%d %H:%M')} ET
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>"""
+
+        # Plain text fallback
+        text_lines = [
+            "PIPELINE HEALTH REPORT",
+            "=" * 40,
+            f"{green} green, {yellow} yellow, {red} red ({total} checks)",
+            "",
+        ]
+        for check in report.checks:
+            icon = {"green": "OK", "yellow": "WARN", "red": "FAIL"}.get(check.status.value, "??")
+            text_lines.append(f"[{icon}] {check.name}: {check.value} - {check.message}")
+            if check.status != HealthStatus.GREEN and check.resolution:
+                text_lines.append(f"     -> {check.resolution}")
+        text_lines.append("")
+        text_lines.append(f"Generated: {report.timestamp.strftime('%Y-%m-%d %H:%M')} ET")
+
+        return await self.send_email(
+            to_email=to_email,
+            subject=subject,
+            html_content=html,
+            text_content="\n".join(text_lines),
+        )
+
+
 admin_email_service = AdminEmailService()

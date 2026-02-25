@@ -644,6 +644,10 @@ resource "aws_lambda_function" "worker" {
   timeout       = 900  # 15 minutes (max for Lambda)
   memory_size   = 3008 # Max for this AWS account
 
+  ephemeral_storage {
+    size = 1024 # MB — needed for streaming pickle export (344 MB compressed)
+  }
+
   environment {
     variables = merge(local.lambda_env_vars, {
       LAMBDA_ROLE = "worker"
@@ -1073,6 +1077,33 @@ resource "aws_lambda_permission" "pickle_rebuild" {
 }
 
 # ============================================================================
+# EventBridge - Daily Pipeline Health Report (7:30 AM ET = 12:30 UTC, daily)
+# Runs lightweight checks (S3 HEAD, CloudWatch, DB counts) — no pickle loading.
+# Emails admins only when warnings/errors are detected.
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "pipeline_health" {
+  name                = "${local.prefix}-pipeline-health"
+  description         = "Daily pipeline health report at 7:30 AM ET"
+  schedule_expression = "cron(30 12 * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "pipeline_health" {
+  rule      = aws_cloudwatch_event_rule.pipeline_health.name
+  target_id = "lambda-pipeline-health"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ pipeline_health_report = { always_send = false } })
+}
+
+resource "aws_lambda_permission" "pipeline_health" {
+  statement_id  = "AllowPipelineHealthEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.pipeline_health.arn
+}
+
+# ============================================================================
 # Step Functions - Walk-Forward Simulation
 # ============================================================================
 
@@ -1405,6 +1436,56 @@ resource "aws_cloudwatch_metric_alarm" "rds_connections" {
 
   tags = {
     Name = "${local.prefix}-rds-connections"
+  }
+}
+
+# Worker Lambda Errors — any errors in 5 minutes (currently NO alarm on Worker)
+resource "aws_cloudwatch_metric_alarm" "worker_errors" {
+  alarm_name          = "${local.prefix}-worker-errors"
+  alarm_description   = "Worker Lambda errors exceeded threshold"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Errors"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.worker.function_name
+  }
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+
+  tags = {
+    Name = "${local.prefix}-worker-errors"
+  }
+}
+
+# Worker Lambda Duration — approaching 900s timeout (alert at 810s = 90%)
+resource "aws_cloudwatch_metric_alarm" "worker_duration" {
+  alarm_name          = "${local.prefix}-worker-duration"
+  alarm_description   = "Worker Lambda duration approaching 900s timeout"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Duration"
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 810000 # 810 seconds in milliseconds (90% of 900s)
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.worker.function_name
+  }
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+
+  tags = {
+    Name = "${local.prefix}-worker-duration"
   }
 }
 

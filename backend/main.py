@@ -571,6 +571,55 @@ def handler(event, context):
     import os
     global _mangum_handler
 
+    # Pipeline health report — runs WITHOUT pickle (lightweight S3/CW/DB checks only)
+    # Must be handled BEFORE _ensure_lambda_data_loaded() to skip the 2+ GB pickle load
+    if event.get("pipeline_health_report"):
+        print("🩺 Pipeline health report triggered")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            async def _run_health_report():
+                from app.services.health_monitor_service import health_monitor_service
+                from app.services.email_service import admin_email_service, ADMIN_EMAILS
+
+                report = await health_monitor_service.run_all_checks()
+
+                # Only email if there are issues (unless always_send is set)
+                config = event.get("pipeline_health_report", {})
+                always_send = config.get("always_send", False) if isinstance(config, dict) else False
+
+                should_send = always_send or report.yellow_count > 0 or report.red_count > 0
+
+                if should_send:
+                    for admin in ADMIN_EMAILS:
+                        await admin_email_service.send_health_report(admin, report)
+                    print(f"📧 Health report emailed: {report.green_count}G/{report.yellow_count}Y/{report.red_count}R")
+                else:
+                    print(f"✅ All clear ({report.green_count}/{len(report.checks)} green) — no email sent")
+
+                return {
+                    "status": report.overall_status.value,
+                    "green": report.green_count,
+                    "yellow": report.yellow_count,
+                    "red": report.red_count,
+                    "email_sent": should_send,
+                    "checks": [
+                        {"name": c.name, "status": c.status.value, "value": c.value, "message": c.message}
+                        for c in report.checks
+                    ],
+                }
+
+            result = loop.run_until_complete(_run_health_report())
+            return {"statusCode": 200, "body": result}
+        except Exception as e:
+            import traceback
+            print(f"❌ Health report failed: {e}")
+            print(traceback.format_exc())
+            return {"statusCode": 500, "error": str(e)}
+
     # Ensure data is loaded on cold start
     _ensure_lambda_data_loaded()
 
