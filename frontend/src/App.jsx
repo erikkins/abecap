@@ -1989,10 +1989,28 @@ function Dashboard() {
     if (quote) {
       const livePrice = quote.price;
       const pnlPct = ((livePrice - p.entry_price) / p.entry_price) * 100;
+
+      // Recalculate trailing stop distance and action with live price
+      const hwm = Math.max(p.high_water_mark || p.entry_price, livePrice);
+      const stopPrice = p.trailing_stop_price || (hwm * 0.88); // 12% trailing stop
+      const distToStop = stopPrice > 0 ? ((livePrice - stopPrice) / stopPrice) * 100 : 100;
+      let action = p.action || 'hold';
+      if (livePrice <= stopPrice) {
+        action = 'sell';
+      } else if (distToStop < 3) {
+        action = 'warning';
+      } else if (p.action === 'warning' && distToStop >= 5) {
+        // Clear stale warning if live price moved well above stop
+        action = 'hold';
+      }
+
       return {
         ...p,
         current_price: livePrice,
         pnl_pct: pnlPct,
+        high_water_mark: hwm,
+        distance_to_stop_pct: distToStop,
+        action,
         live_change: quote.change,
         live_change_pct: quote.change_pct,
       };
