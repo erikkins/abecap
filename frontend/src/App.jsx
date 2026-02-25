@@ -1955,13 +1955,8 @@ function Dashboard() {
 
     const fetchJourney = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/signals/what-if?capital=10000`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (!data.error) setJourneyData(data);
-        }
+        const data = await api.get('/api/signals/what-if?capital=10000');
+        if (!data.error) setJourneyData(data);
       } catch (err) {
         console.log('Journey fetch failed:', err);
       }
