@@ -1983,6 +1983,23 @@ function Dashboard() {
     return p;
   });
 
+  // Merge live quotes into dashboard positions_with_guidance (these take render priority)
+  const guidanceWithLiveQuotes = (dashboardData?.positions_with_guidance || []).map(p => {
+    const quote = liveQuotes[p.symbol];
+    if (quote) {
+      const livePrice = quote.price;
+      const pnlPct = ((livePrice - p.entry_price) / p.entry_price) * 100;
+      return {
+        ...p,
+        current_price: livePrice,
+        pnl_pct: pnlPct,
+        live_change: quote.change,
+        live_change_pct: quote.change_pct,
+      };
+    }
+    return p;
+  });
+
   // Merge live quotes into signals for display
   const signalsWithLiveQuotes = signals.map(s => {
     const quote = liveQuotes[s.symbol];
@@ -3384,11 +3401,11 @@ function Dashboard() {
                 </div>
 
                 <div className="max-h-[500px] overflow-y-auto">
-                  {(dashboardData?.positions_with_guidance || positionsWithLiveQuotes).length > 0 ? (
+                  {(guidanceWithLiveQuotes.length > 0 ? guidanceWithLiveQuotes : positionsWithLiveQuotes).length > 0 ? (
                     viewMode === 'simple' ? (
                       /* Simple mode: list items with friendly status */
                       <div className="divide-y divide-gray-100">
-                        {(dashboardData?.positions_with_guidance || positionsWithLiveQuotes).map((p) => {
+                        {(guidanceWithLiveQuotes.length > 0 ? guidanceWithLiveQuotes : positionsWithLiveQuotes).map((p) => {
                           const action = p.action || 'hold';
                           const pnl = p.pnl_pct || ((p.current_price - p.entry_price) / p.entry_price * 100) || 0;
                           const friendlyStatus = action === 'sell' ? 'Consider selling'
@@ -3432,7 +3449,7 @@ function Dashboard() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {(dashboardData?.positions_with_guidance || positionsWithLiveQuotes).map((p) => {
+                          {(guidanceWithLiveQuotes.length > 0 ? guidanceWithLiveQuotes : positionsWithLiveQuotes).map((p) => {
                             const action = p.action || 'hold';
                             const pnl = p.pnl_pct || ((p.current_price - p.entry_price) / p.entry_price * 100) || 0;
                             const pnlColor = pnl >= 0 ? 'text-emerald-600' : 'text-red-500';
