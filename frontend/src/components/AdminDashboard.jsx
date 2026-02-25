@@ -1162,7 +1162,10 @@ function ModelPortfolioTab({ fetchWithAuth }) {
   };
 
   const fetchLiveQuotes = async (positions) => {
-    const symbols = (positions || data?.strategies?.flatMap(s => s.open_positions?.map(p => p.symbol) || []) || []);
+    const symbols = positions || [
+      ...(data?.live?.open_positions || []),
+      ...(data?.walkforward?.open_positions || []),
+    ].map(p => p.symbol);
     if (symbols.length === 0) return;
     try {
       const response = await fetchWithAuth(`${API_URL}/api/quotes/live?symbols=${[...new Set(symbols)].join(',')}`);
