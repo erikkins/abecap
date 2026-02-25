@@ -84,6 +84,13 @@ class DataExportService:
                 # Reset index to include date as column
                 df_export = df.reset_index()
 
+                # Normalize date column name (some DataFrames use 'index' or other names)
+                if 'date' not in df_export.columns and 'Date' not in df_export.columns:
+                    for col in ['index', 'Index']:
+                        if col in df_export.columns:
+                            df_export = df_export.rename(columns={col: 'date'})
+                            break
+
                 # Ensure date column is proper datetime
                 if 'date' in df_export.columns:
                     df_export['date'] = pd.to_datetime(df_export['date'])
@@ -175,13 +182,17 @@ class DataExportService:
                     csv_content = response['Body'].read().decode('utf-8')
                     df = pd.read_csv(io.StringIO(csv_content))
 
-                    # Set date as index
+                    # Set date as index (CSVs may use 'date', 'Date', or 'index' as column name)
                     if 'date' in df.columns:
                         df['date'] = pd.to_datetime(df['date'])
                         df = df.set_index('date').sort_index()
                     elif 'Date' in df.columns:
                         df['Date'] = pd.to_datetime(df['Date'])
                         df = df.set_index('Date').sort_index()
+                        df.index.name = 'date'
+                    elif 'index' in df.columns:
+                        df['index'] = pd.to_datetime(df['index'])
+                        df = df.set_index('index').sort_index()
                         df.index.name = 'date'
 
                     # Strip timezone if present
