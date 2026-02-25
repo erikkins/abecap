@@ -2,6 +2,8 @@
 Signals API - Trading signal endpoints
 """
 
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -183,13 +185,14 @@ async def run_memory_scan(
     admin: User = Depends(get_admin_user),
 ):
     """
-    Run market scan without database (memory only)
-
-    - **refresh**: If true, fetch fresh data from Yahoo Finance
-    - **apply_market_filter**: Apply bull/bear market filtering
-    - **min_strength**: Minimum signal strength (0-100)
-    - **export_to_cdn**: Export signals to S3 for CDN delivery (default true)
+    Run market scan without database (memory only).
+    Worker Lambda only — requires pickle data that exceeds API Lambda memory.
     """
+    if os.environ.get("LAMBDA_ROLE") == "api":
+        raise HTTPException(
+            status_code=400,
+            detail="memory-scan requires the worker Lambda. Use the worker invoke or wait for the daily scan.",
+        )
     try:
         signals = await scanner_service.scan(
             refresh_data=refresh,

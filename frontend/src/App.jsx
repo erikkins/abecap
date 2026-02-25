@@ -82,25 +82,31 @@ const isCacheValid = (key, maxAge) => {
 };
 
 const api = {
+  _refreshPromise: null,
   _authHeaders() {
     const token = localStorage.getItem('accessToken');
     return token ? { 'Authorization': `Bearer ${token}` } : {};
   },
   async _refreshToken() {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) return false;
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      });
-      if (!res.ok) return false;
-      const data = await res.json();
-      localStorage.setItem('accessToken', data.access_token);
-      if (data.refresh_token) localStorage.setItem('refreshToken', data.refresh_token);
-      return true;
-    } catch { return false; }
+    // Mutex: if a refresh is already in-flight, wait for it instead of firing another
+    if (this._refreshPromise) return this._refreshPromise;
+    this._refreshPromise = (async () => {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) return false;
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+        if (!res.ok) return false;
+        const data = await res.json();
+        localStorage.setItem('accessToken', data.access_token);
+        if (data.refresh_token) localStorage.setItem('refreshToken', data.refresh_token);
+        return true;
+      } catch { return false; }
+    })();
+    try { return await this._refreshPromise; } finally { this._refreshPromise = null; }
   },
   async _fetchWithRetry(endpoint, options = {}) {
     let res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers: { ...options.headers, ...this._authHeaders() } });
@@ -2105,8 +2111,7 @@ function Dashboard() {
           // Load all data in parallel - try cached walk-forward first, fallback to simple backtest
           const [walkForwardResult, signalsResult, marketResult, userPositionsResult, userTradesResult] = await Promise.allSettled([
             api.get('/api/backtest/walk-forward-cached').catch(() => null),
-            // Only fetch from API if CDN failed
-            signals.length === 0 ? api.get('/api/signals/memory-scan?refresh=false&apply_market_filter=true').catch(() => null) : Promise.resolve(null),
+            Promise.resolve(null), // signals loaded from CDN; memory-scan is worker-only
             api.get('/api/market/regime').catch(() => null),
             api.get('/api/portfolio/positions').catch(() => null),
             api.get('/api/portfolio/trades?limit=50').catch(() => null),
