@@ -1653,66 +1653,51 @@ def handler(event, context):
 
     # Generate AI posts from real WF trades and save to DB (direct Lambda invocation)
     if event.get("generate_social_posts"):
-        print("🤖 Generate social posts from WF trades")
+        print("🤖 Generate social posts from LIVE portfolio trades")
         config = event["generate_social_posts"]
 
         async def _generate_social_posts():
-            import json as _json
-            from app.core.database import SocialPost, WalkForwardSimulation
+            from app.core.database import ModelPosition, SocialPost
             from app.services.ai_content_service import ai_content_service
-            from sqlalchemy import delete as sa_delete
 
-            job_id = config.get("job_id", 112)
             min_pnl = config.get("min_pnl_pct", 5.0)
-            since_date = config.get("since_date", "2026-01-01")
-            clear_existing = config.get("clear_existing", False)
             platforms = config.get("platforms", ["twitter", "instagram", "threads"])
-            post_types = config.get("post_types", ["trade_result", "missed_opportunity"])
+            post_types = config.get("post_types", ["trade_result", "we_called_it"])
             max_trades = config.get("max_trades", 5)
 
             async with async_session() as db:
-                # Load trades from WF simulation JSON
+                # Query LIVE closed trades that haven't had posts generated yet
                 result = await db.execute(
-                    select(WalkForwardSimulation).where(WalkForwardSimulation.id == job_id)
+                    select(ModelPosition)
+                    .where(
+                        ModelPosition.portfolio_type == "live",
+                        ModelPosition.status == "closed",
+                        ModelPosition.pnl_pct >= min_pnl,
+                        ModelPosition.social_post_generated == False,
+                    )
+                    .order_by(ModelPosition.exit_date.desc())
+                    .limit(max_trades)
                 )
-                sim = result.scalars().first()
-                if not sim or not sim.trades_json:
-                    return {"status": "error", "error": f"Simulation {job_id} not found or has no trades"}
+                positions = list(result.scalars().all())
 
-                all_trades = _json.loads(sim.trades_json)
-                # Filter: exit_date >= since_date AND pnl_pct >= min_pnl
-                filtered = [
-                    t for t in all_trades
-                    if str(t.get("exit_date", ""))[:10] >= since_date
-                    and t.get("pnl_pct", 0) >= min_pnl
-                ]
-                # Deduplicate by symbol (keep best trade per symbol)
-                seen_symbols = set()
-                unique_trades = []
-                for t in sorted(filtered, key=lambda x: -x.get("pnl_pct", 0)):
-                    if t["symbol"] not in seen_symbols:
-                        seen_symbols.add(t["symbol"])
-                        unique_trades.append(t)
+                if not positions:
+                    return {"status": "ok", "message": "No new live trades qualifying for social posts", "posts_created": 0}
 
-                unique_trades = unique_trades[:max_trades]
-
-                if not unique_trades:
-                    return {"status": "error", "error": f"No trades found for job {job_id} since {since_date} with pnl >= {min_pnl}%"}
-
-                print(f"Found {len(unique_trades)} qualifying trades (deduped by symbol)")
-
-                # Clear existing posts if requested
-                deleted = 0
-                if clear_existing:
-                    result = await db.execute(sa_delete(SocialPost))
-                    deleted = result.rowcount
-                    await db.commit()
-                    print(f"Cleared {deleted} existing posts")
+                print(f"Found {len(positions)} qualifying live trades")
 
                 # Generate posts for each trade x platform x post_type
                 created = []
-                for trade_data in unique_trades:
-                    trade_data["strategy"] = "DWAP+Momentum Ensemble"
+                for pos in positions:
+                    trade_data = {
+                        "symbol": pos.symbol,
+                        "entry_price": pos.entry_price,
+                        "exit_price": pos.exit_price,
+                        "entry_date": str(pos.entry_date)[:10],
+                        "exit_date": str(pos.exit_date)[:10],
+                        "exit_reason": pos.exit_reason or "trailing_stop",
+                        "pnl_pct": pos.pnl_pct,
+                        "strategy": "DWAP+Momentum Ensemble",
+                    }
                     for platform in platforms:
                         for post_type in post_types:
                             post = await ai_content_service.generate_post(
@@ -1723,20 +1708,22 @@ def handler(event, context):
                             if post:
                                 db.add(post)
                                 created.append({
-                                    "symbol": trade_data["symbol"],
+                                    "symbol": pos.symbol,
                                     "platform": platform,
                                     "post_type": post_type,
                                     "text": post.text_content[:80] + "...",
                                     "chars": len(post.text_content),
                                 })
-                                print(f"  Created {platform}/{post_type} for {trade_data['symbol']} ({len(post.text_content)} chars)")
+                                print(f"  Created {platform}/{post_type} for {pos.symbol} ({len(post.text_content)} chars)")
+
+                    # Mark position so we don't generate duplicate posts
+                    pos.social_post_generated = True
 
                 await db.commit()
 
                 return {
                     "status": "success",
-                    "deleted_existing": deleted,
-                    "trades_used": len(unique_trades),
+                    "trades_used": len(positions),
                     "posts_created": len(created),
                     "posts": created,
                 }
