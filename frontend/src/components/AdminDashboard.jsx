@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw, Beaker, Bot, Settings, Share2, Server, Briefcase, Sparkles, Crown, Calculator, Shield } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
@@ -1193,6 +1193,23 @@ function ModelPortfolioTab({ fetchWithAuth }) {
     });
   };
 
+  // Recompute portfolio summaries when live quotes arrive
+  const liveData = useMemo(() => {
+    if (!data || Object.keys(liveQuotes).length === 0) return data;
+    const adjusted = {};
+    for (const key of Object.keys(data)) {
+      const p = data[key];
+      if (!p?.open_positions) { adjusted[key] = p; continue; }
+      const positions = mergeQuotes(p.open_positions);
+      const positionsValue = positions.reduce((sum, pos) => sum + (pos.current_price || 0) * (pos.shares || 0), 0);
+      const totalValue = (p.current_cash || 0) + positionsValue;
+      const unrealizedPnl = positions.reduce((sum, pos) => sum + (pos.pnl_dollars || 0), 0);
+      const totalReturnPct = p.starting_capital > 0 ? ((totalValue / p.starting_capital) - 1) * 100 : 0;
+      adjusted[key] = { ...p, total_value: totalValue, total_return_pct: totalReturnPct, unrealized_pnl: unrealizedPnl, open_positions: positions };
+    }
+    return adjusted;
+  }, [data, liveQuotes]);
+
   useEffect(() => {
     fetchPortfolio();
     fetchEquityCurve();
@@ -1265,7 +1282,7 @@ function ModelPortfolioTab({ fetchWithAuth }) {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {portfolios.map(({ key, label, desc }) => {
-          const p = data[key];
+          const p = liveData[key];
           if (!p) return null;
           const returnPct = p.total_return_pct || 0;
           const returnColor = returnPct > 0 ? 'text-green-600' : returnPct < 0 ? 'text-red-600' : 'text-gray-600';
@@ -1337,7 +1354,7 @@ function ModelPortfolioTab({ fetchWithAuth }) {
                         </tr>
                       </thead>
                       <tbody>
-                        {mergeQuotes(p.open_positions).map((pos) => {
+                        {p.open_positions.map((pos) => {
                           const pnlColor = pos.pnl_pct > 0 ? 'text-green-600' : pos.pnl_pct < 0 ? 'text-red-600' : 'text-gray-600';
                           const daysHeld = pos.entry_date ? Math.floor((Date.now() - new Date(pos.entry_date).getTime()) / 86400000) : null;
                           return (
