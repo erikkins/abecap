@@ -2764,17 +2764,19 @@ class AdminEmailService(EmailService):
         post,
         hours_before: int,
         cancel_url: str,
+        publish_url: str = "",
     ) -> bool:
         """
         Send admin notification for an upcoming scheduled social post.
 
-        Shows post preview, platform badge, scheduled time, and cancel button.
+        Shows post preview, platform badge, scheduled time, cancel + post-now buttons.
 
         Args:
             to_email: Admin email
             post: SocialPost object
             hours_before: 24 or 1
             cancel_url: JWT-signed one-click cancel link
+            publish_url: JWT-signed one-click publish link
         """
         platform_display = "Twitter/X" if post.platform == "twitter" else "Instagram"
         platform_color = "#1DA1F2" if post.platform == "twitter" else "#E4405F"
@@ -2838,14 +2840,18 @@ class AdminEmailService(EmailService):
                 </div>
 
                 <div style="text-align:center; margin:32px 0;">
+                    <a href="{publish_url}"
+                       style="display:inline-block; background:#059669; color:#ffffff; font-size:16px; font-weight:600; padding:16px 32px; border-radius:12px; text-decoration:none; margin-right:12px;">
+                        Post Now
+                    </a>
                     <a href="{cancel_url}"
-                       style="display:inline-block; background:#dc2626; color:#ffffff; font-size:16px; font-weight:600; padding:16px 40px; border-radius:12px; text-decoration:none;">
-                        Cancel This Post
+                       style="display:inline-block; background:#dc2626; color:#ffffff; font-size:16px; font-weight:600; padding:16px 32px; border-radius:12px; text-decoration:none;">
+                        Cancel
                     </a>
                 </div>
 
                 <p style="margin:0; font-size:13px; color:#6b7280; text-align:center;">
-                    If you don't cancel, this post will be published automatically at {scheduled_str}.
+                    If you do nothing, this post will be published automatically at {scheduled_str}.
                 </p>
             </td>
         </tr>
@@ -2871,10 +2877,13 @@ Scheduled: {scheduled_str}
 {f'Hashtags: {post.hashtags}' if post.hashtags else ''}
 ---
 
+To post now, visit:
+{publish_url}
+
 To cancel this post, visit:
 {cancel_url}
 
-If you don't cancel, it will be published automatically."""
+If you do nothing, it will be published automatically."""
 
         subject = f"{'🔴' if hours_before <= 1 else '🟡'} Post goes live {urgency}: {platform_display} — {(post.post_type or '').replace('_', ' ').title()}"
 

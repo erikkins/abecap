@@ -417,12 +417,15 @@ class PostSchedulerService:
 
             cancel_token = self.generate_cancel_token(post.id)
             cancel_url = f"https://api.rigacap.com/api/admin/social/posts/{post.id}/cancel-email?token={cancel_token}"
+            approve_token = self.generate_approve_token(post.id)
+            publish_url = f"https://api.rigacap.com/api/admin/social/posts/{post.id}/approve-email?token={approve_token}"
 
             return await admin_email_service.send_post_approval_notification(
                 to_email=ADMIN_EMAIL,
                 post=post,
                 hours_before=hours_before,
                 cancel_url=cancel_url,
+                publish_url=publish_url,
             )
         except Exception as e:
             logger.error(f"Failed to send notification for post {post.id}: {e}")
