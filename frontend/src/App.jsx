@@ -2555,7 +2555,7 @@ function Dashboard() {
             <div className="relative px-5 pt-4 pb-3">
               {/* Sparkline background */}
               {journeyData.equity_curve && journeyData.equity_curve.length >= 3 && (
-                <div className="absolute inset-0 top-7 opacity-30 pointer-events-none">
+                <div className="absolute inset-0 top-4 opacity-30 pointer-events-none">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={journeyData.equity_curve} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
                       <defs>
