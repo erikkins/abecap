@@ -29,6 +29,12 @@ export interface Position {
   highest_price: number;
   pnl_pct: number;
   sell_guidance: string;
+  high_water_mark?: number;
+  trailing_stop_level?: number;
+  trailing_stop_price?: number;
+  distance_to_stop_pct?: number;
+  action?: string;
+  action_reason?: string;
 }
 
 export interface Trade {
@@ -86,6 +92,7 @@ export interface DashboardData {
   };
   positions_with_guidance?: Position[];
   missed_opportunities?: MissedOpportunity[];
+  total_fresh_count?: number;
 }
 
 export function useDashboard() {

@@ -3,7 +3,7 @@
  * Tabbed layout: Signals | Positions | History | Missed
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +25,7 @@ import {
   trackSignal,
   sellPosition,
 } from '@/hooks/useSignals';
+import { useLiveQuotes } from '@/hooks/useLiveQuotes';
 import SignalCard from '@/components/SignalCard';
 import RegimeBadge from '@/components/RegimeBadge';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -76,6 +77,34 @@ export default function DashboardScreen() {
     }
   };
 
+  // Live quotes — must be above early returns to preserve hook ordering
+  const positions = data?.positions_with_guidance || [];
+  const positionSymbols = useMemo(() => positions.map(p => p.symbol), [positions]);
+  const { quotes: liveQuotes, lastUpdate } = useLiveQuotes(positionSymbols);
+
+  const livePositions = useMemo(() => {
+    if (!Object.keys(liveQuotes).length) return positions;
+    return positions.map(pos => {
+      const quote = liveQuotes[pos.symbol];
+      if (!quote) return pos;
+      const livePrice = quote.price;
+      const pnlPct = pos.entry_price > 0
+        ? ((livePrice - pos.entry_price) / pos.entry_price) * 100
+        : 0;
+      const hwm = Math.max(pos.highest_price || pos.entry_price, livePrice);
+      const stopPrice = hwm * 0.88; // 12% trailing stop
+      const distToStop = stopPrice > 0 ? ((livePrice - stopPrice) / stopPrice) * 100 : 100;
+      return {
+        ...pos,
+        current_price: livePrice,
+        pnl_pct: pnlPct,
+        highest_price: hwm,
+        trailing_stop_level: stopPrice,
+        distance_to_stop_pct: distToStop,
+      };
+    });
+  }, [positions, liveQuotes]);
+
   if (isLoading && !data) {
     return (
       <View style={styles.center}>
@@ -99,7 +128,6 @@ export default function DashboardScreen() {
   const regime = data?.regime_forecast;
   const stats = data?.market_stats;
   const portfolio = data?.model_portfolio;
-  const positions = data?.positions_with_guidance || [];
   const missed = data?.missed_opportunities || [];
 
   return (
@@ -187,16 +215,26 @@ export default function DashboardScreen() {
           <SignalsTab
             freshSignals={freshSignals}
             monitoringSignals={monitoringSignals}
+            heldFreshCount={(data?.total_fresh_count || 0) - freshSignals.length}
             onSignalPress={(symbol) => router.push(`/signal/${symbol}`)}
             onTrack={(signal) => setTrackModal({ signal })}
           />
         )}
         {activeTab === 'positions' && (
-          <PositionsTab
-            positions={positions}
-            onPositionPress={(symbol) => router.push(`/signal/${symbol}`)}
-            onSell={(position) => setSellModal({ position })}
-          />
+          <>
+            <PositionsTab
+              positions={livePositions}
+              onPositionPress={(symbol) => router.push(`/signal/${symbol}`)}
+              onSell={(position) => setSellModal({ position })}
+            />
+            {livePositions.length > 0 && (
+              <Text style={styles.lastUpdated}>
+                {lastUpdate
+                  ? `Updated ${lastUpdate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                  : 'Updating...'}
+              </Text>
+            )}
+          </>
         )}
         {activeTab === 'history' && (
           <HistoryTab trades={trades} isLoading={tradesLoading} onTradePress={(symbol) => router.push(`/signal/${symbol}`)} />
@@ -308,11 +346,13 @@ function TabPill({
 function SignalsTab({
   freshSignals,
   monitoringSignals,
+  heldFreshCount,
   onSignalPress,
   onTrack,
 }: {
   freshSignals: Signal[];
   monitoringSignals: Signal[];
+  heldFreshCount: number;
   onSignalPress: (symbol: string) => void;
   onTrack: (signal: Signal) => void;
 }) {
@@ -353,10 +393,16 @@ function SignalsTab({
         ))
       ) : (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>No fresh signals today</Text>
-          <Text style={styles.emptySubtext}>
-            Monitoring {monitoringSignals.length} strong momentum stock{monitoringSignals.length !== 1 ? 's' : ''} for entry
+          <Text style={styles.emptyText}>
+            {heldFreshCount > 0
+              ? `Today's ${heldFreshCount} fresh signal${heldFreshCount > 1 ? 's are' : ' is'} already in your positions`
+              : 'No fresh signals today'}
           </Text>
+          {heldFreshCount === 0 && (
+            <Text style={styles.emptySubtext}>
+              Monitoring {monitoringSignals.length} strong momentum stock{monitoringSignals.length !== 1 ? 's' : ''} for entry
+            </Text>
+          )}
         </View>
       )}
 
@@ -890,6 +936,13 @@ const styles = StyleSheet.create({
     color: Colors.red,
     fontSize: FontSize.sm,
     fontWeight: '700',
+  },
+
+  // Live quote timestamp
+  lastUpdated: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
+    textAlign: 'center',
   },
 
   // History tab

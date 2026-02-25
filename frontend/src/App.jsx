@@ -3324,7 +3324,7 @@ function Dashboard() {
                           ) : (
                             <div className="px-4 py-4 text-center text-sm text-gray-500 bg-gray-50 border-b border-gray-100">
                               <p>{heldFreshCount > 0
-                                ? `All ${heldFreshCount} fresh signal${heldFreshCount > 1 ? 's' : ''} already in your positions`
+                                ? `Today's ${heldFreshCount} fresh signal${heldFreshCount > 1 ? 's are' : ' is'} already in your positions`
                                 : 'No fresh buy signals today'}</p>
                               {heldFreshCount === 0 && daysSinceLastSignal > 7 && (
                                 <p className="text-xs text-gray-400 mt-1.5 max-w-xs mx-auto">

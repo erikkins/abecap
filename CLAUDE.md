@@ -317,10 +317,13 @@ cat /tmp/result.json | python3 -m json.tool
 **CI/CD handles deployment automatically** — pushing to `main` triggers GitHub Actions which builds and deploys the Lambda container. Do NOT run `scripts/deploy-container.sh` manually unless CI/CD is broken.
 
 **Terraform** (infrastructure changes only — not needed for code deploys):
+
+**IMPORTANT:** Always use `AWS_PROFILE=rigacap` for terraform commands. The default AWS profile points to a different account (774558858301). The rigacap account is 149218244179.
+
 ```bash
 cd infrastructure/terraform
 terraform init
-terraform apply -var="db_password=YourSecurePassword"
+AWS_PROFILE=rigacap terraform apply -var="lambda_image_tag=latest"
 ```
 
 ## Original Context
