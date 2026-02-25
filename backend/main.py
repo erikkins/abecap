@@ -842,21 +842,24 @@ def handler(event, context):
             asyncio.set_event_loop(loop)
 
         async def _deferred_pickle():
-            import pickle, gzip
+            import pickle, gzip, time as _time
             from app.services.data_export import data_export_service, S3_BUCKET
 
-            # Re-run incremental fetch (cold start reloaded old pickle)
-            inc_result = await scanner_service.fetch_incremental()
-            print(f"📡 Incremental: {inc_result}")
+            # Skip incremental fetch — cold start loaded yesterday's pickle (7374 symbols).
+            # This pickle is a warm cache for tomorrow's daily scan cold start.
+            # Tomorrow's scan will do its own incremental fetch to get today's prices.
+            print(f"📦 Using cold-start cache ({len(scanner_service.data_cache)} symbols, skipping incremental)")
 
             # Stream pickle to /tmp file to avoid OOM (pickle.dumps holds 2x in memory)
+            # Use compresslevel=1 for speed (~5x faster than default 9, ~10% larger file)
             clean_cache = {s: df for s, df in scanner_service.data_cache.items() if len(df) >= 50}
             tmp_path = "/tmp/all_data.pkl.gz"
             print(f"💾 Writing {len(clean_cache)} symbols to {tmp_path}...")
-            with gzip.open(tmp_path, "wb") as f:
+            t0 = _time.time()
+            with gzip.open(tmp_path, "wb", compresslevel=1) as f:
                 pickle.dump(clean_cache, f, protocol=pickle.HIGHEST_PROTOCOL)
             file_size = os.path.getsize(tmp_path)
-            print(f"💾 Pickle file: {file_size / 1024 / 1024:.1f} MB")
+            print(f"💾 Pickle file: {file_size / 1024 / 1024:.1f} MB in {_time.time() - t0:.1f}s")
 
             # Upload to S3
             s3 = data_export_service._get_s3_client()
@@ -878,7 +881,6 @@ def handler(event, context):
 
             return {
                 "status": "success",
-                "incremental": inc_result,
                 "pickle_size_mb": round(file_size / 1024 / 1024, 2),
                 "symbols": len(clean_cache),
             }
