@@ -831,7 +831,9 @@ def handler(event, context):
             return {"status": "failed", "error": str(e)}
 
     # Handle pickle rebuild after daily scan (deferred from scan due to time constraints)
-    # Fresh Lambda = fresh 900s budget. Incremental fetch + pickle export.
+    # Fresh Lambda = fresh 900s budget. Two phases:
+    #   Phase 1: incremental fetch + stream pickle to /tmp → S3 (avoids OOM from in-memory serialize)
+    #   Phase 2: export individual CSVs (chained as separate invocation)
     if event.get("pickle_rebuild_from_scan"):
         print(f"🔨 Deferred pickle rebuild - {len(scanner_service.data_cache)} symbols in cache")
         loop = asyncio.get_event_loop()
@@ -840,25 +842,45 @@ def handler(event, context):
             asyncio.set_event_loop(loop)
 
         async def _deferred_pickle():
-            from app.services.data_export import data_export_service
+            import pickle
+            from app.services.data_export import data_export_service, S3_BUCKET
 
             # Re-run incremental fetch (cold start reloaded old pickle)
             inc_result = await scanner_service.fetch_incremental()
             print(f"📡 Incremental: {inc_result}")
 
-            # Export updated pickle
-            export_result = data_export_service.export_pickle(scanner_service.data_cache)
-            print(f"💾 Pickle saved: {export_result.get('count', 0)} symbols")
+            # Stream pickle to /tmp file to avoid OOM (pickle.dumps holds 2x in memory)
+            clean_cache = {s: df for s, df in scanner_service.data_cache.items() if len(df) >= 50}
+            tmp_path = "/tmp/all_data.pkl.gz"
+            print(f"💾 Writing {len(clean_cache)} symbols to {tmp_path}...")
+            with gzip.open(tmp_path, "wb") as f:
+                pickle.dump(clean_cache, f, protocol=pickle.HIGHEST_PROTOCOL)
+            file_size = os.path.getsize(tmp_path)
+            print(f"💾 Pickle file: {file_size / 1024 / 1024:.1f} MB")
 
-            # Also export individual CSVs for API Lambda per-symbol loading
-            csv_result = data_export_service.export_all(scanner_service.data_cache)
-            print(f"💾 CSVs saved: {csv_result.get('count', 0)} symbols")
+            # Upload to S3
+            s3 = data_export_service._get_s3_client()
+            s3.upload_file(tmp_path, S3_BUCKET, "prices/all_data.pkl.gz")
+            os.remove(tmp_path)
+            print(f"✅ Pickle uploaded to S3")
+
+            # Chain CSV export as separate invocation (more time-consuming)
+            try:
+                import boto3, json as _json
+                boto3.client('lambda', region_name='us-east-1').invoke(
+                    FunctionName=os.environ.get('WORKER_FUNCTION_NAME', 'rigacap-prod-api'),
+                    InvocationType='Event',
+                    Payload=_json.dumps({"csv_export_from_scan": True})
+                )
+                print("🔗 Chained CSV export")
+            except Exception as ce:
+                print(f"⚠️ Failed to chain CSV export: {ce}")
 
             return {
                 "status": "success",
                 "incremental": inc_result,
-                "pickle": export_result,
-                "csvs": csv_result,
+                "pickle_size_mb": round(file_size / 1024 / 1024, 2),
+                "symbols": len(clean_cache),
             }
 
         try:
@@ -868,6 +890,20 @@ def handler(event, context):
         except Exception as e:
             import traceback
             print(f"❌ Deferred pickle failed: {e}")
+            traceback.print_exc()
+            return {"status": "failed", "error": str(e)}
+
+    # Handle CSV export (chained from pickle rebuild)
+    if event.get("csv_export_from_scan"):
+        print(f"📝 CSV export triggered - {len(scanner_service.data_cache)} symbols in cache")
+        from app.services.data_export import data_export_service
+        try:
+            csv_result = data_export_service.export_all(scanner_service.data_cache)
+            print(f"💾 CSVs saved: {csv_result.get('count', 0)} symbols")
+            return {"status": "success", "csvs": csv_result}
+        except Exception as e:
+            import traceback
+            print(f"❌ CSV export failed: {e}")
             traceback.print_exc()
             return {"status": "failed", "error": str(e)}
 
