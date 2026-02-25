@@ -1104,6 +1104,35 @@ resource "aws_lambda_permission" "pipeline_health" {
   source_arn    = aws_cloudwatch_event_rule.pipeline_health.arn
 }
 
+resource "aws_cloudwatch_event_rule" "generate_social_posts" {
+  name                = "${local.prefix}-generate-social-posts"
+  description         = "Generate AI social posts from nightly WF trades at 9 PM ET (1h after WF)"
+  schedule_expression = "cron(0 2 ? * TUE-SAT *)"
+}
+
+resource "aws_cloudwatch_event_target" "generate_social_posts" {
+  rule      = aws_cloudwatch_event_rule.generate_social_posts.name
+  target_id = "lambda-generate-social-posts"
+  arn       = aws_lambda_function.worker.arn
+  input = jsonencode({
+    generate_social_posts = {
+      job_id         = 112
+      since_date     = "2026-02-01"
+      min_pnl_pct    = 8.0
+      clear_existing = false
+      max_trades     = 5
+    }
+  })
+}
+
+resource "aws_lambda_permission" "generate_social_posts" {
+  statement_id  = "AllowGenerateSocialPostsEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.generate_social_posts.arn
+}
+
 # ============================================================================
 # Step Functions - Walk-Forward Simulation
 # ============================================================================
