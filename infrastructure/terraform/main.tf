@@ -530,7 +530,8 @@ resource "aws_iam_role_policy" "lambda_cloudwatch_read" {
         Effect = "Allow"
         Action = [
           "cloudwatch:DescribeAlarms",
-          "cloudwatch:GetMetricStatistics"
+          "cloudwatch:GetMetricStatistics",
+          "logs:FilterLogEvents"
         ]
         Resource = "*"
       }
