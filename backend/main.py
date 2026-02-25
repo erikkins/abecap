@@ -842,7 +842,7 @@ def handler(event, context):
             asyncio.set_event_loop(loop)
 
         async def _deferred_pickle():
-            import pickle
+            import pickle, gzip
             from app.services.data_export import data_export_service, S3_BUCKET
 
             # Re-run incremental fetch (cold start reloaded old pickle)
