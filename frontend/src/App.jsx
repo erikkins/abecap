@@ -1995,13 +1995,17 @@ function Dashboard() {
       const stopPrice = p.trailing_stop_price || (hwm * 0.88); // 12% trailing stop
       const distToStop = stopPrice > 0 ? ((livePrice - stopPrice) / stopPrice) * 100 : 100;
       let action = p.action || 'hold';
+      let actionReason = p.action_reason || '';
       if (livePrice <= stopPrice) {
         action = 'sell';
+        actionReason = `Trailing stop hit — price $${livePrice.toFixed(2)} below stop $${stopPrice.toFixed(2)}`;
       } else if (distToStop < 3) {
         action = 'warning';
+        actionReason = `Within ${distToStop.toFixed(1)}% of trailing stop $${stopPrice.toFixed(2)}`;
       } else if (p.action === 'warning' && distToStop >= 5) {
         // Clear stale warning if live price moved well above stop
         action = 'hold';
+        actionReason = '';
       }
 
       return {
@@ -2011,6 +2015,7 @@ function Dashboard() {
         high_water_mark: hwm,
         distance_to_stop_pct: distToStop,
         action,
+        action_reason: actionReason,
         live_change: quote.change,
         live_change_pct: quote.change_pct,
       };
@@ -3530,9 +3535,9 @@ function Dashboard() {
                 </div>
 
                 {/* Action reasons for positions needing attention */}
-                {viewMode !== 'simple' && dashboardData?.positions_with_guidance?.filter(p => p.action !== 'hold').length > 0 && (
+                {viewMode !== 'simple' && guidanceWithLiveQuotes.filter(p => p.action !== 'hold').length > 0 && (
                   <div className="border-t border-gray-100 px-4 py-3 space-y-1">
-                    {dashboardData.positions_with_guidance.filter(p => p.action !== 'hold').map(p => (
+                    {guidanceWithLiveQuotes.filter(p => p.action !== 'hold').map(p => (
                       <div key={p.symbol} className={`text-xs px-2 py-1 rounded ${
                         p.action === 'sell' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
                       }`}>

@@ -1056,6 +1056,7 @@ function ModelPortfolioTab({ fetchWithAuth }) {
   const [whatIfCapital, setWhatIfCapital] = useState(10000);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [liveQuotes, setLiveQuotes] = useState({});
 
   const fetchPortfolio = async () => {
     try {
@@ -1160,6 +1161,35 @@ function ModelPortfolioTab({ fetchWithAuth }) {
     }
   };
 
+  const fetchLiveQuotes = async (positions) => {
+    const symbols = (positions || data?.strategies?.flatMap(s => s.open_positions?.map(p => p.symbol) || []) || []);
+    if (symbols.length === 0) return;
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/quotes/live?symbols=${[...new Set(symbols)].join(',')}`);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.quotes) setLiveQuotes(result.quotes);
+      }
+    } catch (err) {
+      console.log('Live quotes fetch failed:', err);
+    }
+  };
+
+  // Merge live quotes into portfolio positions
+  const mergeQuotes = (positions) => {
+    if (!positions || Object.keys(liveQuotes).length === 0) return positions;
+    return positions.map(pos => {
+      const quote = liveQuotes[pos.symbol];
+      if (quote) {
+        const livePrice = quote.price;
+        const pnlPct = pos.entry_price > 0 ? ((livePrice - pos.entry_price) / pos.entry_price) * 100 : 0;
+        const pnlDollars = (livePrice - pos.entry_price) * (pos.shares || 0);
+        return { ...pos, current_price: livePrice, pnl_pct: pnlPct, pnl_dollars: pnlDollars };
+      }
+      return pos;
+    });
+  };
+
   useEffect(() => {
     fetchPortfolio();
     fetchEquityCurve();
@@ -1170,6 +1200,14 @@ function ModelPortfolioTab({ fetchWithAuth }) {
     const interval = setInterval(fetchPortfolio, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Poll live quotes every 30 seconds
+  useEffect(() => {
+    if (!data) return;
+    fetchLiveQuotes();
+    const interval = setInterval(fetchLiveQuotes, 30000);
+    return () => clearInterval(interval);
+  }, [data]);
 
   const runAction = async (action, extra = {}) => {
     setProcessing(true);
@@ -1296,7 +1334,7 @@ function ModelPortfolioTab({ fetchWithAuth }) {
                         </tr>
                       </thead>
                       <tbody>
-                        {p.open_positions.map((pos) => {
+                        {mergeQuotes(p.open_positions).map((pos) => {
                           const pnlColor = pos.pnl_pct > 0 ? 'text-green-600' : pos.pnl_pct < 0 ? 'text-red-600' : 'text-gray-600';
                           const daysHeld = pos.entry_date ? Math.floor((Date.now() - new Date(pos.entry_date).getTime()) / 86400000) : null;
                           return (
@@ -1692,11 +1730,11 @@ function ModelPortfolioTab({ fetchWithAuth }) {
             <div className="mb-4">
               <h4 className="text-sm font-medium text-slate-300 mb-2">Current Positions</h4>
               <div className="flex flex-wrap gap-2">
-                {subscriberPreview.open_positions.map((pos) => (
+                {mergeQuotes(subscriberPreview.open_positions).map((pos) => (
                   <div key={pos.symbol} className="flex items-center gap-2 bg-slate-700/50 rounded-lg px-3 py-1.5">
                     <span className="font-semibold text-sm text-slate-100">{pos.symbol}</span>
                     <span className={`text-sm font-medium ${pos.pnl_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {pos.pnl_pct >= 0 ? '+' : ''}{pos.pnl_pct}%
+                      {pos.pnl_pct >= 0 ? '+' : ''}{pos.pnl_pct?.toFixed(1)}%
                     </span>
                   </div>
                 ))}
