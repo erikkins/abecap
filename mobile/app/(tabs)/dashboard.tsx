@@ -80,7 +80,16 @@ export default function DashboardScreen() {
   // Live quotes — must be above early returns to preserve hook ordering
   const positions = data?.positions_with_guidance || [];
   const positionSymbols = useMemo(() => positions.map(p => p.symbol), [positions]);
-  const { quotes: liveQuotes, lastUpdate } = useLiveQuotes(positionSymbols);
+  const portfolio = data?.model_portfolio;
+  const portfolioSymbols = useMemo(
+    () => (portfolio?.positions || []).map((p: any) => p.symbol),
+    [portfolio],
+  );
+  const allSymbols = useMemo(
+    () => [...new Set([...positionSymbols, ...portfolioSymbols])],
+    [positionSymbols, portfolioSymbols],
+  );
+  const { quotes: liveQuotes, lastUpdate, refetch } = useLiveQuotes(allSymbols);
 
   const livePositions = useMemo(() => {
     if (!Object.keys(liveQuotes).length) return positions;
@@ -127,7 +136,6 @@ export default function DashboardScreen() {
   const freshCount = freshSignals.length;
   const regime = data?.regime_forecast;
   const stats = data?.market_stats;
-  const portfolio = data?.model_portfolio;
   const missed = data?.missed_opportunities || [];
 
   return (
@@ -138,7 +146,7 @@ export default function DashboardScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isLoading}
-            onRefresh={() => { refresh(); if (activeTab === 'history') refreshTrades(); }}
+            onRefresh={() => { refresh(); refetch(); if (activeTab === 'history') refreshTrades(); }}
             tintColor={Colors.gold}
           />
         }

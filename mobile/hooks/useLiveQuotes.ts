@@ -51,5 +51,5 @@ export function useLiveQuotes(symbols: string[], intervalMs = 30000) {
     };
   }, [fetchQuotes, intervalMs]);
 
-  return { quotes, lastUpdate };
+  return { quotes, lastUpdate, refetch: fetchQuotes };
 }

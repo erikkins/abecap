@@ -5,7 +5,7 @@
  * Landscape: full-screen interactive chart with pinch-to-zoom.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -21,6 +21,7 @@ import api from '@/services/api';
 import PriceChart from '@/components/PriceChart';
 import { useChartData } from '@/hooks/useChartData';
 import { useStockInfo } from '@/hooks/useStockInfo';
+import { useLiveQuotes } from '@/hooks/useLiveQuotes';
 import { Colors, FontSize, Spacing } from '@/constants/theme';
 
 type DataSource = 'signal' | 'position' | 'missed' | 'chart_only';
@@ -158,16 +159,39 @@ export default function SignalDetailScreen() {
     })();
   }, [symbol]);
 
+  // Live quotes — hooks must be above early returns to preserve call order
+  const { quotes: liveQuotes, lastUpdate: liveLastUpdate } = useLiveQuotes(symbol ? [symbol] : []);
+
+  const liveStockData = useMemo(() => {
+    if (!stockData || stockData.source !== 'position') return stockData;
+    const quote = liveQuotes[stockData.symbol];
+    if (!quote) return stockData;
+    const livePrice = quote.price;
+    const entryPrice = stockData.entry_price || 0;
+    const pnlPct = entryPrice > 0 ? ((livePrice - entryPrice) / entryPrice) * 100 : 0;
+    const hwm = Math.max(stockData.high_water_mark || entryPrice, livePrice);
+    const stopPrice = hwm * 0.88; // 12% trailing stop
+    const distToStop = stopPrice > 0 ? ((livePrice - stopPrice) / stopPrice) * 100 : 100;
+    return {
+      ...stockData,
+      price: livePrice,
+      pnl_pct: pnlPct,
+      high_water_mark: hwm,
+      trailing_stop_level: stopPrice,
+      distance_to_stop_pct: distToStop,
+    };
+  }, [stockData, liveQuotes]);
+
   if (loading) {
     return (
       <View style={styles.center}>
-        <Stack.Screen options={{ title: symbol || 'Stock', headerShown: !isLandscape, headerBackTitle: 'Back' }} />
+        <Stack.Screen options={{ title: symbol || 'Stock', headerShown: !isLandscape, headerBackTitle: 'Back', headerStyle: { backgroundColor: Colors.navy }, headerTintColor: Colors.textPrimary }} />
         <ActivityIndicator size="large" color={Colors.gold} />
       </View>
     );
   }
 
-  const d = stockData!;
+  const d = liveStockData!;
   const displayPrice = d.price || (chartData.length > 0 ? chartData[chartData.length - 1]?.close : 0) || 0;
 
   // ── Landscape: full-screen chart ──
@@ -345,6 +369,11 @@ export default function SignalDetailScreen() {
               <Text style={[styles.detailValue, { textAlign: 'center', lineHeight: 20 }]}>{d.action_reason}</Text>
             </View>
           )}
+          <Text style={styles.lastUpdated}>
+            {liveLastUpdate
+              ? `Updated ${liveLastUpdate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+              : 'Updating...'}
+          </Text>
         </>
       )}
 
@@ -586,6 +615,11 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: FontSize.md,
     fontWeight: '600',
+  },
+  lastUpdated: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
+    textAlign: 'center',
   },
   disclaimer: {
     color: Colors.textMuted,

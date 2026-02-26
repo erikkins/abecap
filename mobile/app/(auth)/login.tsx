@@ -1,5 +1,8 @@
 /**
  * Login screen — email/password + Google + Apple Sign In.
+ *
+ * iOS: expo-auth-session (browser redirect with reversed client ID)
+ * Android: @react-native-google-signin/google-signin (native SDK)
  */
 
 import React, { useState } from 'react';
@@ -19,11 +22,20 @@ import { Link } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import {
+  GoogleSignin,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
 import { useAuth } from '@/hooks/useAuth';
 import { Colors, FontSize, Spacing } from '@/constants/theme';
 import { GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID } from '@/constants/config';
 
 WebBrowser.maybeCompleteAuthSession();
+
+// Configure native Google Sign-In for Android
+if (Platform.OS === 'android') {
+  GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
+}
 
 export default function LoginScreen() {
   const { login, loginWithApple, loginWithGoogle } = useAuth();
@@ -31,17 +43,18 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // iOS client ID reversed = redirect scheme for native Google Sign In
+  // iOS: expo-auth-session browser redirect
   const iosReversedClientId = GOOGLE_IOS_CLIENT_ID.split('.').reverse().join('.');
 
   const [_googleRequest, googleResponse, googlePromptAsync] =
     Google.useIdTokenAuthRequest({
       iosClientId: GOOGLE_IOS_CLIENT_ID,
+      androidClientId: GOOGLE_WEB_CLIENT_ID, // Unused on Android (native SDK handles it), but required by hook validation
       webClientId: GOOGLE_WEB_CLIENT_ID,
-      redirectUri: `${iosReversedClientId}:/oauthredirect`,
+      redirectUri: Platform.OS === 'ios' ? `${iosReversedClientId}:/oauthredirect` : undefined,
     });
 
-  // Handle Google response
+  // Handle iOS Google response
   React.useEffect(() => {
     try {
       if (googleResponse?.type === 'success') {
@@ -61,6 +74,41 @@ export default function LoginScreen() {
       // Suppress crash in Expo Go — works in production build
     }
   }, [googleResponse]);
+
+  // Android: native Google Sign-In
+  const handleAndroidGoogleLogin = async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+      const idToken = response.data?.idToken;
+      if (idToken) {
+        await loginWithGoogle(idToken);
+      } else {
+        Alert.alert('Google Sign In Failed', 'No ID token received');
+      }
+    } catch (err: any) {
+      if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+        // User cancelled — do nothing
+      } else if (err.code === statusCodes.IN_PROGRESS) {
+        // Already in progress
+      } else if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        Alert.alert('Google Sign In Failed', 'Google Play Services not available');
+      } else {
+        Alert.alert(
+          'Google Sign In Failed',
+          err.response?.data?.detail || err.message || 'Unknown error'
+        );
+      }
+    }
+  };
+
+  const handleGoogleLogin = () => {
+    if (Platform.OS === 'android') {
+      handleAndroidGoogleLogin();
+    } else {
+      googlePromptAsync();
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -158,8 +206,8 @@ export default function LoginScreen() {
 
         {/* Social Login */}
         <View style={styles.social}>
-          {/* Google Sign In */}
-          <Pressable style={styles.googleButton} onPress={() => googlePromptAsync()}>
+          {/* Google Sign In — works on both platforms */}
+          <Pressable style={styles.googleButton} onPress={handleGoogleLogin}>
             <Text style={styles.googleText}>Sign in with Google</Text>
           </Pressable>
 

@@ -54,7 +54,8 @@
       ],
       "expo-web-browser",
       "expo-screen-orientation",
-      "expo-font"
+      "expo-font",
+      "@react-native-google-signin/google-signin"
     ],
     "extra": {
       "router": {
