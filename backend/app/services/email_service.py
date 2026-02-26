@@ -2258,7 +2258,8 @@ Trading involves risk. Past performance does not guarantee future results.
         if not history:
             return f"<p>No regime data available for {date_str}.</p>"
 
-        latest = history[0]
+        # history is ascending (oldest first), latest is last element
+        latest = history[-1]
         regime_key = latest.get('regime', 'range_bound')
         color, bg_color, regime_name = regime_colors.get(regime_key, ('#F59E0B', '#fef3c7', 'Unknown'))
 
@@ -2267,8 +2268,9 @@ Trading involves risk. Past performance does not guarantee future results.
         spy_close = latest.get('spy_close')
         vix_close = latest.get('vix_close')
 
-        # Week-over-week change
-        week_ago = history[6] if len(history) > 6 else history[-1]
+        # Week-over-week change (7 days back from end)
+        week_ago_idx = max(0, len(history) - 7)
+        week_ago = history[week_ago_idx]
         prev_regime = week_ago.get('regime', '')
         if prev_regime == regime_key:
             wow_text = f"Held at <strong>{regime_name}</strong> for the week"
@@ -2315,7 +2317,7 @@ Trading involves risk. Past performance does not guarantee future results.
 
         # 30-day regime timeline (compact)
         timeline_blocks = ""
-        for snap in reversed(history):  # oldest first
+        for snap in history:  # already ascending (oldest first)
             r = snap.get('regime', 'range_bound')
             c = regime_colors.get(r, ('#F59E0B', '#fef3c7', 'Unknown'))[0]
             d = snap.get('date', '')[-5:]  # MM-DD

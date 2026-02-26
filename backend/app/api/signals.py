@@ -2147,6 +2147,7 @@ async def get_public_regime_report(db: AsyncSession = Depends(get_db)):
     from app.services.regime_forecast_service import regime_forecast_service
     import json
 
+    # get_forecast_history returns ascending order (oldest first)
     history = await regime_forecast_service.get_forecast_history(db, days=30)
 
     if not history:
@@ -2157,13 +2158,14 @@ async def get_public_regime_report(db: AsyncSession = Depends(get_db)):
             'transition_probabilities': [],
         }
 
-    # Current regime (most recent snapshot)
-    latest = history[0]
+    # Current regime (most recent snapshot — last element in ascending list)
+    latest = history[-1]
     regime_key = latest.get('regime', 'range_bound')
     regime_meta = REGIME_COLORS.get(regime_key, REGIME_COLORS['range_bound'])
 
-    # Week-over-week comparison
-    week_ago = history[6] if len(history) > 6 else history[-1] if history else None
+    # Week-over-week comparison (7 days back from end)
+    week_ago_idx = max(0, len(history) - 7)
+    week_ago = history[week_ago_idx]
     wow_change = None
     if week_ago:
         prev_regime = week_ago.get('regime', '')
@@ -2173,9 +2175,9 @@ async def get_public_regime_report(db: AsyncSession = Depends(get_db)):
             prev_meta = REGIME_COLORS.get(prev_regime, {})
             wow_change = f"Shifted: {prev_meta.get('name', prev_regime)} → {regime_meta['name']}"
 
-    # Days in current regime
+    # Days in current regime (count backwards from most recent)
     days_in_regime = 1
-    for snap in history[1:]:
+    for snap in reversed(history[:-1]):
         if snap.get('regime') == regime_key:
             days_in_regime += 1
         else:
@@ -2195,9 +2197,9 @@ async def get_public_regime_report(db: AsyncSession = Depends(get_db)):
                 'probability': round(prob * 100, 1),
             })
 
-    # Build history timeline
+    # Build history timeline (already ascending = oldest→newest, left→right)
     timeline = []
-    for snap in reversed(history):  # oldest first for timeline
+    for snap in history:
         r = snap.get('regime', 'range_bound')
         meta = REGIME_COLORS.get(r, REGIME_COLORS['range_bound'])
         timeline.append({
