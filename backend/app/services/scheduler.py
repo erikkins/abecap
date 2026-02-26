@@ -969,6 +969,20 @@ class SchedulerService:
             replace_existing=True
         )
 
+        # Weekly regime report — Mondays 9 AM ET
+        self.scheduler.add_job(
+            self._send_weekly_regime_report,
+            CronTrigger(
+                day_of_week='mon',
+                hour=9,
+                minute=0,
+                timezone=ET
+            ),
+            id='weekly_regime_report',
+            name='Weekly Regime Report',
+            replace_existing=True
+        )
+
         self.scheduler.start()
         self.is_running = True
 
@@ -1809,6 +1823,89 @@ class SchedulerService:
             except Exception as e:
                 logger.error(f"Failed to send failure report to {admin}: {e}")
         clear_email_failures()
+
+
+    async def _send_weekly_regime_report(self):
+        """
+        Send the weekly market regime report to all active email subscribers
+        and paid users with regime_report preference enabled.
+        """
+        from app.core.database import async_session, EmailSubscriber, User, Subscription
+        from app.services.regime_forecast_service import regime_forecast_service
+        from sqlalchemy import select
+
+        logger.info("📊 Starting weekly regime report send...")
+        sent_count = 0
+        error_count = 0
+
+        try:
+            async with async_session() as db:
+                # Get 30-day regime history
+                history = await regime_forecast_service.get_forecast_history(db, days=30)
+                if not history:
+                    logger.warning("No regime history available — skipping regime report")
+                    return
+
+                # 1. Send to free email subscribers
+                result = await db.execute(
+                    select(EmailSubscriber).where(EmailSubscriber.is_active == True)
+                )
+                subscribers = result.scalars().all()
+
+                for sub in subscribers:
+                    try:
+                        html = email_service.generate_regime_report_html(
+                            history=history, subscriber_id=sub.id
+                        )
+                        success = await email_service.send_weekly_regime_report(
+                            to_email=sub.email, html=html, subscriber_id=sub.id
+                        )
+                        if success:
+                            sent_count += 1
+                        else:
+                            error_count += 1
+                    except Exception as e:
+                        logger.error(f"Failed regime report to subscriber {sub.email}: {e}")
+                        error_count += 1
+
+                # 2. Send to paid users with regime_report pref enabled
+                result = await db.execute(
+                    select(User).join(Subscription).where(
+                        Subscription.status.in_(["active", "trial"]),
+                        User.is_active == True,
+                    )
+                )
+                users = result.scalars().all()
+
+                # Exclude users already in subscriber list
+                subscriber_emails = {s.email.lower() for s in subscribers}
+
+                for user in users:
+                    if user.email.lower() in subscriber_emails:
+                        continue
+                    if not user.get_email_preference("regime_report"):
+                        continue
+                    try:
+                        html = email_service.generate_regime_report_html(
+                            history=history, user_id=str(user.id)
+                        )
+                        success = await email_service.send_weekly_regime_report(
+                            to_email=user.email, html=html, user_id=str(user.id)
+                        )
+                        if success:
+                            sent_count += 1
+                        else:
+                            error_count += 1
+                    except Exception as e:
+                        logger.error(f"Failed regime report to user {user.email}: {e}")
+                        error_count += 1
+
+        except Exception as e:
+            logger.error(f"Weekly regime report failed: {e}")
+            import traceback
+            traceback.print_exc()
+
+        logger.info(f"📊 Weekly regime report complete: {sent_count} sent, {error_count} errors")
 
 
 # Singleton instance

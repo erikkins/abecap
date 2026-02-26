@@ -65,6 +65,13 @@ const HeroSection = ({ onGetStarted }) => (
             View 5-Year Track Record
             <ArrowRight className="w-5 h-5" />
           </a>
+          <a
+            href="/market-regime"
+            className="flex items-center gap-2 px-8 py-4 text-white/90 font-medium hover:text-white transition-colors"
+          >
+            Free Market Intelligence
+            <ArrowRight className="w-5 h-5" />
+          </a>
         </div>
 
         {/* Social proof */}
@@ -572,6 +579,7 @@ const Navbar = ({ onGetStarted }) => (
         </div>
         <div className="hidden md:flex items-center gap-8 text-white/80">
           <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
+          <a href="/market-regime" className="hover:text-white transition-colors">Free Market Intel</a>
           <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
           <button
             onClick={onGetStarted}

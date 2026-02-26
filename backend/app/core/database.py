@@ -448,6 +448,18 @@ class RegimeForecastSnapshot(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class EmailSubscriber(Base):
+    """Lightweight email subscribers (no account required)"""
+    __tablename__ = "email_subscribers"
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    source = Column(String(50), default="regime_report")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    unsubscribed_at = Column(DateTime, nullable=True)
+
+
 class User(Base):
     """User account for authentication and subscription management"""
     __tablename__ = "users"
@@ -512,7 +524,7 @@ class User(Base):
         which doesn't work with async SQLAlchemy. The subscription is loaded
         separately in the auth endpoints and added to the response.
         """
-        defaults = {"daily_digest": True, "sell_alerts": True, "double_signals": True, "intraday_signals": True}
+        defaults = {"daily_digest": True, "sell_alerts": True, "double_signals": True, "intraday_signals": True, "regime_report": True}
         prefs = {**defaults, **(self.email_preferences or {})}
         result = {
             "id": str(self.id),
@@ -859,6 +871,18 @@ async def _run_schema_migrations(conn):
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT FALSE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_backup_codes TEXT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_trusted_devices TEXT",
+    ])
+
+    await _run("email_subscribers table", [
+        """CREATE TABLE IF NOT EXISTS email_subscribers (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            source VARCHAR(50) DEFAULT 'regime_report',
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            unsubscribed_at TIMESTAMP
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_email_subscribers_email ON email_subscribers(email)",
     ])
 
     await _run("ensemble_signals table", [

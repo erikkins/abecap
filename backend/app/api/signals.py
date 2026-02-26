@@ -11,13 +11,14 @@ from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel
 
-from app.core.database import get_db, Signal, Position, User
+from app.core.database import get_db, Signal, Position, User, EmailSubscriber
 from app.core.security import get_current_user_optional, get_admin_user, require_valid_subscription
 from app.services.scanner import scanner_service, SignalData
 from app.services.stock_universe import stock_universe_service
 from app.services.data_export import data_export_service
 
 router = APIRouter()
+public_router = APIRouter()
 
 
 # ============================================================================
@@ -2120,3 +2121,206 @@ async def simulate_intraday_crossover(
             'Add ?send_email=true to receive the actual alert email.'
         ),
     }
+
+
+# ============================================================================
+# Public endpoints (no auth required) — for /market-regime page + email signup
+# ============================================================================
+
+REGIME_COLORS = {
+    'strong_bull': {'color': '#10B981', 'bg': '#d1fae5', 'name': 'Strong Bull'},
+    'weak_bull': {'color': '#84CC16', 'bg': '#ecfdf5', 'name': 'Weak Bull'},
+    'rotating_bull': {'color': '#8B5CF6', 'bg': '#ede9fe', 'name': 'Rotating Bull'},
+    'range_bound': {'color': '#F59E0B', 'bg': '#fef3c7', 'name': 'Range-Bound'},
+    'weak_bear': {'color': '#F97316', 'bg': '#fff7ed', 'name': 'Weak Bear'},
+    'panic_crash': {'color': '#EF4444', 'bg': '#fee2e2', 'name': 'Panic/Crash'},
+    'recovery': {'color': '#06B6D4', 'bg': '#cffafe', 'name': 'Recovery'},
+}
+
+
+@public_router.get("/regime-report")
+async def get_public_regime_report(db: AsyncSession = Depends(get_db)):
+    """
+    Public regime report data — no auth required.
+    Serves the /market-regime page with regime status, history, and forecast.
+    """
+    from app.services.regime_forecast_service import regime_forecast_service
+    import json
+
+    history = await regime_forecast_service.get_forecast_history(db, days=30)
+
+    if not history:
+        return {
+            'current': None,
+            'history': [],
+            'week_over_week': None,
+            'transition_probabilities': [],
+        }
+
+    # Current regime (most recent snapshot)
+    latest = history[0]
+    regime_key = latest.get('regime', 'range_bound')
+    regime_meta = REGIME_COLORS.get(regime_key, REGIME_COLORS['range_bound'])
+
+    # Week-over-week comparison
+    week_ago = history[6] if len(history) > 6 else history[-1] if history else None
+    wow_change = None
+    if week_ago:
+        prev_regime = week_ago.get('regime', '')
+        if prev_regime == regime_key:
+            wow_change = f"Held at {regime_meta['name']}"
+        else:
+            prev_meta = REGIME_COLORS.get(prev_regime, {})
+            wow_change = f"Shifted: {prev_meta.get('name', prev_regime)} → {regime_meta['name']}"
+
+    # Days in current regime
+    days_in_regime = 1
+    for snap in history[1:]:
+        if snap.get('regime') == regime_key:
+            days_in_regime += 1
+        else:
+            break
+
+    # Parse transition probabilities from latest snapshot
+    transition_probs = []
+    probs_raw = latest.get('probabilities')
+    if probs_raw:
+        probs = probs_raw if isinstance(probs_raw, dict) else json.loads(probs_raw) if isinstance(probs_raw, str) else {}
+        for regime, prob in sorted(probs.items(), key=lambda x: -x[1]):
+            meta = REGIME_COLORS.get(regime, {})
+            transition_probs.append({
+                'regime': regime,
+                'name': meta.get('name', regime),
+                'color': meta.get('color', '#6b7280'),
+                'probability': round(prob * 100, 1),
+            })
+
+    # Build history timeline
+    timeline = []
+    for snap in reversed(history):  # oldest first for timeline
+        r = snap.get('regime', 'range_bound')
+        meta = REGIME_COLORS.get(r, REGIME_COLORS['range_bound'])
+        timeline.append({
+            'date': snap.get('date', ''),
+            'regime': r,
+            'name': meta['name'],
+            'color': meta['color'],
+            'spy_close': snap.get('spy_close'),
+            'vix_close': snap.get('vix_close'),
+        })
+
+    return {
+        'current': {
+            'regime': regime_key,
+            'name': regime_meta['name'],
+            'color': regime_meta['color'],
+            'bg': regime_meta['bg'],
+            'outlook': latest.get('outlook', ''),
+            'recommended_action': latest.get('recommended_action', ''),
+            'risk_change': latest.get('risk_change', ''),
+            'spy_close': latest.get('spy_close'),
+            'vix_close': latest.get('vix_close'),
+            'days_in_regime': days_in_regime,
+        },
+        'week_over_week': wow_change,
+        'transition_probabilities': transition_probs[:5],
+        'history': timeline,
+    }
+
+
+class SubscribeRequest(BaseModel):
+    email: str
+    turnstile_token: str
+    source: str = "regime_report"
+
+
+@public_router.post("/subscribe")
+async def public_subscribe(
+    req: SubscribeRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Subscribe an email to the free weekly regime report. No account needed.
+    """
+    from app.services.turnstile import verify_turnstile
+    import re
+
+    # Basic email validation
+    if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', req.email):
+        raise HTTPException(status_code=400, detail="Invalid email address")
+
+    # Verify Turnstile
+    turnstile_ok = await verify_turnstile(req.turnstile_token)
+    if not turnstile_ok:
+        raise HTTPException(status_code=400, detail="Verification failed. Please try again.")
+
+    email_lower = req.email.strip().lower()
+
+    # Check if already exists
+    result = await db.execute(
+        select(EmailSubscriber).where(EmailSubscriber.email == email_lower)
+    )
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        if existing.is_active:
+            return {"success": True, "message": "You're already subscribed!"}
+        # Reactivate
+        existing.is_active = True
+        existing.unsubscribed_at = None
+        await db.commit()
+        return {"success": True, "message": "Welcome back! You've been resubscribed."}
+
+    # New subscriber
+    subscriber = EmailSubscriber(
+        email=email_lower,
+        source=req.source,
+    )
+    db.add(subscriber)
+    await db.commit()
+    return {"success": True, "message": "You're in! Watch for your first report on Monday."}
+
+
+@public_router.get("/unsubscribe")
+async def public_unsubscribe(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Unsubscribe from the regime report via JWT-signed link.
+    Returns a simple HTML page.
+    """
+    from jose import jwt as jose_jwt, JWTError
+    from app.core.config import settings
+    from fastapi.responses import HTMLResponse
+
+    try:
+        payload = jose_jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        subscriber_id = payload.get("sub")
+        purpose = payload.get("purpose")
+        if purpose != "regime_unsubscribe" or not subscriber_id:
+            raise JWTError("Invalid token")
+    except JWTError:
+        return HTMLResponse(
+            content='<html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#0f172a;color:#e2e8f0;">'
+            '<h2>Invalid or expired link</h2><p>Please contact support@rigacap.com</p></body></html>',
+            status_code=400,
+        )
+
+    result = await db.execute(
+        select(EmailSubscriber).where(EmailSubscriber.id == int(subscriber_id))
+    )
+    subscriber = result.scalar_one_or_none()
+
+    if subscriber and subscriber.is_active:
+        subscriber.is_active = False
+        subscriber.unsubscribed_at = datetime.utcnow()
+        await db.commit()
+
+    return HTMLResponse(
+        content='<html><body style="font-family:sans-serif;text-align:center;padding:60px;background:#0f172a;color:#e2e8f0;">'
+        '<h2 style="color:#f59e0b;">Unsubscribed</h2>'
+        '<p>You\'ve been removed from the weekly regime report.</p>'
+        '<p style="margin-top:24px;"><a href="https://rigacap.com" style="color:#818cf8;">Back to RigaCap</a></p>'
+        '</body></html>',
+    )

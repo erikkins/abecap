@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import LandingPage from './LandingPage';
 import TrackRecordPage from './TrackRecordPage';
+import MarketRegimePage from './MarketRegimePage';
 import { PrivacyPage, TermsPage, ContactPage } from './LegalPages';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginModal from './components/LoginModal';
@@ -4033,6 +4034,7 @@ export default function App() {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/track-record" element={<TrackRecordPage />} />
+        <Route path="/market-regime" element={<MarketRegimePage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/app" element={

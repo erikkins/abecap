@@ -2215,6 +2215,252 @@ Trading involves risk. Past performance does not guarantee future results.
         )
 
 
+    # ========================================================================
+    # Weekly Regime Report (free subscribers + paid users)
+    # ========================================================================
+
+    def _generate_regime_unsubscribe_token(self, subscriber_id: int) -> str:
+        """Generate JWT token for regime report unsubscribe link."""
+        from jose import jwt as jose_jwt
+        from datetime import timedelta
+        from app.core.config import settings
+        payload = {
+            "sub": str(subscriber_id),
+            "purpose": "regime_unsubscribe",
+            "exp": datetime.utcnow() + timedelta(days=90),
+        }
+        return jose_jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+    def generate_regime_report_html(self, history: list, subscriber_id: int = None, user_id: str = None) -> str:
+        """
+        Generate HTML for the weekly market regime report email.
+
+        Args:
+            history: List of regime snapshots (most recent first) from get_forecast_history()
+            subscriber_id: For free subscribers (regime_unsubscribe token)
+            user_id: For paid users (standard email_manage token)
+        """
+        import json
+
+        regime_colors = {
+            'strong_bull': ('#10B981', '#d1fae5', 'Strong Bull'),
+            'weak_bull': ('#84CC16', '#ecfdf5', 'Weak Bull'),
+            'rotating_bull': ('#8B5CF6', '#ede9fe', 'Rotating Bull'),
+            'range_bound': ('#F59E0B', '#fef3c7', 'Range-Bound'),
+            'weak_bear': ('#F97316', '#fff7ed', 'Weak Bear'),
+            'panic_crash': ('#EF4444', '#fee2e2', 'Panic/Crash'),
+            'recovery': ('#06B6D4', '#cffafe', 'Recovery'),
+        }
+
+        now = _now_et()
+        date_str = now.strftime('%B %d, %Y')
+
+        if not history:
+            return f"<p>No regime data available for {date_str}.</p>"
+
+        latest = history[0]
+        regime_key = latest.get('regime', 'range_bound')
+        color, bg_color, regime_name = regime_colors.get(regime_key, ('#F59E0B', '#fef3c7', 'Unknown'))
+
+        outlook = latest.get('outlook', 'neutral')
+        recommended_action = latest.get('recommended_action', 'hold')
+        spy_close = latest.get('spy_close')
+        vix_close = latest.get('vix_close')
+
+        # Week-over-week change
+        week_ago = history[6] if len(history) > 6 else history[-1]
+        prev_regime = week_ago.get('regime', '')
+        if prev_regime == regime_key:
+            wow_text = f"Held at <strong>{regime_name}</strong> for the week"
+        else:
+            prev_name = regime_colors.get(prev_regime, ('', '', prev_regime))[2]
+            wow_text = f"Shifted: {prev_name} → <strong>{regime_name}</strong>"
+
+        # SPY/VIX deltas
+        prev_spy = week_ago.get('spy_close')
+        prev_vix = week_ago.get('vix_close')
+        spy_delta = ""
+        if spy_close and prev_spy and prev_spy > 0:
+            pct = (spy_close / prev_spy - 1) * 100
+            arrow = "↑" if pct >= 0 else "↓"
+            spy_delta = f' <span style="color:{"#10B981" if pct >= 0 else "#EF4444"}">{arrow}{abs(pct):.1f}%</span>'
+        vix_delta = ""
+        if vix_close and prev_vix and prev_vix > 0:
+            pct = (vix_close / prev_vix - 1) * 100
+            arrow = "↑" if pct >= 0 else "↓"
+            vix_delta = f' <span style="color:{"#EF4444" if pct >= 0 else "#10B981"}">{arrow}{abs(pct):.1f}%</span>'
+
+        # Transition probabilities
+        probs_raw = latest.get('probabilities')
+        probs = {}
+        if probs_raw:
+            probs = probs_raw if isinstance(probs_raw, dict) else json.loads(probs_raw) if isinstance(probs_raw, str) else {}
+
+        top_transitions = sorted(probs.items(), key=lambda x: -x[1])[:3]
+        trans_rows = ""
+        for regime, prob in top_transitions:
+            r_color, _, r_name = regime_colors.get(regime, ('#6b7280', '#f3f4f6', regime))
+            pct = round(prob * 100, 1)
+            bar_width = min(pct, 100)
+            trans_rows += f'''
+            <tr>
+              <td style="padding:6px 12px;font-size:14px;color:#374151;width:140px;">{r_name}</td>
+              <td style="padding:6px 12px;">
+                <div style="background:#f3f4f6;border-radius:4px;overflow:hidden;height:20px;">
+                  <div style="background:{r_color};width:{bar_width}%;height:100%;border-radius:4px;"></div>
+                </div>
+              </td>
+              <td style="padding:6px 12px;font-size:14px;color:#374151;text-align:right;width:60px;">{pct}%</td>
+            </tr>'''
+
+        # 30-day regime timeline (compact)
+        timeline_blocks = ""
+        for snap in reversed(history):  # oldest first
+            r = snap.get('regime', 'range_bound')
+            c = regime_colors.get(r, ('#F59E0B', '#fef3c7', 'Unknown'))[0]
+            d = snap.get('date', '')[-5:]  # MM-DD
+            timeline_blocks += f'<td style="background:{c};width:10px;height:24px;border-radius:2px;" title="{d}: {regime_colors.get(r, ("","",""))[2]}"></td>'
+
+        # Action text
+        action_display = recommended_action.replace('_', ' ').title() if recommended_action else 'Hold'
+
+        # Unsubscribe footer
+        if subscriber_id:
+            token = self._generate_regime_unsubscribe_token(subscriber_id)
+            unsub_url = f"https://api.rigacap.com/api/public/unsubscribe?token={token}"
+            footer = f'''<tr>
+                <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                    <p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">
+                        You're receiving this because you subscribed at rigacap.com.
+                    </p>
+                    <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                        <a href="{unsub_url}" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
+                    </p>
+                    <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
+                        Trading involves risk. Past performance does not guarantee future results.
+                    </p>
+                </td>
+            </tr>'''
+        elif user_id:
+            footer = self._email_footer_html(user_id)
+        else:
+            footer = '''<tr>
+                <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                    <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                        Trading involves risk. Past performance does not guarantee future results.
+                    </p>
+                </td>
+            </tr>'''
+
+        html = f'''<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;">
+  <!-- Header -->
+  <tr>
+    <td style="background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); padding: 32px 24px; text-align: center;">
+      <h1 style="margin:0;color:white;font-size:20px;font-weight:700;">RigaCap Weekly Market Intelligence</h1>
+      <p style="margin:8px 0 0 0;color:#94a3b8;font-size:14px;">{date_str}</p>
+    </td>
+  </tr>
+
+  <!-- Regime Badge -->
+  <tr>
+    <td style="background:white;padding:24px;text-align:center;">
+      <div style="display:inline-block;background:{bg_color};border:2px solid {color};border-radius:12px;padding:12px 24px;">
+        <span style="font-size:24px;font-weight:700;color:{color};">{regime_name}</span>
+      </div>
+      <p style="margin:12px 0 0 0;font-size:14px;color:#6b7280;">{wow_text}</p>
+    </td>
+  </tr>
+
+  <!-- SPY & VIX -->
+  <tr>
+    <td style="background:white;padding:0 24px 24px 24px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td width="50%" style="text-align:center;padding:12px;background:#f9fafb;border-radius:8px 0 0 8px;">
+            <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;">S&P 500 (SPY)</p>
+            <p style="margin:4px 0 0 0;font-size:20px;font-weight:700;color:#172554;">${spy_close:.2f if spy_close else 'N/A'}{spy_delta}</p>
+          </td>
+          <td width="50%" style="text-align:center;padding:12px;background:#f9fafb;border-radius:0 8px 8px 0;">
+            <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;">Volatility (VIX)</p>
+            <p style="margin:4px 0 0 0;font-size:20px;font-weight:700;color:#172554;">{vix_close:.1f if vix_close else 'N/A'}{vix_delta}</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- Outlook & Action -->
+  <tr>
+    <td style="background:white;padding:0 24px 24px 24px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f9ff;border-radius:8px;border-left:4px solid #172554;">
+        <tr>
+          <td style="padding:16px;">
+            <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;text-transform:uppercase;">Outlook</p>
+            <p style="margin:0 0 12px 0;font-size:16px;font-weight:600;color:#172554;">{outlook.replace('_', ' ').title()}</p>
+            <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;text-transform:uppercase;">Recommended Action</p>
+            <p style="margin:0;font-size:16px;font-weight:600;color:#172554;">{action_display}</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- Transition Probabilities -->
+  <tr>
+    <td style="background:white;padding:0 24px 24px 24px;">
+      <p style="margin:0 0 12px 0;font-size:14px;font-weight:600;color:#172554;">What's Next? Transition Probabilities</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        {trans_rows}
+      </table>
+    </td>
+  </tr>
+
+  <!-- 30-Day Timeline -->
+  <tr>
+    <td style="background:white;padding:0 24px 24px 24px;">
+      <p style="margin:0 0 12px 0;font-size:14px;font-weight:600;color:#172554;">30-Day Regime Timeline</p>
+      <table cellpadding="1" cellspacing="1" style="width:100%;">
+        <tr>{timeline_blocks}</tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- CTA -->
+  <tr>
+    <td style="background:white;padding:0 24px 32px 24px;text-align:center;">
+      <p style="margin:0 0 16px 0;font-size:14px;color:#6b7280;">
+        RigaCap members get daily buy/sell signals powered by this intelligence.
+      </p>
+      <a href="https://rigacap.com?utm_source=regime_report&utm_medium=email&utm_campaign=weekly"
+         style="display:inline-block;padding:12px 32px;background:#172554;color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">
+        See Our Full Signals →
+      </a>
+    </td>
+  </tr>
+
+  <!-- Footer -->
+  {footer}
+</table>
+</body>
+</html>'''
+        return html
+
+    async def send_weekly_regime_report(self, to_email: str, html: str,
+                                         subscriber_id: int = None, user_id: str = None) -> bool:
+        """Send the weekly regime report email."""
+        subject = f"📊 Weekly Market Regime Report — {_now_et().strftime('%B %d, %Y')}"
+        return await self.send_email(
+            to_email=to_email,
+            subject=subject,
+            html_content=html,
+            user_id=user_id,  # For List-Unsubscribe header (paid users only)
+        )
+
+
 # Singleton instance
 email_service = EmailService()
 

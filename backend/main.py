@@ -30,7 +30,7 @@ import pandas as pd
 from app.core.config import settings
 from app.core.database import init_db, get_db, Position as DBPosition, Trade as DBTrade, Signal as DBSignal, User, async_session
 from app.core.security import get_current_user, get_admin_user, require_valid_subscription
-from app.api.signals import router as signals_router
+from app.api.signals import router as signals_router, public_router as public_signals_router
 from app.api.email import router as email_router
 from app.api.auth import router as auth_router
 from app.api.billing import router as billing_router
@@ -259,6 +259,7 @@ app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 app.include_router(social_router, prefix="/api/admin/social", tags=["social"])
 app.include_router(push_router, prefix="/api/push", tags=["push"])
 app.include_router(two_factor_router, prefix="/api/auth/2fa", tags=["2fa"])
+app.include_router(public_signals_router, prefix="/api/public", tags=["public"])
 
 # Lambda handler (for AWS Lambda deployment)
 # lifespan="off" avoids issues with event loop reuse on warm Lambdas
@@ -3085,6 +3086,86 @@ def handler(event, context):
         except Exception as e:
             import traceback
             print(f"❌ Test push failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    if event.get("weekly_regime_report"):
+        print("📊 Weekly regime report triggered")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            async def _send_regime_report():
+                from app.core.database import async_session, EmailSubscriber, User, Subscription
+                from app.services.regime_forecast_service import regime_forecast_service
+                from app.services.email_service import email_service
+                from sqlalchemy import select
+
+                sent_count = 0
+                error_count = 0
+
+                async with async_session() as db:
+                    history = await regime_forecast_service.get_forecast_history(db, days=30)
+                    if not history:
+                        return {"status": "skipped", "reason": "No regime history"}
+
+                    # Free subscribers
+                    result = await db.execute(
+                        select(EmailSubscriber).where(EmailSubscriber.is_active == True)
+                    )
+                    subscribers = result.scalars().all()
+
+                    for sub in subscribers:
+                        try:
+                            html = email_service.generate_regime_report_html(
+                                history=history, subscriber_id=sub.id
+                            )
+                            success = await email_service.send_weekly_regime_report(
+                                to_email=sub.email, html=html, subscriber_id=sub.id
+                            )
+                            sent_count += 1 if success else 0
+                            error_count += 0 if success else 1
+                        except Exception as e:
+                            print(f"Failed: {sub.email}: {e}")
+                            error_count += 1
+
+                    # Paid users
+                    result = await db.execute(
+                        select(User).join(Subscription).where(
+                            Subscription.status.in_(["active", "trial"]),
+                            User.is_active == True,
+                        )
+                    )
+                    users = result.scalars().all()
+                    subscriber_emails = {s.email.lower() for s in subscribers}
+
+                    for user in users:
+                        if user.email.lower() in subscriber_emails:
+                            continue
+                        if not user.get_email_preference("regime_report"):
+                            continue
+                        try:
+                            html = email_service.generate_regime_report_html(
+                                history=history, user_id=str(user.id)
+                            )
+                            success = await email_service.send_weekly_regime_report(
+                                to_email=user.email, html=html, user_id=str(user.id)
+                            )
+                            sent_count += 1 if success else 0
+                            error_count += 0 if success else 1
+                        except Exception as e:
+                            print(f"Failed: {user.email}: {e}")
+                            error_count += 1
+
+                return {"status": "ok", "sent": sent_count, "errors": error_count}
+
+            result = loop.run_until_complete(_send_regime_report())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Weekly regime report failed: {e}")
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
