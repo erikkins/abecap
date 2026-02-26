@@ -584,6 +584,9 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
         threshold_rank = momentum_top_n // 2
         mom_threshold = momentum_rankings[threshold_rank - 1].composite_score if len(momentum_rankings) >= threshold_rank else 0
 
+        # Compute SPY trend once for all signals
+        spy_trend = compute_spy_trend()
+
         # Build buy signals (ensemble)
         for symbol in dwap_by_symbol:
             if symbol in momentum_by_symbol:
@@ -591,10 +594,6 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                 mom = momentum_by_symbol[symbol]
                 mom_data = mom['data']
                 mom_rank = mom['rank']
-
-                dwap_score = min(dwap.pct_above_dwap * 10, 50)
-                rank_score = (momentum_top_n - mom_rank + 1) * 2.5
-                ensemble_score = dwap_score + rank_score
 
                 crossover_date, days_since = find_dwap_crossover_date(symbol)
 
@@ -612,6 +611,17 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                 fresh_by_entry = days_since_entry is not None and days_since_entry <= fresh_days
                 is_fresh = fresh_by_crossover or fresh_by_entry
 
+                # Signal strength score (data-backed, replaces old ensemble_score)
+                dwap_age = days_since if days_since is not None else 0
+                ensemble_score = compute_signal_strength(
+                    volatility=mom_data.volatility,
+                    spy_trend=spy_trend,
+                    dwap_age=dwap_age,
+                    dist_from_high=mom_data.dist_from_50d_high,
+                    vol_ratio=dwap.volume_ratio,
+                    momentum_score=mom_data.composite_score,
+                )
+
                 info = stock_universe_service.symbol_info.get(symbol, {})
                 sector = info.get('sector', '')
 
@@ -628,6 +638,7 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                     'short_momentum': round(float(mom_data.short_momentum), 2),
                     'long_momentum': round(float(mom_data.long_momentum), 2),
                     'ensemble_score': round(float(ensemble_score), 1),
+                    'signal_strength_label': get_signal_strength_label(ensemble_score),
                     'dwap_crossover_date': crossover_date,
                     'ensemble_entry_date': entry_date,
                     'days_since_crossover': int(days_since) if days_since is not None else None,
@@ -1164,16 +1175,14 @@ async def _compute_dashboard_live(
         threshold_rank = momentum_top_n // 2
         mom_threshold = momentum_rankings[threshold_rank - 1].composite_score if len(momentum_rankings) >= threshold_rank else 0
 
+        spy_trend = compute_spy_trend(as_of_date=effective_date)
+
         for symbol in dwap_by_symbol:
             if symbol in momentum_by_symbol:
                 dwap = dwap_by_symbol[symbol]
                 mom = momentum_by_symbol[symbol]
                 mom_data = mom['data']
                 mom_rank = mom['rank']
-
-                dwap_score = min(dwap.pct_above_dwap * 10, 50)
-                rank_score = (momentum_top_n - mom_rank + 1) * 2.5
-                ensemble_score = dwap_score + rank_score
 
                 crossover_date, days_since = find_dwap_crossover_date(symbol, as_of_date=effective_date)
 
@@ -1188,6 +1197,16 @@ async def _compute_dashboard_live(
                 fresh_by_crossover = days_since is not None and days_since <= fresh_days
                 fresh_by_entry = days_since_entry is not None and days_since_entry <= fresh_days
                 is_fresh = fresh_by_crossover or fresh_by_entry
+
+                dwap_age = days_since if days_since is not None else 0
+                ensemble_score = compute_signal_strength(
+                    volatility=mom_data.volatility,
+                    spy_trend=spy_trend,
+                    dwap_age=dwap_age,
+                    dist_from_high=mom_data.dist_from_50d_high,
+                    vol_ratio=dwap.volume_ratio,
+                    momentum_score=mom_data.composite_score,
+                )
 
                 info = stock_universe_service.symbol_info.get(symbol, {})
 
@@ -1204,6 +1223,7 @@ async def _compute_dashboard_live(
                     'short_momentum': round(float(mom_data.short_momentum), 2),
                     'long_momentum': round(float(mom_data.long_momentum), 2),
                     'ensemble_score': round(float(ensemble_score), 1),
+                    'signal_strength_label': get_signal_strength_label(ensemble_score),
                     'dwap_crossover_date': crossover_date,
                     'ensemble_entry_date': entry_date,
                     'days_since_crossover': int(days_since) if days_since is not None else None,
@@ -1391,8 +1411,9 @@ class DoubleSignalItem(BaseModel):
     momentum_score: float
     short_momentum: float
     long_momentum: float
-    # Combined score (higher = better)
+    # Signal strength score (0-100, data-backed)
     ensemble_score: float
+    signal_strength_label: str = ""
     # Crossover tracking
     dwap_crossover_date: Optional[str] = None  # When stock first crossed DWAP +5%
     days_since_crossover: Optional[int] = None  # Days since the crossover
@@ -1487,6 +1508,73 @@ def find_ensemble_entry_date(symbol: str, dwap_crossover_date_str: str, momentum
             return entry_date.strftime('%Y-%m-%d')
 
     return None
+
+
+def compute_signal_strength(volatility: float, spy_trend: float, dwap_age: int,
+                            dist_from_high: float, vol_ratio: float,
+                            momentum_score: float) -> int:
+    """
+    Data-backed signal strength score (0-100).
+
+    Formula B (Penalty/Bonus) — validated on 710 walk-forward trades (2021-2026).
+    Uses 5 factors: volatility (monotonic ↑), spy_trend (6-9% sweet spot),
+    dwap_age (stale better), dist_from_high (-3 to -1 sweet spot),
+    vol_ratio × momentum interaction.
+
+    Validation: Pearson r=+0.083 (p=0.027), Q5-Q1 spread=+2.39%,
+    4/5 leave-one-year-out CV pass.
+    """
+    base = 60
+    vol_bonus = min((volatility - 20) * 0.3, 15)
+    if 6 <= spy_trend <= 9:
+        spy_bonus = 10
+    elif spy_trend > 3:
+        spy_bonus = 5
+    else:
+        spy_bonus = -5
+    age_bonus = min(dwap_age / 15, 10)
+    dfh_bonus = 8 if -3 < dist_from_high < -1 else 0
+    combo_bonus = 8 if vol_ratio > 1.3 and momentum_score > 5 else 0
+    return max(0, min(100, round(base + vol_bonus + spy_bonus + age_bonus + dfh_bonus + combo_bonus)))
+
+
+def get_signal_strength_label(score: int) -> str:
+    """Convert signal strength score to human-readable label."""
+    if score >= 88:
+        return "Very Strong"
+    elif score >= 75:
+        return "Strong"
+    elif score >= 61:
+        return "Moderate"
+    else:
+        return "Weak"
+
+
+def compute_spy_trend(as_of_date=None) -> float:
+    """
+    Return SPY's % above its 200-day MA. Positive = bullish, negative = bearish.
+    """
+    import numpy as np
+
+    spy_df = scanner_service.data_cache.get('SPY')
+    if spy_df is None or len(spy_df) < 200:
+        return 0.0
+
+    if as_of_date is not None:
+        import pandas as pd
+        as_of_ts = pd.Timestamp(as_of_date).normalize()
+        if hasattr(spy_df.index, 'tz') and spy_df.index.tz is not None:
+            as_of_ts = as_of_ts.tz_localize(spy_df.index.tz)
+        spy_df = spy_df[spy_df.index <= as_of_ts]
+        if len(spy_df) < 200:
+            return 0.0
+
+    row = spy_df.iloc[-1]
+    spy_price = row['close']
+    spy_ma200 = row.get('ma_200', np.nan)
+    if np.isnan(spy_ma200) or spy_ma200 <= 0:
+        return 0.0
+    return round((spy_price / spy_ma200 - 1) * 100, 2)
 
 
 def find_dwap_crossover_date(symbol: str, threshold_pct: float = 5.0, lookback_days: int = 60, as_of_date=None) -> tuple:
@@ -1700,6 +1788,7 @@ async def get_double_signals(
     # Find intersection (double signals)
     double_signals = []
     fresh_signals = []
+    spy_trend = compute_spy_trend()
 
     for symbol in dwap_by_symbol:
         if symbol in momentum_by_symbol:
@@ -1708,16 +1797,22 @@ async def get_double_signals(
             mom_data = mom['data']
             mom_rank = mom['rank']
 
-            # Ensemble score: combine DWAP strength (0-100) with inverse rank (20-1 -> 1-20 points)
-            dwap_score = min(dwap.pct_above_dwap * 10, 50)  # Max 50 points from DWAP
-            rank_score = (momentum_top_n - mom_rank + 1) * 2.5  # Max 50 points from rank
-            ensemble_score = dwap_score + rank_score
-
             # Find when the DWAP crossover occurred
             crossover_date, days_since = find_dwap_crossover_date(symbol)
 
             # Determine if this is a fresh signal (actionable buy)
             is_fresh = days_since is not None and days_since <= fresh_days
+
+            # Signal strength score (data-backed)
+            dwap_age = days_since if days_since is not None else 0
+            ensemble_score = compute_signal_strength(
+                volatility=mom_data.volatility,
+                spy_trend=spy_trend,
+                dwap_age=dwap_age,
+                dist_from_high=mom_data.dist_from_50d_high,
+                vol_ratio=dwap.volume_ratio,
+                momentum_score=mom_data.composite_score,
+            )
 
             signal = DoubleSignalItem(
                 symbol=symbol,
@@ -1732,6 +1827,7 @@ async def get_double_signals(
                 short_momentum=round(mom_data.short_momentum, 2),
                 long_momentum=round(mom_data.long_momentum, 2),
                 ensemble_score=round(ensemble_score, 1),
+                signal_strength_label=get_signal_strength_label(ensemble_score),
                 dwap_crossover_date=crossover_date,
                 days_since_crossover=days_since,
                 is_fresh=is_fresh

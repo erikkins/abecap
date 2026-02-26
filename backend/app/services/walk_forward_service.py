@@ -100,6 +100,19 @@ class PeriodTrade:
     pnl_pct: float
     pnl_dollars: float
     exit_reason: str
+    momentum_score: float = 0
+    momentum_rank: int = 0
+    pct_above_dwap_at_entry: float = 0
+    num_candidates: int = 0
+    dwap_at_entry: float = 0
+    # Signal strength metadata fields
+    dwap_age: int = 0
+    short_mom: float = 0
+    long_mom: float = 0
+    volatility: float = 0
+    dist_from_high: float = 0
+    vol_ratio: float = 0
+    spy_trend: float = 0
 
 
 @dataclass
@@ -478,7 +491,19 @@ class WalkForwardService:
                     shares=round(t.shares, 2),
                     pnl_pct=round(t.pnl_pct, 2),
                     pnl_dollars=round(t.pnl, 2),
-                    exit_reason=t.exit_reason
+                    exit_reason=t.exit_reason,
+                    momentum_score=getattr(t, 'momentum_score', 0),
+                    momentum_rank=getattr(t, 'momentum_rank', 0),
+                    pct_above_dwap_at_entry=getattr(t, 'pct_above_dwap_at_entry', 0),
+                    num_candidates=getattr(t, 'num_candidates', 0),
+                    dwap_at_entry=getattr(t, 'dwap_at_entry', 0),
+                    dwap_age=getattr(t, 'dwap_age', 0),
+                    short_mom=getattr(t, 'short_mom', 0),
+                    long_mom=getattr(t, 'long_mom', 0),
+                    volatility=getattr(t, 'volatility', 0),
+                    dist_from_high=getattr(t, 'dist_from_high', 0),
+                    vol_ratio=getattr(t, 'vol_ratio', 0),
+                    spy_trend=getattr(t, 'spy_trend', 0),
                 )
                 for t in result.trades
             ]
@@ -559,7 +584,19 @@ class WalkForwardService:
                     shares=round(t.shares, 2),
                     pnl_pct=round(t.pnl_pct, 2),
                     pnl_dollars=round(t.pnl, 2),
-                    exit_reason=t.exit_reason
+                    exit_reason=t.exit_reason,
+                    momentum_score=getattr(t, 'momentum_score', 0),
+                    momentum_rank=getattr(t, 'momentum_rank', 0),
+                    pct_above_dwap_at_entry=getattr(t, 'pct_above_dwap_at_entry', 0),
+                    num_candidates=getattr(t, 'num_candidates', 0),
+                    dwap_at_entry=getattr(t, 'dwap_at_entry', 0),
+                    dwap_age=getattr(t, 'dwap_age', 0),
+                    short_mom=getattr(t, 'short_mom', 0),
+                    long_mom=getattr(t, 'long_mom', 0),
+                    volatility=getattr(t, 'volatility', 0),
+                    dist_from_high=getattr(t, 'dist_from_high', 0),
+                    vol_ratio=getattr(t, 'vol_ratio', 0),
+                    spy_trend=getattr(t, 'spy_trend', 0),
                 )
                 for t in result.trades
             ]
@@ -1062,7 +1099,19 @@ class WalkForwardService:
                 "shares": t.shares,
                 "pnl_pct": t.pnl_pct,
                 "pnl_dollars": t.pnl_dollars,
-                "exit_reason": t.exit_reason
+                "exit_reason": t.exit_reason,
+                "momentum_score": t.momentum_score,
+                "momentum_rank": t.momentum_rank,
+                "pct_above_dwap_at_entry": t.pct_above_dwap_at_entry,
+                "num_candidates": t.num_candidates,
+                "dwap_at_entry": t.dwap_at_entry,
+                "dwap_age": t.dwap_age,
+                "short_mom": t.short_mom,
+                "long_mom": t.long_mom,
+                "volatility": t.volatility,
+                "dist_from_high": t.dist_from_high,
+                "vol_ratio": t.vol_ratio,
+                "spy_trend": t.spy_trend,
             }
             for t in all_trades
         ])
@@ -1563,7 +1612,14 @@ class WalkForwardService:
                 "entry_date": t.entry_date, "exit_date": t.exit_date,
                 "entry_price": t.entry_price, "exit_price": t.exit_price,
                 "shares": t.shares, "pnl_pct": t.pnl_pct,
-                "pnl_dollars": t.pnl_dollars, "exit_reason": t.exit_reason
+                "pnl_dollars": t.pnl_dollars, "exit_reason": t.exit_reason,
+                "momentum_score": t.momentum_score, "momentum_rank": t.momentum_rank,
+                "pct_above_dwap_at_entry": t.pct_above_dwap_at_entry,
+                "num_candidates": t.num_candidates, "dwap_at_entry": t.dwap_at_entry,
+                "dwap_age": t.dwap_age, "short_mom": t.short_mom,
+                "long_mom": t.long_mom, "volatility": t.volatility,
+                "dist_from_high": t.dist_from_high, "vol_ratio": t.vol_ratio,
+                "spy_trend": t.spy_trend,
             }
             for t in period_trades
         ]) if period_trades else "[]"

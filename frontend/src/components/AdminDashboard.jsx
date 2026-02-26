@@ -1870,15 +1870,21 @@ function TradeDetailCard({ detail, onGenerateAutopsy }) {
         {/* Signal Replay */}
         {detail.ensemble_score != null && (
           <div>
-            <p className="text-xs text-gray-400">Ensemble Score</p>
+            <p className="text-xs text-gray-400">Signal Strength</p>
             <div className="flex items-center gap-2">
               <div className="flex-1 bg-gray-200 rounded-full h-2">
                 <div
-                  className="bg-blue-500 rounded-full h-2"
+                  className={`rounded-full h-2 ${
+                    detail.ensemble_score >= 88 ? 'bg-emerald-600' :
+                    detail.ensemble_score >= 75 ? 'bg-emerald-400' :
+                    detail.ensemble_score >= 61 ? 'bg-amber-400' : 'bg-gray-400'
+                  }`}
                   style={{ width: `${Math.min(detail.ensemble_score, 100)}%` }}
                 />
               </div>
-              <span className="text-sm font-medium text-gray-700">{detail.ensemble_score?.toFixed(0)}</span>
+              <span className="text-sm font-medium text-gray-700">
+                {detail.signal_strength_label || detail.ensemble_score?.toFixed(0)}
+              </span>
             </div>
           </div>
         )}

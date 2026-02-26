@@ -117,6 +117,18 @@ class SimulatedTrade:
     exit_reason: str
     days_held: int
     dwap_at_entry: float
+    momentum_score: float = 0
+    momentum_rank: int = 0
+    pct_above_dwap_at_entry: float = 0
+    num_candidates: int = 0
+    # Signal strength metadata fields
+    dwap_age: int = 0              # Days since DWAP cross
+    short_mom: float = 0           # 10-day momentum %
+    long_mom: float = 0            # 60-day momentum %
+    volatility: float = 0          # 20-day annualized vol %
+    dist_from_high: float = 0      # % from 50-day high
+    vol_ratio: float = 0           # Volume / 200-day avg
+    spy_trend: float = 0           # SPY % above 200MA
 
     def to_dict(self):
         return asdict(self)
@@ -345,6 +357,65 @@ class BacktesterService:
             return True
         days_since = self._days_between(date, last_rebalance)
         return is_friday and days_since >= 5
+
+    def _compute_dwap_age(self, symbol: str, date: pd.Timestamp) -> int:
+        """
+        Compute days since the most recent DWAP crossover (price crossing above DWAP × 1.05).
+        Scans backward up to 252 trading days. Returns calendar days since cross, capped at 252.
+        Returns 0 if no crossover found.
+        """
+        df = scanner_service.data_cache.get(symbol)
+        if df is None or len(df) < 200:
+            return 0
+
+        # Find the location of the current date
+        row = self._get_row_for_date(df, date)
+        if row is None:
+            return 0
+
+        loc = df.index.get_loc(row.name)
+        if isinstance(loc, slice):
+            loc = loc.start
+
+        # Scan backward up to 252 days to find last day price was BELOW DWAP × 1.05
+        lookback = min(252, loc)
+        for i in range(1, lookback + 1):
+            idx = loc - i
+            if idx < 0:
+                break
+            prev_row = df.iloc[idx]
+            prev_dwap = prev_row.get('dwap', np.nan)
+            if pd.isna(prev_dwap) or prev_dwap <= 0:
+                continue
+            prev_pct = (prev_row['close'] / prev_dwap - 1)
+            if prev_pct < self.dwap_threshold_pct:
+                # Found the last day below threshold — cross happened on next day
+                cross_date = df.index[idx + 1]
+                days_since = self._days_between(date, cross_date)
+                return min(days_since, 252)
+
+        # Was above threshold for entire lookback
+        return 252
+
+    def _compute_spy_trend(self, date: pd.Timestamp) -> float:
+        """
+        Return SPY's % above its 200-day MA at the given date.
+        Positive = bullish, negative = bearish.
+        """
+        if 'SPY' not in scanner_service.data_cache:
+            return 0.0
+
+        spy_df = scanner_service.data_cache['SPY']
+        row = self._get_row_for_date(spy_df, date)
+        if row is None:
+            return 0.0
+
+        spy_price = row['close']
+        spy_ma200 = row.get('ma_200', np.nan)
+        if pd.isna(spy_ma200) or spy_ma200 <= 0:
+            return 0.0
+
+        return round((spy_price / spy_ma200 - 1) * 100, 2)
 
     def _check_market_regime(self, date: pd.Timestamp) -> bool:
         """
@@ -722,7 +793,18 @@ class BacktesterService:
                             pnl_pct=round(pnl_pct * 100, 2),
                             exit_reason='market_regime',
                             days_held=self._days_between(date, pos['entry_date']),
-                            dwap_at_entry=pos.get('dwap_at_entry', 0)
+                            dwap_at_entry=pos.get('dwap_at_entry', 0),
+                            momentum_score=pos.get('momentum_score', 0),
+                            momentum_rank=pos.get('momentum_rank', 0),
+                            pct_above_dwap_at_entry=pos.get('pct_above_dwap_at_entry', 0),
+                            num_candidates=pos.get('num_candidates', 0),
+                            dwap_age=pos.get('dwap_age', 0),
+                            short_mom=pos.get('short_mom', 0),
+                            long_mom=pos.get('long_mom', 0),
+                            volatility=pos.get('volatility', 0),
+                            dist_from_high=pos.get('dist_from_high', 0),
+                            vol_ratio=pos.get('vol_ratio', 0),
+                            spy_trend=pos.get('spy_trend', 0),
                         ))
                         capital += pos['shares'] * current_price
                     positions.clear()
@@ -761,7 +843,18 @@ class BacktesterService:
                         pnl_pct=round(pnl_pct * 100, 2),
                         exit_reason=exit_reason,
                         days_held=self._days_between(date, pos['entry_date']),
-                        dwap_at_entry=pos.get('dwap_at_entry', 0)
+                        dwap_at_entry=pos.get('dwap_at_entry', 0),
+                        momentum_score=pos.get('momentum_score', 0),
+                        momentum_rank=pos.get('momentum_rank', 0),
+                        pct_above_dwap_at_entry=pos.get('pct_above_dwap_at_entry', 0),
+                        num_candidates=pos.get('num_candidates', 0),
+                        dwap_age=pos.get('dwap_age', 0),
+                        short_mom=pos.get('short_mom', 0),
+                        long_mom=pos.get('long_mom', 0),
+                        volatility=pos.get('volatility', 0),
+                        dist_from_high=pos.get('dist_from_high', 0),
+                        vol_ratio=pos.get('vol_ratio', 0),
+                        spy_trend=pos.get('spy_trend', 0),
                     ))
                     capital += pos['shares'] * current_price
                     symbols_to_close.append(symbol)
@@ -820,6 +913,10 @@ class BacktesterService:
 
                     # Sort by composite score (highest first)
                     candidates.sort(key=lambda x: -x['composite_score'])
+                    num_cands = len(candidates)
+                    for rank_idx, cand in enumerate(candidates, 1):
+                        cand['momentum_rank'] = rank_idx
+                        cand['num_candidates'] = num_cands
 
                     # Enter positions up to max
                     for cand in candidates:
@@ -844,7 +941,10 @@ class BacktesterService:
                             'trailing_stop': round(entry_price * (1 - self.trailing_stop_pct), 2),
                             'dwap_at_entry': 0,  # Not used in momentum strategy
                             'pct_above_dwap_at_entry': 0,
-                            'composite_score': cand['composite_score']
+                            'composite_score': cand['composite_score'],
+                            'momentum_score': cand.get('composite_score', 0),
+                            'momentum_rank': cand.get('momentum_rank', 0),
+                            'num_candidates': cand.get('num_candidates', 0)
                         }
 
                     if candidates:
@@ -909,6 +1009,10 @@ class BacktesterService:
 
                     # Sort: strong signals first, then by % above DWAP
                     candidates.sort(key=lambda x: (not x['is_strong'], -x['pct_above_dwap']))
+                    num_cands = len(candidates)
+                    for rank_idx, cand in enumerate(candidates, 1):
+                        cand['momentum_rank'] = rank_idx
+                        cand['num_candidates'] = num_cands
 
                     for cand in candidates:
                         if len(positions) >= self.max_positions:
@@ -932,7 +1036,9 @@ class BacktesterService:
                             'high_water_mark': entry_price,  # For trailing stop
                             'trailing_stop': round(entry_price * (1 - self.trailing_stop_pct), 2),
                             'dwap_at_entry': round(cand['dwap'], 2),
-                            'pct_above_dwap_at_entry': round(cand['pct_above_dwap'] * 100, 1)
+                            'pct_above_dwap_at_entry': round(cand['pct_above_dwap'] * 100, 1),
+                            'momentum_rank': cand.get('momentum_rank', 0),
+                            'num_candidates': cand.get('num_candidates', 0)
                         }
 
                     if candidates:
@@ -985,7 +1091,13 @@ class BacktesterService:
                             'dwap': dwap,
                             'pct_above_dwap': pct_above_dwap,
                             'momentum_score': score_data['composite_score'],
-                            'vol_ratio': vol_ratio
+                            'vol_ratio': vol_ratio,
+                            'short_mom': score_data['short_mom'],
+                            'long_mom': score_data['long_mom'],
+                            'volatility': score_data['volatility'],
+                            'dist_from_high': score_data['dist_from_high'],
+                            'dwap_age': self._compute_dwap_age(symbol, date),
+                            'spy_trend': self._compute_spy_trend(date),
                         })
 
                     # Log first entry day for debugging
@@ -999,6 +1111,10 @@ class BacktesterService:
 
                     # Sort by momentum score (best first), then DWAP strength
                     candidates.sort(key=lambda x: (-x['momentum_score'], -x['pct_above_dwap']))
+                    num_cands = len(candidates)
+                    for rank_idx, cand in enumerate(candidates, 1):
+                        cand['momentum_rank'] = rank_idx
+                        cand['num_candidates'] = num_cands
 
                     for cand in candidates:
                         if len(positions) >= self.max_positions:
@@ -1023,7 +1139,16 @@ class BacktesterService:
                             'trailing_stop': round(entry_price * (1 - self.trailing_stop_pct), 2),
                             'dwap_at_entry': round(cand['dwap'], 2),
                             'pct_above_dwap_at_entry': round(cand['pct_above_dwap'] * 100, 1),
-                            'momentum_score': cand['momentum_score']
+                            'momentum_score': cand['momentum_score'],
+                            'momentum_rank': cand.get('momentum_rank', 0),
+                            'num_candidates': cand.get('num_candidates', 0),
+                            'dwap_age': cand.get('dwap_age', 0),
+                            'short_mom': round(cand.get('short_mom', 0), 2),
+                            'long_mom': round(cand.get('long_mom', 0), 2),
+                            'volatility': round(cand.get('volatility', 0), 2),
+                            'dist_from_high': round(cand.get('dist_from_high', 0), 2),
+                            'vol_ratio': round(cand.get('vol_ratio', 0), 2),
+                            'spy_trend': round(cand.get('spy_trend', 0), 2),
                         }
 
                     if candidates:
@@ -1073,6 +1198,10 @@ class BacktesterService:
                             })
 
                     candidates.sort(key=lambda x: (not x['is_strong'], -x['pct_above_dwap']))
+                    num_cands = len(candidates)
+                    for rank_idx, cand in enumerate(candidates, 1):
+                        cand['momentum_rank'] = rank_idx
+                        cand['num_candidates'] = num_cands
 
                     for cand in candidates:
                         if len(positions) >= self.max_positions:
@@ -1094,7 +1223,9 @@ class BacktesterService:
                             'stop_loss': round(cand['price'] * (1 - self.stop_loss_pct), 2),
                             'profit_target': round(cand['price'] * (1 + self.profit_target_pct), 2),
                             'dwap_at_entry': round(cand['dwap'], 2),
-                            'pct_above_dwap_at_entry': round(cand['pct_above_dwap'] * 100, 1)
+                            'pct_above_dwap_at_entry': round(cand['pct_above_dwap'] * 100, 1),
+                            'momentum_rank': cand.get('momentum_rank', 0),
+                            'num_candidates': cand.get('num_candidates', 0)
                         }
 
             # Calculate daily equity
@@ -1146,7 +1277,18 @@ class BacktesterService:
                     pnl_pct=round(pnl_pct * 100, 2),
                     exit_reason='rebalance_exit',
                     days_held=self._days_between(last_date, pos['entry_date']),
-                    dwap_at_entry=pos.get('dwap_at_entry', 0)
+                    dwap_at_entry=pos.get('dwap_at_entry', 0),
+                    momentum_score=pos.get('momentum_score', 0),
+                    momentum_rank=pos.get('momentum_rank', 0),
+                    pct_above_dwap_at_entry=pos.get('pct_above_dwap_at_entry', 0),
+                    num_candidates=pos.get('num_candidates', 0),
+                    dwap_age=pos.get('dwap_age', 0),
+                    short_mom=pos.get('short_mom', 0),
+                    long_mom=pos.get('long_mom', 0),
+                    volatility=pos.get('volatility', 0),
+                    dist_from_high=pos.get('dist_from_high', 0),
+                    vol_ratio=pos.get('vol_ratio', 0),
+                    spy_trend=pos.get('spy_trend', 0),
                 ))
                 capital += pos['shares'] * current_price
 

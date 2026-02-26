@@ -1332,7 +1332,7 @@ class SchedulerService:
             # Fallback: if no persisted signals (first deploy, DB issue), regenerate
             if not buy_signals:
                 logger.warning("📧 No persisted signals found, falling back to live scan")
-                from app.api.signals import find_dwap_crossover_date, find_ensemble_entry_date
+                from app.api.signals import find_dwap_crossover_date, find_ensemble_entry_date, compute_signal_strength, get_signal_strength_label, compute_spy_trend
 
                 dwap_signals = await scanner_service.scan(refresh_data=False, apply_market_filter=True)
                 dwap_by_symbol = {s.symbol: s for s in dwap_signals}
@@ -1345,6 +1345,7 @@ class SchedulerService:
                 }
                 threshold_rank = momentum_top_n // 2
                 mom_threshold = momentum_rankings[threshold_rank - 1].composite_score if len(momentum_rankings) >= threshold_rank else 0
+                spy_trend = compute_spy_trend()
 
                 for symbol in dwap_by_symbol:
                     if symbol in momentum_by_symbol:
@@ -1352,9 +1353,6 @@ class SchedulerService:
                         mom = momentum_by_symbol[symbol]
                         mom_data = mom['data']
                         mom_rank = mom['rank']
-                        dwap_score = min(dwap.pct_above_dwap * 10, 50)
-                        rank_score = (momentum_top_n - mom_rank + 1) * 2.5
-                        ensemble_score = dwap_score + rank_score
                         crossover_date, days_since = find_dwap_crossover_date(symbol)
                         entry_date = None
                         days_since_entry = None
@@ -1368,6 +1366,15 @@ class SchedulerService:
                         fresh_by_crossover = days_since is not None and days_since <= fresh_days
                         fresh_by_entry = days_since_entry is not None and days_since_entry <= fresh_days
                         is_fresh = fresh_by_crossover or fresh_by_entry
+                        dwap_age = days_since if days_since is not None else 0
+                        ensemble_score = compute_signal_strength(
+                            volatility=mom_data.volatility,
+                            spy_trend=spy_trend,
+                            dwap_age=dwap_age,
+                            dist_from_high=mom_data.dist_from_50d_high,
+                            vol_ratio=dwap.volume_ratio,
+                            momentum_score=mom_data.composite_score,
+                        )
                         buy_signals.append({
                             'symbol': symbol,
                             'price': float(dwap.price),
@@ -1375,6 +1382,7 @@ class SchedulerService:
                             'is_strong': bool(dwap.is_strong),
                             'momentum_rank': int(mom_rank),
                             'ensemble_score': round(float(ensemble_score), 1),
+                            'signal_strength_label': get_signal_strength_label(ensemble_score),
                             'dwap_crossover_date': crossover_date,
                             'ensemble_entry_date': entry_date,
                             'days_since_crossover': int(days_since) if days_since is not None else None,

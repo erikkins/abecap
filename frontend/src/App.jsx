@@ -3196,7 +3196,17 @@ function Dashboard() {
                       const heldFreshCount = (dashboardData?.total_fresh_count || 0) - freshSignals.length;
 
                       const renderSimpleSignal = (s) => {
-                        const confidenceDots = Math.min(5, Math.max(1, Math.round((s.ensemble_score || 0) / 20)));
+                        const label = s.signal_strength_label || (() => {
+                          const score = s.ensemble_score || 0;
+                          if (score >= 88) return 'Very Strong';
+                          if (score >= 75) return 'Strong';
+                          if (score >= 61) return 'Moderate';
+                          return 'Weak';
+                        })();
+                        const labelColor = label === 'Very Strong' ? 'bg-emerald-600 text-white' :
+                                          label === 'Strong' ? 'bg-emerald-100 text-emerald-800' :
+                                          label === 'Moderate' ? 'bg-amber-100 text-amber-800' :
+                                          'bg-gray-100 text-gray-600';
                         return (
                           <div
                             key={s.symbol}
@@ -3214,11 +3224,7 @@ function Dashboard() {
                                 </span>
                               )}
                               <span className="text-gray-500 text-sm">${s.price?.toFixed(2)}</span>
-                              <div className="flex gap-0.5">
-                                {[1,2,3,4,5].map(i => (
-                                  <div key={i} className={`w-2 h-2 rounded-full ${i <= confidenceDots ? 'bg-emerald-500' : 'bg-gray-200'}`} />
-                                ))}
-                              </div>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${labelColor}`}>{label}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               {s.is_fresh && (
@@ -3270,6 +3276,22 @@ function Dashboard() {
                               #{s.momentum_rank}
                             </span>
                           </td>
+                          <td className="px-3 py-2.5 text-center">
+                            {(() => {
+                              const label = s.signal_strength_label || (() => {
+                                const score = s.ensemble_score || 0;
+                                if (score >= 88) return 'Very Strong';
+                                if (score >= 75) return 'Strong';
+                                if (score >= 61) return 'Moderate';
+                                return 'Weak';
+                              })();
+                              const labelColor = label === 'Very Strong' ? 'bg-emerald-600 text-white' :
+                                                label === 'Strong' ? 'bg-emerald-100 text-emerald-800' :
+                                                label === 'Moderate' ? 'bg-amber-100 text-amber-800' :
+                                                'bg-gray-100 text-gray-600';
+                              return <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${labelColor}`}>{label}</span>;
+                            })()}
+                          </td>
                           {s.is_fresh && (
                             <td className="px-3 py-2.5 text-center">
                               <button
@@ -3311,6 +3333,7 @@ function Dashboard() {
                                       <th className="px-3 py-2 text-right font-medium">Price</th>
                                       <th className="px-3 py-2 text-right font-medium">Breakout%</th>
                                       <th className="px-3 py-2 text-right font-medium">Rank</th>
+                                      <th className="px-3 py-2 text-center font-medium">Strength</th>
                                       <th className="px-3 py-2 text-center font-medium">Action</th>
                                     </tr>
                                   </thead>
@@ -3361,6 +3384,7 @@ function Dashboard() {
                                       <th className="px-3 py-2 text-right font-medium">Price</th>
                                       <th className="px-3 py-2 text-right font-medium">Breakout%</th>
                                       <th className="px-3 py-2 text-right font-medium">Rank</th>
+                                      <th className="px-3 py-2 text-center font-medium">Strength</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
