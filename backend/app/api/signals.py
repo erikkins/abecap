@@ -945,6 +945,81 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
     except Exception as e:
         print(f"Last ensemble entry date error: {e}")
 
+    # --- Market context (AI-generated summary when signals change significantly) ---
+    market_context = None
+    try:
+        from app.services.data_export import data_export_service
+        yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+        prev_snap = data_export_service.read_snapshot(yesterday)
+        if not prev_snap:
+            # Try 2 days back (weekend/holiday)
+            two_days = (date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
+            prev_snap = data_export_service.read_snapshot(two_days)
+            if not prev_snap:
+                three_days = (date.today() - timedelta(days=3)).strftime("%Y-%m-%d")
+                prev_snap = data_export_service.read_snapshot(three_days)
+
+        if prev_snap:
+            prev_signals = prev_snap.get('buy_signals', [])
+            prev_count = len(prev_signals)
+            today_count = len(buy_signals)
+            delta = today_count - prev_count
+
+            # Generate context if significant change (>30% or >3 signal swing)
+            if abs(delta) >= 3 or (prev_count > 0 and abs(delta) / prev_count >= 0.3):
+                prev_symbols = {s['symbol'] for s in prev_signals}
+                today_symbols = {s['symbol'] for s in buy_signals}
+                dropped = prev_symbols - today_symbols
+                added = today_symbols - prev_symbols
+
+                spy_price = market_stats.get('spy_price', '?')
+                vix_level = market_stats.get('vix_level', '?')
+                regime_name = market_stats.get('regime_name', market_stats.get('regime', '?'))
+
+                # Try Claude API for natural language summary
+                try:
+                    from anthropic import Anthropic
+                    from app.core.config import settings
+                    if settings.ANTHROPIC_API_KEY:
+                        client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+                        prompt = (
+                            f"Write 1-2 concise sentences explaining today's signal change for a stock trading dashboard. "
+                            f"Be factual and calm, no hype. Use plain language.\n\n"
+                            f"Context:\n"
+                            f"- Yesterday: {prev_count} ensemble buy signals\n"
+                            f"- Today: {today_count} ensemble buy signals ({'+' if delta > 0 else ''}{delta})\n"
+                            f"- Dropped out: {', '.join(sorted(dropped)[:10]) if dropped else 'none'}"
+                            f"{f' (+{len(dropped)-10} more)' if len(dropped) > 10 else ''}\n"
+                            f"- New entries: {', '.join(sorted(added)[:10]) if added else 'none'}\n"
+                            f"- SPY: ${spy_price}, VIX: {vix_level}, Regime: {regime_name}\n"
+                            f"- Fresh signals (new today): {market_stats.get('fresh_count', 0)}\n"
+                        )
+                        resp = client.messages.create(
+                            model="claude-haiku-4-5-20251001",
+                            max_tokens=150,
+                            messages=[{"role": "user", "content": prompt}],
+                        )
+                        market_context = resp.content[0].text.strip()
+                        print(f"📝 Market context: {market_context}")
+                except Exception as ai_err:
+                    print(f"⚠️ AI market context failed, using template: {ai_err}")
+
+                # Fallback template if Claude unavailable
+                if not market_context:
+                    if delta < 0:
+                        market_context = (
+                            f"Signal count dropped from {prev_count} to {today_count} after today's close. "
+                            f"{len(dropped)} stock{'s' if len(dropped) != 1 else ''} fell out of the ensemble as the market pulled back "
+                            f"(SPY ${spy_price}, VIX {vix_level})."
+                        )
+                    else:
+                        market_context = (
+                            f"Signal count rose from {prev_count} to {today_count}. "
+                            f"{len(added)} new stock{'s' if len(added) != 1 else ''} entered the ensemble."
+                        )
+    except Exception as ctx_err:
+        print(f"⚠️ Market context generation failed (non-fatal): {ctx_err}")
+
     return {
         'regime_forecast': regime_forecast_data,
         'buy_signals': buy_signals,
@@ -953,6 +1028,7 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
         'missed_opportunities': missed_opportunities,
         'recent_signals': recent_signals,
         'last_ensemble_entry_date': last_ensemble_entry_date,
+        'market_context': market_context,
         'generated_at': datetime.now().isoformat(),
     }
 

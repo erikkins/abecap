@@ -1531,13 +1531,15 @@ class SchedulerService:
             else:
                 logger.info(f"📧 Using {len(buy_signals)} persisted signal(s) from 4 PM scan")
 
-            # Read watchlist + regime from dashboard cache (same 4 PM data)
+            # Read watchlist + regime + market_context from dashboard cache (same 4 PM data)
             watchlist = []
             regime = {'regime': 'range_bound', 'spy_price': 'N/A', 'vix_level': 'N/A'}
+            market_context = None
             try:
                 dashboard_data = data_export_service.read_dashboard_json()
                 if dashboard_data:
                     watchlist = dashboard_data.get('watchlist', [])
+                    market_context = dashboard_data.get('market_context')
                     regime_forecast = dashboard_data.get('regime_forecast')
                     market_stats = dashboard_data.get('market_stats', {})
                     if regime_forecast:
@@ -1612,6 +1614,7 @@ class SchedulerService:
                         market_regime=regime,
                         watchlist=watchlist,
                         user_id=sub['user_id'],
+                        market_context=market_context,
                     )
                     if success:
                         sent += 1

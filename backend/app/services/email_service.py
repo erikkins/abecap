@@ -197,7 +197,8 @@ class EmailService:
         date: Optional[datetime] = None,
         watchlist: List[Dict] = None,
         regime_forecast: Dict = None,
-        user_id: str = None
+        user_id: str = None,
+        market_context: str = None
     ) -> str:
         """
         Generate beautiful HTML for daily summary email
@@ -282,6 +283,17 @@ class EmailService:
                 </table>
             </td>
         </tr>
+
+        {f'''<!-- Market Context -->
+        <tr>
+            <td style="padding: 0 24px 16px;">
+                <div style="background-color: #f0f9ff; border-left: 3px solid #3b82f6; border-radius: 6px; padding: 12px 16px;">
+                    <div style="font-size: 13px; color: #1e40af; line-height: 1.5;">
+                        {market_context}
+                    </div>
+                </div>
+            </td>
+        </tr>''' if market_context else ''}
 
         <!-- Buy Signals Section (fresh only) -->
         <tr>
@@ -596,7 +608,8 @@ class EmailService:
         watchlist: List[Dict] = None,
         regime_forecast: Dict = None,
         date: Optional[datetime] = None,
-        user_id: str = None
+        user_id: str = None,
+        market_context: str = None
     ) -> bool:
         """
         Send daily summary email to a subscriber
@@ -637,7 +650,8 @@ class EmailService:
             watchlist=watchlist,
             regime_forecast=regime_forecast,
             date=date,
-            user_id=user_id
+            user_id=user_id,
+            market_context=market_context
         )
 
         text = self.generate_plain_text(signals, market_regime, date=date, watchlist=watchlist)
