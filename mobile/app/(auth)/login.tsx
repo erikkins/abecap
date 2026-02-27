@@ -22,18 +22,19 @@ import { Link } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import {
-  GoogleSignin,
-  statusCodes,
-} from '@react-native-google-signin/google-signin';
 import { useAuth } from '@/hooks/useAuth';
 import { Colors, FontSize, Spacing } from '@/constants/theme';
 import { GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID } from '@/constants/config';
 
 WebBrowser.maybeCompleteAuthSession();
 
-// Configure native Google Sign-In for Android
+// Native Google Sign-In — only available on Android (native module not in iOS binary)
+let GoogleSignin: any = null;
+let statusCodes: any = {};
 if (Platform.OS === 'android') {
+  const nativeGoogle = require('@react-native-google-signin/google-signin');
+  GoogleSignin = nativeGoogle.GoogleSignin;
+  statusCodes = nativeGoogle.statusCodes;
   GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
 }
 

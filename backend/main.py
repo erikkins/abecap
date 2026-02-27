@@ -685,6 +685,19 @@ def handler(event, context):
             inc_result = await scanner_service.fetch_incremental()
             print(f"📡 Incremental: {inc_result}")
 
+            # 1d. Auto-retry with yfinance fallback if >10% symbols failed
+            if inc_result.get("failed", 0) > len(existing_symbols) * 0.1:
+                from app.services.market_data_provider import market_data_provider
+                print(f"⚠️ High failure rate ({inc_result['failed']} failed), retrying with yfinance fallback...")
+                market_data_provider.force_source = "yfinance"
+                retry_result = await scanner_service.fetch_incremental()
+                market_data_provider.force_source = None
+                print(f"📡 Retry result: {retry_result}")
+                # Merge counts
+                inc_result["updated"] += retry_result.get("updated", 0)
+                inc_result["failed"] = retry_result.get("failed", 0)
+                inc_result["source"] = f"{inc_result.get('source', 'unknown')}+yfinance_retry"
+
             # 2. Run scan on fresh data
             signals = await scanner_service.scan(refresh_data=False)
             print(f"📡 Scan complete: {len(signals)} signals")
@@ -1198,9 +1211,9 @@ def handler(event, context):
             from app.services.email_service import email_service
             from app.services.data_export import data_export_service as des
             from app.services.scheduler import scheduler_service as sched
+            from app.services.market_data_provider import market_data_provider
             from sqlalchemy import select
             from datetime import date
-            import yfinance as yf
 
             async with async_sess() as db:
                 # Query all open positions with user email
@@ -1214,20 +1227,15 @@ def handler(event, context):
                 if not rows:
                     return {"status": "success", "positions_checked": 0, "alerts_sent": 0, "message": "No open positions"}
 
-                # Fetch live prices
+                # Fetch live prices via DualSourceProvider
                 symbols = list({row[0].symbol for row in rows})
                 live_prices = {}
                 day_highs = {}
-                tickers = yf.Tickers(' '.join(symbols))
-                for sym in symbols:
-                    try:
-                        ticker = tickers.tickers.get(sym)
-                        if ticker:
-                            fi = ticker.fast_info
-                            live_prices[sym] = fi.last_price
-                            day_highs[sym] = fi.day_high
-                    except Exception:
-                        continue
+                quote_data = await market_data_provider.fetch_quotes(symbols)
+                for sym, qd in quote_data.items():
+                    live_prices[sym] = qd.price
+                    if qd.day_high:
+                        day_highs[sym] = qd.day_high
 
                 # Get regime forecast
                 regime_forecast = None
@@ -1649,6 +1657,111 @@ def handler(event, context):
             import traceback
             print(f"❌ Walk-forward trades failed: {e}")
             print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Handle data source comparison test (Alpaca vs yfinance)
+    if event.get("compare_data_sources"):
+        print("🔍 Data source comparison test")
+        config = event["compare_data_sources"]
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _compare_sources():
+            from app.services.market_data_provider import AlpacaProvider, YfinanceProvider
+            import json
+
+            symbols = config.get("symbols", ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "SPY", "XLK", "XLF", "META", "TSLA"])
+            days_back = config.get("days_back", 5)
+
+            start_date = (pd.Timestamp.now() - pd.Timedelta(days=days_back + 5)).strftime("%Y-%m-%d")
+
+            alpaca = AlpacaProvider()
+            yfinance = YfinanceProvider()
+
+            print(f"📊 Comparing {len(symbols)} symbols, {days_back} days back from {start_date}")
+
+            alpaca_bars = await alpaca.fetch_bars(symbols, start_date)
+            yf_bars = await yfinance.fetch_bars(symbols, start_date)
+
+            comparisons = []
+            for sym in symbols:
+                a_df = alpaca_bars.get(sym)
+                y_df = yf_bars.get(sym)
+
+                if a_df is None and y_df is None:
+                    comparisons.append({"symbol": sym, "status": "both_missing"})
+                    continue
+                if a_df is None:
+                    comparisons.append({"symbol": sym, "status": "alpaca_missing", "yfinance_rows": len(y_df)})
+                    continue
+                if y_df is None:
+                    comparisons.append({"symbol": sym, "status": "yfinance_missing", "alpaca_rows": len(a_df)})
+                    continue
+
+                # Compare last N days where both have data
+                # Normalize indices for comparison
+                a_dates = set(a_df.index.normalize())
+                y_dates = set(y_df.index.normalize())
+                common_dates = sorted(a_dates & y_dates)[-days_back:]
+
+                day_comparisons = []
+                max_close_diff_pct = 0
+                for dt in common_dates:
+                    a_row = a_df.loc[a_df.index.normalize() == dt].iloc[-1]
+                    y_row = y_df.loc[y_df.index.normalize() == dt].iloc[-1]
+
+                    close_diff = abs(a_row['close'] - y_row['close'])
+                    close_diff_pct = (close_diff / y_row['close'] * 100) if y_row['close'] > 0 else 0
+                    vol_diff_pct = abs(a_row['volume'] - y_row['volume']) / max(y_row['volume'], 1) * 100
+
+                    max_close_diff_pct = max(max_close_diff_pct, close_diff_pct)
+
+                    day_comparisons.append({
+                        "date": str(dt.date()),
+                        "alpaca_close": round(float(a_row['close']), 4),
+                        "yfinance_close": round(float(y_row['close']), 4),
+                        "close_diff_pct": round(close_diff_pct, 4),
+                        "alpaca_volume": int(a_row['volume']),
+                        "yfinance_volume": int(y_row['volume']),
+                        "volume_diff_pct": round(vol_diff_pct, 2),
+                    })
+
+                match = max_close_diff_pct < 0.1  # <0.1% diff = match
+                comparisons.append({
+                    "symbol": sym,
+                    "status": "match" if match else "mismatch",
+                    "max_close_diff_pct": round(max_close_diff_pct, 4),
+                    "common_days": len(common_dates),
+                    "alpaca_total_rows": len(a_df),
+                    "yfinance_total_rows": len(y_df),
+                    "days": day_comparisons,
+                })
+
+            matches = sum(1 for c in comparisons if c.get("status") == "match")
+            mismatches = sum(1 for c in comparisons if c.get("status") == "mismatch")
+            missing = sum(1 for c in comparisons if "missing" in c.get("status", ""))
+
+            return {
+                "status": "success",
+                "summary": {
+                    "symbols_tested": len(symbols),
+                    "matches": matches,
+                    "mismatches": mismatches,
+                    "missing": missing,
+                    "verdict": "PASS" if mismatches == 0 and missing == 0 else "REVIEW",
+                },
+                "comparisons": comparisons,
+            }
+
+        try:
+            result = loop.run_until_complete(_compare_sources())
+            print(f"🔍 Comparison result: {result['summary']}")
+            return result
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
             return {"status": "error", "error": str(e)}
 
     # Handle AI content generation test (direct Lambda invocation)
@@ -3407,6 +3520,75 @@ async def data_status(admin: User = Depends(get_admin_user)):
     }
 
 
+@app.get("/api/market-data-status")
+async def get_market_data_status():
+    """
+    Public (unauthenticated) endpoint for frontend staleness banner.
+    Returns data freshness status based on time of day and last dashboard update.
+    """
+    import pytz
+    from app.services.market_data_provider import market_data_provider
+
+    et = pytz.timezone("US/Eastern")
+    now_et = datetime.now(et)
+    hour = now_et.hour
+    minute = now_et.minute
+    weekday = now_et.weekday()  # 0=Mon, 6=Sun
+
+    # Check last dashboard update time from S3
+    last_updated = None
+    source = market_data_provider.last_bars_source or "unknown"
+    try:
+        from app.services.data_export import data_export_service
+        dashboard = data_export_service.read_dashboard_json()
+        if dashboard and dashboard.get("generated_at"):
+            last_updated = dashboard["generated_at"]
+    except Exception:
+        pass
+
+    # Determine status based on time of day
+    is_weekend = weekday >= 5
+
+    if is_weekend:
+        # Weekends: always fresh (Friday's data is expected)
+        status = "fresh"
+        message = None
+    elif hour < 16:
+        # Before 4 PM ET: yesterday's close is expected, always fresh
+        status = "fresh"
+        message = None
+    elif hour == 16 and minute < 45:
+        # 4:00-4:45 PM ET: daily scan is running
+        status = "processing"
+        message = "Market data is being updated. Signals will refresh shortly."
+    else:
+        # After 4:45 PM ET: check if dashboard was updated today
+        if last_updated:
+            try:
+                updated_dt = datetime.fromisoformat(last_updated.replace("Z", "+00:00"))
+                updated_et = updated_dt.astimezone(et)
+                if updated_et.date() == now_et.date():
+                    status = "fresh"
+                    message = None
+                else:
+                    status = "stale"
+                    message = "Today's market data is delayed. Signals may not reflect current prices."
+            except Exception:
+                status = "stale"
+                message = "Unable to verify data freshness."
+        else:
+            status = "stale"
+            message = "Today's market data is delayed. Signals may not reflect current prices."
+
+    return {
+        "status": status,
+        "last_updated": last_updated,
+        "source": source,
+        "message": message,
+        "health": market_data_provider.get_health_summary(),
+    }
+
+
 @app.get("/api/config")
 async def get_config(admin: User = Depends(get_admin_user)):
     return {
@@ -4257,7 +4439,7 @@ async def get_live_quotes(symbols: str = "", user: User = Depends(get_current_us
     """
     Get live/current quotes for symbols.
 
-    Uses yfinance to fetch current prices for display in UI.
+    Uses DualSourceProvider (yfinance primary for live quotes, Alpaca fallback).
     Note: Signals are still based on daily CLOSE prices.
 
     Args:
@@ -4266,7 +4448,7 @@ async def get_live_quotes(symbols: str = "", user: User = Depends(get_current_us
     Returns:
         Dict of symbol -> quote data
     """
-    import yfinance as yf
+    from app.services.market_data_provider import market_data_provider
 
     # Parse symbols or get from open positions
     if symbols:
@@ -4285,44 +4467,26 @@ async def get_live_quotes(symbols: str = "", user: User = Depends(get_current_us
     if not symbol_list:
         return {"quotes": {}, "timestamp": datetime.now().isoformat()}
 
-    # Fetch current quotes from yfinance
+    # Fetch current quotes via DualSourceProvider
     quotes = {}
     try:
-        # Use yfinance download with period="1d" for current day data
-        # This gives us the most recent price
-        tickers = yf.Tickers(" ".join(symbol_list))
-
-        for symbol in symbol_list:
-            try:
-                ticker = tickers.tickers.get(symbol)
-                if ticker:
-                    info = ticker.fast_info
-                    last_price = info.last_price if hasattr(info, 'last_price') else None
-                    prev_close = info.previous_close if hasattr(info, 'previous_close') else None
-
-                    if last_price:
-                        change = last_price - prev_close if prev_close else 0
-                        change_pct = (change / prev_close * 100) if prev_close else 0
-
-                        quotes[symbol] = {
-                            "price": round(last_price, 2),
-                            "change": round(change, 2),
-                            "change_pct": round(change_pct, 2),
-                            "prev_close": round(prev_close, 2) if prev_close else None,
-                        }
-            except Exception as e:
-                logger.warning(f"Failed to get quote for {symbol}: {e}")
-                continue
-
+        quote_data = await market_data_provider.fetch_quotes(symbol_list)
+        for symbol, qd in quote_data.items():
+            quotes[symbol] = {
+                "price": qd.price,
+                "change": qd.change,
+                "change_pct": qd.change_pct,
+                "prev_close": qd.prev_close,
+            }
     except Exception as e:
         logger.error(f"Failed to fetch live quotes: {e}")
-        logger.error(f"Failed to fetch quotes: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch quotes")
 
     return {
         "quotes": quotes,
         "timestamp": datetime.now().isoformat(),
-        "count": len(quotes)
+        "count": len(quotes),
+        "source": market_data_provider.last_quotes_source,
     }
 
 
@@ -4331,7 +4495,7 @@ async def get_batch_quotes(symbols: List[str], admin: User = Depends(get_admin_u
     """
     Get live quotes for a batch of symbols (POST for larger lists).
     """
-    import yfinance as yf
+    from app.services.market_data_provider import market_data_provider
 
     if not symbols:
         return {"quotes": {}, "timestamp": datetime.now().isoformat()}
@@ -4340,38 +4504,23 @@ async def get_batch_quotes(symbols: List[str], admin: User = Depends(get_admin_u
 
     quotes = {}
     try:
-        tickers = yf.Tickers(" ".join(symbol_list))
-
-        for symbol in symbol_list:
-            try:
-                ticker = tickers.tickers.get(symbol)
-                if ticker:
-                    info = ticker.fast_info
-                    last_price = info.last_price if hasattr(info, 'last_price') else None
-                    prev_close = info.previous_close if hasattr(info, 'previous_close') else None
-
-                    if last_price:
-                        change = last_price - prev_close if prev_close else 0
-                        change_pct = (change / prev_close * 100) if prev_close else 0
-
-                        quotes[symbol] = {
-                            "price": round(last_price, 2),
-                            "change": round(change, 2),
-                            "change_pct": round(change_pct, 2),
-                            "prev_close": round(prev_close, 2) if prev_close else None,
-                        }
-            except Exception as e:
-                continue
-
+        quote_data = await market_data_provider.fetch_quotes(symbol_list)
+        for symbol, qd in quote_data.items():
+            quotes[symbol] = {
+                "price": qd.price,
+                "change": qd.change,
+                "change_pct": qd.change_pct,
+                "prev_close": qd.prev_close,
+            }
     except Exception as e:
         logger.error(f"Failed to fetch batch quotes: {e}")
-        logger.error(f"Internal error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
     return {
         "quotes": quotes,
         "timestamp": datetime.now().isoformat(),
-        "count": len(quotes)
+        "count": len(quotes),
+        "source": market_data_provider.last_quotes_source,
     }
 
 

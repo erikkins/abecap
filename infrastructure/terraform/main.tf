@@ -167,6 +167,18 @@ variable "threads_user_id" {
   default     = ""
 }
 
+variable "alpaca_api_key" {
+  description = "Alpaca Markets API key"
+  sensitive   = true
+  default     = ""
+}
+
+variable "alpaca_secret_key" {
+  description = "Alpaca Markets secret key"
+  sensitive   = true
+  default     = ""
+}
+
 variable "lambda_image_tag" {
   description = "Docker image tag for Lambda container"
   default     = "latest"
@@ -610,6 +622,8 @@ locals {
     INSTAGRAM_BUSINESS_ACCOUNT_ID = var.instagram_business_account_id
     THREADS_ACCESS_TOKEN          = var.threads_access_token
     THREADS_USER_ID               = var.threads_user_id
+    ALPACA_API_KEY                = var.alpaca_api_key
+    ALPACA_SECRET_KEY             = var.alpaca_secret_key
     WORKER_FUNCTION_NAME          = "${local.prefix}-worker"
   }
 }

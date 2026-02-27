@@ -105,20 +105,23 @@ class MarketAnalysisService:
         Update market regime detection
 
         Uses SPY and VIX to determine bull/bear market conditions.
+        SPY via DualSourceProvider (Alpaca primary), ^VIX always via yfinance.
         """
-        if not YFINANCE_AVAILABLE:
-            raise RuntimeError("yfinance not installed")
-
         try:
-            # Fetch SPY and VIX data
-            loop = asyncio.get_event_loop()
-            data = await loop.run_in_executor(
-                None,
-                lambda: yf.download(["SPY", "^VIX"], period="1y", progress=False)
-            )
+            from app.services.market_data_provider import market_data_provider
+            from datetime import timedelta
 
-            spy_close = data['Close']['SPY'].dropna()
-            vix_close = data['Close']['^VIX'].dropna()
+            start_date = (pd.Timestamp.now() - pd.Timedelta(days=365)).strftime("%Y-%m-%d")
+            bars = await market_data_provider.fetch_bars(["SPY", "^VIX"], start_date)
+
+            spy_df = bars.get("SPY")
+            vix_df = bars.get("^VIX")
+
+            if spy_df is None or spy_df.empty:
+                raise ValueError("Could not fetch SPY data")
+
+            spy_close = spy_df['close'].dropna()
+            vix_close = vix_df['close'].dropna() if vix_df is not None and not vix_df.empty else pd.Series(dtype=float)
 
             if len(spy_close) < 200:
                 raise ValueError("Not enough SPY data")
@@ -200,24 +203,23 @@ class MarketAnalysisService:
         Calculate relative strength for each sector
 
         Returns dict of sector -> strength score (0-100)
+        Uses DualSourceProvider (all sector ETFs are normal tickers, Alpaca-compatible).
         """
-        if not YFINANCE_AVAILABLE:
-            return {}
-
         try:
-            etfs = list(SECTOR_ETFS.values())
+            from app.services.market_data_provider import market_data_provider
 
-            loop = asyncio.get_event_loop()
-            data = await loop.run_in_executor(
-                None,
-                lambda: yf.download(etfs, period="3mo", progress=False)
-            )
+            etfs = list(SECTOR_ETFS.values())
+            start_date = (pd.Timestamp.now() - pd.Timedelta(days=90)).strftime("%Y-%m-%d")
+            bars = await market_data_provider.fetch_bars(etfs, start_date)
 
             strength_scores = {}
 
             for sector, etf in SECTOR_ETFS.items():
                 try:
-                    close = data['Close'][etf].dropna()
+                    etf_df = bars.get(etf)
+                    if etf_df is None or etf_df.empty:
+                        continue
+                    close = etf_df['close'].dropna()
                     if len(close) < 20:
                         continue
 

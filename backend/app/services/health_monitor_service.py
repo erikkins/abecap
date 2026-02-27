@@ -163,6 +163,7 @@ class HealthMonitorService:
             self._check_cloudwatch_alarms,
             self._check_worker_log_errors,
             self._check_daily_snapshot,
+            self._check_data_source_health,
         ]
 
         for method in check_methods:
@@ -766,6 +767,59 @@ class HealthMonitorService:
                 status=HealthStatus.GREEN, value="N/A",
                 threshold="0 OOM, 0 timeouts",
                 message=f"Could not query logs: {str(e)[:80]}",
+            )
+
+
+    async def _check_data_source_health(self) -> HealthCheck:
+        """Check health of market data sources (Alpaca + yfinance)."""
+        try:
+            from app.services.market_data_provider import market_data_provider
+
+            health = market_data_provider.get_health_summary()
+            alpaca = health.get("alpaca", {})
+            yfinance = health.get("yfinance", {})
+
+            alpaca_status = alpaca.get("status", "green")
+            yfinance_status = yfinance.get("status", "green")
+            alpaca_fails = alpaca.get("consecutive_failures", 0)
+            yfinance_fails = yfinance.get("consecutive_failures", 0)
+
+            if alpaca_status == "red" and yfinance_status == "red":
+                status = HealthStatus.RED
+                msg = f"Both sources failing (Alpaca: {alpaca_fails} failures, yfinance: {yfinance_fails} failures)"
+                resolution = "Check Alpaca API status and yfinance availability"
+            elif alpaca_status == "red" or yfinance_status == "red":
+                status = HealthStatus.YELLOW
+                failed_src = "Alpaca" if alpaca_status == "red" else "yfinance"
+                msg = f"{failed_src} down, using fallback"
+                resolution = f"Check {failed_src} API status"
+            elif alpaca_fails > 0 or yfinance_fails > 0:
+                status = HealthStatus.YELLOW
+                msg = f"Alpaca: {alpaca_fails} fails, yfinance: {yfinance_fails} fails"
+                resolution = "Monitor — may recover automatically"
+            else:
+                status = HealthStatus.GREEN
+                msg = "Both data sources healthy"
+                resolution = ""
+
+            last_source = market_data_provider.last_bars_source or "none"
+            return HealthCheck(
+                category="Data Sources",
+                name="Market Data Sources",
+                status=status,
+                value=f"Primary: {last_source}",
+                threshold="Both sources responding",
+                message=msg,
+                resolution=resolution,
+            )
+        except Exception as e:
+            return HealthCheck(
+                category="Data Sources",
+                name="Market Data Sources",
+                status=HealthStatus.GREEN,
+                value="N/A",
+                threshold="Both sources responding",
+                message=f"Could not check: {str(e)[:80]}",
             )
 
 

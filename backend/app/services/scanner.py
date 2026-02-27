@@ -181,7 +181,7 @@ class ScannerService:
 
     async def fetch_data(self, symbols: List[str] = None, period: str = "5y") -> Dict[str, pd.DataFrame]:
         """
-        Fetch historical data from yfinance with throttled batch requests.
+        Fetch historical data via DualSourceProvider (Alpaca primary, yfinance fallback).
         This fetches FULL historical data - use fetch_incremental() for daily updates.
 
         Args:
@@ -191,9 +191,6 @@ class ScannerService:
         Returns:
             Dict mapping symbol to DataFrame with indicators
         """
-        if not YFINANCE_AVAILABLE:
-            raise RuntimeError("yfinance not installed")
-
         symbols = symbols or self.universe
 
         # Always include required symbols (SPY for benchmark, ^VIX for market regime)
@@ -203,117 +200,52 @@ class ScannerService:
                 symbols = list(symbols) + [req]
                 symbols_set.add(req)
 
-        # Batch settings to avoid rate limiting
-        BATCH_SIZE = 10  # Fetch 10 stocks at a time
-        DELAY_BETWEEN_BATCHES = 1.5  # Seconds between batches
-        MAX_RETRIES = 2
+        # Convert period to start_date for provider API
+        period_days = {"1y": 365, "2y": 730, "5y": 1825, "max": 7300}
+        days = period_days.get(period, 1825)
+        start_date = (pd.Timestamp.now() - pd.Timedelta(days=days)).strftime("%Y-%m-%d")
 
         total = len(symbols)
+        print(f"📊 Fetching data for {total} symbols via DualSourceProvider...")
+
+        from app.services.market_data_provider import market_data_provider
+        bars = await market_data_provider.fetch_bars(symbols, start_date)
+        source = market_data_provider.last_bars_source or "unknown"
+
         successful = 0
         failed = []
 
-        print(f"📊 Fetching data for {total} symbols in batches of {BATCH_SIZE}...")
+        for symbol in symbols:
+            df = bars.get(symbol)
+            if df is None or len(df) < 50:
+                failed.append(symbol)
+                continue
 
-        # Process in batches
-        for i in range(0, total, BATCH_SIZE):
-            batch = symbols[i:i + BATCH_SIZE]
-            batch_num = i // BATCH_SIZE + 1
-            total_batches = (total + BATCH_SIZE - 1) // BATCH_SIZE
+            # Compute indicators
+            df['dwap'] = self.dwap(df['close'], df['volume'])
+            df['ma_50'] = self.sma(df['close'], 50)
+            df['ma_200'] = self.sma(df['close'], 200)
+            df['vol_avg'] = self.sma(df['volume'], 200)
+            df['high_52w'] = self.high_52w(df['close'])
 
-            for retry in range(MAX_RETRIES):
-                try:
-                    # Run yfinance in thread pool (it's blocking)
-                    loop = asyncio.get_event_loop()
-                    data = await loop.run_in_executor(
-                        None,
-                        lambda b=batch: yf.download(
-                            b,
-                            period=period,
-                            progress=False,
-                            threads=True,
-                            timeout=30
-                        )
-                    )
+            self.data_cache[symbol] = df
+            successful += 1
 
-                    # Process each symbol in batch
-                    for symbol in batch:
-                        try:
-                            if len(batch) > 1:
-                                df = pd.DataFrame({
-                                    'date': data.index,
-                                    'open': data['Open'][symbol],
-                                    'high': data['High'][symbol],
-                                    'low': data['Low'][symbol],
-                                    'close': data['Close'][symbol],
-                                    'volume': data['Volume'][symbol],
-                                }).dropna()
-                            else:
-                                df = pd.DataFrame({
-                                    'date': data.index,
-                                    'open': data['Open'],
-                                    'high': data['High'],
-                                    'low': data['Low'],
-                                    'close': data['Close'],
-                                    'volume': data['Volume'],
-                                }).dropna()
-
-                            if len(df) < 50:  # Skip if not enough data
-                                continue
-
-                            df['date'] = pd.to_datetime(df['date'])
-                            df = df.set_index('date').sort_index()
-
-                            # Compute indicators
-                            df['dwap'] = self.dwap(df['close'], df['volume'])
-                            df['ma_50'] = self.sma(df['close'], 50)
-                            df['ma_200'] = self.sma(df['close'], 200)
-                            df['vol_avg'] = self.sma(df['volume'], 200)
-                            df['high_52w'] = self.high_52w(df['close'])
-
-                            self.data_cache[symbol] = df
-                            successful += 1
-
-                        except Exception as e:
-                            if symbol not in failed:
-                                failed.append(symbol)
-
-                    # Success - break retry loop
-                    break
-
-                except Exception as e:
-                    if retry < MAX_RETRIES - 1:
-                        print(f"  Batch {batch_num} failed, retrying... ({e})")
-                        await asyncio.sleep(DELAY_BETWEEN_BATCHES * 2)
-                    else:
-                        print(f"  Batch {batch_num} failed after {MAX_RETRIES} retries")
-                        failed.extend(batch)
-
-            # Progress update every 10 batches
-            if batch_num % 10 == 0 or batch_num == total_batches:
-                print(f"  Progress: {batch_num}/{total_batches} batches ({successful} symbols loaded)")
-
-            # Delay between batches to avoid rate limiting
-            if i + BATCH_SIZE < total:
-                await asyncio.sleep(DELAY_BETWEEN_BATCHES)
-
-        print(f"✅ Loaded {successful}/{total} symbols ({len(failed)} failed)")
+        print(f"✅ Loaded {successful}/{total} symbols via {source} ({len(failed)} failed)")
 
         return self.data_cache
 
     async def fetch_incremental(self, symbols: List[str] = None) -> Dict[str, int]:
         """
         Fetch only NEW data since the last cached date for each symbol.
-        This is the efficient daily update - only gets today's prices.
+        Uses DualSourceProvider (Alpaca primary, yfinance fallback).
 
         Args:
             symbols: List of tickers (default: all symbols in cache)
 
         Returns:
-            Dict with counts: {updated: N, failed: N, skipped: N}
+            Dict with counts: {updated: N, failed: N, skipped: N, source: str}
         """
-        if not YFINANCE_AVAILABLE:
-            raise RuntimeError("yfinance not installed")
-
         # Use symbols from cache if not specified
         symbols = symbols or list(self.data_cache.keys())
         if not symbols:
@@ -321,9 +253,7 @@ class ScannerService:
             return {"updated": 0, "failed": 0, "skipped": 0}
 
         from datetime import timedelta
-
-        BATCH_SIZE = 25  # Smaller batches to reduce peak memory
-        DELAY_BETWEEN_BATCHES = 0.5
+        from app.services.market_data_provider import market_data_provider
 
         updated = 0
         failed = 0
@@ -336,141 +266,86 @@ class ScannerService:
         logger.info(f"📊 Incremental update for {len(symbols)} symbols (RSS: {rss_mb:.0f} MB)...")
 
         # Indicator columns to drop — lazy recompute during scan() is more efficient
-        # than recomputing per-symbol here (7k individual recomputations vs once during scan)
         INDICATOR_COLS = [
             'dwap', 'ma_50', 'ma_200', 'vol_avg', 'high_52w',
             'short_mom', 'long_mom', 'volatility', 'ma_20', 'dist_from_50d_high',
         ]
 
-        # Process in batches
-        batch_count = 0
-        for i in range(0, len(symbols), BATCH_SIZE):
-            batch = symbols[i:i + BATCH_SIZE]
-            batch_count += 1
-
-            # Find the oldest "last date" in this batch to determine fetch period
-            oldest_last_date = today
-            for symbol in batch:
-                if symbol in self.data_cache and len(self.data_cache[symbol]) > 0:
-                    last_date = self.data_cache[symbol].index.max()
-                    # Strip tz for safe comparison (cache may be tz-aware or naive)
-                    if hasattr(last_date, 'tz') and last_date.tz is not None:
-                        last_date = last_date.tz_localize(None)
-                    if last_date < oldest_last_date:
-                        oldest_last_date = last_date
-
-            # If all data is from today, skip this batch
-            if oldest_last_date >= today - timedelta(days=1):
-                skipped += len(batch)
+        # Find the oldest "last date" across all symbols to determine fetch window
+        oldest_last_date = today
+        symbols_to_update = []
+        for symbol in symbols:
+            if symbol not in self.data_cache or len(self.data_cache[symbol]) == 0:
+                skipped += 1
                 continue
+            last_date = self.data_cache[symbol].index.max()
+            if hasattr(last_date, 'tz') and last_date.tz is not None:
+                last_date = last_date.tz_localize(None)
+            if last_date >= today - timedelta(days=1):
+                skipped += 1
+                continue
+            symbols_to_update.append(symbol)
+            if last_date < oldest_last_date:
+                oldest_last_date = last_date
 
-            # Fetch from oldest_last_date to now (add buffer for safety)
-            start_date = (oldest_last_date - timedelta(days=5)).strftime('%Y-%m-%d')
+        if not symbols_to_update:
+            logger.info(f"✅ Incremental update: all {len(symbols)} symbols already up to date")
+            return {"updated": 0, "failed": 0, "skipped": skipped}
 
+        # Fetch from oldest_last_date to now (add buffer for safety)
+        start_date = (oldest_last_date - timedelta(days=5)).strftime('%Y-%m-%d')
+
+        logger.info(f"📡 Fetching incremental data for {len(symbols_to_update)} symbols from {start_date}...")
+        bars = await market_data_provider.fetch_bars(symbols_to_update, start_date)
+        source = market_data_provider.last_bars_source or "unknown"
+
+        for symbol in symbols_to_update:
             try:
-                loop = asyncio.get_event_loop()
-                data = await loop.run_in_executor(
-                    None,
-                    lambda b=batch, s=start_date: yf.download(
-                        b,
-                        start=s,
-                        progress=False,
-                        threads=True,
-                        timeout=30
-                    )
-                )
-
-                if data.empty:
-                    skipped += len(batch)
-                    del data
+                new_df = bars.get(symbol)
+                if new_df is None or new_df.empty:
+                    skipped += 1
                     continue
 
-                # Process each symbol
-                for symbol in batch:
-                    try:
-                        if symbol not in self.data_cache:
-                            skipped += 1
-                            continue
+                # Get existing data
+                existing_df = self.data_cache[symbol]
+                last_cached_date = existing_df.index.max()
 
-                        # Extract new data for this symbol
-                        if len(batch) > 1:
-                            new_df = pd.DataFrame({
-                                'date': data.index,
-                                'open': data['Open'][symbol],
-                                'high': data['High'][symbol],
-                                'low': data['Low'][symbol],
-                                'close': data['Close'][symbol],
-                                'volume': data['Volume'][symbol],
-                            }).dropna()
-                        else:
-                            new_df = pd.DataFrame({
-                                'date': data.index,
-                                'open': data['Open'],
-                                'high': data['High'],
-                                'low': data['Low'],
-                                'close': data['Close'],
-                                'volume': data['Volume'],
-                            }).dropna()
+                # Strip tz from new data for consistent comparison
+                if hasattr(new_df.index, 'tz') and new_df.index.tz is not None:
+                    new_df.index = new_df.index.tz_localize(None)
 
-                        if new_df.empty:
-                            skipped += 1
-                            continue
+                # Filter to only truly new rows
+                new_rows = new_df[new_df.index > last_cached_date]
 
-                        new_df['date'] = pd.to_datetime(new_df['date'])
-                        new_df = new_df.set_index('date').sort_index()
+                if new_rows.empty:
+                    skipped += 1
+                    continue
 
-                        # Get existing data
-                        existing_df = self.data_cache[symbol]
-                        last_cached_date = existing_df.index.max()
+                # Append new rows to existing data (OHLCV only)
+                combined = pd.concat([existing_df[['open', 'high', 'low', 'close', 'volume']],
+                                    new_rows[['open', 'high', 'low', 'close', 'volume']]])
+                combined = combined[~combined.index.duplicated(keep='last')]
+                combined = combined.sort_index()
 
-                        # Filter to only truly new rows
-                        new_rows = new_df[new_df.index > last_cached_date]
+                # Drop stale indicator columns — recomputed lazily during scan()
+                combined = combined.drop(
+                    columns=[c for c in INDICATOR_COLS if c in combined.columns],
+                    errors='ignore',
+                )
 
-                        if new_rows.empty:
-                            skipped += 1
-                            continue
-
-                        # Append new rows to existing data (OHLCV only)
-                        combined = pd.concat([existing_df[['open', 'high', 'low', 'close', 'volume']],
-                                            new_rows[['open', 'high', 'low', 'close', 'volume']]])
-                        combined = combined[~combined.index.duplicated(keep='last')]
-                        combined = combined.sort_index()
-
-                        # Drop stale indicator columns — _ensure_indicators() and
-                        # _ensure_momentum_indicators() will recompute lazily during scan()
-                        combined = combined.drop(
-                            columns=[c for c in INDICATOR_COLS if c in combined.columns],
-                            errors='ignore',
-                        )
-
-                        self.data_cache[symbol] = combined
-                        updated += 1
-
-                    except Exception as e:
-                        logger.debug(f"Failed to update {symbol}: {e}")
-                        failed += 1
-
-                # Release batch download data
-                del data
+                self.data_cache[symbol] = combined
+                updated += 1
 
             except Exception as e:
-                logger.error(f"Batch fetch failed: {e}")
-                failed += len(batch)
-
-            # Force GC every 10 batches to reclaim fragmented memory
-            if batch_count % 10 == 0:
-                gc.collect()
-
-            # Small delay between batches
-            if i + BATCH_SIZE < len(symbols):
-                await asyncio.sleep(DELAY_BETWEEN_BATCHES)
+                logger.debug(f"Failed to update {symbol}: {e}")
+                failed += 1
 
         # Final GC pass
         gc.collect()
         rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 * 1024)
-        logger.info(f"✅ Incremental update complete: {updated} updated, {skipped} skipped, {failed} failed (RSS: {rss_mb:.0f} MB)")
+        logger.info(f"✅ Incremental update complete: {updated} updated, {skipped} skipped, {failed} failed via {source} (RSS: {rss_mb:.0f} MB)")
 
-        return {"updated": updated, "failed": failed, "skipped": skipped}
+        return {"updated": updated, "failed": failed, "skipped": skipped, "source": source}
     
     # =========================================================================
     # SIGNAL GENERATION

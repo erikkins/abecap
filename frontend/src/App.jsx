@@ -1717,6 +1717,30 @@ function Dashboard() {
   const [emailPrefs, setEmailPrefs] = useState({ daily_digest: true, sell_alerts: true, double_signals: true, intraday_signals: true });
   const [emailPrefsSaving, setEmailPrefsSaving] = useState(false);
   const [emailPrefsToast, setEmailPrefsToast] = useState(null); // null | 'saved' | 'unsubscribed'
+  const [dataFreshness, setDataFreshness] = useState(null); // { status: 'fresh'|'processing'|'stale', message }
+
+  // Data freshness polling — checks during 4-5 PM ET window, then every 60s
+  useEffect(() => {
+    let interval;
+    const checkFreshness = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/market-data-status`);
+        if (res.ok) {
+          const data = await res.json();
+          setDataFreshness(data);
+        }
+      } catch {
+        // Silently ignore — banner just won't show
+      }
+    };
+    checkFreshness();
+    // Poll every 60s during typical scan window (4-5 PM ET), else every 5 min
+    const now = new Date();
+    const etHour = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' })).getHours();
+    const pollMs = (etHour >= 16 && etHour < 17) ? 60000 : 300000;
+    interval = setInterval(checkFreshness, pollMs);
+    return () => clearInterval(interval);
+  }, []);
 
   // Handle post-checkout redirect from Stripe
   useEffect(() => {
@@ -2278,6 +2302,19 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Data Freshness Banner */}
+      {dataFreshness && dataFreshness.status === 'processing' && (
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 text-center text-sm text-blue-700">
+          <Clock className="inline w-4 h-4 mr-1 -mt-0.5" />
+          {dataFreshness.message || 'Market data is being updated. Signals will refresh shortly.'}
+        </div>
+      )}
+      {dataFreshness && dataFreshness.status === 'stale' && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-sm text-amber-700">
+          <AlertCircle className="inline w-4 h-4 mr-1 -mt-0.5" />
+          {dataFreshness.message || "Today's market data is delayed. Signals may not reflect current prices."}
+        </div>
+      )}
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
