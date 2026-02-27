@@ -945,79 +945,137 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
     except Exception as e:
         print(f"Last ensemble entry date error: {e}")
 
-    # --- Market context (AI-generated summary when signals change significantly) ---
+    # --- Market context (AI-generated daily briefing) ---
     market_context = None
     try:
         from datetime import date, timedelta
         from app.services.data_export import data_export_service
-        yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-        prev_snap = data_export_service.read_snapshot(yesterday)
-        if not prev_snap:
-            # Try 2 days back (weekend/holiday)
-            two_days = (date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
-            prev_snap = data_export_service.read_snapshot(two_days)
-            if not prev_snap:
-                three_days = (date.today() - timedelta(days=3)).strftime("%Y-%m-%d")
-                prev_snap = data_export_service.read_snapshot(three_days)
 
+        # Load previous snapshot for comparison
+        prev_snap = None
+        for days_back in range(1, 4):
+            prev_date = (date.today() - timedelta(days=days_back)).strftime("%Y-%m-%d")
+            prev_snap = data_export_service.read_snapshot(prev_date)
+            if prev_snap:
+                break
+
+        # Gather context data
+        today_count = len(buy_signals)
+        fresh_signals = [s for s in buy_signals if s.get('is_fresh')]
+        fresh_count = len(fresh_signals)
+        spy_price = market_stats.get('spy_price', '?')
+        vix_level = market_stats.get('vix_level', '?')
+        regime_name = market_stats.get('regime_name', market_stats.get('regime', '?'))
+
+        # Previous day comparison
+        prev_count = 0
+        delta = 0
+        dropped = set()
+        added = set()
+        prev_regime = None
         if prev_snap:
-            prev_signals = prev_snap.get('buy_signals', [])
-            prev_count = len(prev_signals)
-            today_count = len(buy_signals)
+            prev_signals_list = prev_snap.get('buy_signals', [])
+            prev_count = len(prev_signals_list)
             delta = today_count - prev_count
+            prev_symbols = {s['symbol'] for s in prev_signals_list}
+            today_symbols = {s['symbol'] for s in buy_signals}
+            dropped = prev_symbols - today_symbols
+            added = today_symbols - prev_symbols
+            prev_regime = prev_snap.get('regime_forecast', {}).get('current_regime')
 
-            # Generate context if significant change (>30% or >3 signal swing)
-            if abs(delta) >= 3 or (prev_count > 0 and abs(delta) / prev_count >= 0.3):
-                prev_symbols = {s['symbol'] for s in prev_signals}
-                today_symbols = {s['symbol'] for s in buy_signals}
-                dropped = prev_symbols - today_symbols
-                added = today_symbols - prev_symbols
+        # Top momentum names for color
+        top5 = [s['symbol'] for s in buy_signals[:5]] if buy_signals else []
 
-                spy_price = market_stats.get('spy_price', '?')
-                vix_level = market_stats.get('vix_level', '?')
-                regime_name = market_stats.get('regime_name', market_stats.get('regime', '?'))
+        # Sector themes from fresh entries
+        fresh_names = [s['symbol'] for s in fresh_signals[:5]]
 
-                # Try Claude API for natural language summary
-                try:
-                    from anthropic import Anthropic
-                    from app.core.config import settings
-                    if settings.ANTHROPIC_API_KEY:
-                        client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-                        prompt = (
-                            f"Write 1-2 concise sentences explaining today's signal change for a stock trading dashboard. "
-                            f"Be factual and calm, no hype. Use plain language.\n\n"
-                            f"Context:\n"
-                            f"- Yesterday: {prev_count} ensemble buy signals\n"
-                            f"- Today: {today_count} ensemble buy signals ({'+' if delta > 0 else ''}{delta})\n"
-                            f"- Dropped out: {', '.join(sorted(dropped)[:10]) if dropped else 'none'}"
-                            f"{f' (+{len(dropped)-10} more)' if len(dropped) > 10 else ''}\n"
-                            f"- New entries: {', '.join(sorted(added)[:10]) if added else 'none'}\n"
-                            f"- SPY: ${spy_price}, VIX: {vix_level}, Regime: {regime_name}\n"
-                            f"- Fresh signals (new today): {market_stats.get('fresh_count', 0)}\n"
-                        )
-                        resp = client.messages.create(
-                            model="claude-haiku-4-5-20251001",
-                            max_tokens=150,
-                            messages=[{"role": "user", "content": prompt}],
-                        )
-                        market_context = resp.content[0].text.strip()
-                        print(f"📝 Market context: {market_context}")
-                except Exception as ai_err:
-                    print(f"⚠️ AI market context failed, using template: {ai_err}")
+        # Build the AI prompt
+        context_block = (
+            f"Signal count: {today_count} ensemble signals"
+            f"{f' (was {prev_count} yesterday, {'+' if delta > 0 else ''}{delta} change)' if prev_snap else ' (no prior day to compare)'}\n"
+            f"Fresh entries today: {fresh_count}{f' — {', '.join(fresh_names)}' if fresh_names else ''}\n"
+            f"Dropped since yesterday: {', '.join(sorted(dropped)[:8]) if dropped else 'none'}"
+            f"{f' (+{len(dropped)-8} more)' if len(dropped) > 8 else ''}\n"
+            f"New since yesterday: {', '.join(sorted(added)[:8]) if added else 'none'}"
+            f"{f' (+{len(added)-8} more)' if len(added) > 8 else ''}\n"
+            f"Top 5 momentum: {', '.join(top5)}\n"
+            f"SPY: ${spy_price} | VIX: {vix_level}\n"
+            f"Regime: {regime_name}"
+            f"{f' (was {prev_regime.replace('_', ' ')})' if prev_regime and prev_regime != market_stats.get('regime') else ''}\n"
+        )
 
-                # Fallback template if Claude unavailable
-                if not market_context:
-                    if delta < 0:
-                        market_context = (
-                            f"Signal count dropped from {prev_count} to {today_count} after today's close. "
-                            f"{len(dropped)} stock{'s' if len(dropped) != 1 else ''} fell out of the ensemble as the market pulled back "
-                            f"(SPY ${spy_price}, VIX {vix_level})."
-                        )
-                    else:
-                        market_context = (
-                            f"Signal count rose from {prev_count} to {today_count}. "
-                            f"{len(added)} new stock{'s' if len(added) != 1 else ''} entered the ensemble."
-                        )
+        # Classify the day for tone guidance
+        if prev_snap and abs(delta) >= 5:
+            day_type = "big_move"
+        elif fresh_count >= 3:
+            day_type = "active"
+        elif prev_snap and delta == 0 and not added:
+            day_type = "quiet"
+        else:
+            day_type = "normal"
+
+        system_prompt = (
+            "You write daily market context for RigaCap, an AI-powered stock signal service. "
+            "Your tone: witty, confident, data-driven. You talk like a sharp analyst friend — "
+            "not a robot, not a hype machine. You're briefing someone who trusts your system.\n\n"
+            "Rules:\n"
+            "- Write exactly 1-2 sentences. Max 200 characters.\n"
+            "- Plain text only. No markdown, no bold, no bullets, no emoji.\n"
+            "- Never say 'our algorithm' or 'our model' — say 'the ensemble' or 'our signals'.\n"
+            "- Never give financial advice or say 'buy' / 'sell'.\n"
+            "- Reference specific tickers, regimes, or data points when interesting.\n"
+            "- Vary your phrasing. Don't start every sentence the same way.\n"
+            "- If signals dropped hard, be matter-of-fact, not alarming.\n"
+            "- If it's a quiet day, keep it brief and confident.\n"
+        )
+
+        tone_hints = {
+            "big_move": "This is a significant signal shift — lead with the change and what drove it. Be direct.",
+            "active": "Fresh entries are coming in — highlight what's new and why the ensemble is finding opportunities.",
+            "quiet": "Nothing dramatic today. One concise sentence is fine. Confidence, not filler.",
+            "normal": "Moderate activity. Note what's interesting without overstating it.",
+        }
+
+        user_prompt = (
+            f"{tone_hints[day_type]}\n\n"
+            f"Today's data:\n{context_block}"
+        )
+
+        # Try Claude API
+        try:
+            from anthropic import Anthropic
+            from app.core.config import settings
+            if settings.ANTHROPIC_API_KEY:
+                client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+                resp = client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=120,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": user_prompt}],
+                )
+                market_context = resp.content[0].text.strip().strip('"')
+                print(f"📝 Market context ({day_type}): {market_context}")
+        except Exception as ai_err:
+            print(f"⚠️ AI market context failed, using fallback: {ai_err}")
+
+        # Fallback if AI unavailable
+        if not market_context:
+            if prev_snap and abs(delta) >= 3:
+                if delta < 0:
+                    market_context = (
+                        f"Ensemble narrowed from {prev_count} to {today_count} signals after today's session. "
+                        f"SPY ${spy_price}, VIX {vix_level}."
+                    )
+                else:
+                    market_context = (
+                        f"Ensemble expanded to {today_count} signals from {prev_count}. "
+                        f"{len(added)} new name{'s' if len(added) != 1 else ''} entered."
+                    )
+            elif today_count > 0:
+                market_context = (
+                    f"Tracking {today_count} ensemble signals in {regime_name.lower()} regime. "
+                    f"SPY ${spy_price}, VIX {vix_level}."
+                )
     except Exception as ctx_err:
         print(f"⚠️ Market context generation failed (non-fatal): {ctx_err}")
 
