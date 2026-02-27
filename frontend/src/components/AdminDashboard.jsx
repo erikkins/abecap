@@ -462,58 +462,31 @@ function OverviewTab({ stats, serviceStatus, activeStrategy, awsHealth }) {
               const statusBadge = service.status === 'ok' ? 'bg-green-100 text-green-800' :
                 service.status === 'degraded' ? 'bg-yellow-100 text-yellow-800' :
                 'bg-red-100 text-red-800';
-              const sourceDot = (s) => s === 'green' ? 'bg-green-500' : s === 'yellow' ? 'bg-yellow-500' : s === 'red' ? 'bg-red-500' : 'bg-gray-400';
+              const dot = (s) => s === 'green' ? 'bg-green-500' : s === 'yellow' ? 'bg-yellow-500' : s === 'red' ? 'bg-red-500' : 'bg-gray-400';
               return (
-                <div key={name} className="p-4 bg-gray-50 rounded-lg col-span-1 md:col-span-2">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Zap size={16} className="text-amber-500" />
-                      <span className="font-medium text-gray-700">Market Data</span>
-                    </div>
+                <div key={name} className="p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-700">Market Data</span>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${statusBadge}`}>
                       {service.status}
                     </span>
                   </div>
-                  {/* Primary source indicator */}
-                  <div className="flex items-center gap-1.5 mb-3">
-                    <span className="text-xs text-gray-500">Primary:</span>
-                    <span className="text-xs font-semibold text-gray-800 uppercase">{service.primary || '—'}</span>
-                    {service.last_bars_source && (
-                      <span className="text-xs text-gray-400 ml-2">Last scan: {service.last_bars_source}</span>
-                    )}
-                  </div>
-                  {/* Two source rows */}
-                  <div className="space-y-2">
+                  <p className="text-sm text-gray-500">Primary: <span className="font-medium text-gray-700 uppercase">{service.primary || '—'}</span></p>
+                  <div className="flex items-center gap-3 mt-1">
                     {['alpaca', 'yfinance'].map((src) => {
                       const s = service[src];
                       if (!s) return null;
                       return (
-                        <div key={src} className="flex items-center justify-between bg-white rounded px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${sourceDot(s.status)}`} />
-                            <span className="text-sm font-medium text-gray-700 capitalize">{src}</span>
-                            {service.primary === src && (
-                              <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">PRIMARY</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
-                            {s.total_requests > 0 && (
-                              <span>{s.total_requests - s.total_failures}/{s.total_requests} ok</span>
-                            )}
-                            {s.consecutive_failures > 0 && (
-                              <span className="text-red-500">{s.consecutive_failures} fails</span>
-                            )}
-                          </div>
+                        <div key={src} className="flex items-center gap-1.5">
+                          <div className={`w-2 h-2 rounded-full ${dot(s.status)}`} />
+                          <span className="text-sm text-gray-500 capitalize">{src}</span>
                         </div>
                       );
                     })}
                   </div>
-                  {/* Footer stats */}
-                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                    {service.symbols_loaded !== undefined && (
-                      <span>{service.symbols_loaded} symbols cached</span>
-                    )}
-                  </div>
+                  {service.symbols_loaded !== undefined && (
+                    <p className="text-sm text-gray-500 mt-1">{service.symbols_loaded} symbols</p>
+                  )}
                   {service.error && (
                     <p className="text-sm text-red-500 truncate mt-1">{service.error}</p>
                   )}
