@@ -156,7 +156,7 @@ stocker-app/
 | **Auth** | DONE | Google OAuth, Apple Sign In, email/password, JWT tokens, password reset |
 | **Payments** | DONE | Stripe Checkout, 7-day trial (CC required), cancel via Customer Portal, webhooks |
 | **Email** | DONE | Welcome, daily digest (6 PM ET), sell alerts (intraday), double-signal alerts, password reset, post approval notifications, SPF/DKIM/DMARC configured, List-Unsubscribe (RFC 8058) |
-| **Data Pipeline** | DONE | Daily scan (4 PM ET via EventBridge), yfinance, S3 caching, pre-computed dashboard JSON |
+| **Data Pipeline** | DONE | Daily scan (4 PM ET via EventBridge), yfinance, S3 caching, pre-computed dashboard JSON. **Freshness gate:** all email/communication jobs validate daily scan ran successfully today before sending; stale data → emails HELD + admin alert. Manual override: pass `target_emails` to bypass. |
 | **Infrastructure** | DONE | Lambda + ECR, CloudFront CDN, Route53, ACM SSL, API Gateway, CI/CD (GitHub Actions) |
 | **Legal** | DONE | Terms of Service, Privacy Policy (GDPR/CCPA), financial disclaimer, contact page |
 | **Security** | DONE | CORS whitelist, JWT auth, bcrypt passwords, Turnstile bot protection, S3 private (no public signal access), admin-only routes, subscription gating |

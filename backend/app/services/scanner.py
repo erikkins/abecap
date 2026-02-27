@@ -9,6 +9,9 @@ Implements the optimized DWAP strategy:
 Supports full NASDAQ + NYSE universe (~6000 stocks)
 """
 
+import gc
+import resource
+
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -319,7 +322,7 @@ class ScannerService:
 
         from datetime import timedelta
 
-        BATCH_SIZE = 100  # Large batches OK for incremental (only a few days of data)
+        BATCH_SIZE = 25  # Smaller batches to reduce peak memory
         DELAY_BETWEEN_BATCHES = 0.5
 
         updated = 0
@@ -328,11 +331,22 @@ class ScannerService:
 
         today = pd.Timestamp.now().normalize().tz_localize(None)
 
-        logger.info(f"📊 Incremental update for {len(symbols)} symbols...")
+        # Log memory at start
+        rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 * 1024)
+        logger.info(f"📊 Incremental update for {len(symbols)} symbols (RSS: {rss_mb:.0f} MB)...")
+
+        # Indicator columns to drop — lazy recompute during scan() is more efficient
+        # than recomputing per-symbol here (7k individual recomputations vs once during scan)
+        INDICATOR_COLS = [
+            'dwap', 'ma_50', 'ma_200', 'vol_avg', 'high_52w',
+            'short_mom', 'long_mom', 'volatility', 'ma_20', 'dist_from_50d_high',
+        ]
 
         # Process in batches
+        batch_count = 0
         for i in range(0, len(symbols), BATCH_SIZE):
             batch = symbols[i:i + BATCH_SIZE]
+            batch_count += 1
 
             # Find the oldest "last date" in this batch to determine fetch period
             oldest_last_date = today
@@ -368,6 +382,7 @@ class ScannerService:
 
                 if data.empty:
                     skipped += len(batch)
+                    del data
                     continue
 
                 # Process each symbol
@@ -415,18 +430,18 @@ class ScannerService:
                             skipped += 1
                             continue
 
-                        # Append new rows to existing data
+                        # Append new rows to existing data (OHLCV only)
                         combined = pd.concat([existing_df[['open', 'high', 'low', 'close', 'volume']],
                                             new_rows[['open', 'high', 'low', 'close', 'volume']]])
                         combined = combined[~combined.index.duplicated(keep='last')]
                         combined = combined.sort_index()
 
-                        # Recompute indicators on full dataset
-                        combined['dwap'] = self.dwap(combined['close'], combined['volume'])
-                        combined['ma_50'] = self.sma(combined['close'], 50)
-                        combined['ma_200'] = self.sma(combined['close'], 200)
-                        combined['vol_avg'] = self.sma(combined['volume'], 200)
-                        combined['high_52w'] = self.high_52w(combined['close'])
+                        # Drop stale indicator columns — _ensure_indicators() and
+                        # _ensure_momentum_indicators() will recompute lazily during scan()
+                        combined = combined.drop(
+                            columns=[c for c in INDICATOR_COLS if c in combined.columns],
+                            errors='ignore',
+                        )
 
                         self.data_cache[symbol] = combined
                         updated += 1
@@ -435,15 +450,25 @@ class ScannerService:
                         logger.debug(f"Failed to update {symbol}: {e}")
                         failed += 1
 
+                # Release batch download data
+                del data
+
             except Exception as e:
                 logger.error(f"Batch fetch failed: {e}")
                 failed += len(batch)
+
+            # Force GC every 10 batches to reclaim fragmented memory
+            if batch_count % 10 == 0:
+                gc.collect()
 
             # Small delay between batches
             if i + BATCH_SIZE < len(symbols):
                 await asyncio.sleep(DELAY_BETWEEN_BATCHES)
 
-        logger.info(f"✅ Incremental update complete: {updated} updated, {skipped} skipped, {failed} failed")
+        # Final GC pass
+        gc.collect()
+        rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 * 1024)
+        logger.info(f"✅ Incremental update complete: {updated} updated, {skipped} skipped, {failed} failed (RSS: {rss_mb:.0f} MB)")
 
         return {"updated": updated, "failed": failed, "skipped": skipped}
     

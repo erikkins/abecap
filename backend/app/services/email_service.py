@@ -2648,6 +2648,45 @@ class AdminEmailService(EmailService):
             text_content="\n".join(text_lines)
         )
 
+    async def send_admin_alert(
+        self,
+        to_email: str,
+        subject: str,
+        message: str,
+    ) -> bool:
+        """
+        Send a generic admin alert email.
+
+        Args:
+            to_email: Admin email address
+            subject: Email subject line
+            message: Plain-text message body
+        """
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f3f4f6;">
+<table cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;margin:0 auto;background:#fff;">
+<tr><td style="background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);padding:32px 24px;text-align:center;">
+<h1 style="margin:0;color:#fff;font-size:22px;">Admin Alert</h1>
+</td></tr>
+<tr><td style="padding:24px;">
+<pre style="white-space:pre-wrap;font-family:inherit;color:#374151;line-height:1.6;margin:0;">{message}</pre>
+</td></tr>
+<tr><td style="background:#f9fafb;padding:16px 24px;text-align:center;border-top:1px solid #e5e7eb;">
+<p style="margin:0;font-size:12px;color:#9ca3af;">RigaCap Admin Alert &mdash; {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ET</p>
+</td></tr>
+</table>
+</body></html>"""
+
+        return await self.send_email(
+            to_email=to_email,
+            subject=f"⚠️ {subject}",
+            html_content=html,
+            text_content=message,
+        )
+
     async def send_strategy_analysis_email(
         self,
         to_email: str,

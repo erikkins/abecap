@@ -482,6 +482,10 @@ class SchedulerService:
                 logger.info("📅 Not a trading day, skipping intraday monitor")
                 return
 
+            # Freshness gate — only enforce after 5 PM (before that, yesterday's close is fine)
+            if now.hour >= 17 and not await self._validate_data_freshness("intraday_monitor"):
+                return
+
             from app.core.database import async_session, Position as DBPosition, User as DBUser
             from sqlalchemy import select
             import yfinance as yf
@@ -765,6 +769,101 @@ class SchedulerService:
             logger.error(f"❌ Intraday position monitor failed: {e}")
             import traceback
             traceback.print_exc()
+
+    # =========================================================================
+    # DATA FRESHNESS GATES
+    # =========================================================================
+
+    async def _validate_data_freshness(self, job_name: str) -> bool:
+        """
+        Check that the daily scan ran successfully today before sending communications.
+
+        Returns True if data is fresh enough to proceed, False if stale (emails should be held).
+        """
+        today = trading_today()
+
+        # Check 1: Did daily_update run today?
+        if self.last_run is None:
+            await self._alert_stale_data(job_name, "Daily scan has not run yet")
+            return False
+
+        last_run_date = self.last_run.date()
+        if last_run_date != today:
+            await self._alert_stale_data(
+                job_name,
+                f"Daily scan last ran on {last_run_date}, expected {today}"
+            )
+            return False
+
+        # Check 2: Did it succeed?
+        if self.last_run_status != "success":
+            await self._alert_stale_data(
+                job_name,
+                f"Daily scan status: {self.last_run_status}"
+            )
+            return False
+
+        # Check 3: Dashboard JSON freshness
+        try:
+            dashboard = data_export_service.read_dashboard_json()
+            if dashboard:
+                generated = dashboard.get('generated_at', '')
+                if generated and today.isoformat() not in generated:
+                    await self._alert_stale_data(
+                        job_name,
+                        f"Dashboard generated_at ({generated}) doesn't match today ({today})"
+                    )
+                    return False
+        except Exception as e:
+            logger.warning(f"Could not check dashboard freshness: {e}")
+            # Don't block on dashboard read failure — the first two checks passed
+
+        logger.info(f"Data freshness validated for {job_name}")
+        return True
+
+    async def _validate_regime_report_freshness(self) -> bool:
+        """
+        Relaxed freshness check for the Monday regime report.
+
+        Friday's successful scan is fine for a Monday report, so we allow up to 3 days stale.
+        """
+        if self.last_run is None:
+            await self._alert_stale_data("weekly_regime_report", "Daily scan has never run")
+            return False
+
+        days_stale = (datetime.now(ET) - self.last_run).days
+        if days_stale > 3:
+            await self._alert_stale_data(
+                "weekly_regime_report",
+                f"Last scan was {days_stale} days ago"
+            )
+            return False
+
+        if self.last_run_status != "success":
+            await self._alert_stale_data(
+                "weekly_regime_report",
+                f"Last scan status: {self.last_run_status}"
+            )
+            return False
+
+        logger.info("Data freshness validated for weekly_regime_report")
+        return True
+
+    async def _alert_stale_data(self, job_name: str, reason: str):
+        """Alert admins that data is stale and a communication job was held."""
+        msg = (
+            f"HELD {job_name}: {reason}\n\n"
+            "Emails/alerts will NOT be sent until the daily scan completes successfully."
+        )
+        logger.warning(msg)
+        try:
+            await admin_email_service.send_admin_alert(
+                to_email=ADMIN_EMAIL,
+                subject=f"HELD: {job_name} — stale data",
+                message=msg,
+            )
+        except Exception as e:
+            logger.error(f"Failed to send stale data alert: {e}")
 
     def start(self):
         """Start the scheduler"""
@@ -1172,6 +1271,10 @@ class SchedulerService:
                 logger.info("📅 Not a trading day, skipping double signal check")
                 return
 
+            # Freshness gate — HOLD alerts if data is stale
+            if not await self._validate_data_freshness("double_signal_alerts"):
+                return
+
             import pandas as pd
             from sqlalchemy import select
             from app.api.signals import find_dwap_crossover_date
@@ -1306,7 +1409,7 @@ class SchedulerService:
         Builds ensemble signals (same logic as dashboard) with freshness tracking.
 
         Args:
-            target_emails: If provided, only send to these email addresses.
+            target_emails: If provided, only send to these email addresses (bypasses freshness gate).
         """
         logger.info("📧 Starting daily email job...")
 
@@ -1315,6 +1418,11 @@ class SchedulerService:
             now = datetime.now(ET)
             if not self._is_trading_day(now):
                 logger.info("📅 Not a trading day, skipping emails")
+                return
+
+            # Freshness gate — HOLD emails if data is stale
+            # Manual target_emails bypass allows admin testing with stale data
+            if not target_emails and not await self._validate_data_freshness("daily_emails"):
                 return
 
             # Read persisted signals from 4 PM scan (guaranteed same as dashboard)
@@ -1835,6 +1943,10 @@ class SchedulerService:
         from sqlalchemy import select
 
         logger.info("📊 Starting weekly regime report send...")
+
+        # Freshness gate — relaxed: Friday's data is fine for Monday report
+        if not await self._validate_regime_report_freshness():
+            return
         sent_count = 0
         error_count = 0
 
