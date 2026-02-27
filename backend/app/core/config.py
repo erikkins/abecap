@@ -105,7 +105,7 @@ class Settings(BaseSettings):
     ALPACA_API_KEY: str = os.getenv("ALPACA_API_KEY", "")
     ALPACA_SECRET_KEY: str = os.getenv("ALPACA_SECRET_KEY", "")
     ALPACA_BASE_URL: str = os.getenv("ALPACA_BASE_URL", "https://api.alpaca.markets")
-    DATA_SOURCE_PRIMARY: str = os.getenv("DATA_SOURCE_PRIMARY", "alpaca")  # "alpaca" or "yfinance"
+    DATA_SOURCE_PRIMARY: str = os.getenv("DATA_SOURCE_PRIMARY", "yfinance")  # "yfinance" (free) or "alpaca" (Pro/SIP only — IEX volume breaks filters)
 
     # AWS
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")

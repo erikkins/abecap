@@ -422,11 +422,26 @@ class DualSourceProvider(MarketDataProvider):
             }
         return summary
 
+    def _get_primary_source(self) -> str:
+        """Get configured primary source. Defaults to yfinance (safe for free Alpaca/IEX)."""
+        try:
+            from app.core.config import settings
+            return settings.DATA_SOURCE_PRIMARY
+        except Exception:
+            return "yfinance"
+
     async def fetch_bars(
         self, symbols: List[str], start_date: str, end_date: Optional[str] = None
     ) -> Dict[str, pd.DataFrame]:
-        """Fetch bars: Alpaca primary (stock symbols) → yfinance fallback.
-        Index symbols always go through yfinance.
+        """Fetch bars: primary source first → fallback on failure.
+
+        Primary source is controlled by DATA_SOURCE_PRIMARY config:
+        - "yfinance" (default): yfinance first, Alpaca fallback. Safe for free Alpaca tier
+          because IEX volume (~3% of consolidated) breaks MIN_VOLUME filters.
+        - "alpaca": Alpaca first, yfinance fallback. Only use with Alpaca Pro/SIP subscription
+          which provides consolidated volume.
+
+        Index symbols (^VIX etc) always go through yfinance regardless of primary.
         """
         # Separate index vs stock symbols
         index_syms = [s for s in symbols if s in INDEX_SYMBOLS]
@@ -451,52 +466,63 @@ class DualSourceProvider(MarketDataProvider):
             return result
 
         # Force source override (for retry logic)
-        if self.force_source == "yfinance":
+        if self.force_source:
+            forced = self.force_source
+            provider = self.yfinance if forced == "yfinance" else self.alpaca
             t0 = time.time()
-            yf_data = await self.yfinance.fetch_bars(stock_syms, start_date, end_date)
+            data = await provider.fetch_bars(stock_syms, start_date, end_date)
             elapsed = time.time() - t0
-            result.update(yf_data)
-            self._last_bars_source = "yfinance"
-            logger.info(f"[yfinance-forced] Fetched {len(yf_data)}/{len(stock_syms)} symbols in {elapsed:.1f}s")
+            result.update(data)
+            self._last_bars_source = forced
+            logger.info(f"[{forced}-forced] Fetched {len(data)}/{len(stock_syms)} symbols in {elapsed:.1f}s")
             return result
 
-        # Primary: Alpaca
+        # Determine primary/fallback based on config
+        primary_name = self._get_primary_source()
+        if primary_name == "alpaca":
+            primary, fallback = self.alpaca, self.yfinance
+            fallback_name = "yfinance"
+        else:
+            primary, fallback = self.yfinance, self.alpaca
+            fallback_name = "alpaca"
+
+        # Try primary source
         t0 = time.time()
-        alpaca_data = await self.alpaca.fetch_bars(stock_syms, start_date, end_date)
+        primary_data = await primary.fetch_bars(stock_syms, start_date, end_date)
         elapsed = time.time() - t0
 
-        if alpaca_data:
-            self._record_success("alpaca")
-            result.update(alpaca_data)
-            self._last_bars_source = "alpaca"
-            logger.info(f"[alpaca] Fetched {len(alpaca_data)}/{len(stock_syms)} symbols in {elapsed:.1f}s")
+        if primary_data:
+            self._record_success(primary_name)
+            result.update(primary_data)
+            self._last_bars_source = primary_name
+            logger.info(f"[{primary_name}] Fetched {len(primary_data)}/{len(stock_syms)} symbols in {elapsed:.1f}s")
 
-            # Check for missing symbols — fallback to yfinance for those
-            missing = [s for s in stock_syms if s not in alpaca_data]
+            # Check for missing symbols — fallback for those
+            missing = [s for s in stock_syms if s not in primary_data]
             if missing:
-                logger.info(f"[yfinance-fallback] Fetching {len(missing)} symbols missing from Alpaca...")
+                logger.info(f"[{fallback_name}-fallback] Fetching {len(missing)} symbols missing from {primary_name}...")
                 t0 = time.time()
-                yf_fallback = await self.yfinance.fetch_bars(missing, start_date, end_date)
+                fallback_data = await fallback.fetch_bars(missing, start_date, end_date)
                 elapsed = time.time() - t0
-                result.update(yf_fallback)
-                logger.info(f"[yfinance-fallback] Got {len(yf_fallback)}/{len(missing)} in {elapsed:.1f}s")
+                result.update(fallback_data)
+                logger.info(f"[{fallback_name}-fallback] Got {len(fallback_data)}/{len(missing)} in {elapsed:.1f}s")
         else:
-            # Alpaca failed entirely — full fallback to yfinance
-            self._record_failure("alpaca")
-            logger.warning(f"[alpaca] Failed, falling back to yfinance for all {len(stock_syms)} symbols")
+            # Primary failed entirely — full fallback
+            self._record_failure(primary_name)
+            logger.warning(f"[{primary_name}] Failed, falling back to {fallback_name} for all {len(stock_syms)} symbols")
 
             t0 = time.time()
-            yf_data = await self.yfinance.fetch_bars(stock_syms, start_date, end_date)
+            fallback_data = await fallback.fetch_bars(stock_syms, start_date, end_date)
             elapsed = time.time() - t0
 
-            if yf_data:
-                self._record_success("yfinance")
-                result.update(yf_data)
-                self._last_bars_source = "yfinance"
-                logger.info(f"[yfinance-fallback] Fetched {len(yf_data)}/{len(stock_syms)} symbols in {elapsed:.1f}s")
+            if fallback_data:
+                self._record_success(fallback_name)
+                result.update(fallback_data)
+                self._last_bars_source = fallback_name
+                logger.info(f"[{fallback_name}-fallback] Fetched {len(fallback_data)}/{len(stock_syms)} symbols in {elapsed:.1f}s")
             else:
-                self._record_failure("yfinance")
-                logger.error("[both] Both Alpaca and yfinance failed to fetch bars")
+                self._record_failure(fallback_name)
+                logger.error(f"[both] Both {primary_name} and {fallback_name} failed to fetch bars")
 
         return result
 

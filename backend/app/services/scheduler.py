@@ -100,11 +100,12 @@ class SchedulerService:
                            f"{fetch_result.get('skipped', 0)} skipped, {symbols_loaded} total symbols "
                            f"(source: {fetch_result.get('source', 'unknown')})")
 
-                # Auto-retry with yfinance fallback if >10% symbols failed
+                # Auto-retry with alternate source if >10% symbols failed
                 if fetch_result.get("failed", 0) > cache_size * 0.1:
                     from app.services.market_data_provider import market_data_provider
-                    logger.warning(f"⚠️ High failure rate ({fetch_result['failed']} failed), retrying with yfinance...")
-                    market_data_provider.force_source = "yfinance"
+                    alt = "alpaca" if market_data_provider._get_primary_source() == "yfinance" else "yfinance"
+                    logger.warning(f"⚠️ High failure rate ({fetch_result['failed']} failed), retrying with {alt}...")
+                    market_data_provider.force_source = alt
                     retry_result = await scanner_service.fetch_incremental()
                     market_data_provider.force_source = None
                     logger.info(f"📡 Retry: {retry_result.get('updated', 0)} updated, "

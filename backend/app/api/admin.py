@@ -859,18 +859,51 @@ async def get_service_status(
         ).model_dump()
         overall_healthy = False
 
-    # yfinance check
+    # Market Data (combined Alpaca + yfinance)
     try:
+        from app.services.market_data_provider import market_data_provider
         from app.services.scanner import scanner_service
-        yf_status = "ok" if scanner_service.data_cache else "no_data"
+        from app.core.config import settings
+
+        health = market_data_provider.get_health_summary()
+        alpaca_health = health.get("alpaca", {})
+        yfinance_health = health.get("yfinance", {})
+
+        # Determine overall status
+        alpaca_ok = alpaca_health.get("status") != "red"
+        yfinance_ok = yfinance_health.get("status") != "red"
+        if alpaca_ok and yfinance_ok:
+            data_status = "ok"
+        elif alpaca_ok or yfinance_ok:
+            data_status = "degraded"
+        else:
+            data_status = "error"
+
         symbols_loaded = len(scanner_service.data_cache)
-        services["yfinance"] = {
-            "status": yf_status,
+        services["market_data"] = {
+            "status": data_status,
+            "primary": settings.DATA_SOURCE_PRIMARY,
             "symbols_loaded": symbols_loaded,
-            "last_fetch": scanner_service.last_fetch_time.isoformat() if hasattr(scanner_service, 'last_fetch_time') and scanner_service.last_fetch_time else None
+            "last_fetch": scanner_service.last_fetch_time.isoformat() if hasattr(scanner_service, 'last_fetch_time') and scanner_service.last_fetch_time else None,
+            "last_bars_source": market_data_provider.last_bars_source,
+            "last_quotes_source": market_data_provider.last_quotes_source,
+            "alpaca": {
+                "status": alpaca_health.get("status", "unknown"),
+                "consecutive_failures": alpaca_health.get("consecutive_failures", 0),
+                "last_success": alpaca_health.get("last_success"),
+                "total_requests": alpaca_health.get("total_requests", 0),
+                "total_failures": alpaca_health.get("total_failures", 0),
+            },
+            "yfinance": {
+                "status": yfinance_health.get("status", "unknown"),
+                "consecutive_failures": yfinance_health.get("consecutive_failures", 0),
+                "last_success": yfinance_health.get("last_success"),
+                "total_requests": yfinance_health.get("total_requests", 0),
+                "total_failures": yfinance_health.get("total_failures", 0),
+            },
         }
     except Exception as e:
-        services["yfinance"] = {
+        services["market_data"] = {
             "status": "error",
             "error": str(e)
         }

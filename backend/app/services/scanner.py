@@ -235,13 +235,17 @@ class ScannerService:
 
         return self.data_cache
 
-    async def fetch_incremental(self, symbols: List[str] = None) -> Dict[str, int]:
+    async def fetch_incremental(self, symbols: List[str] = None, replace_days: int = 0) -> Dict[str, int]:
         """
         Fetch only NEW data since the last cached date for each symbol.
-        Uses DualSourceProvider (Alpaca primary, yfinance fallback).
+        Uses DualSourceProvider (primary source from config, with automatic fallback).
 
         Args:
             symbols: List of tickers (default: all symbols in cache)
+            replace_days: If > 0, re-fetch and overwrite the last N days for ALL cached
+                symbols (not just stale ones). Use this to fix volume data after an
+                Alpaca/IEX fallback event — IEX volume is ~3% of consolidated and
+                breaks MIN_VOLUME filters.
 
         Returns:
             Dict with counts: {updated: N, failed: N, skipped: N, source: str}
@@ -263,7 +267,8 @@ class ScannerService:
 
         # Log memory at start
         rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 * 1024)
-        logger.info(f"📊 Incremental update for {len(symbols)} symbols (RSS: {rss_mb:.0f} MB)...")
+        logger.info(f"📊 Incremental update for {len(symbols)} symbols (RSS: {rss_mb:.0f} MB)"
+                     + (f" [replace_days={replace_days}]" if replace_days else ""))
 
         # Indicator columns to drop — lazy recompute during scan() is more efficient
         INDICATOR_COLS = [
@@ -271,29 +276,36 @@ class ScannerService:
             'short_mom', 'long_mom', 'volatility', 'ma_20', 'dist_from_50d_high',
         ]
 
-        # Find the oldest "last date" across all symbols to determine fetch window
-        oldest_last_date = today
-        symbols_to_update = []
-        for symbol in symbols:
-            if symbol not in self.data_cache or len(self.data_cache[symbol]) == 0:
-                skipped += 1
-                continue
-            last_date = self.data_cache[symbol].index.max()
-            if hasattr(last_date, 'tz') and last_date.tz is not None:
-                last_date = last_date.tz_localize(None)
-            if last_date >= today - timedelta(days=1):
-                skipped += 1
-                continue
-            symbols_to_update.append(symbol)
-            if last_date < oldest_last_date:
-                oldest_last_date = last_date
+        if replace_days > 0:
+            # Replace mode: re-fetch last N days for all cached symbols
+            cutoff = today - timedelta(days=replace_days)
+            symbols_to_update = [s for s in symbols if s in self.data_cache and len(self.data_cache[s]) > 0]
+            start_date = (cutoff - timedelta(days=2)).strftime('%Y-%m-%d')
+            logger.info(f"🔄 Replace mode: re-fetching last {replace_days} days for {len(symbols_to_update)} symbols from {start_date}")
+        else:
+            # Normal mode: only fetch new data for stale symbols
+            oldest_last_date = today
+            symbols_to_update = []
+            for symbol in symbols:
+                if symbol not in self.data_cache or len(self.data_cache[symbol]) == 0:
+                    skipped += 1
+                    continue
+                last_date = self.data_cache[symbol].index.max()
+                if hasattr(last_date, 'tz') and last_date.tz is not None:
+                    last_date = last_date.tz_localize(None)
+                if last_date >= today - timedelta(days=1):
+                    skipped += 1
+                    continue
+                symbols_to_update.append(symbol)
+                if last_date < oldest_last_date:
+                    oldest_last_date = last_date
 
-        if not symbols_to_update:
-            logger.info(f"✅ Incremental update: all {len(symbols)} symbols already up to date")
-            return {"updated": 0, "failed": 0, "skipped": skipped}
+            if not symbols_to_update:
+                logger.info(f"✅ Incremental update: all {len(symbols)} symbols already up to date")
+                return {"updated": 0, "failed": 0, "skipped": skipped}
 
-        # Fetch from oldest_last_date to now (add buffer for safety)
-        start_date = (oldest_last_date - timedelta(days=5)).strftime('%Y-%m-%d')
+            # Fetch from oldest_last_date to now (add buffer for safety)
+            start_date = (oldest_last_date - timedelta(days=5)).strftime('%Y-%m-%d')
 
         logger.info(f"📡 Fetching incremental data for {len(symbols_to_update)} symbols from {start_date}...")
         bars = await market_data_provider.fetch_bars(symbols_to_update, start_date)
@@ -308,22 +320,27 @@ class ScannerService:
 
                 # Get existing data
                 existing_df = self.data_cache[symbol]
-                last_cached_date = existing_df.index.max()
 
                 # Strip tz from new data for consistent comparison
                 if hasattr(new_df.index, 'tz') and new_df.index.tz is not None:
                     new_df.index = new_df.index.tz_localize(None)
 
-                # Filter to only truly new rows
-                new_rows = new_df[new_df.index > last_cached_date]
+                if replace_days > 0:
+                    # Replace mode: drop old rows in the replace window, use fresh data
+                    cutoff_ts = today - timedelta(days=replace_days)
+                    keep_old = existing_df[existing_df.index < cutoff_ts][['open', 'high', 'low', 'close', 'volume']]
+                    new_rows = new_df[new_df.index >= cutoff_ts][['open', 'high', 'low', 'close', 'volume']]
+                    combined = pd.concat([keep_old, new_rows])
+                else:
+                    # Normal mode: only append truly new rows
+                    last_cached_date = existing_df.index.max()
+                    new_rows = new_df[new_df.index > last_cached_date]
+                    if new_rows.empty:
+                        skipped += 1
+                        continue
+                    combined = pd.concat([existing_df[['open', 'high', 'low', 'close', 'volume']],
+                                        new_rows[['open', 'high', 'low', 'close', 'volume']]])
 
-                if new_rows.empty:
-                    skipped += 1
-                    continue
-
-                # Append new rows to existing data (OHLCV only)
-                combined = pd.concat([existing_df[['open', 'high', 'low', 'close', 'volume']],
-                                    new_rows[['open', 'high', 'low', 'close', 'volume']]])
                 combined = combined[~combined.index.duplicated(keep='last')]
                 combined = combined.sort_index()
 

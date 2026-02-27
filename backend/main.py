@@ -685,18 +685,19 @@ def handler(event, context):
             inc_result = await scanner_service.fetch_incremental()
             print(f"📡 Incremental: {inc_result}")
 
-            # 1d. Auto-retry with yfinance fallback if >10% symbols failed
+            # 1d. Auto-retry with alternate source if >10% symbols failed
             if inc_result.get("failed", 0) > len(existing_symbols) * 0.1:
                 from app.services.market_data_provider import market_data_provider
-                print(f"⚠️ High failure rate ({inc_result['failed']} failed), retrying with yfinance fallback...")
-                market_data_provider.force_source = "yfinance"
+                alt = "alpaca" if market_data_provider._get_primary_source() == "yfinance" else "yfinance"
+                print(f"⚠️ High failure rate ({inc_result['failed']} failed), retrying with {alt} fallback...")
+                market_data_provider.force_source = alt
                 retry_result = await scanner_service.fetch_incremental()
                 market_data_provider.force_source = None
                 print(f"📡 Retry result: {retry_result}")
                 # Merge counts
                 inc_result["updated"] += retry_result.get("updated", 0)
                 inc_result["failed"] = retry_result.get("failed", 0)
-                inc_result["source"] = f"{inc_result.get('source', 'unknown')}+yfinance_retry"
+                inc_result["source"] = f"{inc_result.get('source', 'unknown')}+{alt}_retry"
 
             # 2. Run scan on fresh data
             signals = await scanner_service.scan(refresh_data=False)
@@ -1657,6 +1658,58 @@ def handler(event, context):
             import traceback
             print(f"❌ Walk-forward trades failed: {e}")
             print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
+    # Handle volume data refresh (re-fetch recent days from primary source)
+    # Use after Alpaca/IEX fallback events to replace IEX volume with consolidated
+    if event.get("refresh_volume_data"):
+        config = event["refresh_volume_data"]
+        replace_days = config.get("days", 5)
+        print(f"🔄 Refreshing last {replace_days} days of volume data from primary source")
+
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _refresh_volume():
+            from app.services.scanner import scanner_service
+            from app.services.data_export_service import data_export_service
+
+            # Load existing pickle
+            print("📦 Loading cached price data...")
+            scanner_service.ensure_universe_loaded()
+            scanner_service.load_price_data()
+            cache_size = len(scanner_service.data_cache)
+            print(f"📦 Loaded {cache_size} symbols from cache")
+
+            if cache_size == 0:
+                return {"status": "error", "error": "No cached data to refresh"}
+
+            # Re-fetch last N days (will use primary source = yfinance)
+            result = await scanner_service.fetch_incremental(replace_days=replace_days)
+            print(f"🔄 Refresh result: {result}")
+
+            # Save updated cache
+            print("💾 Saving refreshed data...")
+            export = data_export_service.export_consolidated(scanner_service.data_cache)
+            print(f"💾 Export: {export}")
+
+            return {
+                "status": "success",
+                "replace_days": replace_days,
+                "symbols_refreshed": result.get("updated", 0),
+                "source": result.get("source", "unknown"),
+                "failed": result.get("failed", 0),
+            }
+
+        try:
+            result = loop.run_until_complete(_refresh_volume())
+            print(f"✅ Volume refresh complete: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
             return {"status": "error", "error": str(e)}
 
     # Handle data source comparison test (Alpaca vs yfinance)
