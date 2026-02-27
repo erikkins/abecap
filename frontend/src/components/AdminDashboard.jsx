@@ -462,7 +462,7 @@ function OverviewTab({ stats, serviceStatus, activeStrategy, awsHealth }) {
               const statusBadge = service.status === 'ok' ? 'bg-green-100 text-green-800' :
                 service.status === 'degraded' ? 'bg-yellow-100 text-yellow-800' :
                 'bg-red-100 text-red-800';
-              const dot = (s) => s === 'green' ? 'bg-green-500' : s === 'yellow' ? 'bg-yellow-500' : s === 'red' ? 'bg-red-500' : 'bg-gray-400';
+              const sourceDot = (s) => s === 'green' ? 'bg-green-500' : s === 'yellow' ? 'bg-yellow-500' : s === 'red' ? 'bg-red-500' : 'bg-gray-400';
               return (
                 <div key={name} className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
@@ -471,24 +471,40 @@ function OverviewTab({ stats, serviceStatus, activeStrategy, awsHealth }) {
                       {service.status}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500">Primary: <span className="font-medium text-gray-700 uppercase">{service.primary || '—'}</span></p>
-                  <div className="flex items-center gap-3 mt-1">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="text-xs text-gray-500">Primary:</span>
+                    <span className="text-xs font-semibold text-gray-800 uppercase">{service.primary || '—'}</span>
+                  </div>
+                  <div className="space-y-1.5">
                     {['alpaca', 'yfinance'].map((src) => {
                       const s = service[src];
                       if (!s) return null;
                       return (
-                        <div key={src} className="flex items-center gap-1.5">
-                          <div className={`w-2 h-2 rounded-full ${dot(s.status)}`} />
-                          <span className="text-sm text-gray-500 capitalize">{src}</span>
+                        <div key={src} className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <div className={`w-2 h-2 rounded-full ${sourceDot(s.status)}`} />
+                            <span className="text-xs text-gray-600 capitalize">{src}</span>
+                            {service.primary === src && (
+                              <span className="text-[9px] px-1 py-0.5 bg-blue-100 text-blue-700 rounded font-medium leading-none">PRIMARY</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            {s.total_requests > 0 && (
+                              <span>{s.total_requests - s.total_failures}/{s.total_requests}</span>
+                            )}
+                            {s.consecutive_failures > 0 && (
+                              <span className="text-red-500">{s.consecutive_failures}x fail</span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
                   </div>
                   {service.symbols_loaded !== undefined && (
-                    <p className="text-sm text-gray-500 mt-1">{service.symbols_loaded} symbols</p>
+                    <p className="text-xs text-gray-500 mt-2">{service.symbols_loaded} symbols cached</p>
                   )}
                   {service.error && (
-                    <p className="text-sm text-red-500 truncate mt-1">{service.error}</p>
+                    <p className="text-xs text-red-500 truncate mt-1">{service.error}</p>
                   )}
                 </div>
               );
