@@ -989,19 +989,26 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
         # Sector themes from fresh entries
         fresh_names = [s['symbol'] for s in fresh_signals[:5]]
 
-        # Build the AI prompt
+        # Build the AI prompt — pre-compute parts to avoid nested f-string issues
+        delta_sign = "+" if delta > 0 else ""
+        change_note = f" (was {prev_count} yesterday, {delta_sign}{delta} change)" if prev_snap else " (no prior day to compare)"
+        fresh_note = f" — {', '.join(fresh_names)}" if fresh_names else ""
+        dropped_list = ", ".join(sorted(dropped)[:8]) if dropped else "none"
+        dropped_extra = f" (+{len(dropped)-8} more)" if len(dropped) > 8 else ""
+        added_list = ", ".join(sorted(added)[:8]) if added else "none"
+        added_extra = f" (+{len(added)-8} more)" if len(added) > 8 else ""
+        regime_change = ""
+        if prev_regime and prev_regime != market_stats.get("regime"):
+            regime_change = f" (was {prev_regime.replace('_', ' ')})"
+
         context_block = (
-            f"Signal count: {today_count} ensemble signals"
-            f"{f' (was {prev_count} yesterday, {'+' if delta > 0 else ''}{delta} change)' if prev_snap else ' (no prior day to compare)'}\n"
-            f"Fresh entries today: {fresh_count}{f' — {', '.join(fresh_names)}' if fresh_names else ''}\n"
-            f"Dropped since yesterday: {', '.join(sorted(dropped)[:8]) if dropped else 'none'}"
-            f"{f' (+{len(dropped)-8} more)' if len(dropped) > 8 else ''}\n"
-            f"New since yesterday: {', '.join(sorted(added)[:8]) if added else 'none'}"
-            f"{f' (+{len(added)-8} more)' if len(added) > 8 else ''}\n"
+            f"Signal count: {today_count} ensemble signals{change_note}\n"
+            f"Fresh entries today: {fresh_count}{fresh_note}\n"
+            f"Dropped since yesterday: {dropped_list}{dropped_extra}\n"
+            f"New since yesterday: {added_list}{added_extra}\n"
             f"Top 5 momentum: {', '.join(top5)}\n"
             f"SPY: ${spy_price} | VIX: {vix_level}\n"
-            f"Regime: {regime_name}"
-            f"{f' (was {prev_regime.replace('_', ' ')})' if prev_regime and prev_regime != market_stats.get('regime') else ''}\n"
+            f"Regime: {regime_name}{regime_change}\n"
         )
 
         # Classify the day for tone guidance
