@@ -1138,9 +1138,9 @@ def handler(event, context):
             return result
         except Exception as e:
             import traceback
-            print(f"❌ Regime forecast snapshot failed: {e}")
-            traceback.print_exc()
-            return {"status": "failed", "error": str(e)}
+            tb = traceback.format_exc()
+            print(f"❌ Regime forecast snapshot failed: {e}\n{tb}")
+            return {"status": "failed", "error": str(e), "traceback": tb}
 
     # Handle persist_signals (manual backfill or re-run)
     if event.get("persist_signals"):
