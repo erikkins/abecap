@@ -793,7 +793,16 @@ def handler(event, context):
             except Exception as pe:
                 print(f"⚠️ Portfolio entry processing failed (non-fatal): {pe}")
 
-            # 8. Chain daily WF cache refresh (async, separate Lambda invocation)
+            # 8. Regime forecast snapshot (writes to DB for weekly report)
+            try:
+                from app.services.regime_forecast_service import regime_forecast_service
+                async with async_session() as rfs_db:
+                    regime_snap = await regime_forecast_service.take_snapshot(rfs_db)
+                    print(f"📊 Regime forecast snapshot: {regime_snap}")
+            except Exception as rfe:
+                print(f"⚠️ Regime forecast snapshot failed (non-fatal): {rfe}")
+
+            # 9. Chain daily WF cache refresh (async, separate Lambda invocation)
             try:
                 import boto3, json as _json
                 boto3.client('lambda', region_name='us-east-1').invoke(
@@ -881,6 +890,16 @@ def handler(event, context):
                 except Exception as pe:
                     print(f"⚠️ Portfolio entry processing failed (non-fatal): {pe}")
                     result["portfolio_entries_error"] = str(pe)
+
+                # Regime forecast snapshot
+                try:
+                    from app.services.regime_forecast_service import regime_forecast_service
+                    async with async_session() as rfs_db:
+                        regime_snap = await regime_forecast_service.take_snapshot(rfs_db)
+                        result["regime_snapshot"] = regime_snap
+                        print(f"📊 Regime forecast snapshot: {regime_snap}")
+                except Exception as rfe:
+                    print(f"⚠️ Regime forecast snapshot failed (non-fatal): {rfe}")
 
                 # Chain daily WF cache refresh (async, separate Lambda invocation)
                 try:
@@ -1087,6 +1106,29 @@ def handler(event, context):
         except Exception as e:
             import traceback
             print(f"❌ Daily WF cache failed: {e}")
+            traceback.print_exc()
+            return {"status": "failed", "error": str(e)}
+
+    # Handle regime forecast snapshot (writes to regime_forecast_snapshots table)
+    if event.get("regime_forecast_snapshot"):
+        print(f"📊 Regime forecast snapshot triggered - {len(scanner_service.data_cache)} symbols in cache")
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _take_regime_snapshot():
+            from app.services.regime_forecast_service import regime_forecast_service
+            async with async_session() as db:
+                return await regime_forecast_service.take_snapshot(db)
+
+        try:
+            result = loop.run_until_complete(_take_regime_snapshot())
+            print(f"📊 Regime forecast snapshot result: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Regime forecast snapshot failed: {e}")
             traceback.print_exc()
             return {"status": "failed", "error": str(e)}
 
