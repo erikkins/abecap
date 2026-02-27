@@ -791,12 +791,31 @@ class SchedulerService:
         Check that the daily scan ran successfully today before sending communications.
 
         Returns True if data is fresh enough to proceed, False if stale (emails should be held).
+        Primary check is S3 dashboard timestamp (survives across Lambda instances).
+        In-memory last_run is a secondary signal.
         """
         today = trading_today()
 
-        # Check 1: Did daily_update run today?
+        # Primary check: S3 dashboard JSON freshness (durable, cross-instance)
+        try:
+            dashboard = data_export_service.read_dashboard_json()
+            if dashboard:
+                generated = dashboard.get('generated_at', '')
+                if generated and today.isoformat() in generated:
+                    logger.warning(f"✅ Data freshness validated for {job_name} (dashboard generated today: {generated})")
+                    return True
+                elif generated:
+                    await self._alert_stale_data(
+                        job_name,
+                        f"Dashboard generated_at ({generated}) doesn't match today ({today})"
+                    )
+                    return False
+        except Exception as e:
+            logger.warning(f"Could not check dashboard freshness: {e}")
+
+        # Fallback: in-memory last_run (same-instance only)
         if self.last_run is None:
-            await self._alert_stale_data(job_name, "Daily scan has not run yet")
+            await self._alert_stale_data(job_name, "Daily scan has not run yet and no fresh dashboard found in S3")
             return False
 
         last_run_date = self.last_run.date()
@@ -807,7 +826,6 @@ class SchedulerService:
             )
             return False
 
-        # Check 2: Did it succeed?
         if self.last_run_status != "success":
             await self._alert_stale_data(
                 job_name,
@@ -815,22 +833,7 @@ class SchedulerService:
             )
             return False
 
-        # Check 3: Dashboard JSON freshness
-        try:
-            dashboard = data_export_service.read_dashboard_json()
-            if dashboard:
-                generated = dashboard.get('generated_at', '')
-                if generated and today.isoformat() not in generated:
-                    await self._alert_stale_data(
-                        job_name,
-                        f"Dashboard generated_at ({generated}) doesn't match today ({today})"
-                    )
-                    return False
-        except Exception as e:
-            logger.warning(f"Could not check dashboard freshness: {e}")
-            # Don't block on dashboard read failure — the first two checks passed
-
-        logger.info(f"Data freshness validated for {job_name}")
+        logger.warning(f"✅ Data freshness validated for {job_name} (in-memory last_run)")
         return True
 
     async def _validate_regime_report_freshness(self) -> bool:
