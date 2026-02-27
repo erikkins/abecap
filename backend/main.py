@@ -1119,6 +1119,16 @@ def handler(event, context):
 
         async def _take_regime_snapshot():
             from app.services.regime_forecast_service import regime_forecast_service
+            from app.services.data_export import data_export_service as _dex
+
+            # Ensure SPY/VIX are in cache (cold start may have empty cache)
+            if 'SPY' not in scanner_service.data_cache:
+                print("📥 Loading price data from S3 for regime snapshot...")
+                cached = _dex.import_all()
+                if cached:
+                    scanner_service.data_cache = cached
+                    print(f"✅ Loaded {len(cached)} symbols")
+
             async with async_session() as db:
                 return await regime_forecast_service.take_snapshot(db)
 
