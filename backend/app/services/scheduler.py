@@ -1572,6 +1572,8 @@ class SchedulerService:
             from sqlalchemy import select
             from sqlalchemy.orm import selectinload
 
+            target_set = {e.strip().lower() for e in target_emails} if target_emails else None
+
             async with async_session() as db:
                 query = select(DBUser).options(selectinload(DBUser.subscription))
                 # Admin target sends: don't filter by is_active (admin may not have active user record)
