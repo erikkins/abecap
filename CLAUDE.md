@@ -114,8 +114,36 @@ Backend (FastAPI on Lambda)
     ↓
 PostgreSQL (RDS) + Redis (ElastiCache)
     ↓
-yfinance (data source - free, 20+ years history)
+DualSourceProvider (market_data_provider.py)
+    ├── Alpaca (primary for historical daily bars - faster, more reliable)
+    ├── yfinance (primary for live quotes + index symbols + fallback)
+    └── Auto-failover with health tracking
 ```
+
+## Market Data Sources (Dual-Source Architecture)
+
+After a 2-day stale data incident (Feb 26-27, 2026), the data pipeline uses dual sources with automatic failover:
+
+| Use Case | Primary | Fallback | Reason |
+|----------|---------|----------|--------|
+| Daily scan (EOD bars) | Alpaca | yfinance | Alpaca faster/more reliable for bulk historical |
+| Live intraday quotes | yfinance | Alpaca | Alpaca free = IEX only, yfinance = all exchanges |
+| VIX / index data | yfinance | — | Alpaca doesn't serve index symbols (^VIX, ^GSPC) |
+| Sector ETF bars | Alpaca | yfinance | Normal tickers, Alpaca-compatible |
+
+**Key files:**
+- `backend/app/services/market_data_provider.py` — AlpacaProvider, YfinanceProvider, DualSourceProvider
+- `GET /api/market-data-status` — Public endpoint for frontend staleness banner
+- Lambda handler `compare_data_sources` — A/B validation between sources
+
+**Auto-retry:** If >10% of symbols fail during daily scan, automatically retries with yfinance fallback.
+
+**Frontend banner:** Polls `/api/market-data-status` — shows blue "processing" during 4-4:45 PM ET, amber "stale" if data is late.
+
+**Alpaca free tier constraints:**
+- 200 req/min rate limit, batches of 100 symbols
+- 15-minute delay (non-issue for EOD bars fetched after 4 PM)
+- Cannot serve index symbols (^VIX, ^GSPC)
 
 ## Project Structure
 

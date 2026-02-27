@@ -153,9 +153,11 @@ class AlpacaProvider(MarketDataProvider):
                 )
 
                 # Convert to per-symbol DataFrames
+                # BarSet.data is a dict of symbol -> list[Bar]
+                bar_data = bars.data if hasattr(bars, 'data') else {}
                 for symbol in batch:
                     try:
-                        symbol_bars = bars[symbol] if symbol in bars else []
+                        symbol_bars = bar_data.get(symbol, [])
                         if not symbol_bars:
                             continue
 
