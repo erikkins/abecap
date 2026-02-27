@@ -1048,20 +1048,30 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
             f"Today's data:\n{context_block}"
         )
 
-        # Try Claude API
+        # Try Claude API (raw HTTP — anthropic SDK not in Lambda)
         try:
-            from anthropic import Anthropic
+            import httpx
             from app.core.config import settings
             if settings.ANTHROPIC_API_KEY:
-                client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-                resp = client.messages.create(
-                    model="claude-haiku-4-5-20251001",
-                    max_tokens=120,
-                    system=system_prompt,
-                    messages=[{"role": "user", "content": user_prompt}],
-                )
-                market_context = resp.content[0].text.strip().strip('"')
-                print(f"📝 Market context ({day_type}): {market_context}")
+                headers = {
+                    "x-api-key": settings.ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                }
+                payload = {
+                    "model": "claude-haiku-4-5-20251001",
+                    "max_tokens": 120,
+                    "system": system_prompt,
+                    "messages": [{"role": "user", "content": user_prompt}],
+                }
+                resp = httpx.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=15)
+                if resp.status_code == 200:
+                    content = resp.json().get("content", [])
+                    if content and content[0].get("type") == "text":
+                        market_context = content[0]["text"].strip().strip('"')
+                        print(f"📝 Market context ({day_type}): {market_context}")
+                else:
+                    print(f"⚠️ Claude API {resp.status_code}: {resp.text[:200]}")
         except Exception as ai_err:
             print(f"⚠️ AI market context failed, using fallback: {ai_err}")
 
