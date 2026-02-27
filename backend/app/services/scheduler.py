@@ -1583,7 +1583,12 @@ class SchedulerService:
             subscribers = []
             target_set = {e.strip().lower() for e in target_emails} if target_emails else None
             for u in all_users:
-                if target_set and (u.email or '').lower() not in target_set:
+                email_lower = (u.email or '').lower()
+                if target_set and email_lower not in target_set:
+                    continue
+                # target_emails bypass: skip subscription/preference checks for manual sends
+                if target_set and email_lower in target_set:
+                    subscribers.append({'email': u.email, 'name': u.name, 'user_id': str(u.id)})
                     continue
                 if u.subscription and u.subscription.is_valid():
                     if not u.get_email_preference('daily_digest'):
