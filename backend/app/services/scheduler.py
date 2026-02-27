@@ -1573,15 +1573,15 @@ class SchedulerService:
             from sqlalchemy.orm import selectinload
 
             async with async_session() as db:
-                result = await db.execute(
-                    select(DBUser)
-                    .options(selectinload(DBUser.subscription))
-                    .where(DBUser.is_active == True)
-                )
+                query = select(DBUser).options(selectinload(DBUser.subscription))
+                # Admin target sends: don't filter by is_active (admin may not have active user record)
+                if not target_set or not target_set.issubset(ADMIN_EMAILS):
+                    query = query.where(DBUser.is_active == True)
+                result = await db.execute(query)
                 all_users = result.scalars().all()
+                logger.warning(f"📧 Found {len(all_users)} users in DB" + (f", filtering for {target_set}" if target_set else ""))
 
             subscribers = []
-            target_set = {e.strip().lower() for e in target_emails} if target_emails else None
             for u in all_users:
                 email_lower = (u.email or '').lower()
                 if target_set and email_lower not in target_set:
@@ -1598,14 +1598,14 @@ class SchedulerService:
             fresh_count = len([s for s in buy_signals if s.get('is_fresh')])
 
             if not subscribers:
-                logger.info(
+                logger.warning(
                     f"📧 No active subscribers. Would have sent email with "
                     f"{len(buy_signals)} ensemble signals ({fresh_count} fresh), "
                     f"{len(watchlist)} watchlist"
                 )
                 return
 
-            logger.info(f"📧 Sending daily summary to {len(subscribers)} subscriber(s)")
+            logger.warning(f"📧 Sending daily summary to {len(subscribers)} subscriber(s): {[s['email'] for s in subscribers]}")
 
             # Send emails + push notifications to each subscriber
             sent = 0
