@@ -2826,7 +2826,7 @@ function Dashboard() {
 
                         {/* Market Context — AI summary of signal changes */}
                         {dashboardData.market_context && (
-                          <div className="bg-blue-50 border-l-3 border-blue-400 rounded-r-lg px-3 py-2">
+                          <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg px-3 py-2">
                             <p className="text-sm text-blue-800 leading-relaxed">{dashboardData.market_context}</p>
                           </div>
                         )}
