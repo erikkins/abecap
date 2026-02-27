@@ -1586,8 +1586,8 @@ class SchedulerService:
                 email_lower = (u.email or '').lower()
                 if target_set and email_lower not in target_set:
                     continue
-                # target_emails bypass: skip subscription/preference checks for manual sends
-                if target_set and email_lower in target_set:
+                # Admin override: skip subscription/preference checks for admin target sends
+                if target_set and email_lower in ADMIN_EMAILS:
                     subscribers.append({'email': u.email, 'name': u.name, 'user_id': str(u.id)})
                     continue
                 if u.subscription and u.subscription.is_valid():
