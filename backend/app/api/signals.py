@@ -948,6 +948,7 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
     # --- Market context (AI-generated summary when signals change significantly) ---
     market_context = None
     try:
+        from datetime import date, timedelta
         from app.services.data_export import data_export_service
         yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
         prev_snap = data_export_service.read_snapshot(yesterday)
