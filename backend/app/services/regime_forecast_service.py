@@ -33,7 +33,9 @@ class RegimeForecastService:
         if spy_df is None or spy_df.empty:
             return {"error": "SPY data not in cache"}
 
-        vix_df = scanner_service.data_cache.get("^VIX") or scanner_service.data_cache.get("VIX")
+        vix_df = scanner_service.data_cache.get("^VIX")
+        if vix_df is None:
+            vix_df = scanner_service.data_cache.get("VIX")
 
         try:
             forecast = market_regime_service.predict_transitions(
