@@ -1676,10 +1676,11 @@ def handler(event, context):
             from app.services.scanner import scanner_service
             from app.services.data_export import data_export_service
 
-            # Load existing pickle
+            # Load existing price data from S3
             print("📦 Loading cached price data...")
-            scanner_service.ensure_universe_loaded()
-            scanner_service.load_price_data()
+            cached_data = data_export_service.import_all()
+            if cached_data:
+                scanner_service.data_cache = cached_data
             cache_size = len(scanner_service.data_cache)
             print(f"📦 Loaded {cache_size} symbols from cache")
 
