@@ -703,11 +703,9 @@ def handler(event, context):
                 # Export CSVs for critical symbols NOW (we have fresh data in memory)
                 # This ensures charts + positions show today's data even though full export is deferred
                 critical_symbols = set()
-                # Today's signal symbols
+                # Today's signal symbols (SignalData dataclass objects)
                 for sig in signals:
-                    sym = sig.get('symbol') or sig.get('Symbol', '')
-                    if sym:
-                        critical_symbols.add(sym)
+                    critical_symbols.add(sig.symbol)
                 # SPY + VIX for market regime
                 critical_symbols.update(['SPY', '^VIX'])
                 # Open position symbols
