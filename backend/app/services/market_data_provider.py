@@ -124,6 +124,7 @@ class AlpacaProvider(MarketDataProvider):
 
         from alpaca.data.requests import StockBarsRequest
         from alpaca.data.timeframe import TimeFrame
+        from alpaca.data.enums import DataFeed
 
         # Filter out unsupported symbols
         alpaca_symbols = [s for s in symbols if self.supports_symbol(s)]
@@ -145,6 +146,7 @@ class AlpacaProvider(MarketDataProvider):
                     timeframe=TimeFrame.Day,
                     start=start_dt,
                     end=end_dt,
+                    feed=DataFeed.IEX,  # Free tier requires IEX feed (not SIP)
                 )
 
                 loop = asyncio.get_event_loop()
@@ -200,6 +202,7 @@ class AlpacaProvider(MarketDataProvider):
             return {}
 
         from alpaca.data.requests import StockLatestQuoteRequest
+        from alpaca.data.enums import DataFeed
 
         alpaca_symbols = [s for s in symbols if self.supports_symbol(s)]
         if not alpaca_symbols:
@@ -207,7 +210,10 @@ class AlpacaProvider(MarketDataProvider):
 
         result: Dict[str, QuoteData] = {}
         try:
-            request = StockLatestQuoteRequest(symbol_or_symbols=alpaca_symbols)
+            request = StockLatestQuoteRequest(
+                symbol_or_symbols=alpaca_symbols,
+                feed=DataFeed.IEX,  # Free tier requires IEX feed
+            )
             loop = asyncio.get_event_loop()
             quotes = await loop.run_in_executor(
                 None, self._client.get_stock_latest_quote, request
