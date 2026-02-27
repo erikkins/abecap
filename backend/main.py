@@ -1674,7 +1674,7 @@ def handler(event, context):
 
         async def _refresh_volume():
             from app.services.scanner import scanner_service
-            from app.services.data_export_service import data_export_service
+            from app.services.data_export import data_export_service
 
             # Load existing pickle
             print("📦 Loading cached price data...")
