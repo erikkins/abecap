@@ -45,9 +45,9 @@ export default function MarketRegimePage() {
       .catch(e => { setError(e.message); setLoading(false); });
   }, []);
 
-  // Load Turnstile widget
+  // Load Turnstile widget — re-run when data loads (ref becomes available)
   useEffect(() => {
-    if (!TURNSTILE_SITE_KEY) return;
+    if (!TURNSTILE_SITE_KEY || !data) return;
 
     const renderWidget = () => {
       if (window.turnstile && turnstileRef.current && turnstileWidgetId.current === null) {
@@ -71,7 +71,7 @@ export default function MarketRegimePage() {
       }, 200);
       return () => clearInterval(interval);
     }
-  }, []);
+  }, [data]);
 
   const resetTurnstile = useCallback(() => {
     if (window.turnstile && turnstileWidgetId.current !== null) {
@@ -187,7 +187,7 @@ export default function MarketRegimePage() {
       {/* Stats Row */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 -mt-8 relative z-10">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          <StatCard label="S&P 500 (SPY)" value={current.spy_close ? `$${current.spy_close.toFixed(2)}` : 'N/A'} />
+          <StatCard label="S&P 500" value={current.spy_close ? `$${current.spy_close.toFixed(2)}` : 'N/A'} />
           <StatCard label="Market Fear" value={current.vix_close ? `${getVixLabel(current.vix_close).label} (VIX: ${current.vix_close.toFixed(1)})` : 'N/A'} />
           <StatCard label="Regime Duration" value={`${current.days_in_regime} day${current.days_in_regime !== 1 ? 's' : ''}`} />
           <StatCard label="Outlook" value={current.outlook ? current.outlook.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'N/A'} />

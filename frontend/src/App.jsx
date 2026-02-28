@@ -2927,13 +2927,13 @@ function Dashboard() {
                           {dashboardData.market_stats?.spy_price && (
                             <>
                               <span className="text-gray-400">|</span>
-                              <span className="text-gray-600 text-sm">SPY ${dashboardData.market_stats.spy_price.toFixed(2)}</span>
+                              <span className="text-gray-600 text-sm">S&P 500 ${dashboardData.market_stats.spy_price.toFixed(2)}</span>
                             </>
                           )}
                           {dashboardData.market_stats?.vix_level && (
                             <>
                               <span className="text-gray-400">|</span>
-                              <span className={`text-sm ${getVixLabel(dashboardData.market_stats.vix_level).color}`}>{getVixLabel(dashboardData.market_stats.vix_level).label}</span>
+                              <span className="text-gray-600 text-sm">Market Fear: <span className={`font-medium ${getVixLabel(dashboardData.market_stats.vix_level).color}`}>{getVixLabel(dashboardData.market_stats.vix_level).label}</span></span>
                             </>
                           )}
                         </div>

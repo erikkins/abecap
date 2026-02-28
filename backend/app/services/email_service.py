@@ -294,7 +294,7 @@ class EmailService:
                                 {regime_label}
                             </div>
                             <div style="margin-top: 12px; font-size: 14px; color: #374151;">
-                                SPY: ${market_regime.get('spy_price', 'N/A') if market_regime else 'N/A'} &nbsp;•&nbsp;
+                                S&amp;P 500: ${market_regime.get('spy_price', 'N/A') if market_regime else 'N/A'} &nbsp;•&nbsp;
                                 Market Fear: {_vix_label(market_regime.get('vix_level')) if market_regime else 'N/A'}
                             </div>
                         </td>
@@ -569,7 +569,7 @@ class EmailService:
             "=" * 40,
             "",
             f"Market Regime: {market_regime.get('regime', 'N/A') if market_regime else 'N/A'}",
-            f"SPY: ${market_regime.get('spy_price', 'N/A') if market_regime else 'N/A'}",
+            f"S&P 500: ${market_regime.get('spy_price', 'N/A') if market_regime else 'N/A'}",
             f"Market Fear: {_vix_label(market_regime.get('vix_level')) if market_regime else 'N/A'}",
             "",
             f"BUY SIGNALS ({len(fresh_signals)})",
@@ -1887,7 +1887,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
             <td style="padding: 24px 24px 0;">
                 <div style="text-align: center; font-size: 13px; color: #6b7280;">
                     Market: <strong>{market_regime.get("regime", "").replace("_", " ").title()}</strong>
-                    &nbsp;•&nbsp; SPY ${market_regime.get("spy_price", "N/A")}
+                    &nbsp;•&nbsp; S&amp;P 500 ${market_regime.get("spy_price", "N/A")}
                 </div>
             </td>
         </tr>''' if market_regime else ''}
@@ -1961,7 +1961,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
             f"{len(new_signals)} momentum stock(s) just hit the signal trigger",
         ]
         if market_regime:
-            text_lines.append(f"Market: {market_regime.get('regime', '').replace('_', ' ').title()} | SPY ${market_regime.get('spy_price', 'N/A')}")
+            text_lines.append(f"Market: {market_regime.get('regime', '').replace('_', ' ').title()} | S&P 500 ${market_regime.get('spy_price', 'N/A')}")
         text_lines.extend(["", "NEW SIGNALS:"])
         for s in new_signals[:10]:
             fresh_tag = " [NEW TODAY]" if s.get('days_since_crossover') == 0 else ""
@@ -2416,7 +2416,7 @@ Trading involves risk. Past performance does not guarantee future results.
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr>
           <td width="50%" style="text-align:center;padding:12px;background:#f9fafb;border-radius:8px 0 0 8px;">
-            <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;">S&P 500 (SPY)</p>
+            <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;">S&amp;P 500</p>
             <p style="margin:4px 0 0 0;font-size:20px;font-weight:700;color:#172554;">${spy_close:.2f if spy_close else 'N/A'}{spy_delta}</p>
           </td>
           <td width="50%" style="text-align:center;padding:12px;background:#f9fafb;border-radius:0 8px 8px 0;">
