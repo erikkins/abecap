@@ -632,7 +632,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                 Transaction Window
               </span>
               <span className="text-sm text-gray-500">
-                {data?.entry_date} → {data?.sell_date} (±30 days)
+                {formatDate(data?.entry_date)} → {formatDate(data?.sell_date)} (±30 days)
               </span>
             </div>
           ) : (
@@ -1117,12 +1117,12 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                 <>
                   <div className="text-center">
                     <p className="text-sm text-gray-500">Buy Date</p>
-                    <p className="text-lg font-semibold">{data?.entry_date}</p>
+                    <p className="text-lg font-semibold">{formatDate(data?.entry_date)}</p>
                     <p className="text-xs text-emerald-600">${data?.entry_price?.toFixed(2)}</p>
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-gray-500">Sell Date</p>
-                    <p className="text-lg font-semibold">{data?.sell_date}</p>
+                    <p className="text-lg font-semibold">{formatDate(data?.sell_date)}</p>
                     <p className="text-xs text-emerald-600">${data?.sell_price?.toFixed(2)}</p>
                   </div>
                   <div className="text-center">
@@ -1156,7 +1156,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   <div className="text-center">
                     <p className="text-sm text-gray-500">Entry Price</p>
                     <p className="text-lg font-semibold">${data?.entry_price?.toFixed(2)}</p>
-                    <p className="text-xs text-gray-400">{data?.entry_date}</p>
+                    <p className="text-xs text-gray-400">{formatDate(data?.entry_date)}</p>
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-gray-500">Current P&L</p>
@@ -3792,9 +3792,9 @@ function Dashboard() {
                             onClick={() => setChartModal({ type: 'missed', data: m, symbol: m.symbol })}
                           >
                             <td className="px-3 py-2.5 font-semibold text-gray-900">{m.symbol}</td>
-                            <td className="px-3 py-2.5 text-gray-500 hidden sm:table-cell">{m.entry_date}</td>
+                            <td className="px-3 py-2.5 text-gray-500 hidden sm:table-cell">{formatDate(m.entry_date)}</td>
                             <td className="px-3 py-2.5 text-right hidden md:table-cell">${m.entry_price?.toFixed(2)}</td>
-                            <td className="px-3 py-2.5 text-gray-500 hidden sm:table-cell">{m.sell_date}</td>
+                            <td className="px-3 py-2.5 text-gray-500 hidden sm:table-cell">{formatDate(m.sell_date)}</td>
                             <td className="px-3 py-2.5 text-right hidden md:table-cell">${m.sell_price?.toFixed(2)}</td>
                             <td className="px-3 py-2.5 text-right">
                               <span className="text-emerald-600 font-semibold">+{m.would_be_return?.toFixed(1)}%</span>
@@ -3825,7 +3825,7 @@ function Dashboard() {
                         ? `Adaptive strategy with ${backtest.num_strategy_switches || 0} switches`
                         : `Based on ${backtest.strategy === 'momentum' ? 'Momentum' : 'Breakout'} strategy`
                       }
-                      {' '}| {backtest.start_date} to {backtest.end_date}
+                      {' '}| {formatDate(backtest.start_date, { includeYear: true })} to {formatDate(backtest.end_date, { includeYear: true })}
                     </p>
                   </div>
                   <div className="flex gap-6 text-sm">
@@ -3869,8 +3869,8 @@ function Dashboard() {
                       {trades.map(t => (
                         <tr key={t.id} className="hover:bg-gray-50 border-b border-gray-50">
                           <td className="py-3 px-4 font-medium">{t.symbol}</td>
-                          <td className="py-3 px-4 text-gray-500 text-sm">{t.entry_date}</td>
-                          <td className="py-3 px-4 text-gray-500 text-sm">{t.exit_date}</td>
+                          <td className="py-3 px-4 text-gray-500 text-sm">{formatDate(t.entry_date)}</td>
+                          <td className="py-3 px-4 text-gray-500 text-sm">{formatDate(t.exit_date)}</td>
                           <td className="py-3 px-4">${t.entry_price?.toFixed(2)}</td>
                           <td className="py-3 px-4">${t.exit_price?.toFixed(2)}</td>
                           <td className="py-3 px-4"><span className={`px-2 py-1 rounded text-sm font-semibold ${t.pnl_pct >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>{t.pnl_pct >= 0 ? '+' : ''}{t.pnl_pct?.toFixed(1)}%</span></td>
