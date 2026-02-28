@@ -166,7 +166,7 @@ export default function MarketRegimePage() {
             Weekly Market Intelligence
           </h1>
           <p className="text-lg text-blue-200 max-w-2xl mx-auto mb-8">
-            Our 7-regime detection system analyzes market conditions daily. Know the market's mood before you trade.
+            Our 7-regime detection system analyzes market conditions daily.<br />Know the market's mood before you trade.
           </p>
 
           {/* Regime Badge */}
