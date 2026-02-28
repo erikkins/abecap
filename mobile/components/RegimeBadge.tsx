@@ -37,6 +37,15 @@ const ALL_REGIMES = [
   'recovery',
 ];
 
+function getVixLabel(vix: number | null | undefined): { label: string; color: string } {
+  if (vix == null) return { label: 'N/A', color: Colors.textSecondary };
+  if (vix < 15) return { label: 'Calm', color: Colors.green };
+  if (vix < 20) return { label: 'Normal', color: Colors.textSecondary };
+  if (vix < 25) return { label: 'Elevated', color: Colors.amber ?? '#f59e0b' };
+  if (vix < 35) return { label: 'High Fear', color: Colors.orange ?? '#f97316' };
+  return { label: 'Extreme Fear', color: Colors.red };
+}
+
 interface RegimeBadgeProps {
   regime?: string;
   compact?: boolean;
@@ -147,10 +156,11 @@ export default function RegimeBadge({
               )}
             </View>
             <View style={styles.marketItem}>
-              <Text style={styles.marketLabel}>VIX</Text>
-              <Text style={styles.marketValue}>
-                {marketStats.vix_level?.toFixed(1) ?? '—'}
+              <Text style={styles.marketLabel}>Market Fear</Text>
+              <Text style={[styles.marketValue, { color: getVixLabel(marketStats.vix_level).color }]}>
+                {getVixLabel(marketStats.vix_level).label}
               </Text>
+              <Text style={styles.marketChange}>VIX: {marketStats.vix_level?.toFixed(1) ?? '—'}</Text>
             </View>
           </View>
         )}

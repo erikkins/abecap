@@ -740,8 +740,8 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                   </span>
                 </span>
                 <span className="px-2 py-1 bg-white/80 rounded border border-gray-200">
-                  VIX: <span className="font-medium">{currentRegime.conditions.vix_level?.toFixed(1)}</span>
-                  <span className="text-gray-400 ml-1">({currentRegime.conditions.vix_percentile?.toFixed(0)}%ile)</span>
+                  Fear: <span className="font-medium">{currentRegime.conditions.vix_level?.toFixed(1)}</span>
+                  <span className="text-gray-400 ml-1">(VIX {currentRegime.conditions.vix_percentile?.toFixed(0)}%ile)</span>
                 </span>
                 <span className="px-2 py-1 bg-white/80 rounded border border-gray-200">
                   Breadth: <span className="font-medium">{currentRegime.conditions.breadth_pct?.toFixed(0)}%</span> above 50MA

@@ -50,6 +50,16 @@ const CACHE_DURATION = {
   USER_DATA: 60 * 60 * 1000  // 1 hour
 };
 
+// VIX level → human-readable label
+const getVixLabel = (vix) => {
+  if (vix == null) return { label: 'N/A', color: 'text-gray-400' };
+  if (vix < 15) return { label: 'Calm', color: 'text-emerald-600' };
+  if (vix < 20) return { label: 'Normal', color: 'text-gray-500' };
+  if (vix < 25) return { label: 'Elevated', color: 'text-amber-600' };
+  if (vix < 35) return { label: 'High Fear', color: 'text-orange-600' };
+  return { label: 'Extreme Fear', color: 'text-red-600' };
+};
+
 // Helper to get cached data
 const getCache = (key) => {
   try {
@@ -2818,8 +2828,9 @@ function Dashboard() {
                               )}
                             </div>
                             <div>
-                              <span className="text-gray-500">VIX</span>
-                              <span className="ml-2 font-semibold text-gray-900">{dashboardData.market_stats.vix_level?.toFixed(1)}</span>
+                              <span className="text-gray-500">Market Fear</span>
+                              <span className={`ml-2 font-semibold ${getVixLabel(dashboardData.market_stats.vix_level).color}`}>{getVixLabel(dashboardData.market_stats.vix_level).label}</span>
+                              <span className="ml-1 text-xs text-gray-400">(VIX: {dashboardData.market_stats.vix_level?.toFixed(1)})</span>
                             </div>
                           </div>
                         )}
@@ -2921,7 +2932,7 @@ function Dashboard() {
                           {dashboardData.market_stats?.vix_level && (
                             <>
                               <span className="text-gray-400">|</span>
-                              <span className="text-gray-600 text-sm">VIX {dashboardData.market_stats.vix_level.toFixed(1)}</span>
+                              <span className={`text-sm ${getVixLabel(dashboardData.market_stats.vix_level).color}`}>{getVixLabel(dashboardData.market_stats.vix_level).label}</span>
                             </>
                           )}
                         </div>

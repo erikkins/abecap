@@ -15,6 +15,15 @@ const REGIME_DESCRIPTIONS = {
   recovery: 'Markets are bouncing back from a downturn with improving breadth.',
 };
 
+function getVixLabel(vix) {
+  if (vix == null) return { label: 'N/A', color: 'text-gray-400' };
+  if (vix < 15) return { label: 'Calm', color: 'text-emerald-400' };
+  if (vix < 20) return { label: 'Normal', color: 'text-gray-400' };
+  if (vix < 25) return { label: 'Elevated', color: 'text-amber-400' };
+  if (vix < 35) return { label: 'High Fear', color: 'text-orange-400' };
+  return { label: 'Extreme Fear', color: 'text-red-400' };
+}
+
 export default function MarketRegimePage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -178,7 +187,7 @@ export default function MarketRegimePage() {
       <section className="max-w-5xl mx-auto px-4 sm:px-6 -mt-8 relative z-10">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           <StatCard label="S&P 500 (SPY)" value={current.spy_close ? `$${current.spy_close.toFixed(2)}` : 'N/A'} />
-          <StatCard label="Volatility (VIX)" value={current.vix_close ? current.vix_close.toFixed(1) : 'N/A'} />
+          <StatCard label="Market Fear" value={current.vix_close ? `${getVixLabel(current.vix_close).label} (VIX: ${current.vix_close.toFixed(1)})` : 'N/A'} />
           <StatCard label="Regime Duration" value={`${current.days_in_regime} day${current.days_in_regime !== 1 ? 's' : ''}`} />
           <StatCard label="Outlook" value={current.outlook ? current.outlook.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'N/A'} />
         </div>
