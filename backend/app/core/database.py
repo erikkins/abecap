@@ -652,6 +652,10 @@ async def _run_schema_migrations(conn):
             print(f"✅ Schema migration: {label}")
         except Exception as e:
             print(f"⚠️ Schema migration skipped ({label}): {e}")
+            try:
+                await conn.rollback()
+            except Exception:
+                pass
 
     await _run("is_daily_cache column", """
         ALTER TABLE walk_forward_simulations
