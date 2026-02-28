@@ -17,6 +17,7 @@ import MarketRegimePage from './MarketRegimePage';
 import { PrivacyPage, TermsPage, ContactPage } from './LegalPages';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginModal from './components/LoginModal';
+import { formatDate, formatChartDate } from './utils/formatDate';
 import AdminDashboard from './components/AdminDashboard';
 import SubscriptionBanner from './components/SubscriptionBanner';
 import { ForgotPasswordPage, ResetPasswordPage } from './components/PasswordReset';
@@ -674,7 +675,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   dataKey="date"
                   tick={{ fontSize: 11 }}
                   stroke="#9CA3AF"
-                  tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  tickFormatter={(val) => formatChartDate(val)}
                   interval={Math.floor(priceData.length / 6)}
                 />
                 <YAxis
@@ -704,7 +705,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                     if (viewMode === 'simple') {
                       return (
                         <div className={`bg-white p-3 rounded-lg shadow-lg border ${borderClass} text-sm`}>
-                          <p className="font-medium text-gray-900 mb-1">{new Date(label).toLocaleDateString()}</p>
+                          <p className="font-medium text-gray-900 mb-1">{formatDate(label)}</p>
                           <p className="text-blue-600">Price: ${d?.close?.toFixed(2)}</p>
                           {isEntryDay && <p className="text-emerald-600 font-medium">Entry Point</p>}
                           {isSellDay && <p className="text-amber-600 font-medium">Exit Point</p>}
@@ -715,7 +716,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                     return (
                       <div className={`bg-white p-3 rounded-lg shadow-lg border ${borderClass} text-sm`}>
                         <p className="font-medium text-gray-900 mb-1">
-                          {new Date(label).toLocaleDateString()}
+                          {formatDate(label)}
                           {isEntryDay && <span className="ml-2 text-emerald-600 font-bold">BUY POINT</span>}
                           {isSellDay && <span className="ml-2 text-amber-600 font-bold">SELL POINT (+20%)</span>}
                         </p>
@@ -2398,7 +2399,7 @@ function Dashboard() {
                   title="Time Travel"
                 >
                   <Clock size={14} />
-                  {timeTravelDate ? new Date(timeTravelDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Time Travel'}
+                  {timeTravelDate ? formatDate(timeTravelDate, { includeYear: true }) : 'Time Travel'}
                 </button>
                 {timeTravelOpen && (
                   <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200 p-4 z-50">
@@ -2428,7 +2429,7 @@ function Dashboard() {
                               }`}
                             >
                               <div className="flex flex-col">
-                                <span className="font-medium">{new Date(date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                <span className="font-medium">{formatDate(date, { includeYear: true })}</span>
                                 <span className="text-gray-400 truncate max-w-[140px]">{symbols}</span>
                               </div>
                               <span className={`font-semibold whitespace-nowrap ${source === 'missed' ? 'text-green-600' : 'text-purple-600'}`}>{detail}</span>
@@ -2569,8 +2570,8 @@ function Dashboard() {
               {timeTravelLoading ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />}
               <span className="text-sm font-medium">
                 {timeTravelLoading
-                  ? `Loading data for ${new Date(timeTravelDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}...`
-                  : `Time Travel: Viewing dashboard as of ${new Date(timeTravelDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}`
+                  ? `Loading data for ${formatDate(timeTravelDate, { includeYear: true })}...`
+                  : `Time Travel: Viewing dashboard as of ${formatDate(timeTravelDate, { includeYear: true })}`
                 }
               </span>
               {timeTravelEmailStatus === 'sending' && <span className="text-xs text-purple-200 ml-2">Sending email...</span>}
@@ -3537,7 +3538,7 @@ function Dashboard() {
                             {dashboardData.recent_signals.map(rs => (
                               <div key={`${rs.symbol}-${rs.signal_date}`} className="flex items-center gap-1.5 text-xs bg-gray-100 px-2.5 py-1.5 rounded-lg">
                                 <span className="font-semibold text-gray-800">{rs.symbol}</span>
-                                <span className="text-gray-500">{new Date(rs.signal_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                                <span className="text-gray-500">{formatDate(rs.signal_date)}</span>
                                 {rs.performance_pct != null && (
                                   <span className={`font-medium ${rs.performance_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                                     {rs.performance_pct >= 0 ? '+' : ''}{rs.performance_pct}%

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Activity, Shield, TrendingUp, Mail, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { formatDate, formatChartDate } from './utils/formatDate';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
@@ -205,7 +206,7 @@ export default function MarketRegimePage() {
               {prior_regime && (
                 <p className="text-gray-500 text-xs mb-2">
                   Prior regime: <span style={{ color: prior_regime.color }}>{prior_regime.name}</span>
-                  {prior_regime.date && <span> (ended {prior_regime.date})</span>}
+                  {prior_regime.date && <span> (ended {formatDate(prior_regime.date)})</span>}
                 </p>
               )}
               <p className="text-gray-400 text-sm leading-relaxed">
@@ -235,17 +236,17 @@ export default function MarketRegimePage() {
                   key={i}
                   className="flex-1 h-8 rounded-sm cursor-default group relative"
                   style={{ backgroundColor: day.color }}
-                  title={`${day.date}: ${day.name}`}
+                  title={`${formatDate(day.date)}: ${day.name}`}
                 >
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-xs text-white rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                    {day.date?.slice(5)}: {day.name}
+                    {formatDate(day.date, { compact: true })}: {day.name}
                   </div>
                 </div>
               ))}
             </div>
             <div className="flex justify-between mt-2 text-xs text-gray-500">
-              <span>{history[0]?.date?.slice(5)}</span>
-              <span>{history[history.length - 1]?.date?.slice(5)}</span>
+              <span>{formatDate(history[0]?.date)}</span>
+              <span>{formatDate(history[history.length - 1]?.date)}</span>
             </div>
           </div>
         </section>

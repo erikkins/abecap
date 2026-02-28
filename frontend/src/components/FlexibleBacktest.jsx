@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, Cell } from 'recharts';
 import { PlayCircle, RefreshCw, TrendingUp, Calendar, List, Settings, AlertCircle, GitCompare, Trophy } from 'lucide-react';
 
+import { formatDate, formatChartDate } from '../utils/formatDate';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const PRESET_UNIVERSES = {
@@ -762,7 +764,7 @@ export default function FlexibleBacktest({ fetchWithAuth, strategies = [] }) {
                     <XAxis
                       dataKey="date"
                       tick={{ fontSize: 11 }}
-                      tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+                      tickFormatter={(val) => formatChartDate(val)}
                     />
                     <YAxis
                       tick={{ fontSize: 11 }}
@@ -775,7 +777,7 @@ export default function FlexibleBacktest({ fetchWithAuth, strategies = [] }) {
                         const data = payload[0]?.payload;
                         return (
                           <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 text-sm">
-                            <p className="font-medium">{new Date(label).toLocaleDateString()}</p>
+                            <p className="font-medium">{formatDate(label)}</p>
                             <p className="text-emerald-600">Portfolio: ${data?.portfolio?.toLocaleString()}</p>
                             {data?.benchmark && (
                               <p className="text-gray-500">SPY: ${data?.benchmark?.toLocaleString()}</p>
@@ -831,7 +833,7 @@ export default function FlexibleBacktest({ fetchWithAuth, strategies = [] }) {
                       {result.trades.slice(-10).reverse().map((trade, i) => (
                         <tr key={i} className="hover:bg-gray-50">
                           <td className="px-4 py-2 text-sm text-gray-900">
-                            {new Date(trade.exit_date || trade.entry_date).toLocaleDateString()}
+                            {formatDate(trade.exit_date || trade.entry_date)}
                           </td>
                           <td className="px-4 py-2 text-sm font-medium text-gray-900">{trade.ticker}</td>
                           <td className="px-4 py-2 text-sm text-gray-500">{trade.exit_reason || 'Open'}</td>

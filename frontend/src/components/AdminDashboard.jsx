@@ -3,6 +3,7 @@ import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 import StrategyGenerator from './StrategyGenerator';
+import { formatDate } from '../utils/formatDate';
 import WalkForwardSimulator from './WalkForwardSimulator';
 import AutoSwitchConfig from './AutoSwitchConfig';
 import StrategyEditor from './StrategyEditor';
@@ -731,7 +732,7 @@ function StrategiesTab({ strategies, activeStrategy, analysisResults, analysisLo
               <p className="text-xs text-gray-500">Activated</p>
               <p className="font-semibold">
                 {activeStrategy.activated_at
-                  ? new Date(activeStrategy.activated_at).toLocaleDateString()
+                  ? formatDate(activeStrategy.activated_at)
                   : '-'}
               </p>
             </div>
@@ -1020,10 +1021,10 @@ function UsersTab({ users, usersPagination, searchQuery, setSearchQuery, handleS
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}
+                  {user.created_at ? formatDate(user.created_at) : '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
+                  {user.last_login ? formatDate(user.last_login) : 'Never'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <div className="flex items-center gap-2">
@@ -1417,7 +1418,7 @@ function ModelPortfolioTab({ fetchWithAuth }) {
                           return (
                             <tr key={pos.symbol} className="border-b border-gray-50">
                               <td className="py-2 pr-3 font-medium text-gray-900">{pos.symbol}</td>
-                              <td className="py-2 pr-3 text-gray-500 text-xs">{pos.entry_date?.slice(0, 10) || '—'}</td>
+                              <td className="py-2 pr-3 text-gray-500 text-xs">{formatDate(pos.entry_date) || '—'}</td>
                               <td className="py-2 pr-3 text-gray-600">${pos.entry_price?.toFixed(2)}</td>
                               <td className="py-2 pr-3 text-gray-600">${pos.current_price?.toFixed(2)}</td>
                               <td className={`py-2 pr-3 font-medium ${pnlColor}`}>
@@ -1462,11 +1463,11 @@ function ModelPortfolioTab({ fetchWithAuth }) {
                             <tr key={t.id} className="border-b border-gray-50">
                               <td className="py-1.5 pr-3 font-medium text-gray-900">{t.symbol}</td>
                               <td className="py-1.5 pr-3 text-gray-500 text-xs">
-                                {t.entry_date?.slice(0, 10) || '—'}
+                                {formatDate(t.entry_date) || '—'}
                                 <span className="text-gray-400 ml-1">${t.entry_price?.toFixed(2)}</span>
                               </td>
                               <td className="py-1.5 pr-3 text-gray-500 text-xs">
-                                {t.exit_date?.slice(0, 10) || '—'}
+                                {formatDate(t.exit_date) || '—'}
                                 <span className="text-gray-400 ml-1">${t.exit_price?.toFixed(2)}</span>
                               </td>
                               <td className={`py-1.5 pr-3 font-medium ${tPnlColor}`}>
@@ -1613,8 +1614,8 @@ function ModelPortfolioTab({ fetchWithAuth }) {
               })}
             </div>
             <div className="flex justify-between text-xs text-gray-400 mt-1">
-              <span>{regimeHistory[0]?.date?.slice(5)}</span>
-              <span>{regimeHistory[regimeHistory.length - 1]?.date?.slice(5)}</span>
+              <span>{formatDate(regimeHistory[0]?.date)}</span>
+              <span>{formatDate(regimeHistory[regimeHistory.length - 1]?.date)}</span>
             </div>
           </div>
 
@@ -1697,7 +1698,7 @@ function ModelPortfolioTab({ fetchWithAuth }) {
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={whatIfResult.equity_curve} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" tickFormatter={(d) => d?.slice(5)} />
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" tickFormatter={(d) => formatDate(d, { compact: true })} />
                   <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
                   <Tooltip formatter={(value) => [`$${value?.toLocaleString()}`, '']} />
                   <Line type="monotone" dataKey="value" name="Your Portfolio" stroke="#4f46e5" strokeWidth={2} dot={false} />
@@ -1972,12 +1973,12 @@ function TradeDetailCard({ detail, onGenerateAutopsy }) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-gray-200">
         <div>
           <p className="text-xs text-gray-400">Entry</p>
-          <p className="text-sm text-gray-700">{detail.entry_date?.slice(0, 10)} @ ${detail.entry_price?.toFixed(2)}</p>
+          <p className="text-sm text-gray-700">{formatDate(detail.entry_date)} @ ${detail.entry_price?.toFixed(2)}</p>
         </div>
         <div>
           <p className="text-xs text-gray-400">Exit</p>
           <p className="text-sm text-gray-700">
-            {detail.exit_date ? `${detail.exit_date.slice(0, 10)} @ $${detail.exit_price?.toFixed(2)}` : 'Open'}
+            {detail.exit_date ? `${formatDate(detail.exit_date)} @ $${detail.exit_price?.toFixed(2)}` : 'Open'}
           </p>
         </div>
         {detail.max_gain_pct != null && (

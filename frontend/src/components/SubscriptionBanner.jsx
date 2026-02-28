@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Clock, Zap, X, CreditCard } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { formatDate } from '../utils/formatDate';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -122,7 +123,7 @@ export default function SubscriptionBanner() {
   const getMessage = () => {
     if (isCanceling) {
       const endDate = user.subscription?.current_period_end;
-      const formatted = endDate ? new Date(endDate).toLocaleDateString() : 'soon';
+      const formatted = endDate ? formatDate(endDate, { includeYear: true }) : 'soon';
       return `Your subscription is set to cancel on ${formatted}. You can resubscribe anytime.`;
     }
     if (isPastDue) return 'Your payment failed. Please update your payment method to continue.';

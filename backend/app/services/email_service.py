@@ -55,6 +55,25 @@ def clear_email_failures():
     _failure_log.clear()
 
 
+def _vix_label(vix) -> str:
+    """Convert VIX number to human-readable fear label."""
+    if vix is None or vix == 'N/A':
+        return 'N/A'
+    try:
+        v = float(vix)
+    except (ValueError, TypeError):
+        return 'N/A'
+    if v < 15:
+        return f'Calm (VIX: {v:.1f})'
+    if v < 20:
+        return f'Normal (VIX: {v:.1f})'
+    if v < 25:
+        return f'Elevated (VIX: {v:.1f})'
+    if v < 35:
+        return f'High Fear (VIX: {v:.1f})'
+    return f'Extreme Fear (VIX: {v:.1f})'
+
+
 class EmailService:
     """
     Manages email sending for daily summaries and alerts
@@ -276,7 +295,7 @@ class EmailService:
                             </div>
                             <div style="margin-top: 12px; font-size: 14px; color: #374151;">
                                 SPY: ${market_regime.get('spy_price', 'N/A') if market_regime else 'N/A'} &nbsp;•&nbsp;
-                                VIX: {market_regime.get('vix_level', 'N/A') if market_regime else 'N/A'}
+                                Market Fear: {_vix_label(market_regime.get('vix_level')) if market_regime else 'N/A'}
                             </div>
                         </td>
                     </tr>
@@ -551,7 +570,7 @@ class EmailService:
             "",
             f"Market Regime: {market_regime.get('regime', 'N/A') if market_regime else 'N/A'}",
             f"SPY: ${market_regime.get('spy_price', 'N/A') if market_regime else 'N/A'}",
-            f"VIX: {market_regime.get('vix_level', 'N/A') if market_regime else 'N/A'}",
+            f"Market Fear: {_vix_label(market_regime.get('vix_level')) if market_regime else 'N/A'}",
             "",
             f"BUY SIGNALS ({len(fresh_signals)})",
             "-" * 40,
@@ -2316,7 +2335,7 @@ Trading involves risk. Past performance does not guarantee future results.
         trans_rows = ""
         for regime, prob in top_transitions:
             r_color, _, r_name = regime_colors.get(regime, ('#6b7280', '#f3f4f6', regime))
-            pct = round(prob * 100, 1)
+            pct = round(prob, 1)
             bar_width = min(pct, 100)
             trans_rows += f'''
             <tr>
@@ -2401,8 +2420,8 @@ Trading involves risk. Past performance does not guarantee future results.
             <p style="margin:4px 0 0 0;font-size:20px;font-weight:700;color:#172554;">${spy_close:.2f if spy_close else 'N/A'}{spy_delta}</p>
           </td>
           <td width="50%" style="text-align:center;padding:12px;background:#f9fafb;border-radius:0 8px 8px 0;">
-            <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;">Volatility (VIX)</p>
-            <p style="margin:4px 0 0 0;font-size:20px;font-weight:700;color:#172554;">{vix_close:.1f if vix_close else 'N/A'}{vix_delta}</p>
+            <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;">Market Fear</p>
+            <p style="margin:4px 0 0 0;font-size:20px;font-weight:700;color:#172554;">{_vix_label(vix_close)}{vix_delta}</p>
           </td>
         </tr>
       </table>

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend, ReferenceArea, ComposedChart, Area, Bar } from 'recharts';
 import { PlayCircle, RefreshCw, TrendingUp, Calendar, ArrowRight, AlertCircle, Zap, Brain, ChevronDown, ChevronUp, Eye, EyeOff, BarChart2, X, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
+import { formatDate, formatChartDate } from '../utils/formatDate';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Trade Chart Modal - Shows buy/sell points for a specific trade
@@ -115,12 +117,12 @@ const TradeChartModal = ({ trade, onClose, fetchWithAuth }) => {
               <div className="bg-emerald-50 rounded-lg p-2 text-center">
                 <p className="text-xs text-gray-500">Entry</p>
                 <p className="font-semibold text-emerald-700">${trade.entry_price?.toFixed(2)}</p>
-                <p className="text-xs text-gray-400">{new Date(trade.entry_date).toLocaleDateString()}</p>
+                <p className="text-xs text-gray-400">{formatDate(trade.entry_date)}</p>
               </div>
               <div className={`rounded-lg p-2 text-center ${isProfit ? 'bg-emerald-50' : 'bg-red-50'}`}>
                 <p className="text-xs text-gray-500">Exit</p>
                 <p className={`font-semibold ${isProfit ? 'text-emerald-700' : 'text-red-700'}`}>${trade.exit_price?.toFixed(2)}</p>
-                <p className="text-xs text-gray-400">{new Date(trade.exit_date).toLocaleDateString()}</p>
+                <p className="text-xs text-gray-400">{formatDate(trade.exit_date)}</p>
               </div>
               <div className={`rounded-lg p-2 text-center ${isProfit ? 'bg-emerald-50' : 'bg-red-50'}`}>
                 <p className="text-xs text-gray-500">P&L</p>
@@ -169,7 +171,7 @@ const TradeChartModal = ({ trade, onClose, fetchWithAuth }) => {
                   dataKey="date"
                   tick={{ fontSize: 11 }}
                   stroke="#9CA3AF"
-                  tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  tickFormatter={(val) => formatChartDate(val)}
                   interval={Math.floor(priceData.length / 8)}
                 />
                 <YAxis
@@ -198,7 +200,7 @@ const TradeChartModal = ({ trade, onClose, fetchWithAuth }) => {
                         isExitDay ? 'border-amber-400 border-2' : 'border-gray-200'
                       }`}>
                         <p className="font-medium text-gray-900 mb-1">
-                          {new Date(label).toLocaleDateString()}
+                          {formatDate(label)}
                           {isEntryDay && <span className="ml-2 text-emerald-600 font-bold">BUY</span>}
                           {isExitDay && <span className="ml-2 text-amber-600 font-bold">SELL</span>}
                         </p>
@@ -944,7 +946,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                     <XAxis
                       dataKey="date"
                       tick={{ fontSize: 11 }}
-                      tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+                      tickFormatter={(val) => formatChartDate(val)}
                     />
                     <YAxis
                       tick={{ fontSize: 11 }}
@@ -961,7 +963,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                         );
                         return (
                           <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 text-sm">
-                            <p className="font-medium">{new Date(label).toLocaleDateString()}</p>
+                            <p className="font-medium">{formatDate(label)}</p>
                             <p className="text-blue-600">Portfolio: ${data?.equity?.toLocaleString()}</p>
                             {data?.spyEquity && (
                               <p className="text-amber-600">SPY: ${Math.round(data.spyEquity).toLocaleString()}</p>
@@ -1066,7 +1068,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                     <div key={i} className={`px-4 py-3 ${s.is_ai_generated ? 'bg-purple-50' : ''}`}>
                       <div className="flex items-center gap-4">
                         <div className="w-24 text-sm text-gray-500">
-                          {new Date(s.date).toLocaleDateString()}
+                          {formatDate(s.date)}
                         </div>
                         <div className="flex items-center gap-2 flex-1">
                           {s.from_strategy ? (
@@ -1164,7 +1166,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                       <div key={i} className="px-4 py-3">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium text-gray-700">
-                            {new Date(ai.date).toLocaleDateString()}
+                            {formatDate(ai.date)}
                           </span>
                           <div className="flex items-center gap-2">
                             {/* Regime Badge with risk level */}
@@ -1259,7 +1261,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                       <div key={i} className="px-4 py-3">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium text-gray-700">
-                            {new Date(p.date).toLocaleDateString()} - {p.strategy_name}
+                            {formatDate(p.date)} - {p.strategy_name}
                           </span>
                           <span className={`text-xs px-2 py-1 rounded-full ${
                             p.source === 'ai_generated' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'
@@ -1327,8 +1329,8 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                               </span>
                             </td>
                             <td className="px-3 py-2 text-gray-600 text-xs">{trade.strategy_name?.replace('AI-', '')}</td>
-                            <td className="px-3 py-2 text-gray-600">{new Date(trade.entry_date).toLocaleDateString()}</td>
-                            <td className="px-3 py-2 text-gray-600">{new Date(trade.exit_date).toLocaleDateString()}</td>
+                            <td className="px-3 py-2 text-gray-600">{formatDate(trade.entry_date)}</td>
+                            <td className="px-3 py-2 text-gray-600">{formatDate(trade.exit_date)}</td>
                             <td className="px-3 py-2 text-right text-gray-600">${trade.entry_price?.toFixed(2)}</td>
                             <td className="px-3 py-2 text-right text-gray-600">${trade.exit_price?.toFixed(2)}</td>
                             <td className={`px-3 py-2 text-right font-medium ${trade.pnl_pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -1364,7 +1366,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
                 >
                   <Calendar size={16} className="text-gray-400" />
                   <span className="text-sm">
-                    {new Date(sim.start_date).toLocaleDateString()} - {new Date(sim.end_date).toLocaleDateString()}
+                    {formatDate(sim.start_date, { includeYear: true })} - {formatDate(sim.end_date, { includeYear: true })}
                   </span>
                   <span className={`text-sm font-medium ${sim.total_return_pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                     {sim.total_return_pct >= 0 ? '+' : ''}{sim.total_return_pct?.toFixed(1)}%

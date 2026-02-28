@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Share2, Check, X, RefreshCw, Trash2, Image, MessageSquare, TrendingUp, BarChart3, Globe, Send, Plus, Edit3, Save, Power, Rocket, ChevronDown, ChevronUp, Sparkles, Clock, Ban, Calendar } from 'lucide-react';
 
+import { formatDate } from '../utils/formatDate';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const PLATFORMS = [

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, ToggleLeft, ToggleRight, RefreshCw, Save, History, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
 
+import { formatDate } from '../utils/formatDate';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export default function AutoSwitchConfig({ fetchWithAuth }) {
@@ -316,7 +318,7 @@ export default function AutoSwitchConfig({ fetchWithAuth }) {
               <div key={item.id} className="px-6 py-4 flex items-center gap-4">
                 <div className="w-32">
                   <p className="text-sm text-gray-900">
-                    {new Date(item.switch_date).toLocaleDateString()}
+                    {formatDate(item.switch_date)}
                   </p>
                   <p className="text-xs text-gray-500">
                     {new Date(item.switch_date).toLocaleTimeString()}
