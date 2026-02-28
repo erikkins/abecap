@@ -2341,10 +2341,19 @@ async def get_public_regime_report(db: AsyncSession = Depends(get_db)):
     # to find the true duration since the last regime change
     full_history = await regime_forecast_service.get_forecast_history(db, days=730)
     days_in_regime = 1
+    prior_regime = None
     for snap in reversed(full_history[:-1]):
         if snap.get('regime') == regime_key:
             days_in_regime += 1
         else:
+            prior_regime_key = snap.get('regime', '')
+            prior_meta = REGIME_COLORS.get(prior_regime_key, {})
+            prior_regime = {
+                'regime': prior_regime_key,
+                'name': prior_meta.get('name', prior_regime_key),
+                'color': prior_meta.get('color', '#6b7280'),
+                'date': snap.get('date', ''),
+            }
             break
 
     # Parse transition probabilities from latest snapshot
@@ -2389,6 +2398,7 @@ async def get_public_regime_report(db: AsyncSession = Depends(get_db)):
             'days_in_regime': days_in_regime,
         },
         'week_over_week': wow_change,
+        'prior_regime': prior_regime,
         'transition_probabilities': transition_probs[:5],
         'history': timeline,
     }

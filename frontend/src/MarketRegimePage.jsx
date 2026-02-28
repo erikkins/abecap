@@ -127,7 +127,7 @@ export default function MarketRegimePage() {
     );
   }
 
-  const { current, week_over_week, transition_probabilities, history } = data;
+  const { current, week_over_week, prior_regime, transition_probabilities, history } = data;
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-300">
@@ -193,6 +193,12 @@ export default function MarketRegimePage() {
             </div>
             <div>
               <h3 className="text-white font-semibold mb-1">Current Regime: {current.name}</h3>
+              {prior_regime && (
+                <p className="text-gray-500 text-xs mb-2">
+                  Prior regime: <span style={{ color: prior_regime.color }}>{prior_regime.name}</span>
+                  {prior_regime.date && <span> (ended {prior_regime.date})</span>}
+                </p>
+              )}
               <p className="text-gray-400 text-sm leading-relaxed">
                 {REGIME_DESCRIPTIONS[current.regime] || 'Market conditions are being analyzed.'}
               </p>
