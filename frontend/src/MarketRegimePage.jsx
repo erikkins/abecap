@@ -178,7 +178,7 @@ export default function MarketRegimePage() {
             <span className="text-2xl sm:text-3xl font-bold text-white">{current.name}</span>
           </div>
 
-          {week_over_week && (
+          {week_over_week && week_over_week.startsWith('Shifted') && (
             <p className="mt-4 text-blue-200 text-sm">{week_over_week}</p>
           )}
         </div>
