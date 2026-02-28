@@ -2337,9 +2337,11 @@ async def get_public_regime_report(db: AsyncSession = Depends(get_db)):
             prev_meta = REGIME_COLORS.get(prev_regime, {})
             wow_change = f"Shifted: {prev_meta.get('name', prev_regime)} → {regime_meta['name']}"
 
-    # Days in current regime (count backwards from most recent)
+    # Days in current regime — query ALL snapshots (not just 30-day window)
+    # to find the true duration since the last regime change
+    full_history = await regime_forecast_service.get_forecast_history(db, days=730)
     days_in_regime = 1
-    for snap in reversed(history[:-1]):
+    for snap in reversed(full_history[:-1]):
         if snap.get('regime') == regime_key:
             days_in_regime += 1
         else:
