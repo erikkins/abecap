@@ -272,9 +272,14 @@ class RegimeForecast:
 class MarketRegimeService:
     """Detects and tracks market regimes over time."""
 
+    # A new regime must outscore the current regime by this margin to trigger
+    # a switch. Prevents noisy flipping at regime boundaries.
+    HYSTERESIS_THRESHOLD = 8  # points on 0-100 scale
+
     def __init__(self):
         self._cache: Dict[str, MarketRegime] = {}
         self._regime_history: List[MarketRegime] = []
+        self._current_regime_type: Optional[object] = None  # sticky regime for hysteresis
 
     def calculate_conditions(
         self,
@@ -462,7 +467,7 @@ class MarketRegimeService:
         vix_df: Optional[pd.DataFrame] = None,
         as_of_date: Optional[datetime] = None
     ) -> MarketRegime:
-        """Detect the current market regime."""
+        """Detect the current market regime with hysteresis to prevent noisy flipping."""
         conditions = self.calculate_conditions(spy_df, universe_dfs, vix_df, as_of_date)
 
         regime_scores = {}
@@ -472,6 +477,16 @@ class MarketRegimeService:
 
         best_regime = max(regime_scores, key=regime_scores.get)
         best_score = regime_scores[best_regime]
+
+        # Hysteresis: stick with current regime unless new one wins by a margin
+        if self._current_regime_type is not None and best_regime != self._current_regime_type:
+            current_score = regime_scores.get(self._current_regime_type, 0)
+            if best_score - current_score < self.HYSTERESIS_THRESHOLD:
+                # Not enough margin — stay with current regime
+                best_regime = self._current_regime_type
+                best_score = current_score
+
+        self._current_regime_type = best_regime
         regime_def = REGIME_DEFINITIONS[best_regime]
 
         regime = MarketRegime(
