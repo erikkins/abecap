@@ -2356,7 +2356,7 @@ async def get_public_regime_report(db: AsyncSession = Depends(get_db)):
                 'regime': regime,
                 'name': meta.get('name', regime),
                 'color': meta.get('color', '#6b7280'),
-                'probability': round(prob * 100, 1),
+                'probability': round(prob, 1),
             })
 
     # Build history timeline (already ascending = oldest→newest, left→right)

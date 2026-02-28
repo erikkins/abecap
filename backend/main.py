@@ -1156,6 +1156,137 @@ def handler(event, context):
             print(f"❌ Regime forecast snapshot failed: {e}\n{tb}")
             return {"status": "failed", "error": str(e), "traceback": tb}
 
+    # Handle regime forecast backfill (populate historical snapshots)
+    if event.get("regime_forecast_backfill"):
+        params = event["regime_forecast_backfill"]
+        days = params.get("days", 90)
+        print(f"📊 Regime forecast backfill triggered for {days} days")
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _regime_backfill():
+            import json
+            import pandas as pd
+            from datetime import date, datetime, timedelta
+            from app.services.regime_forecast_service import regime_forecast_service
+            from app.services.market_regime import market_regime_service
+            from app.services.data_export import data_export_service as _dex
+            from app.core.database import RegimeForecastSnapshot
+
+            # Ensure SPY/VIX are in cache
+            if 'SPY' not in scanner_service.data_cache:
+                print("📥 Loading price data from S3 for regime backfill...")
+                cached = _dex.import_all()
+                if cached:
+                    scanner_service.data_cache = cached
+                    print(f"✅ Loaded {len(cached)} symbols")
+
+            spy_df = scanner_service.data_cache.get("SPY")
+            if spy_df is None or spy_df.empty:
+                return {"error": "SPY data not in cache"}
+
+            vix_df = scanner_service.data_cache.get("^VIX")
+            if vix_df is None:
+                vix_df = scanner_service.data_cache.get("VIX")
+
+            # Build list of trading days from SPY index
+            end_date = date.today()
+            start_date = end_date - timedelta(days=days)
+            spy_dates = spy_df.index
+            if spy_dates.tz is not None:
+                start_ts = pd.Timestamp(start_date, tz=spy_dates.tz)
+                end_ts = pd.Timestamp(end_date, tz=spy_dates.tz)
+            else:
+                start_ts = pd.Timestamp(start_date)
+                end_ts = pd.Timestamp(end_date)
+
+            trading_days = spy_dates[(spy_dates >= start_ts) & (spy_dates <= end_ts)]
+            print(f"📅 Backfilling {len(trading_days)} trading days from {start_date} to {end_date}")
+
+            success_count = 0
+            error_count = 0
+
+            async with async_session() as db:
+                for ts in trading_days:
+                    dt = ts.date() if hasattr(ts, 'date') else ts
+                    try:
+                        forecast = market_regime_service.predict_transitions(
+                            spy_df, scanner_service.data_cache, vix_df,
+                            as_of_date=datetime.combine(dt, datetime.min.time())
+                        )
+                        forecast_dict = forecast.to_dict() if hasattr(forecast, "to_dict") else {}
+                        probabilities = forecast_dict.get("transition_probabilities", {})
+
+                        # Get SPY/VIX close as of this date
+                        if spy_dates.tz is not None:
+                            dt_ts = pd.Timestamp(dt, tz=spy_dates.tz)
+                        else:
+                            dt_ts = pd.Timestamp(dt)
+                        spy_on_date = spy_df[spy_df.index <= dt_ts]
+                        spy_close = float(spy_on_date["close"].iloc[-1]) if len(spy_on_date) > 0 else None
+
+                        vix_close = None
+                        if vix_df is not None and not vix_df.empty:
+                            vix_on_date = vix_df[vix_df.index <= dt_ts]
+                            vix_close = float(vix_on_date["close"].iloc[-1]) if len(vix_on_date) > 0 else None
+
+                        snap_dt = datetime.combine(dt, datetime.min.time())
+                        existing = await db.execute(
+                            select(RegimeForecastSnapshot).where(
+                                RegimeForecastSnapshot.snapshot_date == snap_dt
+                            )
+                        )
+                        snap = existing.scalar_one_or_none()
+
+                        if snap:
+                            snap.current_regime = forecast_dict.get("current_regime", "unknown")
+                            snap.probabilities_json = json.dumps(probabilities)
+                            snap.outlook = forecast_dict.get("outlook")
+                            snap.recommended_action = forecast_dict.get("recommended_action")
+                            snap.risk_change = forecast_dict.get("risk_change")
+                            snap.spy_close = spy_close
+                            snap.vix_close = vix_close
+                        else:
+                            snap = RegimeForecastSnapshot(
+                                snapshot_date=snap_dt,
+                                current_regime=forecast_dict.get("current_regime", "unknown"),
+                                probabilities_json=json.dumps(probabilities),
+                                outlook=forecast_dict.get("outlook"),
+                                recommended_action=forecast_dict.get("recommended_action"),
+                                risk_change=forecast_dict.get("risk_change"),
+                                spy_close=spy_close,
+                                vix_close=vix_close,
+                            )
+                            db.add(snap)
+
+                        success_count += 1
+                    except Exception as e:
+                        print(f"⚠️ Failed for {dt}: {e}")
+                        error_count += 1
+
+                await db.commit()
+
+            print(f"✅ Backfill complete: {success_count} snapshots, {error_count} errors")
+            return {
+                "status": "success",
+                "days_requested": days,
+                "trading_days": len(trading_days),
+                "success": success_count,
+                "errors": error_count,
+            }
+
+        try:
+            result = loop.run_until_complete(_regime_backfill())
+            print(f"📊 Regime backfill result: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            print(f"❌ Regime forecast backfill failed: {e}\n{tb}")
+            return {"status": "failed", "error": str(e), "traceback": tb}
+
     # Handle persist_signals (manual backfill or re-run)
     if event.get("persist_signals"):
         print("📝 Persist signals triggered")
