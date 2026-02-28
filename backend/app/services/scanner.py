@@ -410,7 +410,7 @@ class ScannerService:
         if apply_market_filter and settings.MARKET_FILTER_ENABLED:
             try:
                 from app.services.market_analysis import market_analysis_service
-                market_state = market_analysis_service.get_market_state()
+                market_state = market_analysis_service.get_market_regime()
                 if market_state and not market_state.get('spy_above_200ma', True):
                     logger.info("Market filter: SPY below 200MA, returning empty signals")
                     return []
@@ -673,7 +673,7 @@ class ScannerService:
 
             # Check if SPY is above 200-day MA (market filter)
             if settings.MARKET_FILTER_ENABLED:
-                market_state = market_analysis_service.get_market_state()
+                market_state = market_analysis_service.get_market_regime()
                 if market_state:
                     market_favorable = market_state.get('spy_above_200ma', True)
                     if not market_favorable:

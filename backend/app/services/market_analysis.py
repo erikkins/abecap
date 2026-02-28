@@ -55,12 +55,15 @@ class MarketState:
     updated: str
 
     def to_dict(self):
+        spy = _safe_float(self.spy_price)
+        ma200 = _safe_float(self.spy_ma_200)
         return {
             "regime": self.regime.value,
-            "spy_price": _safe_float(self.spy_price),
-            "spy_ma_200": _safe_float(self.spy_ma_200),
+            "spy_price": spy,
+            "spy_ma_200": ma200,
             "spy_ma_50": _safe_float(self.spy_ma_50),
             "spy_pct_from_high": _safe_float(self.spy_pct_from_high),
+            "spy_above_200ma": spy > ma200 if spy and ma200 else True,
             "vix_level": _safe_float(self.vix_level, 20.0),
             "trend_strength": _safe_float(self.trend_strength),
             "recommendation": self.recommendation,
