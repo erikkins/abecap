@@ -357,7 +357,8 @@ class ScannerService:
                 logger.debug(f"Failed to update {symbol}: {e}")
                 failed += 1
 
-        # Final GC pass
+        # Free bulk fetch result and reclaim memory
+        del bars
         gc.collect()
         rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 * 1024)
         logger.info(f"✅ Incremental update complete: {updated} updated, {skipped} skipped, {failed} failed via {source} (RSS: {rss_mb:.0f} MB)")

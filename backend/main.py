@@ -774,6 +774,10 @@ def handler(event, context):
             export_result = data_export_service.export_pickle(scanner_service.data_cache)
             print(f"💾 Data cache persisted to S3: {export_result.get('count', 0)} symbols")
 
+            # GC after pickle export to reclaim serialization buffers
+            import gc
+            gc.collect()
+
             # 5. Export dashboard JSON + daily snapshot
             async with async_session() as db:
                 data = await compute_shared_dashboard_data(db)
