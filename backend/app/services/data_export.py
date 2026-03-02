@@ -370,26 +370,34 @@ class DataExportService:
             if not clean_cache:
                 return {"success": False, "message": "No valid data to export", "count": 0}
 
-            # Pickle the dictionary
-            pkl_bytes = pickle.dumps(clean_cache)
-            gzipped = gzip.compress(pkl_bytes)
+            # Stream pickle to disk first to avoid holding ~1 GB in RAM
+            # (pkl_bytes ~639 MB + gzipped ~344 MB would exceed 3008 MB Lambda limit)
+            import tempfile, os
+            tmp_path = os.path.join(tempfile.gettempdir(), "all_data.pkl.gz")
+            with gzip.open(tmp_path, 'wb') as f:
+                pickle.dump(clean_cache, f)
+            del clean_cache
+            file_size = os.path.getsize(tmp_path)
 
             if self._use_s3():
                 s3 = self._get_s3_client()
-                s3.put_object(
-                    Bucket=S3_BUCKET,
-                    Key='prices/all_data.pkl.gz',
-                    Body=gzipped,
-                    ContentType='application/octet-stream'
-                )
-                file_size = len(gzipped)
+                with open(tmp_path, 'rb') as f:
+                    s3.put_object(
+                        Bucket=S3_BUCKET,
+                        Key='prices/all_data.pkl.gz',
+                        Body=f,
+                        ContentType='application/octet-stream'
+                    )
                 storage_type = "S3"
             else:
+                import shutil
                 filepath = LOCAL_DATA_DIR / "all_data.pkl.gz"
-                with open(filepath, 'wb') as f:
-                    f.write(gzipped)
-                file_size = len(gzipped)
+                shutil.move(tmp_path, str(filepath))
                 storage_type = "local"
+
+            # Clean up temp file
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
             self.last_export = datetime.now()
             self.exported_symbols = list(clean_cache.keys())
