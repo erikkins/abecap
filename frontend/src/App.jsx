@@ -3104,7 +3104,8 @@ function Dashboard() {
             {dashboardData?.generated_at && (
               <p className="text-xs text-gray-400 text-right mb-2 -mt-2">
                 Last updated: {(() => {
-                  const d = new Date(dashboardData.generated_at);
+                  const raw = dashboardData.generated_at;
+                  const d = new Date(raw.endsWith('Z') ? raw : raw + 'Z');
                   if (isNaN(d.getTime())) return '';
                   const now = new Date();
                   const isToday = d.toDateString() === now.toDateString();
