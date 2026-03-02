@@ -13,7 +13,7 @@ from typing import List, Optional
 from sqlalchemy import select, asc, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import RegimeForecastSnapshot
+from app.core.database import RegimeForecastSnapshot, RegimeHistory
 
 logger = logging.getLogger(__name__)
 
@@ -212,6 +212,194 @@ class RegimeForecastService:
             }
             for s in snapshots
         ]
+
+
+    async def backfill_regime_history(self, db: AsyncSession) -> dict:
+        """
+        One-time backfill: compute weekly regime classifications from cached SPY/VIX data
+        and bulk insert into regime_history table.
+        """
+        from app.services.market_regime import market_regime_service, REGIME_DEFINITIONS
+        from app.services.scanner import scanner_service
+
+        spy_df = scanner_service.data_cache.get("SPY")
+        if spy_df is None or spy_df.empty:
+            return {"error": "SPY data not in cache"}
+
+        vix_df = scanner_service.data_cache.get("^VIX")
+        if vix_df is None:
+            vix_df = scanner_service.data_cache.get("VIX")
+
+        history = market_regime_service.get_regime_history(
+            spy_df=spy_df,
+            universe_dfs=scanner_service.data_cache,
+            vix_df=vix_df,
+            sample_frequency='weekly'
+        )
+
+        inserted = 0
+        skipped = 0
+
+        for regime in history:
+            regime_dict = regime.to_dict()
+            week_dt = datetime.strptime(regime.date, "%Y-%m-%d") if isinstance(regime.date, str) else regime.date
+
+            existing = await db.execute(
+                select(RegimeHistory).where(RegimeHistory.week_date == week_dt)
+            )
+            if existing.scalar_one_or_none():
+                skipped += 1
+                continue
+
+            regime_def = REGIME_DEFINITIONS.get(regime.regime_type, {})
+            db.add(RegimeHistory(
+                week_date=week_dt,
+                regime_type=regime.regime_type.value,
+                regime_name=regime.regime_name,
+                confidence=regime.confidence,
+                risk_level=regime_def.get("risk_level"),
+                color=regime_dict.get("color", "#6B7280"),
+                bg_color=regime_dict.get("bg_color", "rgba(107, 114, 128, 0.1)"),
+            ))
+            inserted += 1
+
+        await db.commit()
+        logger.info(f"[REGIME-HISTORY] Backfill complete: {inserted} inserted, {skipped} skipped")
+        return {"status": "success", "inserted": inserted, "skipped": skipped, "total_history": len(history)}
+
+    async def update_regime_history(self, db: AsyncSession) -> dict:
+        """
+        Incremental update: compute regimes from the latest stored week_date forward.
+        Called daily after scan completes.
+        """
+        from app.services.market_regime import market_regime_service, REGIME_DEFINITIONS
+        from app.services.scanner import scanner_service
+
+        spy_df = scanner_service.data_cache.get("SPY")
+        if spy_df is None or spy_df.empty:
+            return {"error": "SPY data not in cache"}
+
+        vix_df = scanner_service.data_cache.get("^VIX")
+        if vix_df is None:
+            vix_df = scanner_service.data_cache.get("VIX")
+
+        # Find latest stored week_date
+        result = await db.execute(
+            select(RegimeHistory.week_date).order_by(desc(RegimeHistory.week_date)).limit(1)
+        )
+        latest_row = result.scalar_one_or_none()
+
+        start_date = None
+        if latest_row:
+            # Start from the latest stored date (will be skipped as duplicate)
+            start_date = latest_row
+
+        history = market_regime_service.get_regime_history(
+            spy_df=spy_df,
+            universe_dfs=scanner_service.data_cache,
+            vix_df=vix_df,
+            start_date=start_date,
+            sample_frequency='weekly'
+        )
+
+        inserted = 0
+        for regime in history:
+            regime_dict = regime.to_dict()
+            week_dt = datetime.strptime(regime.date, "%Y-%m-%d") if isinstance(regime.date, str) else regime.date
+
+            existing = await db.execute(
+                select(RegimeHistory).where(RegimeHistory.week_date == week_dt)
+            )
+            if existing.scalar_one_or_none():
+                continue
+
+            regime_def = REGIME_DEFINITIONS.get(regime.regime_type, {})
+            db.add(RegimeHistory(
+                week_date=week_dt,
+                regime_type=regime.regime_type.value,
+                regime_name=regime.regime_name,
+                confidence=regime.confidence,
+                risk_level=regime_def.get("risk_level"),
+                color=regime_dict.get("color", "#6B7280"),
+                bg_color=regime_dict.get("bg_color", "rgba(107, 114, 128, 0.1)"),
+            ))
+            inserted += 1
+
+        await db.commit()
+        if inserted > 0:
+            logger.info(f"[REGIME-HISTORY] Incremental update: {inserted} new rows")
+        return {"status": "success", "inserted": inserted}
+
+    async def get_regime_periods_from_db(
+        self, db: AsyncSession, start_date: str = None, end_date: str = None
+    ) -> Optional[dict]:
+        """
+        Query regime_history table and group consecutive same-regime rows into periods.
+        Returns None if no data in DB (caller should fall back to on-the-fly).
+        """
+        query = select(RegimeHistory).order_by(asc(RegimeHistory.week_date))
+
+        if start_date:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.where(RegimeHistory.week_date >= start_dt)
+        if end_date:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            query = query.where(RegimeHistory.week_date <= end_dt)
+
+        result = await db.execute(query)
+        rows = result.scalars().all()
+
+        if not rows:
+            return None
+
+        # Group consecutive same-regime rows into periods
+        periods = []
+        current = {
+            "start_date": rows[0].week_date.strftime("%Y-%m-%d"),
+            "regime_type": rows[0].regime_type,
+            "regime_name": rows[0].regime_name,
+            "color": rows[0].color,
+            "bg_color": rows[0].bg_color,
+        }
+
+        for row in rows[1:]:
+            if row.regime_type != current["regime_type"]:
+                current["end_date"] = row.week_date.strftime("%Y-%m-%d")
+                periods.append(current)
+                current = {
+                    "start_date": row.week_date.strftime("%Y-%m-%d"),
+                    "regime_type": row.regime_type,
+                    "regime_name": row.regime_name,
+                    "color": row.color,
+                    "bg_color": row.bg_color,
+                }
+            else:
+                current["end_date"] = row.week_date.strftime("%Y-%m-%d")
+
+        current["end_date"] = rows[-1].week_date.strftime("%Y-%m-%d")
+        periods.append(current)
+
+        # Build regime changes list
+        changes = []
+        for i in range(1, len(rows)):
+            if rows[i].regime_type != rows[i - 1].regime_type:
+                changes.append({
+                    "date": rows[i].week_date.strftime("%Y-%m-%d"),
+                    "from_regime": rows[i - 1].regime_type,
+                    "from_name": rows[i - 1].regime_name,
+                    "to_regime": rows[i].regime_type,
+                    "to_name": rows[i].regime_name,
+                    "from_color": rows[i - 1].color,
+                    "to_color": rows[i].color,
+                })
+
+        return {
+            "start_date": rows[0].week_date.strftime("%Y-%m-%d"),
+            "end_date": rows[-1].week_date.strftime("%Y-%m-%d"),
+            "periods": periods,
+            "regime_changes": changes,
+            "total_changes": len(changes),
+        }
 
 
 # Singleton

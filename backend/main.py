@@ -818,6 +818,15 @@ def handler(event, context):
             except Exception as rfe:
                 print(f"⚠️ Regime forecast snapshot failed (non-fatal): {rfe}")
 
+            # 8b. Regime history incremental update (for chart bands)
+            try:
+                from app.services.regime_forecast_service import regime_forecast_service
+                async with async_session() as rh_db:
+                    rh_result = await regime_forecast_service.update_regime_history(rh_db)
+                    print(f"📊 Regime history update: {rh_result}")
+            except Exception as rhe:
+                print(f"⚠️ Regime history update failed (non-fatal): {rhe}")
+
             # 9. Chain daily WF cache refresh (async, separate Lambda invocation)
             try:
                 import boto3, json as _json
@@ -916,6 +925,16 @@ def handler(event, context):
                         print(f"📊 Regime forecast snapshot: {regime_snap}")
                 except Exception as rfe:
                     print(f"⚠️ Regime forecast snapshot failed (non-fatal): {rfe}")
+
+                # Regime history incremental update (for chart bands)
+                try:
+                    from app.services.regime_forecast_service import regime_forecast_service
+                    async with async_session() as rh_db:
+                        rh_result = await regime_forecast_service.update_regime_history(rh_db)
+                        result["regime_history_update"] = rh_result
+                        print(f"📊 Regime history update: {rh_result}")
+                except Exception as rhe:
+                    print(f"⚠️ Regime history update failed (non-fatal): {rhe}")
 
                 # Chain daily WF cache refresh (async, separate Lambda invocation)
                 try:
@@ -1287,6 +1306,62 @@ def handler(event, context):
             import traceback
             tb = traceback.format_exc()
             print(f"❌ Regime forecast backfill failed: {e}\n{tb}")
+            return {"status": "failed", "error": str(e), "traceback": tb}
+
+    # Handle regime history backfill (populate regime_history table for chart bands)
+    if event.get("backfill_regime_history"):
+        print("📊 Regime history backfill triggered")
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        async def _regime_history_backfill():
+            from app.services.regime_forecast_service import regime_forecast_service
+            from app.services.data_export import data_export_service as _dex
+            from app.core.database import RegimeHistory
+            from sqlalchemy import text
+
+            # Ensure SPY/VIX are in cache
+            if 'SPY' not in scanner_service.data_cache:
+                print("📥 Loading price data from S3 for regime history backfill...")
+                cached = _dex.import_all()
+                if cached:
+                    scanner_service.data_cache = cached
+                    print(f"✅ Loaded {len(cached)} symbols")
+
+            # Create table if not exists
+            async with async_session() as db:
+                await db.execute(text("""
+                    CREATE TABLE IF NOT EXISTS regime_history (
+                        id SERIAL PRIMARY KEY,
+                        week_date TIMESTAMP NOT NULL UNIQUE,
+                        regime_type VARCHAR(30) NOT NULL,
+                        regime_name VARCHAR(50) NOT NULL,
+                        confidence FLOAT,
+                        risk_level VARCHAR(20),
+                        color VARCHAR(20),
+                        bg_color VARCHAR(50),
+                        created_at TIMESTAMP DEFAULT NOW()
+                    )
+                """))
+                await db.execute(text("""
+                    CREATE INDEX IF NOT EXISTS ix_regime_history_week_date
+                    ON regime_history (week_date)
+                """))
+                await db.commit()
+                print("✅ regime_history table ensured")
+
+                return await regime_forecast_service.backfill_regime_history(db)
+
+        try:
+            result = loop.run_until_complete(_regime_history_backfill())
+            print(f"📊 Regime history backfill result: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            print(f"❌ Regime history backfill failed: {e}\n{tb}")
             return {"status": "failed", "error": str(e), "traceback": tb}
 
     # Handle persist_signals (manual backfill or re-run)

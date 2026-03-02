@@ -2367,17 +2367,31 @@ async def get_regime_periods(
     """
     Get regime periods for chart background visualization.
 
-    Returns list of periods with:
-    - start_date, end_date
-    - regime_type, regime_name
-    - color, bg_color for chart rendering
+    Primary: queries regime_history DB table (persisted, no cache dependency).
+    Fallback: on-the-fly computation from data_cache if DB has no data.
     """
+    from app.services.regime_forecast_service import regime_forecast_service
+    from app.core.database import async_session
+
+    # Try DB first (fast, no cache dependency)
+    try:
+        async with async_session() as db:
+            db_result = await regime_forecast_service.get_regime_periods_from_db(
+                db, start_date=start_date, end_date=end_date
+            )
+            if db_result:
+                return db_result
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"DB regime periods query failed, falling back: {e}")
+
+    # Fallback: on-the-fly computation (requires data_cache)
     from app.services.market_regime import market_regime_service
     from app.services.scanner import scanner_service
     from datetime import datetime
 
     if not scanner_service.data_cache:
-        raise HTTPException(status_code=503, detail="Price data not loaded")
+        raise HTTPException(status_code=503, detail="Price data not loaded and no regime history in DB")
 
     spy_df = scanner_service.data_cache.get('SPY')
     if spy_df is None or len(spy_df) < 200:
@@ -2401,7 +2415,6 @@ async def get_regime_periods(
             raise HTTPException(status_code=400, detail="Invalid end_date format")
 
     try:
-        # Get weekly history (good balance of detail and performance)
         history = market_regime_service.get_regime_history(
             spy_df=spy_df,
             universe_dfs=scanner_service.data_cache,

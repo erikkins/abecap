@@ -448,6 +448,22 @@ class RegimeForecastSnapshot(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class RegimeHistory(Base):
+    """Weekly regime classifications for chart background visualization.
+    Computed once, stored forever — eliminates dependency on in-memory data cache."""
+    __tablename__ = "regime_history"
+
+    id = Column(Integer, primary_key=True)
+    week_date = Column(DateTime, nullable=False, unique=True, index=True)
+    regime_type = Column(String(30), nullable=False)    # e.g. "strong_bull"
+    regime_name = Column(String(50), nullable=False)    # e.g. "Strong Bull"
+    confidence = Column(Float)
+    risk_level = Column(String(20))                     # "low"/"medium"/"high"/"extreme"
+    color = Column(String(20))                          # "#10B981"
+    bg_color = Column(String(50))                       # "rgba(16, 185, 129, 0.1)"
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class EmailSubscriber(Base):
     """Lightweight email subscribers (no account required)"""
     __tablename__ = "email_subscribers"

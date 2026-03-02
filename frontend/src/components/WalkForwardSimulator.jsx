@@ -296,7 +296,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
 
   const fetchHistory = async () => {
     try {
-      const response = await fetchWithAuth(`${API_URL}/api/admin/strategies/walk-forward/history?limit=5`);
+      const response = await fetchWithAuth(`${API_URL}/api/admin/strategies/walk-forward/history?limit=50`);
       if (response.ok) {
         const data = await response.json();
         setHistory(data.simulations || []);
@@ -1367,7 +1367,7 @@ export default function WalkForwardSimulator({ fetchWithAuth }) {
             <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
               <h4 className="font-medium text-gray-900">Previous Simulations</h4>
             </div>
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-200 max-h-64 overflow-y-auto">
               {history.map((sim) => (
                 <button
                   key={sim.id}

@@ -146,7 +146,7 @@ class AlpacaProvider(MarketDataProvider):
                     timeframe=TimeFrame.Day,
                     start=start_dt,
                     end=end_dt,
-                    feed=DataFeed.IEX,  # Free tier requires IEX feed (not SIP)
+                    feed=DataFeed.SIP,  # Pro subscription — consolidated volume
                 )
 
                 loop = asyncio.get_event_loop()
