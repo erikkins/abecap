@@ -301,7 +301,7 @@ const PricingSection = ({ onGetStarted }) => {
               <p className="text-gray-600 mb-6">Pay as you go</p>
 
               <div className="flex items-baseline gap-2 mb-8">
-                <span className="text-5xl font-bold text-gray-900">$20</span>
+                <span className="text-5xl font-bold text-gray-900">$39</span>
                 <span className="text-gray-500">/month</span>
               </div>
 
@@ -337,11 +337,11 @@ const PricingSection = ({ onGetStarted }) => {
               <p className="text-gray-600 mb-6">Save with yearly billing</p>
 
               <div className="flex items-baseline gap-2 mb-2">
-                <span className="text-5xl font-bold text-gray-900">$200</span>
+                <span className="text-5xl font-bold text-gray-900">$349</span>
                 <span className="text-gray-500">/year</span>
               </div>
               <p className="text-emerald-600 font-medium mb-6">
-                Save $40 — 2 months free!
+                Save $119 — 3 months free!
               </p>
 
               <ul className="space-y-3 mb-8">

@@ -3202,7 +3202,7 @@ function Dashboard() {
                                 setUpgradeLoading(true);
                                 try {
                                   const data = await api.post('/api/billing/create-checkout', { plan: 'annual' });
-                                  if (window.gtag) window.gtag('event', 'begin_checkout', { value: 200, currency: 'USD' });
+                                  if (window.gtag) window.gtag('event', 'begin_checkout', { value: 349, currency: 'USD' });
                                   window.location.href = data.checkout_url;
                                 } catch (err) {
                                   console.error('Checkout error:', err);
@@ -3214,14 +3214,14 @@ function Dashboard() {
                               disabled={upgradeLoading}
                               className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50"
                             >
-                              {upgradeLoading ? 'Loading...' : 'Subscribe — $200/year (Save $40)'}
+                              {upgradeLoading ? 'Loading...' : 'Subscribe — $349/year (Save $119)'}
                             </button>
                             <button
                               onClick={async () => {
                                 setUpgradeLoading(true);
                                 try {
                                   const data = await api.post('/api/billing/create-checkout', { plan: 'monthly' });
-                                  if (window.gtag) window.gtag('event', 'begin_checkout', { value: 20, currency: 'USD' });
+                                  if (window.gtag) window.gtag('event', 'begin_checkout', { value: 39, currency: 'USD' });
                                   window.location.href = data.checkout_url;
                                 } catch (err) {
                                   console.error('Checkout error:', err);
@@ -3233,7 +3233,7 @@ function Dashboard() {
                               disabled={upgradeLoading}
                               className="w-full px-4 py-2 text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
                             >
-                              or $20/month
+                              or $39/month
                             </button>
                           </>
                         ) : (

@@ -164,7 +164,7 @@ export function AuthProvider({ children }) {
         if (res.ok && data.checkout_url) {
           // GA4: track begin_checkout conversion
           if (window.gtag) {
-            window.gtag('event', 'begin_checkout', { value: plan === 'annual' ? 200 : 20, currency: 'USD' });
+            window.gtag('event', 'begin_checkout', { value: plan === 'annual' ? 349 : 39, currency: 'USD' });
           }
           window.location.href = data.checkout_url;
           return true;

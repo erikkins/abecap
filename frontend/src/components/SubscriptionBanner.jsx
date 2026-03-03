@@ -24,7 +24,7 @@ export default function SubscriptionBanner() {
                 Complete your signup to start your free trial
               </p>
               <p className="text-sm text-gray-600 mt-1">
-                7-day free trial, then $20/month or $200/year
+                7-day free trial, then $39/month or $349/year
               </p>
             </div>
           </div>
@@ -198,7 +198,7 @@ export default function SubscriptionBanner() {
               {getMessage()}
             </p>
             <p className="text-sm text-gray-600 mt-1">
-              $20/month or $200/year (2 months free)
+              $39/month or $349/year (3 months free)
             </p>
           </div>
         </div>
@@ -215,7 +215,7 @@ export default function SubscriptionBanner() {
             disabled={loading}
             className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50"
           >
-            {loading ? 'Loading...' : 'Annual (Save $40)'}
+            {loading ? 'Loading...' : 'Annual (Save $119)'}
           </button>
           {!isTrialExpired && (
             <button
