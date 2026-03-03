@@ -4038,25 +4038,24 @@ async def get_market_data_status():
         # Before 4 PM ET: yesterday's close is expected, always fresh
         status = "fresh"
         message = None
-    elif hour == 16 and minute < 45:
-        # 4:00-4:45 PM ET: daily scan is running
-        status = "processing"
-        message = "Market data is being updated. Signals will refresh shortly."
     else:
-        # After 4:45 PM ET: check if dashboard was updated today
+        # 4 PM ET onward: check if dashboard was already updated today
+        updated_today = False
         if last_updated:
             try:
                 updated_dt = datetime.fromisoformat(last_updated.replace("Z", "+00:00"))
                 updated_et = updated_dt.astimezone(et)
-                if updated_et.date() == now_et.date():
-                    status = "fresh"
-                    message = None
-                else:
-                    status = "stale"
-                    message = "Today's market data is delayed. Signals may not reflect current prices."
+                updated_today = updated_et.date() == now_et.date()
             except Exception:
-                status = "stale"
-                message = "Unable to verify data freshness."
+                pass
+
+        if updated_today:
+            status = "fresh"
+            message = None
+        elif hour == 16 and minute < 15:
+            # Brief processing window — scan typically finishes in ~5 min
+            status = "processing"
+            message = "Market data is being updated. Signals will refresh shortly."
         else:
             status = "stale"
             message = "Today's market data is delayed. Signals may not reflect current prices."

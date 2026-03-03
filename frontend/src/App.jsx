@@ -1741,9 +1741,9 @@ function Dashboard() {
   const [emailPrefsToast, setEmailPrefsToast] = useState(null); // null | 'saved' | 'unsubscribed'
   const [dataFreshness, setDataFreshness] = useState(null); // { status: 'fresh'|'processing'|'stale', message }
 
-  // Data freshness polling — checks during 4-5 PM ET window, then every 60s
+  // Data freshness polling — 30s when processing, 60s during 4 PM hour, 5 min otherwise
   useEffect(() => {
-    let interval;
+    let timeout;
     const checkFreshness = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/market-data-status`);
@@ -1754,14 +1754,13 @@ function Dashboard() {
       } catch {
         // Silently ignore — banner just won't show
       }
+      // Schedule next poll based on current status
+      const etHour = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).getHours();
+      const pollMs = dataFreshness?.status === 'processing' ? 30000 : (etHour >= 16 && etHour < 17) ? 60000 : 300000;
+      timeout = setTimeout(checkFreshness, pollMs);
     };
     checkFreshness();
-    // Poll every 60s during typical scan window (4-5 PM ET), else every 5 min
-    const now = new Date();
-    const etHour = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' })).getHours();
-    const pollMs = (etHour >= 16 && etHour < 17) ? 60000 : 300000;
-    interval = setInterval(checkFreshness, pollMs);
-    return () => clearInterval(interval);
+    return () => clearTimeout(timeout);
   }, []);
 
   // Handle post-checkout redirect from Stripe
