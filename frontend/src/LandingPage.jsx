@@ -51,7 +51,7 @@ const HeroSection = ({ onGetStarted }) => (
         <p className="text-sm text-blue-200/70 mb-8">~15 high-conviction signals per month — quality over quantity</p>
 
         {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+        <div className="flex flex-col items-center gap-4 mb-12">
           <button
             onClick={onGetStarted}
             className="group flex items-center gap-2 px-8 py-4 bg-white text-indigo-600 font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
@@ -59,20 +59,22 @@ const HeroSection = ({ onGetStarted }) => (
             Start Free Trial
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
-          <a
-            href="/track-record"
-            className="flex items-center gap-2 px-8 py-4 text-white/90 font-medium hover:text-white transition-colors"
-          >
-            View 5-Year Track Record
-            <ArrowRight className="w-5 h-5" />
-          </a>
-          <a
-            href="/market-regime"
-            className="flex items-center gap-2 px-8 py-4 text-white/90 font-medium hover:text-white transition-colors"
-          >
-            Free Market Intelligence
-            <ArrowRight className="w-5 h-5" />
-          </a>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 items-center">
+            <a
+              href="/track-record"
+              className="flex items-center gap-2 px-4 py-2 text-white/90 font-medium hover:text-white transition-colors"
+            >
+              View 5-Year Track Record
+              <ArrowRight className="w-4 h-4" />
+            </a>
+            <a
+              href="/market-regime"
+              className="flex items-center gap-2 px-4 py-2 text-white/90 font-medium hover:text-white transition-colors"
+            >
+              Free Market Intelligence
+              <ArrowRight className="w-4 h-4" />
+            </a>
+          </div>
         </div>
 
         {/* Social proof */}
