@@ -562,6 +562,41 @@ async def _get_walk_forward_trades(simulation_id: int):
         }
 
 
+async def _notify_portfolio_change(action: str, trades: list):
+    """Send admin email when the live model portfolio is modified (buys/sells)."""
+    if not trades:
+        return
+    try:
+        from app.services.email_service import admin_email_service, ADMIN_EMAILS
+
+        if action == "BUY":
+            lines = []
+            for t in trades:
+                sym = t.get("symbol", "?")
+                price = t.get("entry_price", t.get("price", 0))
+                shares = t.get("shares", 0)
+                cost = t.get("cost_basis", 0)
+                lines.append(f"  {sym} — {shares:.1f} shares @ ${price:.2f} (${cost:,.0f})")
+            body = f"Live Model Portfolio — {len(trades)} position(s) opened:\n\n" + "\n".join(lines)
+            subject = f"Portfolio BUY: {', '.join(t.get('symbol', '?') for t in trades)}"
+        else:  # SELL
+            lines = []
+            for t in trades:
+                sym = t.get("symbol", "?")
+                pnl = t.get("pnl_pct", 0)
+                reason = t.get("exit_reason", "unknown")
+                price = t.get("exit_price", 0)
+                lines.append(f"  {sym} — {pnl:+.1f}% @ ${price:.2f} ({reason})")
+            body = f"Live Model Portfolio — {len(trades)} position(s) closed:\n\n" + "\n".join(lines)
+            subject = f"Portfolio SELL: {', '.join(t.get('symbol', '?') for t in trades)}"
+
+        for admin in ADMIN_EMAILS:
+            await admin_email_service.send_admin_alert(admin, subject, body)
+        print(f"📧 Portfolio {action} notification sent for {len(trades)} trade(s)")
+    except Exception as e:
+        print(f"⚠️ Portfolio notification email failed (non-fatal): {e}")
+
+
 def handler(event, context):
     """
     Lambda handler that supports:
@@ -824,6 +859,7 @@ def handler(event, context):
                     )
                     if exit_result:
                         print(f"📈 [MODEL-LIVE] EOD exits: {len(exit_result)} closed — {[c.get('symbol') for c in exit_result]}")
+                        await _notify_portfolio_change("SELL", exit_result)
             except Exception as pe:
                 print(f"⚠️ Portfolio exit processing failed (non-fatal): {pe}")
 
@@ -833,6 +869,21 @@ def handler(event, context):
                 async with async_session() as mp_db:
                     entry_result = await model_portfolio_service.process_entries(mp_db, "live")
                     print(f"📈 Live portfolio entries: {entry_result}")
+                    if entry_result and entry_result.get("entries", 0) > 0:
+                        # Read back the newly opened positions for the notification
+                        from app.core.database import ModelPosition as MPModel
+                        new_pos = await mp_db.execute(
+                            select(MPModel).where(
+                                MPModel.portfolio_type == "live",
+                                MPModel.status == "open",
+                            ).order_by(MPModel.entry_date.desc()).limit(entry_result["entries"])
+                        )
+                        buy_trades = [
+                            {"symbol": p.symbol, "entry_price": p.entry_price,
+                             "shares": round(p.shares, 1), "cost_basis": round(p.cost_basis, 2)}
+                            for p in new_pos.scalars().all()
+                        ]
+                        await _notify_portfolio_change("BUY", buy_trades)
             except Exception as pe:
                 print(f"⚠️ Portfolio entry processing failed (non-fatal): {pe}")
 
@@ -939,6 +990,20 @@ def handler(event, context):
                         entry_result = await model_portfolio_service.process_entries(mp_db, "live")
                         result["portfolio_entries"] = entry_result
                         print(f"📈 Live portfolio entries: {entry_result}")
+                        if entry_result and entry_result.get("entries", 0) > 0:
+                            from app.core.database import ModelPosition as MPModel
+                            new_pos = await mp_db.execute(
+                                select(MPModel).where(
+                                    MPModel.portfolio_type == "live",
+                                    MPModel.status == "open",
+                                ).order_by(MPModel.entry_date.desc()).limit(entry_result["entries"])
+                            )
+                            buy_trades = [
+                                {"symbol": p.symbol, "entry_price": p.entry_price,
+                                 "shares": round(p.shares, 1), "cost_basis": round(p.cost_basis, 2)}
+                                for p in new_pos.scalars().all()
+                            ]
+                            await _notify_portfolio_change("BUY", buy_trades)
                 except Exception as pe:
                     print(f"⚠️ Portfolio entry processing failed (non-fatal): {pe}")
                     result["portfolio_entries_error"] = str(pe)
@@ -1550,6 +1615,7 @@ def handler(event, context):
                     )
                     if model_closed:
                         print(f"📈 [MODEL-LIVE] Closed {len(model_closed)} position(s): {[c.get('symbol') for c in model_closed]}")
+                        await _notify_portfolio_change("SELL", model_closed)
                 except Exception as e:
                     print(f"⚠️ [MODEL-LIVE] Exit check failed: {e}")
 
