@@ -356,9 +356,9 @@ class ChartCardGenerator:
         benchmark_return_pct: float = 95,
     ) -> bytes:
         """
-        Generate a landscape track record chart (1200x600) for PDF documents.
+        Generate a landscape track record chart for PDF documents.
         Shows portfolio vs SPY equity curves with regime bands.
-        Returns PNG bytes.
+        Returns SVG bytes (vector — crisp at any resolution).
         """
         from matplotlib.ticker import FuncFormatter
 
@@ -467,23 +467,23 @@ class ChartCardGenerator:
         plt.tight_layout(rect=[0, 0.05, 1, 1])
 
         buf = io.BytesIO()
-        fig.savefig(buf, format='png', facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=100)
+        fig.savefig(buf, format='svg', facecolor=fig.get_facecolor(), bbox_inches='tight')
         plt.close(fig)
         buf.seek(0)
         return buf.read()
 
-    def upload_track_record_chart(self, png_bytes: bytes) -> str:
-        """Upload track record chart PNG to S3. Returns the S3 key."""
+    def upload_track_record_chart(self, svg_bytes: bytes) -> str:
+        """Upload track record chart SVG to S3. Returns the S3 key."""
         bucket = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
-        key = "charts/track-record-5yr.png"
+        key = "charts/track-record-5yr.svg"
 
         try:
             s3 = self._get_s3_client()
             s3.put_object(
                 Bucket=bucket,
                 Key=key,
-                Body=png_bytes,
-                ContentType='image/png',
+                Body=svg_bytes,
+                ContentType='image/svg+xml',
             )
             logger.info(f"Uploaded track record chart to s3://{bucket}/{key}")
             return key

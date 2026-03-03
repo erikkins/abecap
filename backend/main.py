@@ -2820,8 +2820,8 @@ def handler(event, context):
             total_ret = (stitched[-1]["equity"] / stitched[0]["equity"] - 1) * 100 if stitched else 289
             bench_ret = (stitched[-1]["spy_equity"] / stitched[0]["spy_equity"] - 1) * 100 if stitched else 95
 
-            # Generate chart
-            png_bytes = chart_card_generator.generate_track_record_chart(
+            # Generate chart (SVG vector)
+            svg_bytes = chart_card_generator.generate_track_record_chart(
                 equity_curve=stitched,
                 regime_periods=regime_periods,
                 total_return_pct=total_ret,
@@ -2829,7 +2829,7 @@ def handler(event, context):
             )
 
             # Upload to S3
-            s3_key = chart_card_generator.upload_track_record_chart(png_bytes)
+            s3_key = chart_card_generator.upload_track_record_chart(svg_bytes)
             presigned_url = chart_card_generator.get_presigned_url(s3_key, expires_in=86400)
 
             return {
@@ -2839,7 +2839,7 @@ def handler(event, context):
                 "equity_points": len(stitched),
                 "regime_periods": len(regime_periods),
                 "total_return_pct": round(total_ret, 1),
-                "png_size_bytes": len(png_bytes),
+                "svg_size_bytes": len(svg_bytes),
             }
 
         try:
