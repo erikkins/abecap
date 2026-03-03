@@ -86,7 +86,7 @@ export default function RegimeBadge({
     >
       <View style={[styles.dot, { backgroundColor: color }]} />
       <Text style={styles.bannerLabel}>Market Regime</Text>
-      <Text style={[styles.bannerValue, { color }]}>{label}</Text>
+      <Text style={[styles.bannerValue, { color }]} numberOfLines={1}>{label}</Text>
       <View style={{ flex: 1 }} />
       {marketStats?.spy_price != null && (
         <Text style={styles.spyBanner}>
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   bannerValue: {
     fontSize: FontSize.md,
     fontWeight: '700',
-    flex: 1,
+    flexShrink: 1,
   },
   chevron: {
     color: Colors.textMuted,
@@ -333,6 +333,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: FontSize.sm,
     fontWeight: '600',
+    flexShrink: 0,
   },
 
   // Market stats in expanded
