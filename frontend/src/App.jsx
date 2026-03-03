@@ -9,7 +9,7 @@ import {
   DollarSign, Target, Shield, Activity, PieChart as PieIcon, History,
   ArrowUpRight, ArrowDownRight, Clock, Zap, X, ChevronRight, Eye,
   Calendar, BarChart3, Wallet, LogIn, AlertCircle, Loader2, CreditCard, Lock,
-  Briefcase, Mail, Gift, Copy, Check
+  Briefcase, Mail, Gift, Copy, Check, Filter, Info
 } from 'lucide-react';
 import LandingPage from './LandingPage';
 import TrackRecordPage from './TrackRecordPage';
@@ -42,7 +42,9 @@ const CACHE_KEYS = {
   DASHBOARD: 'rigacap_dashboard_cache',
   VIEW_MODE: 'rigacap_view_mode',
   CACHE_TIME: 'rigacap_cache_time',
-  WELCOME_SEEN: 'rigacap_welcome_seen'
+  WELCOME_SEEN: 'rigacap_welcome_seen',
+  SECTOR_FILTERS: 'rigacap_sector_filters',
+  SECTOR_FILTER_OPEN: 'rigacap_sector_filter_open'
 };
 
 // Cache duration: 5 minutes for signals, 1 hour for user data
@@ -1712,6 +1714,15 @@ function Dashboard() {
   const [quotesLastUpdate, setQuotesLastUpdate] = useState(null);
   const [quotesReady, setQuotesReady] = useState(false); // true after first live quotes fetch (or skip)
   const [viewMode, setViewMode] = useState(() => localStorage.getItem(CACHE_KEYS.VIEW_MODE) || 'simple');
+  const [excludedSectors, setExcludedSectors] = useState(() => {
+    try {
+      const saved = localStorage.getItem(CACHE_KEYS.SECTOR_FILTERS);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [sectorFilterOpen, setSectorFilterOpen] = useState(() =>
+    localStorage.getItem(CACHE_KEYS.SECTOR_FILTER_OPEN) === 'true'
+  );
   const [timeTravelDate, setTimeTravelDate] = useState(null); // "YYYY-MM-DD" or null
   const [timeTravelOpen, setTimeTravelOpen] = useState(false);
   const [timeTravelLoading, setTimeTravelLoading] = useState(false);
@@ -1858,6 +1869,14 @@ function Dashboard() {
   useEffect(() => {
     localStorage.setItem(CACHE_KEYS.VIEW_MODE, viewMode);
   }, [viewMode]);
+
+  // Persist sector filters to localStorage
+  useEffect(() => {
+    localStorage.setItem(CACHE_KEYS.SECTOR_FILTERS, JSON.stringify(excludedSectors));
+  }, [excludedSectors]);
+  useEffect(() => {
+    localStorage.setItem(CACHE_KEYS.SECTOR_FILTER_OPEN, sectorFilterOpen);
+  }, [sectorFilterOpen]);
 
   // Fetch unified dashboard data (regime forecast, buy signals, sell guidance, watchlist)
   // CDN-first strategy: localStorage → CDN (~200ms) → API (positions only)
@@ -3149,6 +3168,16 @@ function Dashboard() {
                         {dashboardData.buy_signals.filter(s => s.is_fresh).length} fresh
                       </span>
                     )}
+                    <button
+                      onClick={() => setSectorFilterOpen(prev => !prev)}
+                      className="ml-1 p-1 rounded hover:bg-gray-100 transition-colors relative"
+                      title="Filter by sector"
+                    >
+                      <Filter size={14} className="text-gray-400" />
+                      {excludedSectors.length > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full" />
+                      )}
+                    </button>
                   </div>
                   <span className="text-xs text-gray-500">
                     {(() => {
@@ -3179,6 +3208,64 @@ function Dashboard() {
                     })()}
                   </span>
                 </div>
+
+                {/* Collapsible sector filter pills */}
+                {sectorFilterOpen && (() => {
+                  const allSignals = dashboardData?.buy_signals || [];
+                  const allPositions = dashboardData?.positions_with_guidance || guidanceWithLiveQuotes || [];
+                  const sectorCounts = {};
+                  allSignals.forEach(s => {
+                    const sec = s.sector || 'Other';
+                    sectorCounts[sec] = (sectorCounts[sec] || 0) + 1;
+                  });
+                  allPositions.forEach(p => {
+                    const sec = p.sector || 'Other';
+                    sectorCounts[sec] = (sectorCounts[sec] || 0) + 1;
+                  });
+                  const activeSectors = Object.keys(sectorCounts).sort();
+                  if (activeSectors.length <= 1) return null;
+                  return (
+                    <div className="px-4 py-2 border-b border-gray-100 flex flex-wrap items-center gap-1.5 bg-gray-50/50">
+                      <span className="text-[10px] text-gray-400 mr-1 uppercase tracking-wider">Sectors</span>
+                      {activeSectors.map(sector => {
+                        const isExcluded = excludedSectors.includes(sector);
+                        const count = sectorCounts[sector] || 0;
+                        return (
+                          <button
+                            key={sector}
+                            onClick={() => setExcludedSectors(prev =>
+                              isExcluded ? prev.filter(s => s !== sector) : [...prev, sector]
+                            )}
+                            className={`text-[11px] px-2 py-0.5 rounded-full border transition-all ${
+                              isExcluded
+                                ? 'border-gray-200 text-gray-400 bg-white'
+                                : 'border-blue-200 text-blue-700 bg-blue-50'
+                            }`}
+                          >
+                            {sector}
+                            {isExcluded && count > 0 && (
+                              <span className="ml-1 text-[10px] text-gray-400">({count})</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                      {excludedSectors.length > 0 && (
+                        <button
+                          onClick={() => setExcludedSectors([])}
+                          className="text-[10px] text-blue-500 hover:text-blue-700 ml-1"
+                        >
+                          Reset
+                        </button>
+                      )}
+                      <div className="ml-auto group relative">
+                        <Info size={12} className="text-gray-300 cursor-help" />
+                        <div className="absolute right-0 bottom-full mb-1 w-52 p-2 bg-gray-900 text-white text-[10px] rounded-lg shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20">
+                          Display filter only — the system scans the full universe every day regardless of this setting.
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="max-h-[500px] overflow-y-auto relative">
                   {timeTravelLoading && (
@@ -3266,8 +3353,9 @@ function Dashboard() {
                     </div>
                   ) : (dashboardData?.buy_signals || []).length > 0 ? (
                     (() => {
-                      const freshSignals = (dashboardData?.buy_signals || []).filter(s => s.is_fresh);
-                      const monitoringSignals = (dashboardData?.buy_signals || []).filter(s => !s.is_fresh);
+                      const sectorFilter = (s) => !excludedSectors.includes(s.sector || 'Other');
+                      const freshSignals = (dashboardData?.buy_signals || []).filter(s => s.is_fresh && sectorFilter(s));
+                      const monitoringSignals = (dashboardData?.buy_signals || []).filter(s => !s.is_fresh && sectorFilter(s));
 
                       // Days since last ensemble signal (for dynamic empty-state messaging)
                       // Use unfiltered fresh_signal_dates to include signals already held as positions
@@ -3599,6 +3687,13 @@ function Dashboard() {
               </div>
 
               {/* RIGHT: Open Positions with Sell Guidance */}
+              {(() => {
+                const positionSectorFilter = (p) => !excludedSectors.includes(p.sector || 'Other');
+                const filteredGuidance = guidanceWithLiveQuotes.filter(positionSectorFilter);
+                const filteredPositions = positionsWithLiveQuotes.filter(positionSectorFilter);
+                const activePositions = filteredGuidance.length > 0 ? filteredGuidance : filteredPositions;
+                const hasUnfilteredPositions = guidanceWithLiveQuotes.length > 0 || positionsWithLiveQuotes.length > 0;
+                return (
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-900">Open Positions</h2>
@@ -3606,18 +3701,18 @@ function Dashboard() {
                 </div>
 
                 <div className="max-h-[500px] overflow-y-auto">
-                  {!quotesReady && (guidanceWithLiveQuotes.length > 0 || positionsWithLiveQuotes.length > 0) ? (
+                  {!quotesReady && hasUnfilteredPositions ? (
                     <div className="px-5 py-8 text-center text-sm text-gray-400">
                       <div className="animate-pulse space-y-3">
                         {[1,2,3].map(i => <div key={i} className="h-10 bg-gray-100 rounded" />)}
                       </div>
                       <p className="mt-3">Loading live prices...</p>
                     </div>
-                  ) : (guidanceWithLiveQuotes.length > 0 ? guidanceWithLiveQuotes : positionsWithLiveQuotes).length > 0 ? (
+                  ) : activePositions.length > 0 ? (
                     viewMode === 'simple' ? (
                       /* Simple mode: list items with friendly status */
                       <div className="divide-y divide-gray-100">
-                        {(guidanceWithLiveQuotes.length > 0 ? guidanceWithLiveQuotes : positionsWithLiveQuotes).map((p) => {
+                        {activePositions.map((p) => {
                           const action = p.action || 'hold';
                           const pnl = p.pnl_pct || ((p.current_price - p.entry_price) / p.entry_price * 100) || 0;
                           const friendlyStatus = action === 'sell' ? 'Consider selling'
@@ -3661,7 +3756,7 @@ function Dashboard() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {(guidanceWithLiveQuotes.length > 0 ? guidanceWithLiveQuotes : positionsWithLiveQuotes).map((p) => {
+                          {activePositions.map((p) => {
                             const action = p.action || 'hold';
                             const pnl = p.pnl_pct || ((p.current_price - p.entry_price) / p.entry_price * 100) || 0;
                             const pnlColor = pnl >= 0 ? 'text-emerald-600' : 'text-red-500';
@@ -3724,9 +3819,9 @@ function Dashboard() {
                 </div>
 
                 {/* Action reasons for positions needing attention (wait for live prices) */}
-                {quotesReady && viewMode !== 'simple' && guidanceWithLiveQuotes.filter(p => p.action !== 'hold').length > 0 && (
+                {quotesReady && viewMode !== 'simple' && activePositions.filter(p => p.action !== 'hold').length > 0 && (
                   <div className="border-t border-gray-100 px-4 py-3 space-y-1">
-                    {guidanceWithLiveQuotes.filter(p => p.action !== 'hold').map(p => (
+                    {activePositions.filter(p => p.action !== 'hold').map(p => (
                       <div key={p.symbol} className={`text-xs px-2 py-1 rounded ${
                         p.action === 'sell' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
                       }`}>
@@ -3736,6 +3831,8 @@ function Dashboard() {
                   </div>
                 )}
               </div>
+                );
+              })()}
             </div>
 
             {/* Watchlist — Approaching Trigger (hidden when promoted into empty buy signals) */}

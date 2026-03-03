@@ -1187,6 +1187,7 @@ async def _get_positions_with_guidance(db: AsyncSession, user, regime_forecast_d
                 'entry_date': p.created_at.strftime('%Y-%m-%d') if p.created_at else None,
                 'current_price': current_price,
                 'highest_price': float(getattr(p, 'highest_price', None) or p.entry_price),
+                'sector': p.sector or '',
             })
 
         if pos_dicts:
