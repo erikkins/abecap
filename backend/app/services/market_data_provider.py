@@ -2,14 +2,13 @@
 Market Data Provider — Dual-source abstraction layer
 
 Provides:
-- AlpacaProvider: Primary source for historical daily bars (faster, more reliable for bulk)
-- YfinanceProvider: Primary for live intraday quotes + index symbols + fallback
+- AlpacaProvider: Primary source for bars and quotes via SIP (consolidated) feed
+- YfinanceProvider: Fallback for bars/quotes + always used for index symbols
 - DualSourceProvider: Orchestrator with automatic failover
 
-Alpaca free tier notes:
-- 200 req/min rate limit, up to 10k symbols per multi-bar request
-- Cannot serve index symbols (^VIX, ^GSPC) — yfinance required
-- 15-minute delay on free tier (non-issue for EOD bars fetched after 4 PM)
+Alpaca Pro subscription:
+- 10k req/min rate limit, SIP consolidated feed (all exchanges)
+- Cannot serve index symbols (^VIX, ^GSPC) — yfinance required for those
 """
 
 import asyncio
@@ -79,9 +78,21 @@ class MarketDataProvider(ABC):
 class AlpacaProvider(MarketDataProvider):
     """Alpaca Markets data provider (REST API).
 
-    Uses alpaca-py SDK for historical bars.
+    Uses alpaca-py SDK for historical bars via SIP (consolidated) feed.
     Cannot serve index symbols (^VIX, ^GSPC, etc).
     """
+
+    # Symbols that need format conversion: yfinance uses hyphens, Alpaca uses dots
+    # e.g. BRK-A → BRK.A, BRK-B → BRK.B, BF-B → BF.B
+    @staticmethod
+    def _to_alpaca_symbol(symbol: str) -> str:
+        """Convert yfinance-format symbol to Alpaca format (hyphens → dots)."""
+        return symbol.replace('-', '.')
+
+    @staticmethod
+    def _from_alpaca_symbol(symbol: str) -> str:
+        """Convert Alpaca-format symbol back to yfinance format (dots → hyphens)."""
+        return symbol.replace('.', '-')
 
     def __init__(self):
         self._client = None
@@ -131,14 +142,21 @@ class AlpacaProvider(MarketDataProvider):
         if not alpaca_symbols:
             return {}
 
+        # Build symbol mapping: alpaca_format → original_format
+        sym_map = {}
+        for s in alpaca_symbols:
+            a = self._to_alpaca_symbol(s)
+            sym_map[a] = s
+        alpaca_formatted = list(sym_map.keys())
+
         result: Dict[str, pd.DataFrame] = {}
         BATCH_SIZE = 100  # Alpaca supports large batches
 
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
         end_dt = datetime.strptime(end_date, "%Y-%m-%d") if end_date else datetime.now()
 
-        for i in range(0, len(alpaca_symbols), BATCH_SIZE):
-            batch = alpaca_symbols[i:i + BATCH_SIZE]
+        for i in range(0, len(alpaca_formatted), BATCH_SIZE):
+            batch = alpaca_formatted[i:i + BATCH_SIZE]
 
             try:
                 request = StockBarsRequest(
@@ -155,11 +173,11 @@ class AlpacaProvider(MarketDataProvider):
                 )
 
                 # Convert to per-symbol DataFrames
-                # BarSet.data is a dict of symbol -> list[Bar]
+                # BarSet.data is a dict of symbol -> list[Bar] (Alpaca-format keys)
                 bar_data = bars.data if hasattr(bars, 'data') else {}
-                for symbol in batch:
+                for alpaca_sym in batch:
                     try:
-                        symbol_bars = bar_data.get(symbol, [])
+                        symbol_bars = bar_data.get(alpaca_sym, [])
                         if not symbol_bars:
                             continue
 
@@ -182,22 +200,24 @@ class AlpacaProvider(MarketDataProvider):
                         df = df.set_index('date').sort_index()
                         # Remove duplicate dates (keep last)
                         df = df[~df.index.duplicated(keep='last')]
-                        result[symbol] = df
+                        # Map back to original symbol format
+                        original_sym = sym_map.get(alpaca_sym, alpaca_sym)
+                        result[original_sym] = df
 
                     except Exception as e:
-                        logger.debug(f"Alpaca parse error for {symbol}: {e}")
+                        logger.debug(f"Alpaca parse error for {alpaca_sym}: {e}")
 
             except Exception as e:
                 logger.error(f"Alpaca batch fetch failed ({len(batch)} symbols): {e}")
 
-            # Rate limit: 200 req/min -> conservative 0.4s between batches
-            if i + BATCH_SIZE < len(alpaca_symbols):
-                await asyncio.sleep(0.4)
+            # Rate limit: 10k req/min (Pro) — minimal delay between batches
+            if i + BATCH_SIZE < len(alpaca_formatted):
+                await asyncio.sleep(0.1)
 
         return result
 
     async def fetch_quotes(self, symbols: List[str]) -> Dict[str, QuoteData]:
-        """Fetch latest quotes from Alpaca (IEX exchange only on free tier)."""
+        """Fetch latest quotes from Alpaca via SIP (consolidated) feed."""
         if not self._ensure_client():
             return {}
 
@@ -208,31 +228,39 @@ class AlpacaProvider(MarketDataProvider):
         if not alpaca_symbols:
             return {}
 
+        # Build symbol mapping: alpaca_format → original_format
+        sym_map = {}
+        for s in alpaca_symbols:
+            a = self._to_alpaca_symbol(s)
+            sym_map[a] = s
+        alpaca_formatted = list(sym_map.keys())
+
         result: Dict[str, QuoteData] = {}
         try:
             request = StockLatestQuoteRequest(
-                symbol_or_symbols=alpaca_symbols,
-                feed=DataFeed.IEX,  # Free tier requires IEX feed
+                symbol_or_symbols=alpaca_formatted,
+                feed=DataFeed.SIP,  # Pro subscription — consolidated quotes
             )
             loop = asyncio.get_event_loop()
             quotes = await loop.run_in_executor(
                 None, self._client.get_stock_latest_quote, request
             )
 
-            for symbol in alpaca_symbols:
+            for alpaca_sym in alpaca_formatted:
                 try:
-                    q = quotes.get(symbol)
+                    q = quotes.get(alpaca_sym)
                     if q and q.ask_price and q.ask_price > 0:
                         # Use midpoint of bid/ask as price
                         price = (q.bid_price + q.ask_price) / 2 if q.bid_price else q.ask_price
-                        result[symbol] = QuoteData(
-                            symbol=symbol,
+                        original_sym = sym_map.get(alpaca_sym, alpaca_sym)
+                        result[original_sym] = QuoteData(
+                            symbol=original_sym,
                             price=round(price, 2),
                             timestamp=str(q.timestamp) if q.timestamp else None,
                             source="alpaca",
                         )
                 except Exception as e:
-                    logger.debug(f"Alpaca quote parse error for {symbol}: {e}")
+                    logger.debug(f"Alpaca quote parse error for {alpaca_sym}: {e}")
 
         except Exception as e:
             logger.error(f"Alpaca quotes fetch failed: {e}")
@@ -365,8 +393,7 @@ class YfinanceProvider(MarketDataProvider):
 
 
 class DualSourceProvider(MarketDataProvider):
-    """Orchestrator: Alpaca primary → yfinance fallback for bars.
-    yfinance primary → Alpaca fallback for live quotes.
+    """Orchestrator: Alpaca (SIP) primary → yfinance fallback.
     Index symbols (^VIX) always via yfinance.
     """
 
@@ -423,7 +450,7 @@ class DualSourceProvider(MarketDataProvider):
         return summary
 
     def _get_primary_source(self) -> str:
-        """Get configured primary source. Defaults to yfinance (safe for free Alpaca/IEX)."""
+        """Get configured primary source. Defaults to alpaca (Pro/SIP)."""
         try:
             from app.core.config import settings
             return settings.DATA_SOURCE_PRIMARY
@@ -435,12 +462,7 @@ class DualSourceProvider(MarketDataProvider):
     ) -> Dict[str, pd.DataFrame]:
         """Fetch bars: primary source first → fallback on failure.
 
-        Primary source is controlled by DATA_SOURCE_PRIMARY config:
-        - "yfinance" (default): yfinance first, Alpaca fallback. Safe for free Alpaca tier
-          because IEX volume (~3% of consolidated) breaks MIN_VOLUME filters.
-        - "alpaca": Alpaca first, yfinance fallback. Only use with Alpaca Pro/SIP subscription
-          which provides consolidated volume.
-
+        Primary source is controlled by DATA_SOURCE_PRIMARY config (default: alpaca).
         Index symbols (^VIX etc) always go through yfinance regardless of primary.
         """
         # Separate index vs stock symbols
@@ -527,11 +549,7 @@ class DualSourceProvider(MarketDataProvider):
         return result
 
     async def fetch_quotes(self, symbols: List[str]) -> Dict[str, QuoteData]:
-        """Fetch live quotes: yfinance primary → Alpaca fallback.
-
-        yfinance is primary for live quotes because it covers all exchanges,
-        while Alpaca free tier only covers IEX.
-        """
+        """Fetch live quotes: yfinance primary → Alpaca fallback."""
         # Force source override
         if self.force_source == "alpaca":
             alpaca_data = await self.alpaca.fetch_quotes(symbols)

@@ -657,7 +657,7 @@ resource "aws_lambda_function" "worker" {
   package_type  = "Image"
   image_uri     = "${aws_ecr_repository.api.repository_url}:${var.lambda_image_tag}"
   timeout       = 900  # 15 minutes (max for Lambda)
-  memory_size   = 3008 # Max for this AWS account
+  memory_size   = 3008 # AWS account limit
 
   ephemeral_storage {
     size = 1024 # MB — needed for streaming pickle export (344 MB compressed)

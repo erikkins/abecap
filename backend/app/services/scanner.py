@@ -243,9 +243,8 @@ class ScannerService:
         Args:
             symbols: List of tickers (default: all symbols in cache)
             replace_days: If > 0, re-fetch and overwrite the last N days for ALL cached
-                symbols (not just stale ones). Use this to fix volume data after an
-                Alpaca/IEX fallback event — IEX volume is ~3% of consolidated and
-                breaks MIN_VOLUME filters.
+                symbols (not just stale ones). Use this to fix volume data after a
+                fallback event where the alternate source returned bad data.
 
         Returns:
             Dict with counts: {updated: N, failed: N, skipped: N, source: str}

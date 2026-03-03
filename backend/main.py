@@ -1873,7 +1873,6 @@ def handler(event, context):
             return {"status": "error", "error": str(e)}
 
     # Handle volume data refresh (re-fetch recent days from primary source)
-    # Use after Alpaca/IEX fallback events to replace IEX volume with consolidated
     if event.get("refresh_volume_data"):
         config = event["refresh_volume_data"]
         replace_days = config.get("days", 5)
@@ -4705,7 +4704,7 @@ async def get_live_quotes(symbols: str = "", user: User = Depends(get_current_us
     """
     Get live/current quotes for symbols.
 
-    Uses DualSourceProvider (yfinance primary for live quotes, Alpaca fallback).
+    Uses DualSourceProvider (Alpaca SIP primary, yfinance fallback).
     Note: Signals are still based on daily CLOSE prices.
 
     Args:
