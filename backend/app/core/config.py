@@ -107,6 +107,9 @@ class Settings(BaseSettings):
     ALPACA_BASE_URL: str = os.getenv("ALPACA_BASE_URL", "https://api.alpaca.markets")
     DATA_SOURCE_PRIMARY: str = os.getenv("DATA_SOURCE_PRIMARY", "alpaca")  # "alpaca" (Pro/SIP — consolidated volume) or "yfinance" (fallback)
 
+    # Track Record — canonical walk-forward sim IDs (yearly sims stitched to +289%)
+    TRACK_RECORD_SIM_IDS: List[int] = [113, 114, 115, 116, 112]
+
     # AWS
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
     S3_BUCKET: str = os.getenv("S3_BUCKET", "rigacap-data")

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, BarChart3, Shield, Activity, ArrowRight } from 'lucide-react';
+import TrackRecordChart from './components/TrackRecordChart';
 
 const YEARLY_DATA = [
   { period: '2021–2022', return: '+62.0%', sharpe: '1.21', maxDD: '-14.8%', context: 'Post-COVID rally', positive: true },
@@ -66,6 +67,17 @@ export default function TrackRecordPage() {
               {m.subtitle && <div className="text-xs text-gray-600 mt-0.5">{m.subtitle}</div>}
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Equity Curve Chart */}
+      <section className="max-w-5xl mx-auto px-4 sm:px-6 pt-10">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 sm:p-6">
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Activity className="w-5 h-5 text-blue-400" />
+            5-Year Equity Curve — RigaCap vs S&P 500
+          </h2>
+          <TrackRecordChart />
         </div>
       </section>
 

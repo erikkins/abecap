@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   TrendingUp, Zap, Shield, BarChart3, Bell, DollarSign,
   CheckCircle, ArrowRight, ChevronDown, ChevronUp, Star, Users, Target
 } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
 import LoginModal from './components/LoginModal';
+import TrackRecordChart from './components/TrackRecordChart';
 
 // ============================================================================
 // Landing Page Components
@@ -222,6 +223,16 @@ const StatsSection = () => (
         Walk-forward simulation results — year-by-year testing with no hindsight bias.
         Our Ensemble approach adapts through every market regime, from bull runs to bear markets.
       </p>
+
+      {/* Compact equity curve */}
+      <div className="mt-8 max-w-3xl mx-auto bg-white/5 backdrop-blur-sm rounded-xl p-4">
+        <TrackRecordChart compact />
+        <div className="text-center mt-3">
+          <Link to="/track-record" className="text-indigo-200 hover:text-white text-xs underline underline-offset-2 transition-colors">
+            View full interactive track record →
+          </Link>
+        </div>
+      </div>
     </div>
   </section>
 );

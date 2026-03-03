@@ -348,6 +348,148 @@ class ChartCardGenerator:
             logger.error(f"Failed to generate presigned URL: {e}")
             return ""
 
+    def generate_track_record_chart(
+        self,
+        equity_curve: list,
+        regime_periods: list,
+        total_return_pct: float = 289,
+        benchmark_return_pct: float = 95,
+    ) -> bytes:
+        """
+        Generate a landscape track record chart (1200x600) for PDF documents.
+        Shows portfolio vs SPY equity curves with regime bands.
+        Returns PNG bytes.
+        """
+        from matplotlib.ticker import FuncFormatter
+
+        dates = [datetime.strptime(p["date"], "%Y-%m-%d") for p in equity_curve]
+        equities = [p["equity"] for p in equity_curve]
+        spy_equities = [p.get("spy_equity", 100000) for p in equity_curve]
+
+        fig, ax = plt.subplots(figsize=(12, 6), dpi=100)
+        fig.patch.set_facecolor(BRAND_DARK)
+        ax.set_facecolor(BRAND_DARK)
+
+        # Regime bands
+        regime_colors = {
+            'strong_bull': ('rgba(16,185,129,0.15)', '#10B981'),
+            'weak_bull': ('rgba(132,204,22,0.10)', '#84CC16'),
+            'rotating_bull': ('rgba(139,92,246,0.10)', '#8B5CF6'),
+            'range_bound': ('rgba(245,158,11,0.10)', '#F59E0B'),
+            'weak_bear': ('rgba(249,115,22,0.10)', '#F97316'),
+            'panic_crash': ('rgba(239,68,68,0.15)', '#EF4444'),
+            'recovery': ('rgba(6,182,212,0.10)', '#06B6D4'),
+        }
+
+        # Convert rgba strings to matplotlib-compatible (r,g,b,a) tuples
+        def parse_rgba(rgba_str):
+            parts = rgba_str.replace('rgba(', '').replace(')', '').split(',')
+            return (int(parts[0])/255, int(parts[1])/255, int(parts[2])/255, float(parts[3]))
+
+        legend_regimes = {}
+        for period in regime_periods:
+            try:
+                start = datetime.strptime(period["start_date"], "%Y-%m-%d")
+                end = datetime.strptime(period["end_date"], "%Y-%m-%d")
+                rtype = period.get("regime_type", "range_bound")
+                bg_str, line_color = regime_colors.get(rtype, ('rgba(200,200,200,0.05)', '#6B7280'))
+                bg_color = parse_rgba(bg_str)
+                ax.axvspan(start, end, facecolor=bg_color, edgecolor='none')
+                if rtype not in legend_regimes:
+                    legend_regimes[rtype] = {
+                        'name': period.get("regime_name", rtype),
+                        'color': line_color,
+                        'bg': bg_color,
+                    }
+            except (ValueError, KeyError):
+                continue
+
+        # Plot lines
+        ax.plot(dates, equities, color=BRAND_GOLD, linewidth=2.2, label='RigaCap Ensemble', zorder=5)
+        ax.plot(dates, spy_equities, color='#9CA3AF', linewidth=1.5, linestyle='--', label='S&P 500 (SPY)', zorder=4)
+
+        # Formatting
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%b '%y"))
+        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=6))
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f'${x/1000:.0f}k'))
+
+        ax.tick_params(colors='#9CA3AF', labelsize=9)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_color('#374151')
+        ax.spines['left'].set_color('#374151')
+        ax.grid(axis='y', color='#374151', linewidth=0.5, alpha=0.5)
+
+        # Metrics overlay (top-left)
+        ax.text(
+            0.02, 0.95, f'+{total_return_pct:.0f}% Total Return',
+            transform=ax.transAxes, fontsize=18, fontweight='bold',
+            color=BRAND_GOLD, va='top', ha='left',
+        )
+        ax.text(
+            0.02, 0.87, f'vs SPY +{benchmark_return_pct:.0f}%',
+            transform=ax.transAxes, fontsize=11,
+            color='#9CA3AF', va='top', ha='left',
+        )
+
+        # Line legend (top-right)
+        ax.legend(
+            loc='upper right', fontsize=9,
+            facecolor=BRAND_DARK, edgecolor='#374151',
+            labelcolor='#D1D5DB',
+        )
+
+        # Watermark
+        ax.text(
+            0.98, 0.03, 'rigacap.com',
+            transform=ax.transAxes, fontsize=8, color='#4B5563',
+            va='bottom', ha='right', style='italic',
+        )
+
+        # Regime legend at bottom
+        if legend_regimes:
+            regime_labels = []
+            regime_handles = []
+            for rtype, info in legend_regimes.items():
+                patch = plt.Rectangle((0, 0), 1, 1, facecolor=info['bg'], edgecolor=info['color'], linewidth=1)
+                regime_handles.append(patch)
+                regime_labels.append(info['name'])
+
+            fig.legend(
+                regime_handles, regime_labels,
+                loc='lower center', ncol=min(len(regime_labels), 7),
+                fontsize=8, facecolor=BRAND_DARK, edgecolor='none',
+                labelcolor='#9CA3AF', framealpha=0,
+                bbox_to_anchor=(0.5, 0.01),
+            )
+
+        plt.tight_layout(rect=[0, 0.05, 1, 1])
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', facecolor=fig.get_facecolor(), bbox_inches='tight', dpi=100)
+        plt.close(fig)
+        buf.seek(0)
+        return buf.read()
+
+    def upload_track_record_chart(self, png_bytes: bytes) -> str:
+        """Upload track record chart PNG to S3. Returns the S3 key."""
+        bucket = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
+        key = "charts/track-record-5yr.png"
+
+        try:
+            s3 = self._get_s3_client()
+            s3.put_object(
+                Bucket=bucket,
+                Key=key,
+                Body=png_bytes,
+                ContentType='image/png',
+            )
+            logger.info(f"Uploaded track record chart to s3://{bucket}/{key}")
+            return key
+        except Exception as e:
+            logger.error(f"Failed to upload track record chart: {e}")
+            return ""
+
 
 # Singleton instance
 chart_card_generator = ChartCardGenerator()

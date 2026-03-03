@@ -2749,6 +2749,113 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # Handle track record chart generation (direct Lambda invocation)
+    if event.get("generate_track_record_chart"):
+        print("📈 Generate track record chart request received")
+
+        async def _generate_track_record_chart():
+            from sqlalchemy import select
+            from app.core.database import async_session, WalkForwardSimulation
+            from app.core.config import settings
+            from app.services.chart_card_generator import chart_card_generator
+            from app.services.regime_forecast_service import regime_forecast_service
+            import json
+
+            sim_ids = settings.TRACK_RECORD_SIM_IDS
+
+            async with async_session() as db:
+                result = await db.execute(
+                    select(WalkForwardSimulation).where(
+                        WalkForwardSimulation.id.in_(sim_ids)
+                    )
+                )
+                sims = result.scalars().all()
+                sims_by_id = {s.id: s for s in sims}
+                ordered_sims = [sims_by_id[sid] for sid in sim_ids if sid in sims_by_id]
+
+                # Stitch equity curves (same logic as API endpoint)
+                stitched = []
+                scale_factor = 1.0
+                spy_scale_factor = 1.0
+
+                for i, sim in enumerate(ordered_sims):
+                    if not sim.equity_curve_json:
+                        continue
+                    curve = json.loads(sim.equity_curve_json)
+                    if not curve:
+                        continue
+
+                    if i == 0:
+                        for point in curve:
+                            stitched.append({
+                                "date": point["date"],
+                                "equity": point["equity"],
+                                "spy_equity": point.get("spy_equity", 100000),
+                            })
+                        if stitched:
+                            scale_factor = stitched[-1]["equity"] / 100000
+                            spy_scale_factor = stitched[-1]["spy_equity"] / 100000
+                    else:
+                        first_equity = curve[0]["equity"]
+                        first_spy = curve[0].get("spy_equity", 100000)
+                        year_eq_scale = (scale_factor * 100000) / first_equity if first_equity else 1
+                        year_spy_scale = (spy_scale_factor * 100000) / first_spy if first_spy else 1
+                        for point in curve[1:]:
+                            stitched.append({
+                                "date": point["date"],
+                                "equity": point["equity"] * year_eq_scale,
+                                "spy_equity": point.get("spy_equity", 100000) * year_spy_scale,
+                            })
+                        if stitched:
+                            scale_factor = stitched[-1]["equity"] / 100000
+                            spy_scale_factor = stitched[-1]["spy_equity"] / 100000
+
+                # Get regime periods
+                regime_data = await regime_forecast_service.get_regime_periods_from_db(
+                    db, start_date="2021-02-01", end_date="2026-02-01"
+                )
+                regime_periods = regime_data.get("periods", []) if regime_data else []
+
+            # Compute returns
+            total_ret = (stitched[-1]["equity"] / stitched[0]["equity"] - 1) * 100 if stitched else 289
+            bench_ret = (stitched[-1]["spy_equity"] / stitched[0]["spy_equity"] - 1) * 100 if stitched else 95
+
+            # Generate chart
+            png_bytes = chart_card_generator.generate_track_record_chart(
+                equity_curve=stitched,
+                regime_periods=regime_periods,
+                total_return_pct=total_ret,
+                benchmark_return_pct=bench_ret,
+            )
+
+            # Upload to S3
+            s3_key = chart_card_generator.upload_track_record_chart(png_bytes)
+            presigned_url = chart_card_generator.get_presigned_url(s3_key, expires_in=86400)
+
+            return {
+                "status": "success",
+                "s3_key": s3_key,
+                "presigned_url": presigned_url,
+                "equity_points": len(stitched),
+                "regime_periods": len(regime_periods),
+                "total_return_pct": round(total_ret, 1),
+                "png_size_bytes": len(png_bytes),
+            }
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_generate_track_record_chart())
+            print(f"📈 Track record chart: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Track record chart generation failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
     # Handle daily email digest (EventBridge: 6 PM ET Mon-Fri)
     # Optional: {"daily_emails": {"target_emails": ["user@example.com"]}}
     if event.get("daily_emails"):

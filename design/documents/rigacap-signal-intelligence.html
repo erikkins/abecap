@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RigaCap — Signal Intelligence</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --navy: #172554;
+    --navy-mid: #1e3a5f;
+    --navy-light: #1e40af;
+    --gold: #f59e0b;
+    --gold-light: #fbbf24;
+    --gold-pale: #fef3c7;
+    --green: #22c55e;
+    --green-light: #dcfce7;
+    --red: #ef4444;
+    --red-light: #fee2e2;
+    --dark: #111827;
+    --gray: #64748b;
+    --light-gray: #f8fafc;
+    --border: #e2e8f0;
+    --code-bg: #0f172a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--dark);
+    line-height: 1.6;
+    background: #fff;
+  }
+
+  @page {
+    size: letter;
+    margin: 0.5in 0.6in;
+  }
+
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page-break { page-break-before: always; }
+    .no-break { page-break-inside: avoid; }
+  }
+
+  /* Cover */
+  .cover {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: linear-gradient(145deg, #0c1a3a 0%, var(--navy) 40%, #0f2847 100%);
+    color: #fff;
+    padding: 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image:
+      linear-gradient(rgba(245,158,11,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(245,158,11,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    top: -30%; right: -20%;
+    width: 60%; height: 80%;
+    background: radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .cover * { position: relative; z-index: 1; }
+
+  .cover-corners { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; }
+  .cover-corners::before, .cover-corners::after {
+    content: ''; position: absolute;
+    width: 60px; height: 60px;
+    border-color: var(--gold); border-style: solid;
+  }
+  .cover-corners::before { top: 40px; left: 40px; border-width: 2px 0 0 2px; }
+  .cover-corners::after { top: 40px; right: 40px; border-width: 2px 2px 0 0; }
+  .cover-corners-bottom { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; }
+  .cover-corners-bottom::before, .cover-corners-bottom::after {
+    content: ''; position: absolute;
+    width: 60px; height: 60px;
+    border-color: var(--gold); border-style: solid;
+  }
+  .cover-corners-bottom::before { bottom: 40px; left: 40px; border-width: 0 0 2px 2px; }
+  .cover-corners-bottom::after { bottom: 40px; right: 40px; border-width: 0 2px 2px 0; }
+
+  .cover .doc-type {
+    font-size: 0.75rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding: 4px 16px;
+    border: 1px solid rgba(245,158,11,0.3);
+    border-radius: 4px;
+  }
+  .cover h1 {
+    font-size: 2.6rem;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, #fff 0%, var(--gold-light) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .cover .subtitle {
+    font-size: 1.1rem;
+    font-weight: 300;
+    color: rgba(255,255,255,0.65);
+    max-width: 560px;
+    margin-bottom: 2.5rem;
+  }
+  .hero-stats {
+    display: flex;
+    gap: 2.5rem;
+    margin-bottom: 2.5rem;
+  }
+  .hero-stat { text-align: center; }
+  .hero-stat .value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--gold-light);
+  }
+  .hero-stat .label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.45);
+    margin-top: 0.2rem;
+  }
+  .cover .date { font-size: 0.85rem; color: rgba(255,255,255,0.35); }
+  .cover .version {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--gold);
+    margin-top: 0.5rem;
+    opacity: 0.7;
+  }
+
+  /* Content */
+  .content { max-width: 820px; margin: 0 auto; padding: 2.5rem 2rem; }
+
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--navy);
+    margin-top: 2.5rem;
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 2px solid var(--gold-pale);
+  }
+  h2:first-child { margin-top: 0; }
+
+  h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--dark);
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--navy);
+    margin-top: 1rem;
+    margin-bottom: 0.3rem;
+  }
+
+  p { margin-bottom: 0.6rem; color: #374151; font-size: 0.88rem; }
+  strong { font-weight: 600; }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.75rem 0;
+    font-size: 0.8rem;
+  }
+  thead th {
+    background: var(--light-gray);
+    font-weight: 600;
+    text-align: left;
+    padding: 0.5rem 0.6rem;
+    border-bottom: 2px solid var(--border);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray);
+  }
+  tbody td {
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  .positive { color: var(--green); font-weight: 600; }
+  .negative { color: var(--red); font-weight: 600; }
+  .highlight-row { background: var(--gold-pale) !important; font-weight: 600; }
+
+  /* Code blocks */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--navy);
+  }
+  .code-block {
+    background: var(--code-bg);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin: 0.75rem 0;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: #e2e8f0;
+  }
+  .code-block .comment { color: #64748b; }
+  .code-block .keyword { color: #c084fc; }
+  .code-block .string { color: #86efac; }
+  .code-block .number { color: var(--gold-light); }
+
+  /* Formula block */
+  .formula-block {
+    background: var(--code-bg);
+    border-radius: 8px;
+    padding: 1.25rem 2rem;
+    margin: 1rem auto;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    line-height: 1.8;
+    color: #e2e8f0;
+    max-width: 600px;
+  }
+  .formula-block .var { color: var(--gold-light); }
+  .formula-block .op { color: #c084fc; }
+
+  /* SVG diagram container */
+  .svg-diagram {
+    text-align: center;
+    margin: 1.25rem auto;
+    max-width: 700px;
+    page-break-inside: avoid;
+  }
+  .svg-diagram svg { max-width: 100%; height: auto; }
+
+  /* Architecture boxes */
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    margin: 1.25rem 0;
+    flex-wrap: wrap;
+  }
+  .arch-box {
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    border: 1px solid #93c5fd;
+    border-radius: 8px;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--navy);
+    text-align: center;
+  }
+  .arch-box small { font-weight: 400; color: var(--gray); display: block; font-size: 0.65rem; }
+  .arch-arrow { color: var(--gold); font-size: 1.1rem; }
+
+  /* Callouts */
+  .callout {
+    background: linear-gradient(135deg, #eff6ff, #f0f9ff);
+    border-left: 4px solid var(--navy);
+    border-radius: 0 8px 8px 0;
+    padding: 1rem 1.25rem;
+    margin: 1.25rem 0;
+  }
+  .callout p { margin: 0; font-size: 0.85rem; }
+  .callout strong { color: var(--navy); }
+
+  .callout-gold {
+    background: linear-gradient(135deg, #fef3c7, #fffbeb);
+    border-left-color: var(--gold);
+  }
+  .callout-gold strong { color: #92400e; }
+
+  .callout-green {
+    background: linear-gradient(135deg, #dcfce7, #f0fdf4);
+    border-left-color: var(--green);
+  }
+  .callout-green strong { color: #166534; }
+
+  /* Feature grid */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  .feature-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    border-left: 3px solid var(--navy);
+  }
+  .feature-card h4 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+    margin-top: 0;
+    color: var(--dark);
+  }
+  .feature-card p {
+    font-size: 0.78rem;
+    margin-bottom: 0;
+    color: var(--gray);
+  }
+
+  /* Two columns */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin: 0.75rem 0;
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin: 1rem 0;
+  }
+  .stat-box {
+    background: var(--light-gray);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.75rem;
+    text-align: center;
+  }
+  .stat-box .value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--navy);
+  }
+  .stat-box .value.gold { color: var(--gold); }
+  .stat-box .label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray);
+    margin-top: 0.2rem;
+  }
+
+  /* Metrics grid */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  .metric-card {
+    background: var(--light-gray);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+  }
+  .metric-card .value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--navy);
+  }
+  .metric-card .value.gold { color: var(--gold); }
+  .metric-card .label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gray);
+    margin-top: 0.25rem;
+  }
+
+  ul { padding-left: 1.2rem; margin-bottom: 0.6rem; }
+  li { font-size: 0.82rem; color: #374151; margin-bottom: 0.25rem; }
+
+  /* Regime badges */
+  .regime-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.6rem;
+    margin: 0.75rem 0;
+  }
+  .regime-badge {
+    border-radius: 8px;
+    padding: 0.6rem 0.4rem;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
+  .regime-badge .name { font-weight: 700; font-size: 0.78rem; margin-bottom: 0.15rem; }
+
+  /* Comparison bars */
+  .compare-bars { margin: 1rem 0; }
+  .compare-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.4rem;
+    font-size: 0.82rem;
+  }
+  .compare-label { width: 110px; font-weight: 500; color: var(--gray); }
+  .compare-bar-wrap {
+    flex: 1;
+    background: #f1f5f9;
+    border-radius: 6px;
+    height: 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .compare-bar {
+    height: 100%;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fff;
+  }
+  .compare-bar.navy { background: linear-gradient(90deg, var(--navy), var(--navy-light)); }
+  .compare-bar.gray { background: linear-gradient(90deg, #9ca3af, #d1d5db); color: #374151; }
+
+  /* Gold divider */
+  .gold-divider {
+    width: 80px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 2rem auto;
+  }
+
+  /* TOC */
+  .toc { margin: 1.5rem 0; }
+  .toc-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.3rem 0;
+    border-bottom: 1px dotted var(--border);
+    font-size: 0.88rem;
+  }
+  .toc-item .toc-title { font-weight: 500; color: var(--dark); }
+  .toc-item .toc-page { color: var(--gray); font-size: 0.8rem; }
+  .toc-section {
+    font-weight: 700;
+    color: var(--navy);
+    font-size: 0.9rem;
+    padding-top: 0.5rem;
+    border-bottom: none;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 0.68rem;
+    color: var(--gray);
+    border-top: 1px solid var(--border);
+    margin-top: 2rem;
+  }
+  .footer strong { color: var(--navy); }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- COVER PAGE                                                    -->
+<!-- ============================================================ -->
+<div class="cover">
+  <div class="cover-corners"></div>
+  <div class="cover-corners-bottom"></div>
+  <div class="doc-type">Signal Intelligence Document</div>
+  <div style="margin-bottom: 2.5rem;">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 60" width="220" height="51">
+      <defs><linearGradient id="bg-cover" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs>
+      <circle cx="30" cy="30" r="28" fill="url(#bg-cover)"/>
+      <rect x="20.04" y="38.4" width="17.92" height="8.4" rx="1.68" ry="1.68" fill="#ffffff" opacity="0.2"/>
+      <rect x="24.4" y="28.88" width="11.2" height="9.52" rx="1.4" ry="1.4" fill="#ffffff" opacity="0.35"/>
+      <rect x="26.92" y="18.8" width="6.16" height="10.08" rx="1.12" ry="1.12" fill="#ffffff" opacity="0.5"/>
+      <line x1="21.6" y1="41.2" x2="38.4" y2="41.2" stroke="#f59e0b" stroke-width="0.22" opacity="0.35"/>
+      <line x1="21.6" y1="44" x2="38.4" y2="44" stroke="#f59e0b" stroke-width="0.22" opacity="0.35"/>
+      <line x1="24.96" y1="32.05" x2="35.04" y2="32.05" stroke="#f59e0b" stroke-width="0.22" opacity="0.35"/>
+      <line x1="24.96" y1="35.22" x2="35.04" y2="35.22" stroke="#f59e0b" stroke-width="0.22" opacity="0.35"/>
+      <line x1="27.48" y1="22.16" x2="32.52" y2="22.16" stroke="#f59e0b" stroke-width="0.22" opacity="0.35"/>
+      <line x1="27.48" y1="25.52" x2="32.52" y2="25.52" stroke="#f59e0b" stroke-width="0.22" opacity="0.35"/>
+      <path d="M 20.04 40.08 A 1.68 1.68 0 0 1 22.72 38.4 L 37.28 38.4 A 1.68 1.68 0 0 1 38.96 40.08" fill="none" stroke="#f59e0b" stroke-width="0.34" opacity="0.5"/>
+      <path d="M 24.4 30.28 A 1.4 1.4 0 0 1 25.8 28.88 L 34.2 28.88 A 1.4 1.4 0 0 1 35.6 30.28" fill="none" stroke="#f59e0b" stroke-width="0.34" opacity="0.5"/>
+      <path d="M 26.92 19.92 A 1.12 1.12 0 0 1 27.92 18.8 L 32.08 18.8 A 1.12 1.12 0 0 1 33.08 19.92" fill="none" stroke="#f59e0b" stroke-width="0.34" opacity="0.5"/>
+      <line x1="30" y1="18.8" x2="30" y2="13.2" stroke="#ffffff" stroke-width="0.67" stroke-linecap="round"/>
+      <path d="M 28.35 10.94 A 2.8 2.8 0 0 1 31.65 10.94" fill="none" stroke="#f59e0b" stroke-width="0.56" stroke-linecap="round" opacity="1"/>
+      <path d="M 31.65 15.46 A 2.8 2.8 0 0 1 28.35 15.46" fill="none" stroke="#f59e0b" stroke-width="0.56" stroke-linecap="round" opacity="1"/>
+      <path d="M 26.71 8.67 A 5.6 5.6 0 0 1 33.29 8.67" fill="none" stroke="#f59e0b" stroke-width="0.56" stroke-linecap="round" opacity="0.72"/>
+      <path d="M 33.29 17.73 A 5.6 5.6 0 0 1 26.71 17.73" fill="none" stroke="#f59e0b" stroke-width="0.56" stroke-linecap="round" opacity="0.72"/>
+      <path d="M 25.06 6.41 A 8.4 8.4 0 0 1 34.94 6.41" fill="none" stroke="#f59e0b" stroke-width="0.56" stroke-linecap="round" opacity="0.44"/>
+      <path d="M 34.94 19.99 A 8.4 8.4 0 0 1 25.06 19.99" fill="none" stroke="#f59e0b" stroke-width="0.56" stroke-linecap="round" opacity="0.44"/>
+      <circle cx="30" cy="13.2" r="1.01" fill="#f59e0b"/>
+      <text x="68" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="30" font-weight="700" letter-spacing="-0.5" fill="#ffffff">RigaCap</text>
+    </svg>
+  </div>
+  <h1>Signal Intelligence:<br>How RigaCap Reads the Market</h1>
+  <p class="subtitle">
+    A Complete Technical Guide to Our Trading Signal Pipeline &mdash;
+    From Raw Data to Portfolio Execution
+  </p>
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="value">6,500+</div>
+      <div class="label">Stocks Scanned</div>
+    </div>
+    <div class="hero-stat">
+      <div class="value">7</div>
+      <div class="label">Market Regimes</div>
+    </div>
+    <div class="hero-stat">
+      <div class="value">5 min</div>
+      <div class="label">Intraday Monitoring</div>
+    </div>
+    <div class="hero-stat">
+      <div class="value">12%</div>
+      <div class="label">Trailing Stop</div>
+    </div>
+  </div>
+  <div class="date">Confidential &mdash; February 2026</div>
+  <div class="version">v1.0.0 &middot; 3-Factor Ensemble &middot; 7-Regime Intelligence</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TABLE OF CONTENTS + EXECUTIVE SUMMARY                         -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2 style="margin-top:0;">Table of Contents</h2>
+  <div class="toc">
+    <div class="toc-item toc-section"><span class="toc-title">Data &amp; Indicators</span></div>
+    <div class="toc-item"><span class="toc-title">1. Data Acquisition Pipeline</span><span class="toc-page">3</span></div>
+    <div class="toc-item"><span class="toc-title">2. Technical Indicator Engine</span><span class="toc-page">4</span></div>
+
+    <div class="toc-item toc-section"><span class="toc-title">Signal Generation</span></div>
+    <div class="toc-item"><span class="toc-title">3. The Ensemble Signal &mdash; Three-Factor Entry</span><span class="toc-page">5</span></div>
+    <div class="toc-item"><span class="toc-title">4. Market Regime Intelligence</span><span class="toc-page">7</span></div>
+
+    <div class="toc-item toc-section"><span class="toc-title">Execution &amp; Monitoring</span></div>
+    <div class="toc-item"><span class="toc-title">5. Intraday Monitoring (Every 5 Minutes)</span><span class="toc-page">9</span></div>
+    <div class="toc-item"><span class="toc-title">6. Position Management &amp; Sizing</span><span class="toc-page">10</span></div>
+
+    <div class="toc-item toc-section"><span class="toc-title">Operations &amp; Validation</span></div>
+    <div class="toc-item"><span class="toc-title">7. Alert &amp; Communication Pipeline</span><span class="toc-page">11</span></div>
+    <div class="toc-item"><span class="toc-title">8. Walk-Forward Validation</span><span class="toc-page">13</span></div>
+  </div>
+
+  <div class="gold-divider"></div>
+
+  <div class="no-break">
+  <h2>Executive Summary</h2>
+  <p>
+    RigaCap's signal intelligence pipeline transforms raw market data from 6,500+ US equities into
+    high-conviction trading signals through a three-pillar approach:
+  </p>
+  <div class="feature-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+    <div class="feature-card" style="border-left-color: var(--gold);">
+      <h4>DWAP Timing</h4>
+      <p>Proprietary breakout detection from 200-day volume-weighted accumulation zones.</p>
+    </div>
+    <div class="feature-card" style="border-left-color: var(--green);">
+      <h4>Momentum Quality</h4>
+      <p>Multi-timeframe momentum ranking with volatility-adjusted composite scoring.</p>
+    </div>
+    <div class="feature-card" style="border-left-color: var(--navy);">
+      <h4>Regime Intelligence</h4>
+      <p>7-state market classifier that adapts strategy parameters to current conditions.</p>
+    </div>
+  </div>
+  <p>
+    Every signal must pass all three filters before entry. Once invested, positions are monitored
+    every 5 minutes during market hours with adaptive trailing stops. The entire pipeline has been
+    validated through 5-year walk-forward testing with zero hindsight bias, producing
+    <strong>+289% cumulative return</strong> (31% annualized).
+  </p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 1: DATA ACQUISITION PIPELINE                          -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>1. Data Acquisition Pipeline</h2>
+  <p>
+    The pipeline begins with a comprehensive stock universe spanning NASDAQ and NYSE exchanges.
+    Every trading day, the system fetches, filters, and enriches price data to feed the signal engine.
+  </p>
+
+  <h3>Stock Universe</h3>
+  <table>
+    <thead>
+      <tr><th>Parameter</th><th>Value</th><th>Source</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Total Universe</strong></td><td>~6,500 symbols</td><td>NASDAQ + NYSE exchanges</td></tr>
+      <tr><td><strong>Minimum Price</strong></td><td>$20</td><td><code>config.MIN_PRICE</code></td></tr>
+      <tr><td><strong>Minimum Volume</strong></td><td>500,000 shares/day</td><td><code>config.MIN_VOLUME</code></td></tr>
+      <tr><td><strong>Lookback Period</strong></td><td>5 years OHLCV</td><td><code>fetch_data(period="5y")</code></td></tr>
+      <tr><td><strong>Data Source</strong></td><td>Alpaca SIP (primary) + yfinance (fallback)</td><td>Split/dividend adjusted, consolidated feed</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Exclusion Rules</h3>
+  <p>The following instrument types are automatically excluded from the universe:</p>
+  <ul>
+    <li><strong>Leveraged ETFs:</strong> TQQQ, SQQQ, SSO, SDS, QLD, QID, TNA, TZA</li>
+    <li><strong>Inverse Products:</strong> SPXU, UVXY, SVXY</li>
+    <li><strong>Volatility Products:</strong> VXX</li>
+    <li><strong>Sector-leveraged:</strong> FAS, FAZ</li>
+  </ul>
+
+  <h3>Fetch Architecture</h3>
+  <table>
+    <thead>
+      <tr><th>Parameter</th><th>Value</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Batch Size</strong></td><td>100 symbols (Alpaca) / 10 (yfinance)</td><td>Alpaca supports larger batches</td></tr>
+      <tr><td><strong>Max Retries</strong></td><td>2 per batch</td><td>Handle transient failures</td></tr>
+      <tr><td><strong>Batch Delay</strong></td><td>1.5 seconds</td><td>Rate limit compliance</td></tr>
+      <tr><td><strong>Retry Delay</strong></td><td>3.0 seconds (2&times; batch delay)</td><td>Backoff on failure</td></tr>
+      <tr><td><strong>Required Symbols</strong></td><td>SPY, ^VIX</td><td>Always fetched for regime detection</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    After the initial 5-year fetch, subsequent updates use <strong>incremental mode</strong> &mdash;
+    only downloading prices since the last cached date. This reduces daily update time from minutes to seconds.
+    All price data is persisted to S3 as consolidated parquet files for Lambda cold-start recovery.
+  </p>
+
+  <!-- SVG 1: Data Pipeline Flowchart -->
+  <div class="svg-diagram no-break">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 340" width="700" height="340">
+      <!-- Background -->
+      <rect width="700" height="340" rx="12" fill="#f8fafc"/>
+
+      <!-- Title -->
+      <text x="350" y="28" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#172554">Data Pipeline Flow</text>
+
+      <!-- Box 1: Universe -->
+      <rect x="270" y="44" width="160" height="44" rx="8" fill="#172554"/>
+      <text x="350" y="63" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#ffffff">Stock Universe</text>
+      <text x="350" y="78" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="rgba(255,255,255,0.6)">~6,500 NASDAQ + NYSE</text>
+
+      <!-- Arrow 1 -->
+      <path d="M 350 88 L 350 108" stroke="#f59e0b" stroke-width="2" fill="none" marker-end="url(#arrowGold)"/>
+
+      <!-- Box 2: yfinance -->
+      <rect x="270" y="110" width="160" height="44" rx="8" fill="#172554"/>
+      <text x="350" y="129" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#ffffff">Dual-Source Fetch</text>
+      <text x="350" y="144" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="rgba(255,255,255,0.6)">Alpaca SIP (primary) + yfinance (fallback)</text>
+
+      <!-- Arrow 2 -->
+      <path d="M 350 154 L 350 174" stroke="#f59e0b" stroke-width="2" fill="none" marker-end="url(#arrowGold)"/>
+
+      <!-- Box 3: Indicators -->
+      <rect x="270" y="176" width="160" height="44" rx="8" fill="#172554"/>
+      <text x="350" y="195" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#ffffff">Indicator Engine</text>
+      <text x="350" y="210" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="rgba(255,255,255,0.6)">DWAP, MA, Momentum, Vol</text>
+
+      <!-- Arrow 3 - splits left and right -->
+      <path d="M 350 220 L 350 240" stroke="#f59e0b" stroke-width="2" fill="none"/>
+      <path d="M 350 240 L 180 240 L 180 260" stroke="#f59e0b" stroke-width="2" fill="none" marker-end="url(#arrowGold)"/>
+      <path d="M 350 240 L 520 240 L 520 260" stroke="#f59e0b" stroke-width="2" fill="none" marker-end="url(#arrowGold)"/>
+
+      <!-- Box 4a: S3 Cache -->
+      <rect x="100" y="262" width="160" height="44" rx="8" fill="#1e40af"/>
+      <text x="180" y="281" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#ffffff">S3 Parquet Cache</text>
+      <text x="180" y="296" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="rgba(255,255,255,0.6)">Cold-start recovery</text>
+
+      <!-- Box 4b: Dashboard -->
+      <rect x="440" y="262" width="160" height="44" rx="8" fill="#1e40af"/>
+      <text x="520" y="281" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#ffffff">Dashboard JSON</text>
+      <text x="520" y="296" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="rgba(255,255,255,0.6)">CDN &rarr; Frontend</text>
+
+      <!-- Side annotations -->
+      <rect x="20" y="110" width="100" height="30" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+      <text x="70" y="129" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" font-weight="500" fill="#92400e">5yr OHLCV</text>
+      <path d="M 120 125 L 268 125" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4 3"/>
+
+      <rect x="580" y="176" width="100" height="30" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+      <text x="630" y="195" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" font-weight="500" fill="#92400e">6 indicators</text>
+      <path d="M 580 191 L 432 191" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4 3"/>
+
+      <!-- Arrow marker -->
+      <defs>
+        <marker id="arrowGold" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <path d="M 0 0 L 8 3 L 0 6 Z" fill="#f59e0b"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 2: TECHNICAL INDICATOR ENGINE                         -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>2. Technical Indicator Engine</h2>
+  <p>
+    Six core indicators are computed for every stock in the universe. These indicators feed both the
+    DWAP timing signal and the momentum quality ranking.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Indicator</th><th>Formula</th><th>Period</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>DWAP</strong></td>
+        <td><code>&Sigma;(price &times; volume) / &Sigma;(volume)</code></td>
+        <td>200 days</td>
+        <td>Volume-weighted accumulation zone</td>
+      </tr>
+      <tr>
+        <td><strong>MA20, MA50, MA200</strong></td>
+        <td>Simple Moving Average</td>
+        <td>20 / 50 / 200 days</td>
+        <td>Trend confirmation, quality filter</td>
+      </tr>
+      <tr>
+        <td><strong>Short Momentum</strong></td>
+        <td><code>(price / price[t-10] - 1) &times; 100</code></td>
+        <td>10 days</td>
+        <td>Short-term price acceleration</td>
+      </tr>
+      <tr>
+        <td><strong>Long Momentum</strong></td>
+        <td><code>(price / price[t-60] - 1) &times; 100</code></td>
+        <td>60 days</td>
+        <td>Sustained trend strength</td>
+      </tr>
+      <tr>
+        <td><strong>Volatility</strong></td>
+        <td><code>std(returns, 20) &times; &radic;252 &times; 100</code></td>
+        <td>20 days</td>
+        <td>Risk-adjusted scoring penalty</td>
+      </tr>
+      <tr>
+        <td><strong>Distance from High</strong></td>
+        <td><code>(price / max(price, 50d) - 1) &times; 100</code></td>
+        <td>50 days</td>
+        <td>Breakout proximity detection</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <p><strong>Lazy Computation:</strong> Indicators are computed on-demand and cached in the
+    <code>data_cache</code> dictionary. The first scan computes all indicators; subsequent scans
+    reuse cached values unless data is refreshed.</p>
+  </div>
+
+  <!-- SVG 2: Stylized Price Chart with Indicator Overlays -->
+  <div class="svg-diagram no-break">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 280" width="700" height="280">
+      <rect width="700" height="280" rx="12" fill="#0f172a"/>
+
+      <!-- Title -->
+      <text x="350" y="24" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#e2e8f0">Indicator Overlay &mdash; Stylized Price Chart</text>
+
+      <!-- Y-axis labels -->
+      <text x="38" y="60" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="9" fill="#64748b">$180</text>
+      <text x="38" y="110" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="9" fill="#64748b">$150</text>
+      <text x="38" y="160" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="9" fill="#64748b">$120</text>
+      <text x="38" y="210" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="9" fill="#64748b">$90</text>
+      <text x="38" y="248" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="9" fill="#64748b">$70</text>
+
+      <!-- Grid lines -->
+      <line x1="45" y1="56" x2="680" y2="56" stroke="#1e293b" stroke-width="0.5"/>
+      <line x1="45" y1="106" x2="680" y2="106" stroke="#1e293b" stroke-width="0.5"/>
+      <line x1="45" y1="156" x2="680" y2="156" stroke="#1e293b" stroke-width="0.5"/>
+      <line x1="45" y1="206" x2="680" y2="206" stroke="#1e293b" stroke-width="0.5"/>
+
+      <!-- Price line (stylized uptrend with pullbacks) -->
+      <polyline points="50,230 80,225 110,218 140,210 170,195 200,200 230,185 260,175 290,180 320,160 350,155 380,140 410,135 440,125 470,120 500,100 530,90 560,85 590,70 620,65 650,60 670,55"
+        fill="none" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+
+      <!-- MA200 (DWAP proxy - smoother, below price) -->
+      <polyline points="50,238 80,235 110,230 140,225 170,218 200,215 230,210 260,205 290,200 320,195 350,188 380,180 410,175 440,168 470,160 500,152 530,145 560,138 590,130 620,122 650,115 670,110"
+        fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6 3" opacity="0.7"/>
+
+      <!-- MA50 (smoother) -->
+      <polyline points="50,233 80,228 110,222 140,216 170,205 200,206 230,195 260,188 290,186 320,175 350,168 380,155 410,150 440,142 470,135 500,120 530,110 560,105 590,92 620,85 650,78 670,72"
+        fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4 2" opacity="0.6"/>
+
+      <!-- DWAP crossover annotation -->
+      <circle cx="320" cy="160" r="6" fill="none" stroke="#22c55e" stroke-width="2"/>
+      <line x1="320" y1="150" x2="320" y2="130" stroke="#22c55e" stroke-width="1"/>
+      <rect x="275" y="117" width="90" height="16" rx="4" fill="#22c55e" opacity="0.9"/>
+      <text x="320" y="128" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="600" fill="#ffffff">DWAP +5% Cross</text>
+
+      <!-- 50-day high zone shading -->
+      <rect x="530" y="50" width="140" height="20" rx="4" fill="#f59e0b" opacity="0.08"/>
+      <text x="600" y="44" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" fill="#f59e0b" opacity="0.8">50-Day High Zone</text>
+
+      <!-- Legend -->
+      <line x1="60" y1="268" x2="80" y2="268" stroke="#ffffff" stroke-width="2"/>
+      <text x="85" y="271" font-family="Inter, sans-serif" font-size="9" fill="#94a3b8">Price</text>
+
+      <line x1="140" y1="268" x2="160" y2="268" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6 3"/>
+      <text x="165" y="271" font-family="Inter, sans-serif" font-size="9" fill="#94a3b8">DWAP (200d)</text>
+
+      <line x1="255" y1="268" x2="275" y2="268" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4 2"/>
+      <text x="280" y="271" font-family="Inter, sans-serif" font-size="9" fill="#94a3b8">MA50</text>
+
+      <circle cx="340" cy="268" r="4" fill="none" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="350" y="271" font-family="Inter, sans-serif" font-size="9" fill="#94a3b8">Crossover</text>
+    </svg>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 3: ENSEMBLE SIGNAL                                    -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>3. The Ensemble Signal &mdash; Three-Factor Entry</h2>
+  <p>
+    A stock must satisfy all three independent factors simultaneously before the system
+    generates a buy signal. This multi-confirmation approach dramatically reduces false signals
+    and ensures only the highest-conviction setups enter the portfolio.
+  </p>
+
+  <h3>Factor 1: DWAP Timing</h3>
+  <p>
+    The Daily Weighted Average Price (DWAP) captures the average cost basis of all traders over
+    200 trading days, weighted by volume. When price breaks above DWAP by 5%, it signals that
+    the stock has cleared its accumulation zone with conviction.
+  </p>
+  <div class="formula-block no-break">
+    <span class="var">DWAP</span> <span class="op">=</span>
+    <span class="var">&Sigma;(price &times; volume)</span><sub style="font-size:0.65em">200d</sub>
+    <span class="op"> / </span>
+    <span class="var">&Sigma;(volume)</span><sub style="font-size:0.65em">200d</sub>
+    <br>
+    <span class="keyword" style="color:#86efac;">BUY</span> when
+    <span class="var">price</span> <span class="op">&gt;</span>
+    <span class="var">DWAP</span> <span class="op">&times;</span> <span class="number">1.05</span>
+  </div>
+
+  <h3>Factor 2: Momentum Quality</h3>
+  <p>
+    Stocks passing the DWAP filter are ranked by a composite momentum score that rewards short-term
+    acceleration and sustained strength, while penalizing excessive volatility:
+  </p>
+  <div class="formula-block no-break">
+    <span class="var">composite</span> <span class="op">=</span>
+    <span class="var">short_mom</span><sub style="font-size:0.65em">10d</sub> <span class="op">&times;</span> <span class="number">0.5</span>
+    <span class="op"> + </span>
+    <span class="var">long_mom</span><sub style="font-size:0.65em">60d</sub> <span class="op">&times;</span> <span class="number">0.3</span>
+    <span class="op"> &minus; </span>
+    <span class="var">volatility</span><sub style="font-size:0.65em">20d</sub> <span class="op">&times;</span> <span class="number">0.2</span>
+  </div>
+
+  <h3>Factor 3: Confirmation Filters</h3>
+  <table>
+    <thead>
+      <tr><th>Filter</th><th>Condition</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Uptrend</strong></td><td>Price &gt; MA20 AND Price &gt; MA50</td><td>Confirms healthy trend structure</td></tr>
+      <tr><td><strong>Breakout</strong></td><td>Within 5% of 50-day high</td><td>Near breakout zone, not exhausted</td></tr>
+      <tr><td><strong>Volume</strong></td><td>&ge; 500,000 shares/day</td><td>Sufficient liquidity</td></tr>
+      <tr><td><strong>Price</strong></td><td>&ge; $20</td><td>Filters penny stocks</td></tr>
+      <tr><td><strong>Sector Cap</strong></td><td>Max 5 per sector</td><td>Prevents sector concentration</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout-gold callout no-break">
+    <p><strong>Strong Signal Bonus:</strong> Stocks with volume &ge; 1.5&times; their 200-day average
+    AND price above both MA50 and MA200 (healthy trend) are marked as "strong" signals &mdash;
+    indicating institutional participation.</p>
+  </div>
+
+  <!-- SVG 3: Ensemble Venn Diagram -->
+  <div class="svg-diagram no-break">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 320" width="700" height="320">
+      <rect width="700" height="320" rx="12" fill="#f8fafc"/>
+
+      <text x="350" y="28" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#172554">Three-Factor Ensemble Convergence</text>
+
+      <!-- Circle 1: DWAP Timing (left) -->
+      <circle cx="270" cy="170" r="110" fill="#f59e0b" opacity="0.12" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="195" y="115" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#92400e">DWAP Timing</text>
+      <text x="195" y="132" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="#92400e" opacity="0.7">Price &gt; DWAP &times; 1.05</text>
+
+      <!-- Circle 2: Momentum Quality (right) -->
+      <circle cx="430" cy="170" r="110" fill="#22c55e" opacity="0.12" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="505" y="115" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#166534">Momentum Quality</text>
+      <text x="505" y="132" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="#166534" opacity="0.7">Top composite rank</text>
+
+      <!-- Circle 3: Confirmation (bottom) -->
+      <circle cx="350" cy="230" r="110" fill="#172554" opacity="0.08" stroke="#172554" stroke-width="1.5"/>
+      <text x="350" y="300" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#172554">Confirmation</text>
+      <text x="350" y="315" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="#172554" opacity="0.7">Trend + Breakout + Volume</text>
+
+      <!-- Center intersection - BUY SIGNAL -->
+      <circle cx="350" cy="190" r="32" fill="#172554" opacity="0.9"/>
+      <text x="350" y="186" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-weight="800" fill="#f59e0b">ENSEMBLE</text>
+      <text x="350" y="199" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-weight="800" fill="#ffffff">BUY</text>
+
+      <!-- Pulsing ring effect -->
+      <circle cx="350" cy="190" r="38" fill="none" stroke="#f59e0b" stroke-width="1" opacity="0.4"/>
+      <circle cx="350" cy="190" r="44" fill="none" stroke="#f59e0b" stroke-width="0.5" opacity="0.2"/>
+    </svg>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 4: MARKET REGIME INTELLIGENCE                         -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>4. Market Regime Intelligence</h2>
+  <p>
+    The market regime classifier analyzes SPY price action, VIX levels, market breadth, and
+    new-highs data to classify the current environment into one of 7 distinct regimes.
+    Strategy parameters automatically adapt to each regime.
+  </p>
+
+  <h3>7 Regime Classifications</h3>
+  <div class="regime-grid no-break">
+    <div class="regime-badge" style="background:#dcfce7; color:#166534;">
+      <div class="name">Strong Bull</div>
+      SPY +5% above 200MA<br>VIX &lt; 40th percentile
+    </div>
+    <div class="regime-badge" style="background:#f0fdf4; color:#166534;">
+      <div class="name">Weak Bull</div>
+      SPY 0&ndash;10% above 200MA<br>Moderate volatility
+    </div>
+    <div class="regime-badge" style="background:#f5f3ff; color:#5b21b6;">
+      <div class="name">Rotating Bull</div>
+      SPY choppy, 1yr gain +5%<br>Sector rotation
+    </div>
+    <div class="regime-badge" style="background:#fef3c7; color:#92400e;">
+      <div class="name">Range-Bound</div>
+      SPY &plusmn;5% of 200MA<br>Flat 1-year return
+    </div>
+  </div>
+  <div class="regime-grid no-break" style="margin-top:0;">
+    <div class="regime-badge" style="background:#fff7ed; color:#9a3412;">
+      <div class="name">Weak Bear</div>
+      SPY &minus;15 to 0% vs 200MA<br>Elevated VIX
+    </div>
+    <div class="regime-badge" style="background:#fee2e2; color:#991b1b;">
+      <div class="name">Panic / Crash</div>
+      SPY &lt; &minus;10% vs 200MA<br>VIX &gt; 70th percentile
+    </div>
+    <div class="regime-badge" style="background:#ecfeff; color:#155e75;">
+      <div class="name">Recovery</div>
+      Bouncing from lows<br>SPY 0&ndash;15% above 50MA
+    </div>
+    <div class="regime-badge" style="background:#f1f5f9; color:#334155;">
+      <div class="name">+ Forecasting</div>
+      1&ndash;2 week transition<br>probability outlook
+    </div>
+  </div>
+
+  <h3>Scoring Weights</h3>
+  <p>Regime detection uses weighted scoring across condition indicators. Higher weights mean that indicator is more influential in regime classification:</p>
+  <table>
+    <thead>
+      <tr><th>Indicator</th><th>Weight</th><th>Role</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Long-term Trend</strong> (252d SPY return)</td><td>2.5&times;</td><td>Key differentiator: rotating bull vs range-bound</td></tr>
+      <tr><td><strong>SPY vs 200MA</strong></td><td>1.5&times;</td><td>Primary bull/bear boundary</td></tr>
+      <tr><td><strong>New Highs %</strong></td><td>1.5&times;</td><td>Breadth confirmation of trend</td></tr>
+      <tr><td><strong>Breadth %</strong> (above 50MA)</td><td>1.2&times;</td><td>Market participation width</td></tr>
+      <tr><td>VIX Percentile, Trend Strength, SPY vs 50MA</td><td>1.0&times;</td><td>Standard conditions</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Regime Parameter Adjustments</h3>
+  <table>
+    <thead>
+      <tr><th>Regime</th><th>Trailing Stop</th><th>Max Positions</th><th>Position Size</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      <tr><td style="color:#10B981"><strong>Strong Bull</strong></td><td>&minus;2% (tighter)</td><td>+1</td><td>+2%</td><td>Stay invested</td></tr>
+      <tr><td style="color:#84CC16"><strong>Weak Bull</strong></td><td>No change</td><td>No change</td><td>No change</td><td>Stay invested</td></tr>
+      <tr><td style="color:#8B5CF6"><strong>Rotating Bull</strong></td><td>+1% (wider)</td><td>No change</td><td>No change</td><td>Stay invested</td></tr>
+      <tr><td style="color:#F59E0B"><strong>Range-Bound</strong></td><td>No change</td><td>&minus;1</td><td>No change</td><td>Tighten stops</td></tr>
+      <tr><td style="color:#F97316"><strong>Weak Bear</strong></td><td>+3% (wider)</td><td>&minus;2</td><td>&minus;3%</td><td>Reduce exposure</td></tr>
+      <tr><td style="color:#EF4444"><strong>Panic/Crash</strong></td><td>+5% (widest)</td><td>&minus;3</td><td>&minus;5%</td><td>Go to cash</td></tr>
+      <tr><td style="color:#06B6D4"><strong>Recovery</strong></td><td>+2%</td><td>No change</td><td>No change</td><td>Gradual re-entry</td></tr>
+    </tbody>
+  </table>
+
+  <!-- SVG 4: Regime Spectrum Bar -->
+  <div class="svg-diagram no-break">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 130" width="700" height="130">
+      <rect width="700" height="130" rx="12" fill="#f8fafc"/>
+
+      <text x="350" y="22" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#172554">Market Regime Spectrum</text>
+
+      <!-- Spectrum bar -->
+      <rect x="30" y="38" width="91" height="32" rx="6" ry="6" fill="#10B981"/>
+      <rect x="121" y="38" width="91" height="32" fill="#84CC16"/>
+      <rect x="212" y="38" width="91" height="32" fill="#8B5CF6"/>
+      <rect x="303" y="38" width="91" height="32" fill="#F59E0B"/>
+      <rect x="394" y="38" width="91" height="32" fill="#F97316"/>
+      <rect x="485" y="38" width="91" height="32" fill="#EF4444"/>
+      <rect x="576" y="38" width="94" height="32" rx="6" ry="6" fill="#06B6D4"/>
+
+      <!-- Labels on bar -->
+      <text x="76" y="58" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="700" fill="#ffffff">Strong Bull</text>
+      <text x="167" y="58" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="700" fill="#ffffff">Weak Bull</text>
+      <text x="258" y="58" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="700" fill="#ffffff">Rotating</text>
+      <text x="349" y="58" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="700" fill="#ffffff">Range</text>
+      <text x="440" y="58" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="700" fill="#ffffff">Weak Bear</text>
+      <text x="531" y="58" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="700" fill="#ffffff">Panic</text>
+      <text x="623" y="58" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="700" fill="#ffffff">Recovery</text>
+
+      <!-- Parameter annotations below -->
+      <text x="76" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">stop &minus;2%</text>
+      <text x="76" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">pos +1</text>
+
+      <text x="349" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">pos &minus;1</text>
+
+      <text x="440" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">stop +3%</text>
+      <text x="440" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">pos &minus;2</text>
+
+      <text x="531" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">stop +5%</text>
+      <text x="531" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">GO TO CASH</text>
+
+      <!-- Risk gradient arrow -->
+      <text x="30" y="120" font-family="Inter, sans-serif" font-size="9" font-weight="600" fill="#22c55e">LOW RISK</text>
+      <line x1="100" y1="117" x2="590" y2="117" stroke="#e2e8f0" stroke-width="1"/>
+      <path d="M 100 117 L 590 117" stroke="url(#riskGrad)" stroke-width="2"/>
+      <text x="670" y="120" text-anchor="end" font-family="Inter, sans-serif" font-size="9" font-weight="600" fill="#ef4444">HIGH RISK</text>
+
+      <defs>
+        <linearGradient id="riskGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#22c55e"/>
+          <stop offset="50%" stop-color="#f59e0b"/>
+          <stop offset="100%" stop-color="#ef4444"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  </div>
+
+  <h3>Transition Forecasting</h3>
+  <p>
+    Beyond static classification, the regime engine computes <strong>indicator trajectories</strong>
+    to predict where the market is heading in the next 1&ndash;2 weeks:
+  </p>
+  <ul>
+    <li><strong>VIX Delta (5-day):</strong> Rising VIX boosts bearish regime probabilities</li>
+    <li><strong>Trend Acceleration:</strong> Compares recent 5-day return vs prior 5-day return</li>
+    <li><strong>200MA Proximity:</strong> Within 2% of 200MA triggers higher transition uncertainty</li>
+    <li><strong>Sharp Moves:</strong> 5-day returns exceeding &plusmn;5% boost crash/recovery probabilities</li>
+  </ul>
+  <p>
+    The forecast produces a <strong>recommended action</strong> ranging from
+    <code>stay_invested</code> &rarr; <code>tighten_stops</code> &rarr; <code>reduce_exposure</code> &rarr; <code>go_to_cash</code>.
+  </p>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 5: INTRADAY MONITORING                                -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>5. Intraday Monitoring (Every 5 Minutes)</h2>
+  <p>
+    Once positions are entered, the intraday monitor checks live prices every 5 minutes during
+    market hours. This enables rapid response to trailing stop hits and regime-driven exits.
+  </p>
+
+  <h3>Schedule</h3>
+  <table>
+    <thead>
+      <tr><th>Parameter</th><th>Value</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Hours</strong></td><td>Monday&ndash;Friday, 9:00&ndash;15:55 ET</td></tr>
+      <tr><td><strong>Interval</strong></td><td>Every 5 minutes</td></tr>
+      <tr><td><strong>Price Source</strong></td><td>Alpaca latest quote (SIP) / yfinance fallback</td></tr>
+      <tr><td><strong>Alert Deduplication</strong></td><td><code>(position_id, action, date)</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Trailing Stop Mechanics</h3>
+  <p>The trailing stop is calculated from the <strong>high water mark</strong> (HWM) &mdash; the highest price since entry, not the entry price itself:</p>
+
+  <div class="formula-block no-break">
+    <span class="var">HWM</span> <span class="op">=</span>
+    <span class="keyword" style="color:#86efac;">max</span>(<span class="var">entry_price</span>,
+    <span class="var">stored_highest</span>, <span class="var">current_price</span>)
+    <br>
+    <span class="var">stop_level</span> <span class="op">=</span>
+    <span class="var">HWM</span> <span class="op">&times;</span>
+    (<span class="number">1</span> <span class="op">&minus;</span> <span class="number">0.12</span>)
+    <br><br>
+    <span class="keyword" style="color:#ef4444;">SELL</span> when
+    <span class="var">price</span> <span class="op">&le;</span>
+    <span class="var">stop_level</span>
+    &nbsp;&nbsp;&nbsp;
+    <span class="keyword" style="color:#f59e0b;">WARNING</span> when
+    distance <span class="op">&lt;</span> <span class="number">3%</span>
+  </div>
+
+  <h3>Exit Priority</h3>
+  <ol style="padding-left: 1.4rem; margin-bottom: 0.6rem;">
+    <li style="font-size: 0.82rem; margin-bottom: 0.3rem;"><strong>Regime Exit (go_to_cash):</strong> Immediate sell regardless of P&L &mdash; capital preservation</li>
+    <li style="font-size: 0.82rem; margin-bottom: 0.3rem;"><strong>Trailing Stop Hit:</strong> Price &le; HWM &times; 0.88 &mdash; overrides regime warnings</li>
+    <li style="font-size: 0.82rem; margin-bottom: 0.3rem;"><strong>Warning Zone:</strong> Within 3% of stop level &mdash; email alert, no action</li>
+    <li style="font-size: 0.82rem; margin-bottom: 0.3rem;"><strong>Regime Warning:</strong> reduce_exposure or tighten_stops &mdash; email alert</li>
+  </ol>
+
+  <!-- SVG 5: Trailing Stop Visualization -->
+  <div class="svg-diagram no-break">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 260" width="700" height="260">
+      <rect width="700" height="260" rx="12" fill="#0f172a"/>
+
+      <text x="350" y="22" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#e2e8f0">Trailing Stop &mdash; High Water Mark Staircase</text>
+
+      <!-- Price line -->
+      <polyline points="50,200 90,190 130,175 170,160 210,155 250,140 290,145 330,130 370,120 410,105 450,110 490,115 530,125 560,140 580,155"
+        fill="none" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+
+      <!-- HWM staircase -->
+      <polyline points="50,200 90,190 130,175 170,160 210,155 250,140 290,140 330,130 370,120 410,105 450,105 490,105 530,105 560,105 580,105"
+        fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 2"/>
+
+      <!-- Stop level (88% of HWM) -->
+      <polyline points="50,216 90,207 130,193 170,180 210,176 250,163 290,163 330,155 370,147 410,133 450,133 490,133 530,133 560,133 580,133"
+        fill="none" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="6 3"/>
+
+      <!-- Warning zone (shaded) -->
+      <polygon points="410,133 450,133 490,133 530,133 560,133 560,140 530,140 530,125 490,115 450,110 410,105"
+        fill="#ef4444" opacity="0.08"/>
+
+      <!-- Entry marker -->
+      <circle cx="50" cy="200" r="5" fill="#22c55e"/>
+      <text x="50" y="220" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="600" fill="#22c55e">ENTRY</text>
+
+      <!-- HWM peak marker -->
+      <circle cx="410" cy="105" r="5" fill="#f59e0b"/>
+      <text x="410" y="95" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="600" fill="#f59e0b">HWM PEAK</text>
+
+      <!-- Stop hit marker -->
+      <circle cx="560" cy="140" r="5" fill="#ef4444"/>
+      <line x1="560" y1="140" x2="560" y2="133" stroke="#ef4444" stroke-width="1"/>
+      <text x="580" y="163" text-anchor="start" font-family="Inter, sans-serif" font-size="8" font-weight="600" fill="#ef4444">STOP HIT</text>
+
+      <!-- Warning zone label -->
+      <text x="490" y="125" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#ef4444" opacity="0.7">Warning Zone &lt;3%</text>
+
+      <!-- Legend -->
+      <line x1="50" y1="248" x2="70" y2="248" stroke="#ffffff" stroke-width="2"/>
+      <text x="75" y="251" font-family="Inter, sans-serif" font-size="9" fill="#94a3b8">Price</text>
+
+      <line x1="140" y1="248" x2="160" y2="248" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 2"/>
+      <text x="165" y="251" font-family="Inter, sans-serif" font-size="9" fill="#94a3b8">HWM (ratchets up)</text>
+
+      <line x1="300" y1="248" x2="320" y2="248" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="6 3"/>
+      <text x="325" y="251" font-family="Inter, sans-serif" font-size="9" fill="#94a3b8">Stop Level (HWM &times; 0.88)</text>
+    </svg>
+  </div>
+
+  <h3>Intraday DWAP Crossover Detection</h3>
+  <p>
+    The monitor also watches stocks on the <strong>dashboard watchlist</strong> (stocks approaching
+    the DWAP threshold). If a watchlist stock crosses DWAP +5% intraday, the system:
+  </p>
+  <ul>
+    <li>Adds the stock to the dashboard as a fresh intraday signal</li>
+    <li>Removes it from the watchlist</li>
+    <li>Sends intraday signal alert emails to subscribed users (skipping users who already hold the stock)</li>
+    <li>Updates the S3 dashboard JSON in real-time</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 6: POSITION MANAGEMENT                                -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>6. Position Management &amp; Sizing</h2>
+  <p>
+    The model portfolio service maintains two parallel portfolios &mdash; live (intraday monitoring)
+    and walk-forward (biweekly rebalancing) &mdash; plus three ghost portfolios for comparison.
+  </p>
+
+  <h3>Portfolio Parameters</h3>
+  <div class="metrics-grid no-break">
+    <div class="metric-card">
+      <div class="value gold">6</div>
+      <div class="label">Max Positions</div>
+    </div>
+    <div class="metric-card">
+      <div class="value gold">15%</div>
+      <div class="label">Position Size</div>
+    </div>
+    <div class="metric-card">
+      <div class="value gold">12%</div>
+      <div class="label">Trailing Stop</div>
+    </div>
+    <div class="metric-card">
+      <div class="value gold">14d</div>
+      <div class="label">Rebalance Period</div>
+    </div>
+  </div>
+
+  <h3>Entry Logic</h3>
+  <ul>
+    <li>Read fresh ensemble signals from dashboard cache (S3 JSON)</li>
+    <li>Filter to <code>is_fresh = true</code> only, skip symbols already held</li>
+    <li>Sort by ensemble_score (highest first)</li>
+    <li>Enter up to <code>MAX_POSITIONS - open_count</code> new positions</li>
+    <li>Allocate 15% of <strong>current cash</strong> per position (not starting capital)</li>
+    <li>Minimum allocation: $100</li>
+  </ul>
+
+  <h3>Exit Paths</h3>
+  <table>
+    <thead>
+      <tr><th>Exit Reason</th><th>Trigger</th><th>Portfolio</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong><code>trailing_stop</code></strong></td><td>Price &le; HWM &times; 0.88</td><td>Both live &amp; WF</td></tr>
+      <tr><td><strong><code>regime_exit</code></strong></td><td><code>go_to_cash</code> recommendation</td><td>Live only</td></tr>
+      <tr><td><strong><code>rebalance_exit</code></strong></td><td>Biweekly period boundary</td><td>Walk-forward only</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout no-break">
+    <p><strong>Biweekly Boundaries:</strong> Walk-forward periods are 14-day intervals anchored to
+    February 1, 2026 (<code>WF_ANCHOR_DATE</code>). At each boundary, all open WF positions are
+    force-closed and fresh signals are entered for the new period.</p>
+  </div>
+
+  <!-- SVG 6: Position Lifecycle Flow -->
+  <div class="svg-diagram no-break">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 170" width="700" height="170">
+      <rect width="700" height="170" rx="12" fill="#f8fafc"/>
+
+      <text x="350" y="22" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#172554">Position Lifecycle</text>
+
+      <!-- Signal box -->
+      <rect x="20" y="50" width="100" height="50" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="70" y="72" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-weight="700" fill="#92400e">Ensemble</text>
+      <text x="70" y="86" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-weight="700" fill="#92400e">Signal</text>
+
+      <!-- Arrow -->
+      <path d="M 120 75 L 150 75" stroke="#f59e0b" stroke-width="2" fill="none" marker-end="url(#arrowGold2)"/>
+
+      <!-- Entry box -->
+      <rect x="152" y="50" width="100" height="50" rx="8" fill="#dcfce7" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="202" y="72" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-weight="700" fill="#166534">Entry</text>
+      <text x="202" y="86" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="#166534">15% allocation</text>
+
+      <!-- Arrow -->
+      <path d="M 252 75 L 282 75" stroke="#f59e0b" stroke-width="2" fill="none" marker-end="url(#arrowGold2)"/>
+
+      <!-- HWM Tracking box -->
+      <rect x="284" y="50" width="120" height="50" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="344" y="72" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-weight="700" fill="#1e40af">HWM Tracking</text>
+      <text x="344" y="86" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="#1e40af">5-min updates</text>
+
+      <!-- Split into 3 exit paths -->
+      <path d="M 404 60 L 460 40" stroke="#f59e0b" stroke-width="1.5" fill="none" marker-end="url(#arrowGold2)"/>
+      <path d="M 404 75 L 460 75" stroke="#f59e0b" stroke-width="1.5" fill="none" marker-end="url(#arrowGold2)"/>
+      <path d="M 404 90 L 460 110" stroke="#f59e0b" stroke-width="1.5" fill="none" marker-end="url(#arrowGold2)"/>
+
+      <!-- Exit box 1: Trailing Stop -->
+      <rect x="462" y="22" width="120" height="36" rx="6" fill="#fee2e2" stroke="#ef4444" stroke-width="1"/>
+      <text x="522" y="38" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" font-weight="600" fill="#991b1b">Trailing Stop</text>
+      <text x="522" y="50" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" fill="#991b1b">HWM &times; 0.88</text>
+
+      <!-- Exit box 2: Regime Exit -->
+      <rect x="462" y="62" width="120" height="28" rx="6" fill="#fff7ed" stroke="#f97316" stroke-width="1"/>
+      <text x="522" y="80" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" font-weight="600" fill="#9a3412">Regime Exit</text>
+
+      <!-- Exit box 3: Rebalance -->
+      <rect x="462" y="96" width="120" height="28" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+      <text x="522" y="114" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" font-weight="600" fill="#92400e">Rebalance Exit</text>
+
+      <!-- All exits arrow to CLOSED -->
+      <path d="M 582 40 L 620 75" stroke="#64748b" stroke-width="1" fill="none"/>
+      <path d="M 582 76 L 620 76" stroke="#64748b" stroke-width="1" fill="none"/>
+      <path d="M 582 110 L 620 78" stroke="#64748b" stroke-width="1" fill="none"/>
+
+      <rect x="622" y="58" width="60" height="36" rx="8" fill="#172554"/>
+      <text x="652" y="80" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" font-weight="700" fill="#ffffff">CLOSED</text>
+
+      <!-- Social content annotation -->
+      <text x="652" y="108" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#64748b">&ge;5% P&L &rarr; social post</text>
+
+      <defs>
+        <marker id="arrowGold2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <path d="M 0 0 L 8 3 L 0 6 Z" fill="#f59e0b"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+
+  <h3>Ghost Portfolios (Parallel Universes)</h3>
+  <p>Three alternative portfolios run alongside with different parameters to prove the chosen configuration:</p>
+  <table>
+    <thead>
+      <tr><th>Ghost</th><th>Trailing Stop</th><th>Max Positions</th><th>Position Size</th><th>Style</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Aggressive</strong></td><td>8%</td><td>8</td><td>12%</td><td>Tight stops, more positions</td></tr>
+      <tr><td><strong>Conservative</strong></td><td>18%</td><td>4</td><td>20%</td><td>Wide stops, fewer positions</td></tr>
+      <tr><td><strong>Top-3 Only</strong></td><td>12%</td><td>3</td><td>30%</td><td>Concentrated best picks</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 7: ALERT & COMMUNICATION PIPELINE                     -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>7. Alert &amp; Communication Pipeline</h2>
+  <p>
+    A coordinated set of scheduled jobs runs throughout each trading day, from pre-market
+    data refresh through nightly content generation. Every job is managed by APScheduler
+    with US Eastern timezone awareness.
+  </p>
+
+  <!-- SVG 7: Daily Schedule Timeline -->
+  <div class="svg-diagram no-break">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 250" width="700" height="250">
+      <rect width="700" height="250" rx="12" fill="#f8fafc"/>
+
+      <text x="350" y="22" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#172554">Daily Signal Pipeline Timeline (Eastern Time)</text>
+
+      <!-- Main timeline bar -->
+      <rect x="40" y="70" width="620" height="6" rx="3" fill="#e2e8f0"/>
+
+      <!-- Time markers and events -->
+      <!-- 7:00 AM - Health Check -->
+      <circle cx="60" cy="73" r="8" fill="#172554"/>
+      <text x="60" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" font-weight="600" fill="#172554">7:00</text>
+      <text x="60" y="100" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#374151">Ticker</text>
+      <text x="60" y="110" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#374151">Health</text>
+
+      <!-- 9:00 AM - Pre-market + Intraday Start -->
+      <circle cx="145" cy="73" r="8" fill="#22c55e"/>
+      <text x="145" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" font-weight="600" fill="#22c55e">9:00</text>
+      <text x="145" y="100" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#374151">Pre-market</text>
+      <text x="145" y="110" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#374151">+ Monitor</text>
+
+      <!-- 9:00-15:55 - Intraday zone -->
+      <rect x="145" y="60" width="215" height="26" rx="4" fill="#22c55e" opacity="0.08"/>
+      <text x="252" y="78" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#22c55e">Every 5 min: position monitor</text>
+
+      <!-- 4:00 PM - Market Close -->
+      <circle cx="360" cy="73" r="6" fill="#64748b"/>
+      <text x="360" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" font-weight="600" fill="#64748b">16:00</text>
+      <text x="360" y="100" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#64748b">Market</text>
+      <text x="360" y="110" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#64748b">Close</text>
+
+      <!-- 4:30 PM - Full Scan -->
+      <circle cx="410" cy="73" r="8" fill="#f59e0b"/>
+      <text x="410" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" font-weight="600" fill="#f59e0b">16:30</text>
+      <text x="410" y="100" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="600" fill="#92400e">Full Scan</text>
+      <text x="410" y="110" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" fill="#92400e">+ Dashboard</text>
+
+      <!-- 5:00 PM - Double Signal Check -->
+      <circle cx="465" cy="73" r="7" fill="#172554"/>
+      <text x="465" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" font-weight="600" fill="#172554">17:00</text>
+      <text x="465" y="100" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#374151">Double</text>
+      <text x="465" y="110" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#374151">Signal</text>
+
+      <!-- 6:00 PM - Daily Email -->
+      <circle cx="520" cy="73" r="8" fill="#3b82f6"/>
+      <text x="520" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" font-weight="600" fill="#3b82f6">18:00</text>
+      <text x="520" y="100" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="600" fill="#1e40af">Daily</text>
+      <text x="520" y="110" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="600" fill="#1e40af">Email</text>
+
+      <!-- 8:00 PM - Nightly WF -->
+      <circle cx="590" cy="73" r="7" fill="#8B5CF6"/>
+      <text x="590" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" font-weight="600" fill="#8B5CF6">20:00</text>
+      <text x="590" y="100" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#374151">Nightly WF</text>
+      <text x="590" y="110" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#374151">+ Social</text>
+
+      <!-- 9:00 PM - Email Failure Report -->
+      <circle cx="640" cy="73" r="6" fill="#64748b"/>
+      <text x="640" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" font-weight="600" fill="#64748b">21:00</text>
+      <text x="640" y="100" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#64748b">Failure</text>
+      <text x="640" y="110" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#64748b">Report</text>
+
+      <!-- Always-on jobs section -->
+      <rect x="40" y="130" width="620" height="32" rx="6" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="60" y="148" font-family="Inter, sans-serif" font-size="8" font-weight="600" fill="#64748b">ALWAYS ON:</text>
+      <text x="145" y="148" font-family="Inter, sans-serif" font-size="8" fill="#374151">Social publish (15 min)</text>
+      <text x="310" y="148" font-family="Inter, sans-serif" font-size="8" fill="#374151">Post notifications (hourly)</text>
+      <text x="495" y="148" font-family="Inter, sans-serif" font-size="8" fill="#374151">Reply scanner (4 hrs)</text>
+
+      <!-- Biweekly jobs -->
+      <rect x="40" y="170" width="620" height="32" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+      <text x="60" y="188" font-family="Inter, sans-serif" font-size="8" font-weight="600" fill="#92400e">BIWEEKLY:</text>
+      <text x="155" y="188" font-family="Inter, sans-serif" font-size="8" fill="#92400e">Strategy auto-analysis (Fri 18:30)</text>
+      <text x="410" y="188" font-family="Inter, sans-serif" font-size="8" fill="#92400e">Threads token refresh (Mon 03:00)</text>
+
+      <!-- Legend -->
+      <text x="40" y="225" font-family="Inter, sans-serif" font-size="8" fill="#64748b">
+        <tspan font-weight="600" fill="#22c55e">&#9679;</tspan> Market hours
+        &nbsp;&nbsp;
+        <tspan font-weight="600" fill="#f59e0b">&#9679;</tspan> Critical scan
+        &nbsp;&nbsp;
+        <tspan font-weight="600" fill="#3b82f6">&#9679;</tspan> Subscriber email
+        &nbsp;&nbsp;
+        <tspan font-weight="600" fill="#8B5CF6">&#9679;</tspan> Content generation
+        &nbsp;&nbsp;
+        <tspan font-weight="600" fill="#172554">&#9679;</tspan> Alert check
+      </text>
+    </svg>
+  </div>
+
+  <h3>Alert Types</h3>
+  <table>
+    <thead>
+      <tr><th>Alert</th><th>Trigger</th><th>Audience</th><th>Channel</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Daily Digest</strong></td>
+        <td>6 PM ET, trading days</td>
+        <td>All subscribers</td>
+        <td>Email + Push</td>
+      </tr>
+      <tr>
+        <td><strong>Sell Alert</strong></td>
+        <td>Trailing stop or regime exit</td>
+        <td>Position holders</td>
+        <td>Email + Push</td>
+      </tr>
+      <tr>
+        <td><strong>Warning Alert</strong></td>
+        <td>Within 3% of stop level</td>
+        <td>Position holders</td>
+        <td>Email + Push</td>
+      </tr>
+      <tr>
+        <td><strong>Double Signal</strong></td>
+        <td>DWAP + momentum crossover within 3 days</td>
+        <td>All subscribers</td>
+        <td>Email</td>
+      </tr>
+      <tr>
+        <td><strong>Intraday Signal</strong></td>
+        <td>Watchlist stock crosses DWAP +5%</td>
+        <td>Subscribers (not holding)</td>
+        <td>Email</td>
+      </tr>
+      <tr>
+        <td><strong>Ticker Health</strong></td>
+        <td>Data issues detected at 7 AM</td>
+        <td>Admin only</td>
+        <td>Email</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size: 0.78rem; color: var(--gray); margin-top: 0.4rem;">
+    <strong style="color: var(--navy);">Email Deliverability:</strong> All emails include SPF + DKIM + DMARC authentication,
+    RFC 8058 List-Unsubscribe headers for one-click unsubscription, and per-category preference controls.
+  </p>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 8: WALK-FORWARD VALIDATION                            -->
+<!-- ============================================================ -->
+<div class="content page-break">
+  <h2>8. Walk-Forward Validation</h2>
+  <p>
+    Walk-forward testing is the gold standard for trading system validation. Unlike traditional backtesting
+    which optimizes on all available data (introducing hindsight bias), walk-forward divides history into
+    sequential periods and tests forward into data the optimizer has never seen.
+  </p>
+
+  <h3>Methodology</h3>
+  <ul>
+    <li><strong>Period Length:</strong> Biweekly (14-day intervals, anchored Feb 1)</li>
+    <li><strong>Optimization:</strong> Uses only historical data up to each period boundary</li>
+    <li><strong>Trading:</strong> Enters fresh ensemble signals, force-closes at period end (<code>rebalance_exit</code>)</li>
+    <li><strong>Position Carry:</strong> Force-close outperforms carry-over (A/B tested)</li>
+    <li><strong>Max Symbols:</strong> 100 per period for computational efficiency</li>
+    <li><strong>Strategy:</strong> Ensemble (strategy_id: 5) &mdash; DWAP + Momentum + Regime</li>
+  </ul>
+
+  <div class="callout-green callout no-break">
+    <p><strong>Zero Hindsight Bias:</strong> At each biweekly boundary, the system knows nothing about
+    what happens next. Parameters are optimized on past data, then the system trades forward
+    into unseen market conditions. The 289% return is entirely out-of-sample.</p>
+  </div>
+
+  <h3>5-Year Results (2021&ndash;2026)</h3>
+  <table>
+    <thead>
+      <tr><th>Period</th><th>Return</th><th>Sharpe</th><th>Max Drawdown</th><th>Market Context</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>2021&ndash;2022</td>
+        <td class="positive">+62.0%</td>
+        <td>1.21</td>
+        <td>-14.8%</td>
+        <td>Post-COVID rally, meme mania</td>
+      </tr>
+      <tr>
+        <td>2022&ndash;2023</td>
+        <td class="negative">-13.2%</td>
+        <td>-1.38</td>
+        <td>-15.1%</td>
+        <td>Fed rate hikes, tech selloff</td>
+      </tr>
+      <tr>
+        <td>2023&ndash;2024</td>
+        <td class="positive">+22.2%</td>
+        <td>1.02</td>
+        <td>-13.6%</td>
+        <td>AI-driven recovery</td>
+      </tr>
+      <tr>
+        <td>2024&ndash;2025</td>
+        <td class="positive">+20.7%</td>
+        <td>0.89</td>
+        <td>-13.7%</td>
+        <td>Election volatility, rate cuts</td>
+      </tr>
+      <tr>
+        <td>2025&ndash;2026</td>
+        <td class="positive">+87.5%</td>
+        <td>2.32</td>
+        <td>-8.3%</td>
+        <td>Strong bull, tariff recovery</td>
+      </tr>
+      <tr class="highlight-row">
+        <td><strong>5-Year Total</strong></td>
+        <td class="positive"><strong>+289%</strong></td>
+        <td><strong>1.02 median</strong></td>
+        <td><strong>-15.1%</strong></td>
+        <td><strong>31% annualized</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin: 30px 0; text-align: center;">
+    <img src="track-record-chart.png" alt="RigaCap 5-Year Equity Curve vs S&P 500" style="width: 100%; max-width: 900px; border-radius: 8px; border: 1px solid #1e3a5f;">
+    <p style="font-size: 11px; color: #64748b; margin-top: 8px; font-style: italic;">
+      RigaCap Ensemble (gold) vs S&P 500 (gray) &mdash; Feb 2021 to Feb 2026 with market regime overlays
+    </p>
+  </div>
+
+  <h3>RigaCap vs. Benchmarks (5-Year Cumulative)</h3>
+  <div class="compare-bars">
+    <div class="compare-row">
+      <div class="compare-label">RigaCap</div>
+      <div class="compare-bar-wrap">
+        <div class="compare-bar navy" style="width:90%">+289%</div>
+      </div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-label">S&amp;P 500</div>
+      <div class="compare-bar-wrap">
+        <div class="compare-bar gray" style="width:32%">~+95%</div>
+      </div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-label">NASDAQ-100</div>
+      <div class="compare-bar-wrap">
+        <div class="compare-bar gray" style="width:40%">~+120%</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Key Insights</h3>
+  <div class="feature-grid no-break">
+    <div class="feature-card" style="border-left-color: var(--green);">
+      <h4>80% Win Rate</h4>
+      <p>4 of 5 years profitable. The single losing year (2022-2023, -13.2%) was limited by regime detection while the S&P 500 fell ~20%.</p>
+    </div>
+    <div class="feature-card" style="border-left-color: var(--gold);">
+      <h4>Controlled Drawdowns</h4>
+      <p>Maximum drawdown of -15.1% across all market conditions &mdash; the trailing stop and regime system prevented catastrophic losses.</p>
+    </div>
+  </div>
+
+  <div class="gold-divider"></div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div style="margin-bottom: 0.75rem;">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 60" width="130" height="30">
+        <defs><linearGradient id="bg-footer" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs>
+        <circle cx="30" cy="30" r="28" fill="url(#bg-footer)"/>
+        <rect x="20.04" y="38.4" width="17.92" height="8.4" rx="1.68" ry="1.68" fill="#ffffff" opacity="0.2"/>
+        <rect x="24.4" y="28.88" width="11.2" height="9.52" rx="1.4" ry="1.4" fill="#ffffff" opacity="0.35"/>
+        <rect x="26.92" y="18.8" width="6.16" height="10.08" rx="1.12" ry="1.12" fill="#ffffff" opacity="0.5"/>
+        <line x1="21.6" y1="41.2" x2="38.4" y2="41.2" stroke="#f59e0b" stroke-width="0.22" opacity="0.35"/>
+        <line x1="21.6" y1="44" x2="38.4" y2="44" stroke="#f59e0b" stroke-width="0.22" opacity="0.35"/>
+        <line x1="24.96" y1="32.05" x2="35.04" y2="32.05" stroke="#f59e0b" stroke-width="0.22" opacity="0.35"/>
+        <line x1="24.96" y1="35.22" x2="35.04" y2="35.22" stroke="#f59e0b" stroke-width="0.22" opacity="0.35"/>
+        <line x1="27.48" y1="22.16" x2="32.52" y2="22.16" stroke="#f59e0b" stroke-width="0.22" opacity="0.35"/>
+        <line x1="27.48" y1="25.52" x2="32.52" y2="25.52" stroke="#f59e0b" stroke-width="0.22" opacity="0.35"/>
+        <path d="M 20.04 40.08 A 1.68 1.68 0 0 1 22.72 38.4 L 37.28 38.4 A 1.68 1.68 0 0 1 38.96 40.08" fill="none" stroke="#f59e0b" stroke-width="0.34" opacity="0.5"/>
+        <path d="M 24.4 30.28 A 1.4 1.4 0 0 1 25.8 28.88 L 34.2 28.88 A 1.4 1.4 0 0 1 35.6 30.28" fill="none" stroke="#f59e0b" stroke-width="0.34" opacity="0.5"/>
+        <path d="M 26.92 19.92 A 1.12 1.12 0 0 1 27.92 18.8 L 32.08 18.8 A 1.12 1.12 0 0 1 33.08 19.92" fill="none" stroke="#f59e0b" stroke-width="0.34" opacity="0.5"/>
+        <line x1="30" y1="18.8" x2="30" y2="13.2" stroke="#ffffff" stroke-width="0.67" stroke-linecap="round"/>
+        <path d="M 28.35 10.94 A 2.8 2.8 0 0 1 31.65 10.94" fill="none" stroke="#f59e0b" stroke-width="0.56" stroke-linecap="round" opacity="1"/>
+        <path d="M 31.65 15.46 A 2.8 2.8 0 0 1 28.35 15.46" fill="none" stroke="#f59e0b" stroke-width="0.56" stroke-linecap="round" opacity="1"/>
+        <path d="M 26.71 8.67 A 5.6 5.6 0 0 1 33.29 8.67" fill="none" stroke="#f59e0b" stroke-width="0.56" stroke-linecap="round" opacity="0.72"/>
+        <path d="M 33.29 17.73 A 5.6 5.6 0 0 1 26.71 17.73" fill="none" stroke="#f59e0b" stroke-width="0.56" stroke-linecap="round" opacity="0.72"/>
+        <path d="M 25.06 6.41 A 8.4 8.4 0 0 1 34.94 6.41" fill="none" stroke="#f59e0b" stroke-width="0.56" stroke-linecap="round" opacity="0.44"/>
+        <path d="M 34.94 19.99 A 8.4 8.4 0 0 1 25.06 19.99" fill="none" stroke="#f59e0b" stroke-width="0.56" stroke-linecap="round" opacity="0.44"/>
+        <circle cx="30" cy="13.2" r="1.01" fill="#f59e0b"/>
+        <text x="68" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="30" font-weight="700" letter-spacing="-0.5" fill="#0f172a">RigaCap</text>
+      </svg>
+    </div>
+    <p>Signal Intelligence &mdash; How RigaCap Reads the Market &mdash; v1.0.0 &mdash; February 2026</p>
+    <p style="margin-top: 0.5rem;">This document is confidential and intended solely for the recipient. Past performance does not guarantee future results.
+    Trading involves risk of loss. Walk-forward results are out-of-sample but simulated &mdash; not live trading results.
+    RigaCap provides trading signals only &mdash; users execute trades via their own brokerage accounts.</p>
+  </div>
+</div>
+
+</body>
+</html>
