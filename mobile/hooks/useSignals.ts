@@ -12,11 +12,13 @@ export interface Signal {
   is_strong: boolean;
   momentum_rank: number;
   ensemble_score: number;
+  signal_strength_label?: string;
   dwap_crossover_date: string | null;
   ensemble_entry_date: string | null;
   days_since_crossover: number | null;
   days_since_entry: number | null;
   is_fresh: boolean;
+  sector?: string;
 }
 
 export interface Position {
@@ -35,6 +37,7 @@ export interface Position {
   distance_to_stop_pct?: number;
   action?: string;
   action_reason?: string;
+  sector?: string;
 }
 
 export interface Trade {

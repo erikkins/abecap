@@ -3,7 +3,7 @@
  * Tabbed layout: Signals | Positions | History | Missed
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +14,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import {
   useDashboard,
@@ -38,6 +39,28 @@ export default function DashboardScreen() {
   const { trades, isLoading: tradesLoading, refresh: refreshTrades } = useTradeHistory();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('signals');
+
+  // Sector filter state
+  const [excludedSectors, setExcludedSectors] = useState<string[]>([]);
+  const [sectorFilterOpen, setSectorFilterOpen] = useState(false);
+
+  // Load sector filter from storage on mount
+  useEffect(() => {
+    AsyncStorage.getItem('rigacap_sector_filters').then(v => {
+      if (v) try { setExcludedSectors(JSON.parse(v)); } catch {}
+    });
+    AsyncStorage.getItem('rigacap_sector_filter_open').then(v => {
+      if (v === 'true') setSectorFilterOpen(true);
+    });
+  }, []);
+
+  // Persist sector filter changes
+  useEffect(() => {
+    AsyncStorage.setItem('rigacap_sector_filters', JSON.stringify(excludedSectors));
+  }, [excludedSectors]);
+  useEffect(() => {
+    AsyncStorage.setItem('rigacap_sector_filter_open', String(sectorFilterOpen));
+  }, [sectorFilterOpen]);
 
   // Track modal state
   const [trackModal, setTrackModal] = useState<{ signal: Signal } | null>(null);
@@ -130,13 +153,25 @@ export default function DashboardScreen() {
     );
   }
 
-  const signals = data?.buy_signals || [];
+  const allSignals = data?.buy_signals || [];
+  const sectorFilter = (item: { sector?: string }) => !excludedSectors.includes(item.sector || 'Other');
+  const signals = allSignals.filter(sectorFilter);
   const freshSignals = signals.filter((s) => s.is_fresh);
   const monitoringSignals = signals.filter((s) => !s.is_fresh);
-  const freshCount = freshSignals.length;
+  const freshCount = allSignals.filter(s => s.is_fresh).length; // unfiltered for badge
   const regime = data?.regime_forecast;
   const stats = data?.market_stats;
   const missed = data?.missed_opportunities || [];
+
+  // Compute sector counts from all signals + positions
+  const sectorCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allSignals.forEach(s => { const sec = s.sector || 'Other'; counts[sec] = (counts[sec] || 0) + 1; });
+    positions.forEach(p => { const sec = p.sector || 'Other'; counts[sec] = (counts[sec] || 0) + 1; });
+    return counts;
+  }, [allSignals, positions]);
+  const activeSectors = useMemo(() => Object.keys(sectorCounts).sort(), [sectorCounts]);
+  const filteredPositions = useMemo(() => livePositions.filter(sectorFilter), [livePositions, excludedSectors]);
 
   return (
     <>
@@ -218,6 +253,53 @@ export default function DashboardScreen() {
           <TabPill label="Missed" tab="missed" active={activeTab} onPress={setActiveTab} />
         </View>
 
+        {/* Sector Filter */}
+        {(activeTab === 'signals' || activeTab === 'positions') && activeSectors.length > 1 && (
+          <View>
+            <Pressable
+              style={styles.filterToggle}
+              onPress={() => setSectorFilterOpen(prev => !prev)}
+            >
+              <Text style={styles.filterToggleText}>Filter by Sector</Text>
+              {excludedSectors.length > 0 && (
+                <View style={styles.filterDot} />
+              )}
+              <Text style={styles.filterChevron}>{sectorFilterOpen ? '▲' : '▼'}</Text>
+            </Pressable>
+            {sectorFilterOpen && (
+              <View style={styles.sectorPillRow}>
+                {activeSectors.map(sector => {
+                  const isExcluded = excludedSectors.includes(sector);
+                  const count = sectorCounts[sector] || 0;
+                  return (
+                    <Pressable
+                      key={sector}
+                      style={[styles.sectorPill, isExcluded && styles.sectorPillExcluded]}
+                      onPress={() => setExcludedSectors(prev =>
+                        isExcluded ? prev.filter(s => s !== sector) : [...prev, sector]
+                      )}
+                    >
+                      <Text style={[styles.sectorPillText, isExcluded && styles.sectorPillTextExcluded]}>
+                        {sector}{isExcluded ? ` (${count})` : ''}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+                {excludedSectors.length > 0 && (
+                  <Pressable onPress={() => setExcludedSectors([])}>
+                    <Text style={styles.sectorReset}>Reset</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+            {sectorFilterOpen && (
+              <Text style={styles.filterDisclaimer}>
+                Display filter only — the system scans the full universe regardless.
+              </Text>
+            )}
+          </View>
+        )}
+
         {/* Tab Content */}
         {activeTab === 'signals' && (
           <SignalsTab
@@ -231,7 +313,7 @@ export default function DashboardScreen() {
         {activeTab === 'positions' && (
           <>
             <PositionsTab
-              positions={livePositions}
+              positions={filteredPositions}
               onPositionPress={(symbol) => router.push(`/signal/${symbol}`)}
               onSell={(position) => setSellModal({ position })}
             />
@@ -826,6 +908,74 @@ const styles = StyleSheet.create({
   tabPillTextActive: {
     color: Colors.navy,
     fontWeight: '700',
+  },
+
+  // Sector filter
+  filterToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  filterToggleText: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    flex: 1,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  filterDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.blue,
+    marginRight: Spacing.sm,
+  },
+  filterChevron: {
+    color: Colors.textMuted,
+    fontSize: FontSize.xs,
+  },
+  sectorPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  sectorPill: {
+    backgroundColor: Colors.blue + '22',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: Colors.blue + '44',
+  },
+  sectorPillExcluded: {
+    backgroundColor: 'transparent',
+    borderColor: Colors.cardBorder,
+  },
+  sectorPillText: {
+    color: Colors.blue,
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+  },
+  sectorPillTextExcluded: {
+    color: Colors.textMuted,
+  },
+  sectorReset: {
+    color: Colors.blue,
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  filterDisclaimer: {
+    color: Colors.textMuted,
+    fontSize: 10,
+    marginTop: Spacing.xs,
+    fontStyle: 'italic',
   },
 
   // Section headers

@@ -13,6 +13,18 @@ interface SignalCardProps {
 }
 
 export default function SignalCard({ signal, onPress }: SignalCardProps) {
+  const strengthLabel = signal.signal_strength_label || (() => {
+    const score = signal.ensemble_score || 0;
+    if (score >= 88) return 'Very Strong';
+    if (score >= 75) return 'Strong';
+    if (score >= 61) return 'Moderate';
+    return 'Weak';
+  })();
+  const strengthColor = strengthLabel === 'Very Strong' ? Colors.green
+    : strengthLabel === 'Strong' ? '#86EFAC'
+    : strengthLabel === 'Moderate' ? Colors.yellow
+    : Colors.textMuted;
+
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
@@ -26,11 +38,9 @@ export default function SignalCard({ signal, onPress }: SignalCardProps) {
               <Text style={styles.freshText}>FRESH</Text>
             </View>
           )}
-          {signal.is_strong && (
-            <View style={styles.strongBadge}>
-              <Text style={styles.strongText}>STRONG</Text>
-            </View>
-          )}
+          <View style={[styles.strengthBadge, { backgroundColor: strengthColor + '22' }]}>
+            <Text style={[styles.strengthText, { color: strengthColor }]}>{strengthLabel}</Text>
+          </View>
         </View>
         <Text style={styles.price}>${signal.price.toFixed(2)}</Text>
       </View>
@@ -39,9 +49,7 @@ export default function SignalCard({ signal, onPress }: SignalCardProps) {
         <StatItem label="Breakout" value={`+${signal.pct_above_dwap.toFixed(1)}%`} />
         <StatItem label="Rank" value={`#${signal.momentum_rank}`} />
         <StatItem label="Score" value={signal.ensemble_score.toFixed(0)} />
-        {signal.days_since_crossover != null && (
-          <StatItem label="Age" value={`${signal.days_since_crossover}d`} />
-        )}
+        {signal.sector ? <StatItem label="Sector" value={signal.sector} /> : null}
       </View>
     </Pressable>
   );
@@ -100,14 +108,12 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     fontWeight: '700',
   },
-  strongBadge: {
-    backgroundColor: Colors.gold + '22',
+  strengthBadge: {
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  strongText: {
-    color: Colors.gold,
+  strengthText: {
     fontSize: FontSize.xs,
     fontWeight: '700',
   },
