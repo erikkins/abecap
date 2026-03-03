@@ -557,12 +557,16 @@ class HealthMonitorService:
     # ──────────────────────────────────────────────────────────────
 
     async def _check_ensemble_signals(self) -> HealthCheck:
-        """Check if ensemble signals were generated for the last market day."""
+        """Check if ensemble signals were generated for the last completed scan day.
+
+        The health report runs at 7:30 AM ET — before the 4 PM scan.
+        So we check yesterday's (previous market day's) signals, not today's.
+        """
         from app.core.database import async_session, EnsembleSignal
         from sqlalchemy import select, func
 
         today_et = datetime.now(_ET).date()
-        target = _last_market_day(today_et)
+        target = _last_market_day(today_et - timedelta(days=1))
 
         try:
             async with async_session() as db:
@@ -597,14 +601,17 @@ class HealthMonitorService:
         )
 
     async def _check_open_positions(self) -> HealthCheck:
-        """Check open position count (Ensemble caps at 6)."""
-        from app.core.database import async_session, Position
+        """Check open position count in the live model portfolio (Ensemble caps at 6)."""
+        from app.core.database import async_session, ModelPosition
         from sqlalchemy import select, func
 
         try:
             async with async_session() as db:
                 result = await db.execute(
-                    select(func.count()).where(Position.status == "open")
+                    select(func.count()).where(
+                        ModelPosition.status == "open",
+                        ModelPosition.portfolio_type == "live",
+                    )
                 )
                 count = result.scalar() or 0
         except Exception as e:
@@ -622,11 +629,11 @@ class HealthMonitorService:
             res = "Check position entry logic. Ensemble caps at 6."
         else:
             status = HealthStatus.GREEN
-            msg = f"{count} open position(s)"
+            msg = f"{count} open live position(s)"
             res = ""
 
         return HealthCheck(
-            category="Signals", name="Open Positions",
+            category="Signals", name="Open Positions (Live)",
             status=status, value=str(count),
             threshold="<=6",
             message=msg, resolution=res,
