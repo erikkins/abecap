@@ -581,12 +581,17 @@ class Subscription(Base):
     current_period_end = Column(DateTime, nullable=True)
     cancel_at_period_end = Column(Boolean, default=False)
 
+    # Comp tracking
+    comped_at = Column(DateTime, nullable=True)
+    comped_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, onupdate=datetime.utcnow)
 
     # Relationships
-    user = relationship("User", back_populates="subscription")
+    user = relationship("User", back_populates="subscription", foreign_keys=[user_id])
+    comped_by_user = relationship("User", foreign_keys=[comped_by])
 
     @classmethod
     def create_trial(cls, user_id) -> "Subscription":

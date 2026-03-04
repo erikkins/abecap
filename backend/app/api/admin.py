@@ -189,6 +189,17 @@ async def run_database_migration(admin: User = Depends(get_admin_user), db: Asyn
             ADD COLUMN IF NOT EXISTS created_strategy_id INTEGER REFERENCES strategy_definitions(id)
         """, "Added 'created_strategy_id' column to strategy_generation_runs")
 
+        # Comp tracking on subscriptions
+        await run_migration("""
+            ALTER TABLE subscriptions
+            ADD COLUMN IF NOT EXISTS comped_at TIMESTAMP
+        """, "Added 'comped_at' column to subscriptions")
+
+        await run_migration("""
+            ALTER TABLE subscriptions
+            ADD COLUMN IF NOT EXISTS comped_by UUID REFERENCES users(id)
+        """, "Added 'comped_by' column to subscriptions")
+
     except Exception as e:
         import traceback
         print(f"Migration error: {traceback.format_exc()}")
@@ -704,6 +715,8 @@ async def comp_subscription(
         subscription.current_period_start = now
         subscription.current_period_end = now + timedelta(days=days)
         subscription.cancel_at_period_end = False
+        subscription.comped_at = now
+        subscription.comped_by = admin.id
     else:
         subscription = Subscription(
             user_id=user.id,
@@ -712,6 +725,8 @@ async def comp_subscription(
             trial_end=now,
             current_period_start=now,
             current_period_end=now + timedelta(days=days),
+            comped_at=now,
+            comped_by=admin.id,
         )
         db.add(subscription)
 

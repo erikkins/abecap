@@ -471,6 +471,7 @@ async def google_auth(
             google_id=google_id,
             role="admin" if email == "erik@rigacap.com" else "user",
             referral_code=generate_referral_code(),
+            last_login=datetime.utcnow(),
         )
 
         # Link referrer if referral code provided
@@ -598,6 +599,7 @@ async def apple_auth(
             apple_id=apple_id,
             role="admin" if email == "erik@rigacap.com" else "user",
             referral_code=generate_referral_code(),
+            last_login=datetime.utcnow(),
         )
 
         # Link referrer if referral code provided
