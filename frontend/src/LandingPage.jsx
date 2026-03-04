@@ -45,7 +45,7 @@ const HeroSection = ({ onGetStarted }) => (
 
         {/* Subheadline */}
         <p className="max-w-2xl mx-auto text-lg sm:text-xl text-blue-100 mb-3">
-          Our Ensemble approach combines three proven factors into one system that evolves through every market cycle.
+          Our Ensemble approach combines three proven factors<br />into one system that evolves through every market cycle:
         </p>
         <div className="flex items-center justify-center gap-2 sm:gap-3 mb-4">
           <span className="text-yellow-300 font-semibold text-base sm:text-lg">Timing</span>
