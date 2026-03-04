@@ -44,10 +44,16 @@ const HeroSection = ({ onGetStarted }) => (
         </h1>
 
         {/* Subheadline */}
-        <p className="max-w-2xl mx-auto text-lg sm:text-xl text-blue-100 mb-4">
-          Our Ensemble approach combines three proven factors — timing, momentum quality, and adaptive
-          risk management — into one system that evolves through every market cycle.
+        <p className="max-w-2xl mx-auto text-lg sm:text-xl text-blue-100 mb-3">
+          Our Ensemble approach combines three proven factors into one system that evolves through every market cycle.
         </p>
+        <div className="flex items-center justify-center gap-2 sm:gap-3 mb-4">
+          <span className="text-yellow-300 font-semibold text-base sm:text-lg">Timing</span>
+          <span className="text-blue-300/40">·</span>
+          <span className="text-yellow-300 font-semibold text-base sm:text-lg">Momentum Quality</span>
+          <span className="text-blue-300/40">·</span>
+          <span className="text-yellow-300 font-semibold text-base sm:text-lg">Adaptive Risk</span>
+        </div>
         <p className="text-sm text-blue-200/70 mb-8">~15 high-conviction signals per month — quality over quantity</p>
 
         {/* CTA Buttons */}
@@ -193,7 +199,7 @@ const HowItWorksSection = () => (
               {step}
             </div>
             {step < 4 && (
-              <div className="hidden md:block absolute top-8 left-[calc(50%+2rem)] right-[calc(-50%+2rem)] h-0.5 bg-indigo-200"></div>
+              <div className="hidden md:block absolute top-8 left-[calc(50%+2rem)] right-[-50%] h-0.5 bg-indigo-200"></div>
             )}
             <h3 className="text-xl font-semibold text-gray-900 mb-2">{title}</h3>
             <p className="text-gray-600">{desc}</p>
