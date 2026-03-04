@@ -114,6 +114,8 @@ export default function DashboardScreen() {
   );
   const { quotes: liveQuotes, lastUpdate, refetch } = useLiveQuotes(allSymbols);
 
+  const allSignals = data?.buy_signals || [];
+
   const livePositions = useMemo(() => {
     if (!Object.keys(liveQuotes).length) return positions;
     return positions.map(pos => {
@@ -137,6 +139,19 @@ export default function DashboardScreen() {
     });
   }, [positions, liveQuotes]);
 
+  // Sector filter — hooks must be above early returns
+  const sectorCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allSignals.forEach(s => { const sec = s.sector || 'Other'; counts[sec] = (counts[sec] || 0) + 1; });
+    positions.forEach(p => { const sec = p.sector || 'Other'; counts[sec] = (counts[sec] || 0) + 1; });
+    return counts;
+  }, [allSignals, positions]);
+  const activeSectors = useMemo(() => Object.keys(sectorCounts).sort(), [sectorCounts]);
+  const filteredPositions = useMemo(() =>
+    livePositions.filter(p => !excludedSectors.includes(p.sector || 'Other')),
+    [livePositions, excludedSectors]
+  );
+
   if (isLoading && !data) {
     return (
       <View style={styles.center}>
@@ -153,7 +168,6 @@ export default function DashboardScreen() {
     );
   }
 
-  const allSignals = data?.buy_signals || [];
   const sectorFilter = (item: { sector?: string }) => !excludedSectors.includes(item.sector || 'Other');
   const signals = allSignals.filter(sectorFilter);
   const freshSignals = signals.filter((s) => s.is_fresh);
@@ -162,16 +176,6 @@ export default function DashboardScreen() {
   const regime = data?.regime_forecast;
   const stats = data?.market_stats;
   const missed = data?.missed_opportunities || [];
-
-  // Compute sector counts from all signals + positions
-  const sectorCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    allSignals.forEach(s => { const sec = s.sector || 'Other'; counts[sec] = (counts[sec] || 0) + 1; });
-    positions.forEach(p => { const sec = p.sector || 'Other'; counts[sec] = (counts[sec] || 0) + 1; });
-    return counts;
-  }, [allSignals, positions]);
-  const activeSectors = useMemo(() => Object.keys(sectorCounts).sort(), [sectorCounts]);
-  const filteredPositions = useMemo(() => livePositions.filter(sectorFilter), [livePositions, excludedSectors]);
 
   return (
     <>
