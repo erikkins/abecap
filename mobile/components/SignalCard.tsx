@@ -42,13 +42,13 @@ export default function SignalCard({ signal, onPress }: SignalCardProps) {
             <Text style={[styles.strengthText, { color: strengthColor }]}>{strengthLabel}</Text>
           </View>
         </View>
-        <Text style={styles.price}>${signal.price.toFixed(2)}</Text>
+        <Text style={styles.price}>${(signal.price ?? 0).toFixed(2)}</Text>
       </View>
 
       <View style={styles.stats}>
-        <StatItem label="Breakout" value={`+${signal.pct_above_dwap.toFixed(1)}%`} />
-        <StatItem label="Rank" value={`#${signal.momentum_rank}`} />
-        <StatItem label="Score" value={signal.ensemble_score.toFixed(0)} />
+        <StatItem label="Breakout" value={`+${(signal.pct_above_dwap ?? 0).toFixed(1)}%`} />
+        <StatItem label="Rank" value={`#${signal.momentum_rank ?? '—'}`} />
+        <StatItem label="Score" value={(signal.ensemble_score ?? 0).toFixed(0)} />
         {signal.sector ? <StatItem label="Sector" value={signal.sector} /> : null}
       </View>
     </Pressable>

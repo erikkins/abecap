@@ -350,17 +350,17 @@ export default function DashboardScreen() {
         >
           <View style={styles.modalRow}>
             <Text style={styles.modalLabel}>Price</Text>
-            <Text style={styles.modalValue}>${trackModal.signal.price.toFixed(2)}</Text>
+            <Text style={styles.modalValue}>${(trackModal.signal.price ?? 0).toFixed(2)}</Text>
           </View>
           <View style={styles.modalRow}>
             <Text style={styles.modalLabel}>~Shares ($10k)</Text>
             <Text style={styles.modalValue}>
-              {Math.floor(10000 / trackModal.signal.price)}
+              {trackModal.signal.price ? Math.floor(10000 / trackModal.signal.price) : '—'}
             </Text>
           </View>
           <View style={styles.modalRow}>
             <Text style={styles.modalLabel}>Ensemble Score</Text>
-            <Text style={styles.modalValue}>{trackModal.signal.ensemble_score.toFixed(0)}</Text>
+            <Text style={styles.modalValue}>{(trackModal.signal.ensemble_score ?? 0).toFixed(0)}</Text>
           </View>
         </ConfirmModal>
       )}
@@ -378,21 +378,21 @@ export default function DashboardScreen() {
         >
           <View style={styles.modalRow}>
             <Text style={styles.modalLabel}>Entry Price</Text>
-            <Text style={styles.modalValue}>${sellModal.position.entry_price.toFixed(2)}</Text>
+            <Text style={styles.modalValue}>${(sellModal.position.entry_price ?? 0).toFixed(2)}</Text>
           </View>
           <View style={styles.modalRow}>
             <Text style={styles.modalLabel}>Current Price</Text>
-            <Text style={styles.modalValue}>${sellModal.position.current_price.toFixed(2)}</Text>
+            <Text style={styles.modalValue}>${(sellModal.position.current_price ?? 0).toFixed(2)}</Text>
           </View>
           <View style={styles.modalRow}>
             <Text style={styles.modalLabel}>P&L</Text>
             <Text
               style={[
                 styles.modalValue,
-                { color: sellModal.position.pnl_pct >= 0 ? Colors.green : Colors.red },
+                { color: (sellModal.position.pnl_pct ?? 0) >= 0 ? Colors.green : Colors.red },
               ]}
             >
-              {sellModal.position.pnl_pct >= 0 ? '+' : ''}{sellModal.position.pnl_pct.toFixed(1)}%
+              {(sellModal.position.pnl_pct ?? 0) >= 0 ? '+' : ''}{(sellModal.position.pnl_pct ?? 0).toFixed(1)}%
             </Text>
           </View>
           <View style={styles.modalRow}>
@@ -555,24 +555,24 @@ function PositionsTab({
             <Text
               style={[
                 styles.positionPnl,
-                { color: pos.pnl_pct >= 0 ? Colors.green : Colors.red },
+                { color: (pos.pnl_pct ?? 0) >= 0 ? Colors.green : Colors.red },
               ]}
             >
-              {pos.pnl_pct >= 0 ? '+' : ''}{pos.pnl_pct.toFixed(1)}%
+              {(pos.pnl_pct ?? 0) >= 0 ? '+' : ''}{(pos.pnl_pct ?? 0).toFixed(1)}%
             </Text>
           </View>
           <View style={styles.positionDetails}>
             <View style={styles.positionDetail}>
               <Text style={styles.positionDetailLabel}>Entry</Text>
-              <Text style={styles.positionDetailValue}>${pos.entry_price.toFixed(2)}</Text>
+              <Text style={styles.positionDetailValue}>${(pos.entry_price ?? 0).toFixed(2)}</Text>
             </View>
             <View style={styles.positionDetail}>
               <Text style={styles.positionDetailLabel}>Current</Text>
-              <Text style={styles.positionDetailValue}>${pos.current_price.toFixed(2)}</Text>
+              <Text style={styles.positionDetailValue}>${(pos.current_price ?? 0).toFixed(2)}</Text>
             </View>
             <View style={styles.positionDetail}>
               <Text style={styles.positionDetailLabel}>High</Text>
-              <Text style={styles.positionDetailValue}>${pos.highest_price.toFixed(2)}</Text>
+              <Text style={styles.positionDetailValue}>${(pos.highest_price ?? 0).toFixed(2)}</Text>
             </View>
             <View style={styles.positionDetail}>
               <Text style={styles.positionDetailLabel}>Shares</Text>
