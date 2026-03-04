@@ -271,7 +271,7 @@ class EmailService:
         <!-- Header -->
         <tr>
             <td style="background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); padding: 32px 24px; text-align: center;">
-                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="48" height="48" style="display: block; margin: 0 auto 16px auto; border-radius: 50%;" />
+                <img src="https://rigacap.com/email-logo.png" alt="RigaCap" width="48" height="48" style="display: block; margin: 0 auto 16px auto;" />
                 <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
                     RigaCap Daily
                 </h1>
@@ -763,7 +763,7 @@ Your friend gets their first month free, and you get a free month when they subs
         <!-- Header -->
         <tr>
             <td style="background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); padding: 48px 24px; text-align: center;">
-                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="64" height="64" style="display: block; margin: 0 auto 16px auto; border-radius: 50%;" />
+                <img src="https://rigacap.com/email-logo.png" alt="RigaCap" width="64" height="64" style="display: block; margin: 0 auto 16px auto;" />
                 <h1 style="margin: 0; color: #ffffff; font-size: 32px; font-weight: 700;">
                     Welcome to RigaCap!
                 </h1>
@@ -994,7 +994,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
         <!-- Header -->
         <tr>
             <td style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 48px 24px; text-align: center;">
-                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="48" height="48" style="display: block; margin: 0 auto 16px auto; border-radius: 50%;" />
+                <img src="https://rigacap.com/email-logo.png" alt="RigaCap" width="48" height="48" style="display: block; margin: 0 auto 16px auto;" />
                 <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
                     Your Trial Ends {urgency.title()}
                 </h1>
@@ -1154,7 +1154,7 @@ Trading involves risk. Past performance does not guarantee future results.
         <!-- Header -->
         <tr>
             <td style="background: linear-gradient(135deg, #1f2937 0%, #374151 100%); padding: 48px 24px; text-align: center;">
-                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="48" height="48" style="display: block; margin: 0 auto 16px auto; border-radius: 50%;" />
+                <img src="https://rigacap.com/email-logo.png" alt="RigaCap" width="48" height="48" style="display: block; margin: 0 auto 16px auto;" />
                 <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
                     We're Sad to See You Go
                 </h1>
@@ -1556,7 +1556,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
     <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
         <tr>
             <td style="background: {header_gradient}; padding: 48px 24px; text-align: center;">
-                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="48" height="48" style="display: block; margin: 0 auto 16px auto; border-radius: 50%;" />
+                <img src="https://rigacap.com/email-logo.png" alt="RigaCap" width="48" height="48" style="display: block; margin: 0 auto 16px auto;" />
                 <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
                     {header_title}
                 </h1>
@@ -1638,7 +1638,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
         <!-- Header -->
         <tr>
             <td style="background: {header_gradient}; padding: 32px 24px; text-align: center;">
-                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto; border-radius: 50%;" />
+                <img src="https://rigacap.com/email-logo.png" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto;" />
                 <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
                     {subject_prefix}: {symbol}
                 </h1>
@@ -1872,7 +1872,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
         <!-- Header -->
         <tr>
             <td style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 32px 24px; text-align: center;">
-                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto; border-radius: 50%;" />
+                <img src="https://rigacap.com/email-logo.png" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto;" />
                 <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
                     New Breakout Signal{'s' if len(new_signals) > 1 else ''}!
                 </h1>
@@ -2040,7 +2040,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
         <!-- Header -->
         <tr>
             <td style="background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); padding: 32px 24px; text-align: center;">
-                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto; border-radius: 50%;" />
+                <img src="https://rigacap.com/email-logo.png" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto;" />
                 <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
                     LIVE: {symbol} Breakout +{pct_above_dwap:.1f}%
                 </h1>
@@ -2591,7 +2591,7 @@ class AdminEmailService(EmailService):
         <!-- Header -->
         <tr>
             <td style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 32px 24px; text-align: center;">
-                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto; border-radius: 50%;" />
+                <img src="https://rigacap.com/email-logo.png" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto;" />
                 <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
                     Ticker Health Alert
                 </h1>
@@ -2782,7 +2782,7 @@ class AdminEmailService(EmailService):
     <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
         <tr>
             <td style="background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); padding: 32px 24px; text-align: center;">
-                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto; border-radius: 50%;" />
+                <img src="https://rigacap.com/email-logo.png" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto;" />
                 <h1 style="margin: 0; color: #ffffff; font-size: 24px;">Strategy Analysis Report</h1>
                 <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
                     {lookback_days}-day rolling backtest
@@ -2882,7 +2882,7 @@ class AdminEmailService(EmailService):
     <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
         <tr>
             <td style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 32px 24px; text-align: center;">
-                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto; border-radius: 50%;" />
+                <img src="https://rigacap.com/email-logo.png" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto;" />
                 <h1 style="margin: 0; color: #ffffff; font-size: 24px;">Strategy Switch Executed</h1>
             </td>
         </tr>
@@ -3010,7 +3010,7 @@ class AdminEmailService(EmailService):
     <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
         <tr>
             <td style="background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); padding: 32px 24px; text-align: center;">
-                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto; border-radius: 50%;" />
+                <img src="https://rigacap.com/email-logo.png" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto;" />
                 <h1 style="margin: 0; color: #ffffff; font-size: 24px;">AI Strategy Generation Complete</h1>
             </td>
         </tr>
@@ -3538,8 +3538,8 @@ The link expires in 72 hours."""
         <!-- Header -->
         <tr>
             <td style="background: {header_bg}; padding: 28px 24px; text-align: center;">
-                <img src="https://rigacap.com/favicon.svg" alt="RigaCap" width="36" height="36"
-                    style="display: block; margin: 0 auto 10px auto; border-radius: 50%;" />
+                <img src="https://rigacap.com/email-logo.png" alt="RigaCap" width="36" height="36"
+                    style="display: block; margin: 0 auto 10px auto;" />
                 <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 700;">
                     Pipeline Health Report
                 </h1>
