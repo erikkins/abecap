@@ -516,7 +516,7 @@ class User(Base):
     last_login = Column(DateTime, nullable=True)
 
     # Relationships
-    subscription = relationship("Subscription", back_populates="user", uselist=False)
+    subscription = relationship("Subscription", back_populates="user", uselist=False, foreign_keys="[Subscription.user_id]")
 
     def is_admin(self) -> bool:
         """Check if user has admin privileges via email allowlist."""
