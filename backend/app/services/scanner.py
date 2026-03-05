@@ -384,16 +384,18 @@ class ScannerService:
         Returns dict of {symbol: [missing_date, ...]} for symbols with >2 gaps.
         """
         gapped = {}
-        cutoff = pd.Timestamp.now().normalize() - pd.Timedelta(days=lookback_days)
+        cutoff_date = (pd.Timestamp.now().normalize() - pd.Timedelta(days=lookback_days)).date()
         for symbol, df in self.data_cache.items():
             if df is None or df.empty:
                 continue
-            recent = df[df.index >= cutoff]
-            if len(recent) < 2:
+            # Compare on date level to avoid tz-naive/aware mismatch
+            dates = [d.date() if hasattr(d, 'date') else d for d in df.index]
+            recent_dates = [d for d in dates if d >= cutoff_date]
+            if len(recent_dates) < 2:
                 continue
-            expected = pd.bdate_range(recent.index[0], recent.index[-1])
-            actual = set(d.date() for d in recent.index)
+            expected = pd.bdate_range(min(recent_dates), max(recent_dates))
             expected_dates = set(d.date() for d in expected)
+            actual = set(recent_dates)
             missing = expected_dates - actual
             if len(missing) > 2:  # Allow 1-2 gaps (holidays)
                 gapped[symbol] = sorted(str(d) for d in missing)
