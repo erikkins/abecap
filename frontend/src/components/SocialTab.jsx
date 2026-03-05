@@ -971,7 +971,7 @@ function ComposeModal({ onClose, onSubmit }) {
             <label className="block text-sm font-medium text-gray-700 mb-2">Preview</label>
             {(composePlatform === 'twitter' || composePlatform === 'threads') ? (
               <div className="border border-gray-200 rounded-xl p-4">
-                <div className="flex gap-3">
+                <div className="flex items-start gap-3">
                   <RigaCapLogo size={40} className="shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1">
@@ -1287,7 +1287,7 @@ function TwitterCard({ post, preview, actionLoading, onApprove, onReject, onRege
 
         {/* Mock Tweet */}
         <div className="border border-gray-200 rounded-xl p-4">
-          <div className="flex gap-3">
+          <div className="flex items-start gap-3">
             <RigaCapLogo size={40} className="shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1">
@@ -1355,7 +1355,7 @@ function ThreadsCard({ post, actionLoading, onApprove, onReject, onRegenerate, o
 
         {/* Mock Threads Post */}
         <div className="border border-gray-200 rounded-xl p-4">
-          <div className="flex gap-3">
+          <div className="flex items-start gap-3">
             <RigaCapLogo size={40} className="shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1">
