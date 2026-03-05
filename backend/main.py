@@ -2029,10 +2029,16 @@ def handler(event, context):
             return {"status": "error", "error": str(e)}
 
     # Handle volume data refresh (re-fetch recent days from primary source)
+    # Supports optional "symbols" list to target specific tickers (avoids OOM on full universe)
+    # and "detect_gaps" mode to scan for date gaps without re-fetching
     if event.get("refresh_volume_data"):
         config = event["refresh_volume_data"]
         replace_days = config.get("days", 5)
+        target_symbols = config.get("symbols")  # Optional: list of specific tickers
+        detect_only = config.get("detect_gaps", False)  # Just report gaps, don't fix
         print(f"🔄 Refreshing last {replace_days} days of volume data from primary source")
+        if target_symbols:
+            print(f"🎯 Targeting specific symbols: {target_symbols}")
 
         loop = asyncio.get_event_loop()
         if loop.is_closed():
@@ -2040,6 +2046,7 @@ def handler(event, context):
             asyncio.set_event_loop(loop)
 
         async def _refresh_volume():
+            import pandas as pd
             from app.services.scanner import scanner_service
             from app.services.data_export import data_export_service
 
@@ -2054,8 +2061,57 @@ def handler(event, context):
             if cache_size == 0:
                 return {"status": "error", "error": "No cached data to refresh"}
 
-            # Re-fetch last N days (will use primary source = yfinance)
-            result = await scanner_service.fetch_incremental(replace_days=replace_days)
+            # Detect gaps across all symbols (last 15 trading days)
+            gaps_found = {}
+            check_days = replace_days + 5
+            cutoff = pd.Timestamp.now().normalize() - pd.Timedelta(days=check_days)
+            trading_days = pd.bdate_range(cutoff, pd.Timestamp.now().normalize())
+
+            for sym, df in scanner_service.data_cache.items():
+                if df.empty:
+                    continue
+                idx = df.index
+                if hasattr(idx, 'tz') and idx.tz is not None:
+                    idx = idx.tz_localize(None)
+                recent = idx[idx >= cutoff]
+                if len(recent) == 0:
+                    gaps_found[sym] = {"gap_days": len(trading_days), "last_date": str(idx.max().date()) if len(idx) > 0 else "N/A"}
+                    continue
+                expected = trading_days[trading_days <= idx.max()]
+                missing = expected.difference(recent)
+                if len(missing) > 0:
+                    gaps_found[sym] = {
+                        "gap_days": len(missing),
+                        "missing_dates": [str(d.date()) for d in sorted(missing)],
+                        "last_date": str(idx.max().date()),
+                    }
+
+            print(f"🔍 Gap detection: {len(gaps_found)} symbols with gaps")
+            for sym, info in sorted(gaps_found.items()):
+                print(f"  ⚠️  {sym}: {info}")
+
+            if detect_only:
+                return {
+                    "status": "success",
+                    "mode": "detect_gaps",
+                    "symbols_with_gaps": len(gaps_found),
+                    "gaps": gaps_found,
+                }
+
+            # Determine which symbols to refresh
+            if target_symbols:
+                refresh_syms = [s for s in target_symbols if s in scanner_service.data_cache]
+            else:
+                # Auto-fix: refresh all symbols that have gaps
+                refresh_syms = list(gaps_found.keys()) if gaps_found else list(scanner_service.data_cache.keys())
+
+            if not refresh_syms:
+                return {"status": "success", "message": "No symbols to refresh", "gaps": gaps_found}
+
+            print(f"🔄 Refreshing {len(refresh_syms)} symbols...")
+
+            # Re-fetch last N days
+            result = await scanner_service.fetch_incremental(symbols=refresh_syms, replace_days=replace_days)
             print(f"🔄 Refresh result: {result}")
 
             # Save updated cache
@@ -2069,6 +2125,7 @@ def handler(event, context):
                 "symbols_refreshed": result.get("updated", 0),
                 "source": result.get("source", "unknown"),
                 "failed": result.get("failed", 0),
+                "gaps_before_fix": gaps_found,
             }
 
         try:
