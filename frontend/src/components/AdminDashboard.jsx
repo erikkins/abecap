@@ -1114,6 +1114,7 @@ function ModelPortfolioTab({ fetchWithAuth }) {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [liveQuotes, setLiveQuotes] = useState({});
+  const [signalTrackStats, setSignalTrackStats] = useState(null);
 
   const fetchPortfolio = async () => {
     try {
@@ -1143,6 +1144,15 @@ function ModelPortfolioTab({ fetchWithAuth }) {
       if (response.ok) setTrades(await response.json());
     } catch (err) {
       console.error('Failed to fetch trades:', err);
+    }
+  };
+
+  const fetchSignalTrackStats = async () => {
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/signals/signal-track-record`);
+      if (response.ok) setSignalTrackStats(await response.json());
+    } catch (err) {
+      console.error('Failed to fetch signal track stats:', err);
     }
   };
 
@@ -1272,6 +1282,7 @@ function ModelPortfolioTab({ fetchWithAuth }) {
     fetchPortfolio();
     fetchEquityCurve();
     fetchTrades();
+    fetchSignalTrackStats();
     fetchSubscriberPreview();
     fetchGhostComparison();
     fetchRegimeData();
@@ -1486,6 +1497,151 @@ function ModelPortfolioTab({ fetchWithAuth }) {
           );
         })}
       </div>
+
+      {/* Signal Track Record */}
+      {signalTrackStats && signalTrackStats.total_picks > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center gap-3 mb-1">
+            <h3 className="text-lg font-semibold text-gray-900">Signal Track Record</h3>
+            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700">EVERY PICK</span>
+          </div>
+          <p className="text-xs text-gray-400 mb-4">Tracks every fresh signal — no position limit, $10K flat sizing</p>
+
+          {/* Stats row 1 */}
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4">
+            <div className="bg-gray-50 rounded-lg p-2">
+              <p className="text-xs text-gray-400">Total Picks</p>
+              <p className="font-semibold text-gray-900">{signalTrackStats.total_picks}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-2">
+              <p className="text-xs text-gray-400">Open</p>
+              <p className="font-semibold text-blue-600">{signalTrackStats.open_count}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-2">
+              <p className="text-xs text-gray-400">Closed</p>
+              <p className="font-semibold text-gray-900">{signalTrackStats.closed_count}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-2">
+              <p className="text-xs text-gray-400">Win Rate</p>
+              <p className="font-semibold text-gray-900">{signalTrackStats.win_rate}%</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-2">
+              <p className="text-xs text-gray-400">Avg Gain</p>
+              <p className="font-semibold text-green-600">+{signalTrackStats.avg_gain_pct?.toFixed(1)}%</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-2">
+              <p className="text-xs text-gray-400">Avg Loss</p>
+              <p className="font-semibold text-red-600">{signalTrackStats.avg_loss_pct?.toFixed(1)}%</p>
+            </div>
+          </div>
+
+          {/* Stats row 2 */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+            <div className="bg-gray-50 rounded-lg p-2">
+              <p className="text-xs text-gray-400">Avg P&L</p>
+              <p className={`font-semibold ${signalTrackStats.avg_pnl_pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {signalTrackStats.avg_pnl_pct >= 0 ? '+' : ''}{signalTrackStats.avg_pnl_pct?.toFixed(2)}%
+              </p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-2">
+              <p className="text-xs text-gray-400">Avg Holding</p>
+              <p className="font-semibold text-gray-900">{signalTrackStats.avg_holding_days} days</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-2 col-span-2 md:col-span-1">
+              <p className="text-xs text-gray-400">Best / Worst</p>
+              <p className="font-semibold">
+                {signalTrackStats.best_pick ? (
+                  <span className="text-green-600">{signalTrackStats.best_pick.symbol} +{signalTrackStats.best_pick.pnl_pct}%</span>
+                ) : '—'}
+                {' / '}
+                {signalTrackStats.worst_pick ? (
+                  <span className="text-red-600">{signalTrackStats.worst_pick.symbol} {signalTrackStats.worst_pick.pnl_pct}%</span>
+                ) : '—'}
+              </p>
+            </div>
+          </div>
+
+          {/* Open Positions */}
+          {signalTrackStats.open_positions?.length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Open Positions ({signalTrackStats.open_positions.length})</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
+                      <th className="pb-2 pr-3">Symbol</th>
+                      <th className="pb-2 pr-3">Entry Date</th>
+                      <th className="pb-2 pr-3">Entry</th>
+                      <th className="pb-2 pr-3">Current</th>
+                      <th className="pb-2 pr-3">P&L</th>
+                      <th className="pb-2">HWM</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {signalTrackStats.open_positions.map((pos) => {
+                      const pnlColor = pos.pnl_pct > 0 ? 'text-green-600' : pos.pnl_pct < 0 ? 'text-red-600' : 'text-gray-600';
+                      return (
+                        <tr key={pos.symbol} className="border-b border-gray-50">
+                          <td className="py-2 pr-3 font-medium text-gray-900">{pos.symbol}</td>
+                          <td className="py-2 pr-3 text-gray-500 text-xs">{formatDate(pos.entry_date) || '—'}</td>
+                          <td className="py-2 pr-3 text-gray-600">${pos.entry_price?.toFixed(2)}</td>
+                          <td className="py-2 pr-3 text-gray-600">${pos.current_price?.toFixed(2)}</td>
+                          <td className={`py-2 pr-3 font-medium ${pnlColor}`}>
+                            {pos.pnl_pct >= 0 ? '+' : ''}{pos.pnl_pct?.toFixed(1)}%
+                          </td>
+                          <td className="py-2 text-gray-600">${pos.highest_price?.toFixed(2)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Recent Closed Trades */}
+          {signalTrackStats.recent_closed?.length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Recent Closed ({signalTrackStats.recent_closed.length})</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
+                      <th className="pb-2 pr-3">Symbol</th>
+                      <th className="pb-2 pr-3">Entry</th>
+                      <th className="pb-2 pr-3">Exit</th>
+                      <th className="pb-2 pr-3">P&L</th>
+                      <th className="pb-2">Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {signalTrackStats.recent_closed.map((t, i) => {
+                      const tPnlColor = (t.pnl_pct || 0) > 0 ? 'text-green-600' : (t.pnl_pct || 0) < 0 ? 'text-red-600' : 'text-gray-600';
+                      return (
+                        <tr key={`${t.symbol}-${i}`} className="border-b border-gray-50">
+                          <td className="py-1.5 pr-3 font-medium text-gray-900">{t.symbol}</td>
+                          <td className="py-1.5 pr-3 text-gray-500 text-xs">
+                            {formatDate(t.entry_date) || '—'}
+                            <span className="text-gray-400 ml-1">${t.entry_price?.toFixed(2)}</span>
+                          </td>
+                          <td className="py-1.5 pr-3 text-gray-500 text-xs">
+                            {formatDate(t.exit_date) || '—'}
+                            <span className="text-gray-400 ml-1">${t.exit_price?.toFixed(2)}</span>
+                          </td>
+                          <td className={`py-1.5 pr-3 font-medium ${tPnlColor}`}>
+                            {t.pnl_pct != null ? `${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct?.toFixed(1)}%` : '—'}
+                          </td>
+                          <td className="py-1.5">{t.exit_reason ? exitReasonBadge(t.exit_reason) : '—'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Equity Curve Chart */}
       {equityCurve.length > 0 && (
