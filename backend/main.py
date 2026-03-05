@@ -2050,8 +2050,38 @@ def handler(event, context):
             from app.services.scanner import scanner_service
             from app.services.data_export import data_export_service
 
-            # Load existing price data from S3
-            print("📦 Loading cached price data...")
+            # When targeting specific symbols, use lightweight CSV import (no full pickle)
+            if target_symbols and not detect_only:
+                print(f"📦 Lightweight mode: loading {len(target_symbols)} symbols from individual CSVs...")
+                cached_data = data_export_service.import_symbols(target_symbols)
+                scanner_service.data_cache = cached_data
+                print(f"📦 Loaded {len(cached_data)} symbols")
+
+                if not cached_data:
+                    return {"status": "error", "error": f"No CSV data found for {target_symbols}"}
+
+                # Re-fetch data
+                print(f"🔄 Refreshing {len(target_symbols)} symbols (replace_days={replace_days})...")
+                result = await scanner_service.fetch_incremental(symbols=target_symbols, replace_days=replace_days)
+                print(f"🔄 Refresh result: {result}")
+
+                # Save back individual CSVs (not the full consolidated file)
+                print("💾 Saving updated CSVs...")
+                export = data_export_service.export_all(scanner_service.data_cache)
+                print(f"💾 Export: {export}")
+
+                return {
+                    "status": "success",
+                    "mode": "targeted",
+                    "replace_days": replace_days,
+                    "symbols": target_symbols,
+                    "symbols_refreshed": result.get("updated", 0),
+                    "source": result.get("source", "unknown"),
+                    "failed": result.get("failed", 0),
+                }
+
+            # Full mode: load entire cache for gap detection or bulk refresh
+            print("📦 Loading full cached price data...")
             cached_data = data_export_service.import_all()
             if cached_data:
                 scanner_service.data_cache = cached_data
@@ -2105,17 +2135,13 @@ def handler(event, context):
                     "gaps": gaps_found,
                 }
 
-            # Determine which symbols to refresh
-            if target_symbols:
-                refresh_syms = [s for s in target_symbols if s in scanner_service.data_cache]
-            else:
-                # Auto-fix: refresh all symbols that have gaps
-                refresh_syms = list(gaps_found.keys()) if gaps_found else list(scanner_service.data_cache.keys())
+            # Auto-fix: refresh only symbols that have gaps
+            refresh_syms = list(gaps_found.keys()) if gaps_found else []
 
             if not refresh_syms:
-                return {"status": "success", "message": "No symbols to refresh", "gaps": gaps_found}
+                return {"status": "success", "message": "No gaps found", "gaps": gaps_found}
 
-            print(f"🔄 Refreshing {len(refresh_syms)} symbols...")
+            print(f"🔄 Refreshing {len(refresh_syms)} symbols with gaps...")
 
             # Re-fetch last N days
             result = await scanner_service.fetch_incremental(symbols=refresh_syms, replace_days=replace_days)
@@ -2125,6 +2151,12 @@ def handler(event, context):
             print("💾 Saving refreshed data...")
             export = data_export_service.export_consolidated(scanner_service.data_cache)
             print(f"💾 Export: {export}")
+
+            # Also update individual CSVs for the fixed symbols
+            fixed_cache = {s: scanner_service.data_cache[s] for s in refresh_syms if s in scanner_service.data_cache}
+            if fixed_cache:
+                csv_export = data_export_service.export_all(fixed_cache)
+                print(f"💾 CSV export for fixed symbols: {csv_export}")
 
             return {
                 "status": "success",
