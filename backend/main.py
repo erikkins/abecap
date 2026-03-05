@@ -777,6 +777,63 @@ def handler(event, context):
                 inc_result["failed"] = retry_result.get("failed", 0)
                 inc_result["source"] = f"{inc_result.get('source', 'unknown')}+{alt}_retry"
 
+            # 1e. Freshness gate: verify SPY has today's data before generating signals
+            from zoneinfo import ZoneInfo
+            from app.services.health_monitor_service import _last_market_day
+            spy_df = scanner_service.data_cache.get('SPY')
+            if spy_df is not None and len(spy_df) > 0:
+                spy_last_date = spy_df.index[-1]
+                if hasattr(spy_last_date, 'date'):
+                    spy_last_date = spy_last_date.date()
+                now_et = datetime.now(ZoneInfo('America/New_York'))
+                expected_date = _last_market_day(now_et.date())
+                if spy_last_date < expected_date:
+                    print(f"⚠️ STALE DATA: SPY last date {spy_last_date}, expected {expected_date} — retrying with yfinance...")
+                    from app.services.market_data_provider import market_data_provider
+                    market_data_provider.force_source = "yfinance"
+                    await scanner_service.fetch_incremental(symbols=["SPY", "^VIX"], replace_days=5)
+                    market_data_provider.force_source = None
+                    # Re-check
+                    spy_df = scanner_service.data_cache.get('SPY')
+                    if spy_df is not None and len(spy_df) > 0:
+                        spy_last_date = spy_df.index[-1]
+                        if hasattr(spy_last_date, 'date'):
+                            spy_last_date = spy_last_date.date()
+                    if spy_last_date < expected_date:
+                        print(f"❌ STALE DATA ABORT: SPY still at {spy_last_date} after retry, expected {expected_date}")
+                        from app.services.email_service import admin_email_service, ADMIN_EMAILS
+                        from app.core.database import User
+                        try:
+                            async with async_session() as alert_db:
+                                for email in ADMIN_EMAILS:
+                                    admin_result = await alert_db.execute(
+                                        select(User).where(User.email == email)
+                                    )
+                                    admin_user = admin_result.scalar_one_or_none()
+                                    if admin_user:
+                                        await admin_email_service.send_admin_alert(
+                                            admin_user,
+                                            "Daily scan ABORTED: SPY data stale",
+                                            f"SPY last date: {spy_last_date}, expected: {expected_date}. "
+                                            f"Both Alpaca and yfinance failed to return today's data. "
+                                            f"Scan was aborted to prevent stale signals."
+                                        )
+                        except Exception as alert_err:
+                            print(f"⚠️ Failed to send stale data admin alert: {alert_err}")
+                        return {"status": "aborted", "reason": f"stale_data: SPY at {spy_last_date}, expected {expected_date}"}
+                    else:
+                        print(f"✅ SPY freshness recovered after yfinance retry: {spy_last_date}")
+
+            # 1f. Gap detection: find symbols with missing business days
+            gapped = scanner_service.validate_data_continuity(lookback_days=30)
+            if gapped:
+                gapped_preview = list(gapped.keys())[:10]
+                print(f"⚠️ Gap detected in {len(gapped)} symbols: {gapped_preview}")
+                await scanner_service.fetch_incremental(
+                    symbols=list(gapped.keys()), replace_days=45
+                )
+                print(f"✅ Re-fetched {len(gapped)} gapped symbols with 45-day lookback")
+
             # 2. Run scan on fresh data
             signals = await scanner_service.scan(refresh_data=False)
             print(f"📡 Scan complete: {len(signals)} signals")
@@ -4223,9 +4280,15 @@ async def get_market_data_status():
             status = "stale"
             message = "Today's market data is delayed. Signals may not reflect current prices."
 
+    # Extract data_date from dashboard JSON
+    data_date = None
+    if dashboard and dashboard.get("data_date"):
+        data_date = dashboard["data_date"]
+
     return {
         "status": status,
         "last_updated": last_updated,
+        "data_date": data_date,
         "source": source,
         "message": message,
         "health": market_data_provider.get_health_summary(),

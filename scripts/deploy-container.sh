@@ -90,20 +90,30 @@ docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
 docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest
 echo "✅ Image pushed to ECR"
 
-# Step 5: Update Lambda function
+# Step 5: Update Lambda functions (API + Worker)
 echo ""
-echo "🚀 Step 5: Updating Lambda function..."
+echo "🚀 Step 5: Updating API Lambda..."
 aws lambda update-function-code \
   --function-name ${LAMBDA_FUNCTION} \
   --image-uri ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} \
   --region ${AWS_REGION}
-echo "✅ Lambda updated"
+echo "✅ API Lambda updated"
 
-# Step 6: Wait for Lambda to be ready
+WORKER_FUNCTION="rigacap-prod-worker"
 echo ""
-echo "⏳ Step 6: Waiting for Lambda to be ready..."
+echo "🚀 Step 5b: Updating Worker Lambda..."
+aws lambda update-function-code \
+  --function-name ${WORKER_FUNCTION} \
+  --image-uri ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} \
+  --region ${AWS_REGION}
+echo "✅ Worker Lambda updated"
+
+# Step 6: Wait for both Lambdas to be ready
+echo ""
+echo "⏳ Step 6: Waiting for Lambdas to be ready..."
 aws lambda wait function-updated --function-name ${LAMBDA_FUNCTION} --region ${AWS_REGION}
-echo "✅ Lambda is ready"
+aws lambda wait function-updated --function-name ${WORKER_FUNCTION} --region ${AWS_REGION}
+echo "✅ Both Lambdas are ready"
 
 # Step 6.5: Sync DATABASE_URL with current RDS endpoint
 echo ""

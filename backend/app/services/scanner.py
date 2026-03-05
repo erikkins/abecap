@@ -363,8 +363,42 @@ class ScannerService:
         rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 * 1024)
         logger.info(f"✅ Incremental update complete: {updated} updated, {skipped} skipped, {failed} failed via {source} (RSS: {rss_mb:.0f} MB)")
 
+        # NaN guard: drop last row if close price is NaN or <= 0
+        nan_dropped = 0
+        for symbol in list(self.data_cache.keys()):
+            df = self.data_cache[symbol]
+            if df is not None and len(df) > 0:
+                last_row = df.iloc[-1]
+                if pd.isna(last_row.get('close')) or (last_row.get('close', 0) <= 0):
+                    logger.warning(f"{symbol}: Invalid close price {last_row.get('close')}, dropping last row")
+                    self.data_cache[symbol] = df.iloc[:-1]
+                    nan_dropped += 1
+        if nan_dropped:
+            logger.warning(f"⚠️ Dropped {nan_dropped} symbols with NaN/invalid close prices")
+
         return {"updated": updated, "failed": failed, "skipped": skipped, "source": source}
-    
+
+    def validate_data_continuity(self, lookback_days: int = 30) -> Dict[str, list]:
+        """
+        Detect symbols with missing business days in recent data.
+        Returns dict of {symbol: [missing_date, ...]} for symbols with >2 gaps.
+        """
+        gapped = {}
+        cutoff = pd.Timestamp.now().normalize() - pd.Timedelta(days=lookback_days)
+        for symbol, df in self.data_cache.items():
+            if df is None or df.empty:
+                continue
+            recent = df[df.index >= cutoff]
+            if len(recent) < 2:
+                continue
+            expected = pd.bdate_range(recent.index[0], recent.index[-1])
+            actual = set(d.date() for d in recent.index)
+            expected_dates = set(d.date() for d in expected)
+            missing = expected_dates - actual
+            if len(missing) > 2:  # Allow 1-2 gaps (holidays)
+                gapped[symbol] = sorted(str(d) for d in missing)
+        return gapped
+
     # =========================================================================
     # SIGNAL GENERATION
     # =========================================================================

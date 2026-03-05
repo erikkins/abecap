@@ -1180,6 +1180,15 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
     except Exception as ctx_err:
         print(f"⚠️ Market context generation failed (non-fatal): {ctx_err}")
 
+    # --- Data date: the trading day this data represents ---
+    data_date = None
+    try:
+        spy_df = scanner_service.data_cache.get('SPY')
+        if spy_df is not None and len(spy_df) > 0:
+            data_date = str(spy_df.index[-1].date())
+    except Exception:
+        pass
+
     return {
         'regime_forecast': regime_forecast_data,
         'buy_signals': buy_signals,
@@ -1189,6 +1198,7 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
         'recent_signals': recent_signals,
         'last_ensemble_entry_date': last_ensemble_entry_date,
         'market_context': market_context,
+        'data_date': data_date,
         'generated_at': datetime.now().isoformat(),
     }
 
@@ -1353,6 +1363,7 @@ async def get_dashboard_data(
         'last_ensemble_entry_date': cached.get('last_ensemble_entry_date'),
         'fresh_signal_dates': fresh_signal_dates,
         'total_fresh_count': total_fresh_count,
+        'data_date': cached.get('data_date'),
     }
 
 

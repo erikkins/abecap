@@ -127,6 +127,18 @@ class ModelPortfolioService:
         if not dashboard:
             return {"entries": 0, "reason": "No dashboard cache available"}
 
+        # Freshness gate: refuse to trade on stale dashboard data
+        data_date_str = dashboard.get('data_date')
+        if data_date_str:
+            from zoneinfo import ZoneInfo
+            from app.services.health_monitor_service import _last_market_day
+            data_date = datetime.strptime(data_date_str, '%Y-%m-%d').date()
+            now_et = datetime.now(ZoneInfo('America/New_York'))
+            expected = _last_market_day(now_et.date())
+            if data_date < expected:
+                logger.warning(f"STALE DASHBOARD: data_date={data_date}, expected={expected} — refusing to enter trades")
+                return {"entries": 0, "reason": f"Stale data ({data_date} < {expected})"}
+
         buy_signals = dashboard.get("buy_signals", [])
         fresh_signals = [
             s for s in buy_signals

@@ -2337,6 +2337,7 @@ function Dashboard() {
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-sm text-amber-700">
           <AlertCircle className="inline w-4 h-4 mr-1 -mt-0.5" />
           {dataFreshness.message || "Today's market data is delayed. Signals may not reflect current prices."}
+          {dataFreshness.data_date && <span className="ml-1 font-medium">(Last: {dataFreshness.data_date})</span>}
         </div>
       )}
       {/* Header */}
@@ -2753,6 +2754,9 @@ function Dashboard() {
                           </span>
                         )}
                       </span>
+                    )}
+                    {dashboardData.data_date && (
+                      <span className="text-xs text-gray-400 flex-shrink-0">as of {dashboardData.data_date}</span>
                     )}
                     <svg className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${regimeExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
