@@ -862,7 +862,8 @@ class ModelPortfolioService:
         from app.services.scanner import scanner_service
 
         if snapshot_date is None:
-            snapshot_date = date.today()
+            from zoneinfo import ZoneInfo
+            snapshot_date = datetime.now(ZoneInfo('America/New_York')).date()
 
         snapshot_dt = datetime.combine(snapshot_date, datetime.min.time())
         results = {}

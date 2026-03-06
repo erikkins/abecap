@@ -915,7 +915,9 @@ def handler(event, context):
             async with async_session() as db:
                 data = await compute_shared_dashboard_data(db)
                 dash_result = data_export_service.export_dashboard_json(data)
-                today_str = date.today().strftime("%Y-%m-%d")
+                # Use data_date (SPY's last bar date) or ET date — never UTC date.today()
+                today_et = datetime.now(ZoneInfo('America/New_York')).date()
+                today_str = data.get('data_date') or today_et.strftime("%Y-%m-%d")
                 snap_result = data_export_service.export_snapshot(today_str, data)
 
             # 6. Persist ensemble signals to DB for audit trail + email consistency
@@ -925,10 +927,10 @@ def handler(event, context):
                 if data.get('buy_signals'):
                     async with async_session() as sig_db:
                         sig_result = await ensemble_signal_service.persist_signals(
-                            sig_db, data['buy_signals'], date.today()
+                            sig_db, data['buy_signals'], today_et
                         )
                         await ensemble_signal_service.invalidate_stale_signals(
-                            sig_db, date.today(),
+                            sig_db, today_et,
                             {s['symbol'] for s in data['buy_signals']}
                         )
                         persisted = sig_result['inserted']
@@ -1041,7 +1043,8 @@ def handler(event, context):
         async def _export_dashboard():
             from app.api.signals import compute_shared_dashboard_data
             from app.services.data_export import data_export_service
-            from datetime import date
+            from datetime import date, datetime
+            from zoneinfo import ZoneInfo
 
             async with async_session() as db:
                 data = await compute_shared_dashboard_data(db)
@@ -1051,7 +1054,8 @@ def handler(event, context):
 
             # Export daily snapshot if requested (phase 2 of deferred daily scan)
             if event.get("include_snapshot"):
-                today_str = date.today().strftime("%Y-%m-%d")
+                today_et = datetime.now(ZoneInfo('America/New_York')).date()
+                today_str = data.get('data_date') or today_et.strftime("%Y-%m-%d")
                 snap_result = data_export_service.export_snapshot(today_str, data)
                 result["snapshot"] = snap_result
                 print(f"📸 Snapshot exported: {snap_result}")
@@ -1060,13 +1064,14 @@ def handler(event, context):
             if event.get("include_ensemble"):
                 try:
                     from app.services.ensemble_signal_service import ensemble_signal_service
+                    today_et = datetime.now(ZoneInfo('America/New_York')).date()
                     if data.get('buy_signals'):
                         async with async_session() as sig_db:
                             sig_result = await ensemble_signal_service.persist_signals(
-                                sig_db, data['buy_signals'], date.today()
+                                sig_db, data['buy_signals'], today_et
                             )
                             await ensemble_signal_service.invalidate_stale_signals(
-                                sig_db, date.today(),
+                                sig_db, today_et,
                                 {s['symbol'] for s in data['buy_signals']}
                             )
                             result["ensemble_signals_persisted"] = sig_result['inserted']
@@ -3093,12 +3098,13 @@ def handler(event, context):
             async def _export_dashboard_and_snapshot():
                 from app.api.signals import compute_shared_dashboard_data
                 from app.services.data_export import data_export_service
-                from datetime import date
+                from zoneinfo import ZoneInfo
                 async with async_session() as db:
                     data = await compute_shared_dashboard_data(db)
                     dash_result = data_export_service.export_dashboard_json(data)
-                    # Also save today's snapshot for time-travel mode
-                    today_str = date.today().strftime("%Y-%m-%d")
+                    # Also save today's snapshot for time-travel mode (use ET, not UTC)
+                    today_et = datetime.now(ZoneInfo('America/New_York')).date()
+                    today_str = data.get('data_date') or today_et.strftime("%Y-%m-%d")
                     snap_result = data_export_service.export_snapshot(today_str, data)
                     return {"dashboard": dash_result, "snapshot": snap_result}
 

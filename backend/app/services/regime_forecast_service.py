@@ -9,6 +9,7 @@ import json
 import logging
 from datetime import datetime, date, timedelta
 from typing import List, Optional
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, asc, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -88,7 +89,7 @@ class RegimeForecastService:
         await db.commit()
         logger.info(f"[REGIME-FORECAST] Snapshot taken: {forecast_dict.get('current_regime')}")
         return {
-            "date": str(date.today()),
+            "date": str(datetime.now(ZoneInfo('America/New_York')).date()),
             "regime": forecast_dict.get("current_regime"),
             "outlook": forecast_dict.get("outlook"),
             "recommended_action": forecast_dict.get("recommended_action"),
