@@ -216,7 +216,9 @@ class AlpacaProvider(MarketDataProvider):
                         result[original_sym] = df
 
                     except Exception as e:
-                        logger.debug(f"Alpaca parse error for {alpaca_sym}: {e}")
+                        import traceback
+                        print(f"❌ Alpaca parse error for {alpaca_sym}: {e}")
+                        traceback.print_exc()
 
             except Exception as e:
                 import traceback
