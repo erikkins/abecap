@@ -1989,6 +1989,34 @@ function Dashboard() {
     return () => abortController.abort();
   }, [timeTravelDate]);
 
+  // Live SPY/VIX polling (every 30s during market hours, no auth needed)
+  useEffect(() => {
+    if (!user || timeTravelDate) return;
+
+    const fetchLiveStats = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/live-market-stats`);
+        if (res.ok) {
+          const data = await res.json();
+          setDashboardData(prev => prev ? {
+            ...prev,
+            market_stats: {
+              ...prev.market_stats,
+              spy_price: data.spy_price ?? prev.market_stats?.spy_price,
+              spy_change_pct: data.spy_change_pct ?? prev.market_stats?.spy_change_pct,
+              vix_level: data.vix_level ?? prev.market_stats?.vix_level,
+              live: true,
+            }
+          } : prev);
+        }
+      } catch { /* silent — non-critical */ }
+    };
+
+    fetchLiveStats();
+    const interval = setInterval(fetchLiveStats, 30000);
+    return () => clearInterval(interval);
+  }, [user, timeTravelDate]);
+
   // Send time-travel email when dashboard data loads after preset click
   useEffect(() => {
     if (!timeTravelEmailPending || !timeTravelDate || !dashboardData) return;
@@ -2752,6 +2780,9 @@ function Dashboard() {
                           <span className={`ml-1 ${dashboardData.market_stats.spy_change_pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                             ({dashboardData.market_stats.spy_change_pct >= 0 ? '+' : ''}{dashboardData.market_stats.spy_change_pct.toFixed(2)}%)
                           </span>
+                        )}
+                        {dashboardData.market_stats.live && (
+                          <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 uppercase tracking-wide">Live</span>
                         )}
                       </span>
                     )}

@@ -1647,7 +1647,7 @@ def handler(event, context):
                     return {"status": "success", "positions_checked": 0, "alerts_sent": 0, "model_closed": 0, "message": "No open positions"}
 
                 # Fetch live prices via DualSourceProvider
-                symbols = list({row[0].symbol for row in rows} | model_syms)
+                symbols = list({row[0].symbol for row in rows} | model_syms | {'SPY'})
                 live_prices = {}
                 day_highs = {}
                 quote_data = await market_data_provider.fetch_quotes(symbols)
@@ -1729,6 +1729,33 @@ def handler(event, context):
                         await _notify_portfolio_change("SELL", model_closed)
                 except Exception as e:
                     print(f"⚠️ [MODEL-LIVE] Exit check failed: {e}")
+
+                # --- Update S3 dashboard cache with live SPY/VIX prices ---
+                try:
+                    spy_qd = quote_data.get('SPY')
+                    vix_price = None
+                    try:
+                        import yfinance as yf
+                        vix_ticker = yf.Ticker('^VIX')
+                        vix_price = round(vix_ticker.fast_info.last_price, 2)
+                    except Exception:
+                        pass
+
+                    if spy_qd:
+                        dash = des.read_dashboard_json()
+                        if dash:
+                            ms = dash.get('market_stats', {})
+                            ms['spy_price'] = spy_qd.price
+                            if spy_qd.change_pct is not None:
+                                ms['spy_change_pct'] = spy_qd.change_pct
+                            if vix_price:
+                                ms['vix_level'] = vix_price
+                            ms['live_updated_at'] = datetime.utcnow().isoformat()
+                            dash['market_stats'] = ms
+                            des.export_dashboard_json(dash)
+                            print(f"📈 Live market stats updated: SPY={spy_qd.price}, VIX={vix_price}")
+                except Exception as e:
+                    print(f"⚠️ Live market stats update failed (non-fatal): {e}")
 
                 return {
                     "status": "success",
@@ -4306,6 +4333,33 @@ async def get_market_data_status():
         "message": message,
         "health": market_data_provider.get_health_summary(),
     }
+
+
+@app.get("/api/live-market-stats")
+async def live_market_stats():
+    """Live SPY/VIX quote — lightweight, no auth, no pickle."""
+    from app.services.market_data_provider import market_data_provider
+    import yfinance as yf
+
+    result = {}
+    try:
+        quotes = await market_data_provider.fetch_quotes(['SPY'])
+        if quotes.get('SPY'):
+            q = quotes['SPY']
+            result['spy_price'] = q.price
+            result['spy_change_pct'] = q.change_pct
+            result['spy_prev_close'] = q.prev_close
+    except Exception:
+        pass
+
+    try:
+        vix = yf.Ticker('^VIX')
+        result['vix_level'] = round(vix.fast_info.last_price, 2)
+    except Exception:
+        pass
+
+    result['timestamp'] = datetime.utcnow().isoformat()
+    return result
 
 
 @app.get("/api/config")
