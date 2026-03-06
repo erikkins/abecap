@@ -175,6 +175,9 @@ class AlpacaProvider(MarketDataProvider):
                 # Convert to per-symbol DataFrames
                 # BarSet.data is a dict of symbol -> list[Bar] (Alpaca-format keys)
                 bar_data = bars.data if hasattr(bars, 'data') else {}
+                if i == 0:  # Log first batch for debugging
+                    bar_keys = list(bar_data.keys())[:5] if bar_data else []
+                    print(f"🔍 Alpaca batch 0: {len(bar_data)} symbols returned, first keys: {bar_keys}, requested: {batch[:5]}")
                 for alpaca_sym in batch:
                     try:
                         symbol_bars = bar_data.get(alpaca_sym, [])
