@@ -768,8 +768,15 @@ def handler(event, context):
 
             # 1c. Incremental update for existing cached symbols (today's prices only)
             replace_days = event.get("replace_days", 0)
+            force_source = event.get("force_source")  # "yfinance" or "alpaca"
+            if force_source:
+                from app.services.market_data_provider import market_data_provider as mdp
+                mdp.force_source = force_source
+                print(f"📡 Forcing data source: {force_source}")
             print(f"📡 Incremental update for {len(existing_symbols)} cached symbols..." + (f" [replace_days={replace_days}]" if replace_days else ""))
             inc_result = await scanner_service.fetch_incremental(replace_days=replace_days)
+            if force_source:
+                mdp.force_source = None
             print(f"📡 Incremental: {inc_result}")
 
             # 1d. Auto-retry with alternate source if >10% symbols failed
