@@ -1628,6 +1628,41 @@ def handler(event, context):
             from sqlalchemy import select
             from datetime import date
 
+            # Load persisted dedup set from S3 (survives Lambda cold starts)
+            def _load_alert_dedup():
+                try:
+                    import boto3, json, os
+                    bucket = os.environ.get("PRICE_DATA_BUCKET")
+                    if not bucket:
+                        return set()
+                    s3 = boto3.client("s3")
+                    obj = s3.get_object(Bucket=bucket, Key="signals/alert_dedup.json")
+                    data = json.loads(obj["Body"].read())
+                    today_str = str(date.today())
+                    # Only keep today's keys
+                    return {k for k in data.get("keys", []) if k.endswith(today_str)}
+                except Exception:
+                    return set()
+
+            def _save_alert_dedup(keys: set):
+                try:
+                    import boto3, json, os
+                    bucket = os.environ.get("PRICE_DATA_BUCKET")
+                    if not bucket:
+                        return
+                    s3 = boto3.client("s3")
+                    s3.put_object(
+                        Bucket=bucket,
+                        Key="signals/alert_dedup.json",
+                        Body=json.dumps({"keys": list(keys)}),
+                        ContentType="application/json",
+                    )
+                except Exception:
+                    pass
+
+            persisted_dedup = _load_alert_dedup()
+            sched._alerted_sell_positions.update(persisted_dedup)
+
             async with async_sess() as db:
                 # Query all open user positions with user email
                 result = await db.execute(
@@ -1757,6 +1792,10 @@ def handler(event, context):
                             print(f"📈 Live market stats updated: SPY={spy_qd.price}, VIX={vix_price}")
                 except Exception as e:
                     print(f"⚠️ Live market stats update failed (non-fatal): {e}")
+
+                # Persist dedup set to S3 so it survives Lambda cold starts
+                if alerts_sent > 0:
+                    _save_alert_dedup(sched._alerted_sell_positions)
 
                 return {
                     "status": "success",
