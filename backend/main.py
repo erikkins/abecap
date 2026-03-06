@@ -767,8 +767,9 @@ def handler(event, context):
                 print(f"ℹ️ {len(new_symbols)} new symbols in universe not in cache (skipping — will be included on next pickle rebuild)")
 
             # 1c. Incremental update for existing cached symbols (today's prices only)
-            print(f"📡 Incremental update for {len(existing_symbols)} cached symbols...")
-            inc_result = await scanner_service.fetch_incremental()
+            replace_days = event.get("replace_days", 0)
+            print(f"📡 Incremental update for {len(existing_symbols)} cached symbols..." + (f" [replace_days={replace_days}]" if replace_days else ""))
+            inc_result = await scanner_service.fetch_incremental(replace_days=replace_days)
             print(f"📡 Incremental: {inc_result}")
 
             # 1d. Auto-retry with alternate source if >10% symbols failed
