@@ -680,11 +680,18 @@ def handler(event, context):
                     "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS comped_at TIMESTAMP",
                     "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS comped_by UUID REFERENCES users(id)",
                 ]
+                # Support custom SQL via event payload (admin-only, direct Lambda invoke)
+                custom_sql = event.get("sql")
+                if custom_sql:
+                    migrations = [custom_sql] if isinstance(custom_sql, str) else custom_sql
                 async with async_session() as db:
                     for sql in migrations:
                         try:
-                            await db.execute(text(sql))
-                            results.append({"sql": sql[:80], "status": "ok"})
+                            result = await db.execute(text(sql))
+                            row_data = None
+                            if result.returns_rows:
+                                row_data = [dict(r._mapping) for r in result.fetchall()]
+                            results.append({"sql": sql[:80], "status": "ok", "rows": row_data})
                         except Exception as e:
                             results.append({"sql": sql[:80], "status": "error", "error": str(e)})
                     await db.commit()
