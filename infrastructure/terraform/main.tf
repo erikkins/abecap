@@ -870,6 +870,31 @@ resource "aws_lambda_permission" "daily_emails" {
 }
 
 # ============================================================================
+# EventBridge - Weekly Market Regime Report (Monday 9 AM ET = 13:00 UTC during EDT)
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "weekly_regime_report" {
+  name                = "${local.prefix}-weekly-regime-report"
+  description         = "Send weekly market regime intelligence email every Monday 9 AM ET"
+  schedule_expression = "cron(0 13 ? * MON *)"
+}
+
+resource "aws_cloudwatch_event_target" "weekly_regime_report" {
+  rule      = aws_cloudwatch_event_rule.weekly_regime_report.name
+  target_id = "lambda-weekly-regime-report"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ weekly_regime_report = true })
+}
+
+resource "aws_lambda_permission" "weekly_regime_report" {
+  statement_id  = "AllowWeeklyRegimeReportEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.weekly_regime_report.arn
+}
+
+# ============================================================================
 # EventBridge - Double Signal Alerts (5 PM ET = 21:00 UTC during EDT)
 # ============================================================================
 

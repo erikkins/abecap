@@ -4386,7 +4386,7 @@ def handler(event, context):
 
                     # Paid users
                     result = await db.execute(
-                        select(User).join(Subscription).where(
+                        select(User).join(Subscription, Subscription.user_id == User.id).where(
                             Subscription.status.in_(["active", "trial"]),
                             User.is_active == True,
                         )
