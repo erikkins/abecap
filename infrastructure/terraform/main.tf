@@ -800,8 +800,8 @@ resource "aws_db_instance" "main" {
 
 resource "aws_cloudwatch_event_rule" "scanner" {
   name                = "${local.prefix}-scanner"
-  description         = "Run market scan at 4:20 PM ET on weekdays (20 min after close for Alpaca bar settlement)"
-  schedule_expression = "cron(20 20 ? * MON-FRI *)" # 4:20 PM EDT = 8:20 PM UTC
+  description         = "Run market scan at 4:30 PM ET on weekdays (30 min after close for Alpaca bar settlement)"
+  schedule_expression = "cron(30 20 ? * MON-FRI *)" # 4:30 PM EDT = 8:30 PM UTC
 }
 
 resource "aws_cloudwatch_event_target" "scanner" {
