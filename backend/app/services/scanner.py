@@ -26,13 +26,13 @@ try:
 except ImportError:
     YFINANCE_AVAILABLE = False
 
-from app.core.config import settings, get_universe
+from app.core.config import settings, get_universe, EXCLUDED_SYMBOLS
 from app.services.stock_universe import EXCLUDED_PATTERNS
 
 logger = logging.getLogger(__name__)
 
-# Fast set lookup for excluded symbols (ETFs, leveraged products, etc.)
-_EXCLUDED_SET = set(EXCLUDED_PATTERNS)
+# Fast set lookup for excluded symbols — union of both lists (single source of truth)
+_EXCLUDED_SET = set(EXCLUDED_PATTERNS) | set(EXCLUDED_SYMBOLS)
 
 
 @dataclass

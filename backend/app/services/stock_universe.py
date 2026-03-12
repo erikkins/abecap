@@ -33,11 +33,17 @@ S3_UNIVERSE_KEY = "universe/symbols_cache.json"
 # Regular ETFs (SLV, GLD, SPY, etc.) are allowed — the sector cap in
 # scanner.py prevents concentration (max 5 per sector)
 EXCLUDED_PATTERNS = [
-    # Leveraged/Inverse ETFs (2x/3x products with daily decay)
+    # Leveraged/Inverse index ETFs (2x/3x products with daily decay)
     'TQQQ', 'SQQQ', 'QLD', 'QID', 'SPXU', 'SPXS', 'UPRO', 'SSO', 'SDS', 'SH',
     'TNA', 'TZA', 'FAS', 'FAZ', 'LABU', 'LABD', 'NUGT', 'DUST', 'JNUG', 'JDST',
+    # Leveraged/inverse single-stock ETFs (Direxion, GraniteShares, etc.)
+    'TSLS', 'TSLQ', 'TSLL', 'NVDL', 'NVDS', 'NVDQ',
+    'AAPD', 'AAPU', 'AMZU', 'AMZD', 'MSFU', 'MSFD',
+    'METU', 'METD', 'CONL', 'CONY',
     # Leveraged commodity ETFs (2x/inverse)
     'AGQ', 'ZSL', 'UGL', 'GLL',
+    # Crypto leveraged ETFs
+    'BITX', 'BITU', 'SBIT',
     # Volatility products (contango decay)
     'UVXY', 'SVXY', 'VXX', 'VIXY', 'TVIX',
     # Other problematic symbols

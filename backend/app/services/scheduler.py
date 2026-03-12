@@ -1280,12 +1280,55 @@ class SchedulerService:
                 'last_date': 'N/A'
             }
 
+    def _load_double_signal_dedup(self) -> set:
+        """Load persisted double signal dedup keys from S3 (survives Lambda cold starts)."""
+        try:
+            import boto3, json, os
+            from datetime import timedelta
+            bucket = os.environ.get("PRICE_DATA_BUCKET") or os.environ.get("S3_BUCKET")
+            if not bucket:
+                return set()
+            s3 = boto3.client("s3")
+            obj = s3.get_object(Bucket=bucket, Key="signals/double_signal_dedup.json")
+            data = json.loads(obj["Body"].read())
+            # Keep keys from last 7 days (covers weekends + 3-day lookback)
+            cutoff = (datetime.now(ET) - timedelta(days=7)).strftime('%Y-%m-%d')
+            keys = set()
+            for k in data.get("keys", []):
+                # Key format: SYMBOL_YYYY-MM-DD — extract date suffix
+                parts = k.rsplit("_", 1)
+                if len(parts) == 2 and parts[1] >= cutoff:
+                    keys.add(k)
+            logger.info(f"Loaded {len(keys)} double signal dedup keys from S3")
+            return keys
+        except Exception:
+            return set()
+
+    def _save_double_signal_dedup(self, keys: set):
+        """Persist double signal dedup keys to S3."""
+        try:
+            import boto3, json, os
+            bucket = os.environ.get("PRICE_DATA_BUCKET") or os.environ.get("S3_BUCKET")
+            if not bucket:
+                return
+            s3 = boto3.client("s3")
+            s3.put_object(
+                Bucket=bucket,
+                Key="signals/double_signal_dedup.json",
+                Body=json.dumps({"keys": list(keys)}),
+                ContentType="application/json",
+            )
+            logger.info(f"Saved {len(keys)} double signal dedup keys to S3")
+        except Exception as e:
+            logger.warning(f"Failed to save double signal dedup to S3: {e}")
+
     async def check_double_signal_alerts(self):
         """
         Check for new double signals and send email alerts.
 
         Runs at 5:00 PM ET to detect momentum stocks that just crossed DWAP +5%.
         Only alerts on NEW crossovers (not previously alerted).
+        Dedup persisted to S3 to survive Lambda cold starts.
         """
         logger.info("⚡ Checking for new double signal alerts...")
 
@@ -1299,6 +1342,10 @@ class SchedulerService:
             # Freshness gate — HOLD alerts if data is stale
             if not await self._validate_data_freshness("double_signal_alerts"):
                 return
+
+            # Load persisted dedup from S3 (survives cold starts)
+            persisted_dedup = self._load_double_signal_dedup()
+            self._alerted_double_signals.update(persisted_dedup)
 
             import pandas as pd
             from sqlalchemy import select
@@ -1366,10 +1413,8 @@ class SchedulerService:
                         # Mark as alerted
                         self._alerted_double_signals.add(alert_key)
 
-            # Clean up old alert keys (keep last 100)
-            if len(self._alerted_double_signals) > 100:
-                # Convert to list, sort, keep recent ones
-                self._alerted_double_signals = set(list(self._alerted_double_signals)[-50:])
+            # Persist dedup to S3 (always save — even if no new signals, to maintain state)
+            self._save_double_signal_dedup(self._alerted_double_signals)
 
             # Send alert email if new signals found
             if new_signals:
