@@ -868,14 +868,16 @@ def handler(event, context):
 
             async def _unwind():
                 from sqlalchemy import text
+                from datetime import date as _date
                 from app.core.database import async_session
+                cutoff = _date.fromisoformat(cutoff_date)
                 async with async_session() as db:
                     # Close pre-cutoff positions
                     close_result = await db.execute(text(
                         "UPDATE model_positions "
                         "SET status = 'closed', exit_date = NOW(), exit_reason = 'universe_change' "
-                        "WHERE status = 'open' AND entry_date < CAST(:cutoff AS date)"
-                    ), {"cutoff": cutoff_date})
+                        "WHERE status = 'open' AND entry_date < :cutoff"
+                    ), {"cutoff": cutoff})
                     closed_count = close_result.rowcount
 
                     # Recalculate cash from closed positions (return capital)
