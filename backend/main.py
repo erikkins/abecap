@@ -874,7 +874,7 @@ def handler(event, context):
                     close_result = await db.execute(text(
                         "UPDATE model_positions "
                         "SET status = 'closed', exit_date = NOW(), exit_reason = 'universe_change' "
-                        "WHERE status = 'open' AND entry_date < :cutoff"
+                        "WHERE status = 'open' AND entry_date < :cutoff::date"
                     ), {"cutoff": cutoff_date})
                     closed_count = close_result.rowcount
 
