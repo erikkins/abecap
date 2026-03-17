@@ -2064,7 +2064,7 @@ function Dashboard() {
       }
     };
     fetchJourney();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, dashboardData?.generated_at]);
 
   // Merge live quotes into positions for display
   const positionsWithLiveQuotes = positions.map(p => {
@@ -2358,8 +2358,8 @@ function Dashboard() {
     );
   }
 
-  // Show data loading state if backend is up but no data yet
-  const noDataAvailable = positions.length === 0 && signals.length === 0 && trades.length === 0;
+  // Show data loading state only if dashboard hasn't loaded yet (not just empty portfolio)
+  const noDataAvailable = !dashboardData && positions.length === 0 && signals.length === 0 && trades.length === 0;
 
   return (
     <div className="min-h-screen bg-gray-50">

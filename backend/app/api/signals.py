@@ -1346,6 +1346,7 @@ async def get_dashboard_data(
         # Teaser: show regime, market stats, signal count, but no actual signals
         return {
             'regime_forecast': cached.get('regime_forecast'),
+            'regime_adjustments': cached.get('regime_adjustments'),
             'buy_signals': [],
             'positions_with_guidance': [],
             'watchlist': [],
@@ -1382,6 +1383,7 @@ async def get_dashboard_data(
 
     return {
         'regime_forecast': cached.get('regime_forecast'),
+        'regime_adjustments': cached.get('regime_adjustments'),
         'buy_signals': buy_signals,
         'positions_with_guidance': positions_with_guidance,
         'watchlist': cached.get('watchlist', []),
