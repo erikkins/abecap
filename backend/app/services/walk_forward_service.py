@@ -1095,6 +1095,10 @@ class WalkForwardService:
                     # First period - always pick best
                     should_switch = True
                     switch_reason = "initial_selection"
+                elif optimizer_version == "v2" and best.get("is_ai"):
+                    # V2: always re-adopt fresh AI params every period
+                    should_switch = True
+                    switch_reason = f"v2_reoptimize_{score_diff:+.1f}pts"
                 elif score_diff >= min_score_diff:
                     # Score improvement meets threshold
                     if best.get("is_ai"):
@@ -1562,6 +1566,8 @@ class WalkForwardService:
                 "strategy_id": fixed_strategy_id,
                 "n_trials": config.get("n_trials", 30),
                 "lookback_days": config.get("lookback_days", 60),
+                "optimizer_version": config.get("optimizer_version", "v1"),
+                "risk_preference": config.get("risk_preference", 0.5),
             }
         }
 
@@ -1683,7 +1689,9 @@ class WalkForwardService:
                     ai_result = self._run_ai_optimization_at_date(
                         period_start, ai_strategy_type, lookback_days, top_symbols,
                         warm_start_params=warm_start_params,
-                        n_trials=n_trials
+                        n_trials=n_trials,
+                        optimizer_version=config.get("optimizer_version", "v1"),
+                        risk_preference=config.get("risk_preference", 0.5),
                     )
                     if ai_result:
                         period_ai_opt = ai_result
@@ -1716,9 +1724,14 @@ class WalkForwardService:
                 should_switch = False
                 switch_reason = ""
 
+                opt_ver = config.get("optimizer_version", "v1")
                 if period_index == 0 and not fixed_strategy:
                     should_switch = True
                     switch_reason = "initial_selection"
+                elif opt_ver == "v2" and best.get("is_ai"):
+                    # V2: always re-adopt fresh AI params every period
+                    should_switch = True
+                    switch_reason = f"v2_reoptimize_{score_diff:+.1f}pts"
                 elif score_diff >= min_score_diff:
                     if best.get("is_ai"):
                         if not using_ai_params:

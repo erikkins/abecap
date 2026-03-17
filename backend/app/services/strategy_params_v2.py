@@ -20,35 +20,38 @@ from typing import Dict, Any
 
 V2_PARAM_SPACES: Dict[str, Dict[str, Any]] = {
     "ensemble": {
-        # --- V1 params (retained) ---
-        "dwap_threshold_pct": {"low": 3.0, "high": 8.0, "step": 0.5},
-        "trailing_stop_pct": {"low": 8.0, "high": 22.0, "step": 1.0},
-        "max_positions": {"low": 3, "high": 8, "step": 1},
-        "position_size_pct": {"low": 10.0, "high": 20.0, "step": 1.0},
+        # --- V1 params (retained, bounds tightened from V2 benchmark lessons) ---
+        "dwap_threshold_pct": {"low": 3.0, "high": 7.0, "step": 0.5},
+        "trailing_stop_pct": {"low": 10.0, "high": 20.0, "step": 1.0},  # Min 10% — 8% killed winners
+        "max_positions": {"low": 4, "high": 8, "step": 1},  # Min 4 — 3 is too concentrated
+        "position_size_pct": {"low": 12.0, "high": 20.0, "step": 1.0},
         "near_50d_high_pct": {"low": 2.0, "high": 10.0, "step": 1.0},
         "short_mom_weight": {"low": 0.3, "high": 0.7, "step": 0.05},
         "long_mom_weight": {"low": 0.1, "high": 0.5, "step": 0.05},
-        "volatility_penalty": {"low": 0.05, "high": 0.35, "step": 0.05},
+        "volatility_penalty": {"low": 0.05, "high": 0.30, "step": 0.05},
 
         # --- Lever 1: Momentum lookback tuning ---
         "short_momentum_days": {"type": "categorical", "choices": [5, 10, 15, 20]},
         "long_momentum_days": {"type": "categorical", "choices": [40, 60, 90, 120]},
 
         # --- Lever 3: Entry timing signals ---
-        "rsi_oversold_filter": {"low": 20, "high": 40, "step": 5},
-        "volume_ratio_min": {"low": 0.8, "high": 2.0, "step": 0.1},
+        # RSI: 60-100 range (100=disabled). Previous 20-40 was too restrictive.
+        "rsi_oversold_filter": {"low": 60, "high": 100, "step": 10},
+        # Volume ratio: 0.0=disabled. Previous 0.8-2.0 forced high selectivity.
+        "volume_ratio_min": {"low": 0.0, "high": 1.5, "step": 0.3},
 
         # --- Lever 4: Exit strategy optimization ---
         "exit_type": {"type": "categorical", "choices": ["trailing_stop", "hybrid", "time_capped"]},
         "hybrid_initial_target_pct": {"low": 10.0, "high": 25.0, "step": 2.5},
         "hybrid_trailing_pct": {"low": 5.0, "high": 12.0, "step": 1.0},
-        "max_hold_days": {"low": 20, "high": 120, "step": 10},
+        "max_hold_days": {"low": 30, "high": 120, "step": 10},
 
         # --- Lever 6: Lookback window tuning ---
         "optimization_lookback_days": {"type": "categorical", "choices": [126, 189, 252, 378, 504]},
 
         # --- Lever 7: Sector rotation ---
-        "sector_cap": {"low": 1, "high": 4, "step": 1},
+        # 0=disabled. Previous min=1 was always-on, reducing opportunity set.
+        "sector_cap": {"low": 0, "high": 4, "step": 1},
     },
 }
 
