@@ -973,7 +973,7 @@ def get_regime_adjusted_params(regime: MarketRegime) -> dict:
                 'base': base_val,
                 'offset': offset,
                 'effective': adjusted,
-                'description': f"{labels.get(param, param)} {desc_word} to {adjusted}{unit} (base {base_val}{unit}, {sign}{offset})",
+                'description': f"{labels.get(param, param)} {desc_word} to {adjusted}{unit}",
             })
 
     return {
