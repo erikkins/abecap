@@ -1634,7 +1634,7 @@ def handler(event, context):
             remaining_after = len(missing) - len(chunk)
             print(f"🔨 Fetching {len(chunk)} missing symbols ({remaining_after} remaining after this chunk)...")
 
-            # 3. Fetch full 5y history for chunk
+            # 3. Fetch full 10y history for chunk
             await scanner_service.fetch_data(symbols=chunk)
 
             # 4. Merge with latest S3 pickle (prevent concurrent chains from clobbering progress)

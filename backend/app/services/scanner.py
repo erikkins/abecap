@@ -179,7 +179,7 @@ class ScannerService:
     # DATA FETCHING
     # =========================================================================
 
-    async def fetch_data(self, symbols: List[str] = None, period: str = "5y") -> Dict[str, pd.DataFrame]:
+    async def fetch_data(self, symbols: List[str] = None, period: str = "10y") -> Dict[str, pd.DataFrame]:
         """
         Fetch historical data via DualSourceProvider (Alpaca primary, yfinance fallback).
         This fetches FULL historical data - use fetch_incremental() for daily updates.
@@ -201,8 +201,8 @@ class ScannerService:
                 symbols_set.add(req)
 
         # Convert period to start_date for provider API
-        period_days = {"1y": 365, "2y": 730, "5y": 1825, "max": 7300}
-        days = period_days.get(period, 1825)
+        period_days = {"1y": 365, "2y": 730, "5y": 1825, "10y": 3650, "max": 7300}
+        days = period_days.get(period, 3650)
         start_date = (pd.Timestamp.now() - pd.Timedelta(days=days)).strftime("%Y-%m-%d")
 
         total = len(symbols)

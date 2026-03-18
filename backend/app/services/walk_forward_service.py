@@ -350,8 +350,8 @@ class WalkForwardService:
             # optimizer's trial_results contain params usable by StrategyParams(**params).
             def objective_v2(suggested_params: Dict[str, Any]) -> Optional[Tuple[float, float]]:
                 nonlocal combinations_tested
-                # V2 may suggest optimization_lookback_days — use it for this trial's backtest
-                trial_lookback = suggested_params.pop("optimization_lookback_days", lookback_days)
+                # Lookback is fixed (not in V2 search space) — use the WF-level lookback_days
+                trial_lookback = lookback_days
                 # Merge base params INTO suggested_params so trial_results stores full params
                 for k, v in base_params.items():
                     if k not in suggested_params:

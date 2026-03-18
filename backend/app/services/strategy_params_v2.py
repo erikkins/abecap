@@ -7,7 +7,7 @@ Extends V1 with 7 new alpha levers:
 3. Entry timing signals (RSI filter, volume ratio threshold)
 4. Exit strategy optimization (trailing vs hybrid vs time-capped)
 5. Multi-objective Pareto (handled in optuna_optimizer_v2.py)
-6. Lookback window tuning (optimization_lookback_days)
+6. Lookback window (fixed at 252 days — removed from search space)
 7. Sector rotation (sector_cap)
 """
 
@@ -46,8 +46,9 @@ V2_PARAM_SPACES: Dict[str, Dict[str, Any]] = {
         "hybrid_trailing_pct": {"low": 5.0, "high": 12.0, "step": 1.0},
         "max_hold_days": {"low": 30, "high": 120, "step": 10},
 
-        # --- Lever 6: Lookback window tuning ---
-        "optimization_lookback_days": {"type": "categorical", "choices": [126, 189, 252, 378, 504]},
+        # --- Lever 6: Lookback window --- REMOVED from search space (fixed at 252 in WF service)
+        # optimization_lookback_days was the most expensive param (504-day backtests = 4x slower),
+        # causing Lambda 900s timeouts. Fixed at 252 to allow 100 trials per period.
 
         # --- Lever 7: Sector rotation ---
         # 0=disabled. Previous min=1 was always-on, reducing opportunity set.
