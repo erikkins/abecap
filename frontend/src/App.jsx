@@ -1699,6 +1699,7 @@ function Dashboard() {
   const [positions, setPositions] = useState([]);
   const [trades, setTrades] = useState([]);
   const [missedOpportunities, setMissedOpportunities] = useState([]);
+  const [missedSortBy, setMissedSortBy] = useState('date'); // 'date' or 'return'
   const [backtest, setBacktest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -3955,13 +3956,22 @@ function Dashboard() {
                           <th className="px-3 py-2 text-right font-medium hidden md:table-cell">Buy $</th>
                           <th className="px-3 py-2 text-left font-medium hidden sm:table-cell">Sell Date</th>
                           <th className="px-3 py-2 text-right font-medium hidden md:table-cell">Sell $</th>
-                          <th className="px-3 py-2 text-right font-medium">Return</th>
+                          <th
+                            className="px-3 py-2 text-right font-medium cursor-pointer select-none hover:text-amber-600 transition-colors"
+                            onClick={() => setMissedSortBy(prev => prev === 'return' ? 'date' : 'return')}
+                          >
+                            Return {missedSortBy === 'return' ? '↓' : ''}
+                          </th>
                           <th className="px-3 py-2 text-right font-medium">P&L</th>
                           <th className="px-3 py-2 text-right font-medium hidden sm:table-cell">Days</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {missedOpportunities.map((m) => (
+                        {[...missedOpportunities].sort((a, b) =>
+                          missedSortBy === 'return'
+                            ? (b.would_be_return || 0) - (a.would_be_return || 0)
+                            : (b.sell_date || '').localeCompare(a.sell_date || '')
+                        ).map((m) => (
                           <tr
                             key={`${m.symbol}-${m.entry_date}`}
                             className="hover:bg-amber-50 cursor-pointer transition-colors"

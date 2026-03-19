@@ -870,7 +870,14 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                         'exit_reason': exit_reason,
                     })
 
-            missed_opportunities.sort(key=lambda x: x['would_be_return'], reverse=True)
+            # Deduplicate: keep best return per symbol
+            best_by_symbol = {}
+            for m in missed_opportunities:
+                sym = m['symbol']
+                if sym not in best_by_symbol or m['would_be_return'] > best_by_symbol[sym]['would_be_return']:
+                    best_by_symbol[sym] = m
+            missed_opportunities = list(best_by_symbol.values())
+            missed_opportunities.sort(key=lambda x: x.get('sell_date', ''), reverse=True)
             missed_opportunities = missed_opportunities[:5]
         else:
             # Fallback: compute on-the-fly from price data
@@ -954,7 +961,14 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                             })
                         break
 
-            missed_opportunities.sort(key=lambda x: x['would_be_return'], reverse=True)
+            # Deduplicate: keep best return per symbol
+            best_by_symbol = {}
+            for m in missed_opportunities:
+                sym = m['symbol']
+                if sym not in best_by_symbol or m['would_be_return'] > best_by_symbol[sym]['would_be_return']:
+                    best_by_symbol[sym] = m
+            missed_opportunities = list(best_by_symbol.values())
+            missed_opportunities.sort(key=lambda x: x.get('sell_date', ''), reverse=True)
             missed_opportunities = missed_opportunities[:5]
     except Exception as e:
         print(f"Missed opportunities error: {e}")
