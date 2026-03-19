@@ -2406,7 +2406,7 @@ def handler(event, context):
 
             days_back = config.get("days_back", 90)
             strategy_id = config.get("strategy_id", 5)
-            max_symbols = config.get("max_symbols", 100)
+            max_symbols = config.get("max_symbols", 500)
 
             end_date = datetime.now()
             start_date = end_date - timedelta(days=days_back)

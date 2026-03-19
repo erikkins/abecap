@@ -382,7 +382,7 @@ class SchedulerService:
                     reoptimization_frequency="biweekly",
                     min_score_diff=10.0,
                     enable_ai_optimization=False,
-                    max_symbols=100,
+                    max_symbols=500,
                     existing_job_id=job_id,
                     fixed_strategy_id=5,  # Ensemble strategy
                 )
