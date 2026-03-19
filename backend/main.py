@@ -1262,6 +1262,14 @@ def handler(event, context):
             except Exception as ste:
                 print(f"⚠️ Signal track record processing failed (non-fatal): {ste}")
 
+            # 7d. Daily equity curve snapshot (for journey banner / what-if)
+            try:
+                async with async_session() as snap_db:
+                    snap_result = await model_portfolio_service.take_daily_snapshot(snap_db)
+                    print(f"📊 [SNAPSHOT] {snap_result}")
+            except Exception as sne:
+                print(f"⚠️ Daily snapshot failed (non-fatal): {sne}")
+
             # 8. Regime forecast snapshot (writes to DB for weekly report)
             try:
                 from app.services.regime_forecast_service import regime_forecast_service
