@@ -385,6 +385,7 @@ class SchedulerService:
                     max_symbols=500,
                     existing_job_id=job_id,
                     fixed_strategy_id=5,  # Ensemble strategy
+                    carry_positions=True,
                 )
 
                 logger.info(f"[NIGHTLY-WF] Complete: {result.total_return_pct:.1f}% return, "

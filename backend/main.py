@@ -2449,6 +2449,7 @@ def handler(event, context):
                     max_symbols=max_symbols,
                     existing_job_id=job_id,
                     fixed_strategy_id=strategy_id,
+                    carry_positions=True,
                 )
 
                 # Generate social content
