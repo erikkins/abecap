@@ -2020,6 +2020,7 @@ def handler(event, context):
     # Handle regime history backfill (populate regime_history table for chart bands)
     if event.get("backfill_regime_history"):
         print("📊 Regime history backfill triggered")
+        config = event["backfill_regime_history"] if isinstance(event["backfill_regime_history"], dict) else {}
         loop = asyncio.get_event_loop()
         if loop.is_closed():
             loop = asyncio.new_event_loop()
@@ -2031,8 +2032,21 @@ def handler(event, context):
             from app.core.database import RegimeHistory
             from sqlalchemy import text
 
-            # Ensure SPY/VIX are in cache
-            if 'SPY' not in scanner_service.data_cache:
+            # Optional: load a specific pickle (e.g. 10yr) instead of production
+            pickle_key = config.get("pickle_key")
+            if pickle_key:
+                import boto3
+                import gzip
+                import pickle as pkl
+                bucket = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
+                print(f"📥 Loading pickle from s3://{bucket}/{pickle_key} ...")
+                s3 = boto3.client("s3")
+                response = s3.get_object(Bucket=bucket, Key=pickle_key)
+                raw = response["Body"].read()
+                data = pkl.loads(gzip.decompress(raw))
+                scanner_service.data_cache = data
+                print(f"✅ Loaded {len(data)} symbols from {pickle_key}")
+            elif 'SPY' not in scanner_service.data_cache:
                 print("📥 Loading price data from S3 for regime history backfill...")
                 cached = _dex.import_all()
                 if cached:
