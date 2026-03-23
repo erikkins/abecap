@@ -638,7 +638,23 @@ class SocialPostingService:
                 result = await self.post_instagram_comment(comment_id, text)
             else:
                 if not image_url:
-                    return {"error": "Instagram posts require an image"}
+                    # Auto-generate a branded text card for posts without trade charts
+                    from app.services.chart_card_generator import chart_card_generator
+                    png_bytes = chart_card_generator.generate_text_card(
+                        text=post.text_content or "",
+                        headline=getattr(post, 'post_type', '').replace('_', ' ').title(),
+                    )
+                    date_str = datetime.utcnow().strftime("%Y%m%d")
+                    s3_key = chart_card_generator.upload_to_s3(
+                        png_bytes, post.id, "text", date_str
+                    )
+                    if s3_key:
+                        post.image_s3_key = s3_key
+                        image_url = chart_card_generator.get_presigned_url(
+                            s3_key, expires_in=3600
+                        )
+                    if not image_url:
+                        return {"error": "Instagram posts require an image — failed to generate text card"}
                 result = await self.post_to_instagram(text, image_url)
         elif post.platform == "threads":
             reply_to = getattr(post, 'reply_to_thread_id', None)

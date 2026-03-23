@@ -325,6 +325,18 @@ async def generate_chart_card(
 
     from app.services.chart_card_generator import chart_card_generator
 
+    # Fetch price data for this symbol (API Lambda doesn't load the pickle)
+    symbol = meta.get("symbol", "???")
+    from app.services.scanner import scanner_service
+    if symbol not in scanner_service.data_cache:
+        import pandas as pd
+        from app.services.market_data_provider import market_data_provider
+        entry_dt = pd.Timestamp(meta.get("entry_date", "")[:10])
+        fetch_start = (entry_dt - pd.Timedelta(days=60)).strftime("%Y-%m-%d")
+        bars = await market_data_provider.fetch_bars([symbol], fetch_start)
+        if symbol in bars:
+            scanner_service.data_cache[symbol] = bars[symbol]
+
     # Generate the image
     png_bytes = chart_card_generator.generate_trade_card(
         symbol=meta.get("symbol", "???"),

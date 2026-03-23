@@ -348,6 +348,72 @@ class ChartCardGenerator:
             logger.error(f"Failed to generate presigned URL: {e}")
             return ""
 
+    def generate_text_card(
+        self,
+        text: str,
+        headline: str = "",
+    ) -> bytes:
+        """
+        Generate a 1080x1350 branded text card for Instagram posts without trade data.
+        Used for regime updates, we_called_it posts, etc.
+
+        Returns PNG bytes.
+        """
+        import textwrap
+
+        fig, ax = plt.subplots(1, 1, figsize=(10.8, 13.5), dpi=100)
+        fig.patch.set_facecolor(BRAND_DARK)
+
+        ax.set_position([0, 0, 1, 1])
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis('off')
+
+        # --- Header ---
+        ax.text(0.05, 0.97, 'RigaCap', fontsize=22, fontweight='bold',
+                color='white', va='top', ha='left', fontfamily='sans-serif')
+        ax.text(0.95, 0.97, 'Signal Intelligence', fontsize=15,
+                color=BRAND_GRAY, va='top', ha='right', fontfamily='sans-serif')
+
+        # --- Gold divider ---
+        ax.plot([0.08, 0.92], [0.935, 0.935], color=BRAND_ACCENT, lw=1.5, alpha=0.6)
+
+        # --- Headline ---
+        if headline:
+            ax.text(0.5, 0.85, headline, fontsize=36, fontweight='bold',
+                    color=BRAND_GOLD, va='center', ha='center',
+                    fontfamily='sans-serif')
+
+        # --- Body text (wrapped) ---
+        # Strip hashtags for the card
+        clean_text = text.split('#')[0].strip() if '#' in text else text
+        wrapped = textwrap.fill(clean_text, width=40)
+        lines = wrapped.split('\n')
+        start_y = 0.65 if headline else 0.72
+        line_spacing = 0.04
+        for i, line in enumerate(lines[:12]):  # max 12 lines
+            ax.text(0.5, start_y - i * line_spacing, line,
+                    fontsize=20, color='white', va='center', ha='center',
+                    fontfamily='sans-serif', linespacing=1.5)
+
+        # --- Gold divider ---
+        ax.plot([0.08, 0.92], [0.20, 0.20], color=BRAND_ACCENT, lw=1.5, alpha=0.6)
+
+        # --- Footer ---
+        ax.text(0.05, 0.03, 'rigacap.com', fontsize=14,
+                color=BRAND_ACCENT, va='bottom', ha='left',
+                fontfamily='sans-serif', fontweight='bold')
+        ax.text(0.95, 0.03, 'AI-Powered Signals', fontsize=14,
+                color=BRAND_GRAY, va='bottom', ha='right',
+                fontfamily='sans-serif', style='italic')
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0,
+                    facecolor=BRAND_DARK, edgecolor='none')
+        plt.close(fig)
+        buf.seek(0)
+        return buf.read()
+
     def generate_track_record_chart(
         self,
         equity_curve: list,
