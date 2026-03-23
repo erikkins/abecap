@@ -112,6 +112,10 @@ async def approve_post(
     if post.status not in ("draft", "rejected", "scheduled", "posted"):
         raise HTTPException(status_code=400, detail=f"Cannot approve post with status '{post.status}'")
 
+    # Clear image when re-approving a posted post so text card regenerates on next publish
+    if post.status == "posted" and post.platform == "instagram":
+        post.image_s3_key = None
+
     post.status = "approved"
     post.reviewed_by = admin.email
     post.reviewed_at = datetime.utcnow()
