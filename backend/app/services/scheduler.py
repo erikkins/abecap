@@ -299,9 +299,10 @@ class SchedulerService:
                     reoptimization_frequency="biweekly",
                     min_score_diff=10.0,
                     enable_ai_optimization=False,  # No AI for speed
-                    max_symbols=100,  # Smaller universe for speed
+                    max_symbols=500,  # Match production universe
                     existing_job_id=job_id,
                     fixed_strategy_id=5,  # Ensemble (DWAP+Momentum)
+                    carry_positions=True,  # Match production: trailing stop only
                 )
 
                 logger.info(f"[DAILY-WF] Complete: {result.total_return_pct:.1f}% return, "
