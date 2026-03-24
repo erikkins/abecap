@@ -723,6 +723,10 @@ class BacktesterService:
         for symbol in available_symbols:
             df = scanner_service.data_cache[symbol]
             if len(df) >= min_data_points:
+                # Ensure DWAP/MA indicators are computed (required for ensemble/dwap_hybrid)
+                if 'dwap' not in df.columns:
+                    df = scanner_service._ensure_indicators(df)
+                    scanner_service.data_cache[symbol] = df
                 symbols.append(symbol)
 
         if not symbols:
