@@ -3987,7 +3987,9 @@ def handler(event, context):
 
             print(f"📊 {len(weekly_dates)} weekly snapshots from {weekly_dates[0].date()} to {weekly_dates[-1].date()}")
 
-            # Compute cap tiers via 60-day avg dollar volume (price × volume) — computed once
+            # Compute cap tiers via 60-day avg dollar volume (price × volume)
+            # Uses percentile cutoffs so tiers are meaningful regardless of universe size:
+            # top 1% = Mega, next 5% = Large, next 20% = Mid, rest = Small
             dollar_vol_ranks = []
             for sym, df in scanner_service.data_cache.items():
                 if len(df) < 60:
@@ -3996,16 +3998,21 @@ def handler(event, context):
                 avg_dv = (tail["close"] * tail["volume"]).mean()
                 dollar_vol_ranks.append((sym, avg_dv))
             dollar_vol_ranks.sort(key=lambda x: x[1], reverse=True)
+            n_syms = len(dollar_vol_ranks)
+            mega_cutoff = max(int(n_syms * 0.01), 10)
+            large_cutoff = mega_cutoff + max(int(n_syms * 0.05), 30)
+            mid_cutoff = large_cutoff + max(int(n_syms * 0.20), 100)
             cap_tier_map = {}
             for i, (sym, _) in enumerate(dollar_vol_ranks):
-                if i < 30:
+                if i < mega_cutoff:
                     cap_tier_map[sym] = "M"
-                elif i < 150:
+                elif i < large_cutoff:
                     cap_tier_map[sym] = "L"
-                elif i < 500:
+                elif i < mid_cutoff:
                     cap_tier_map[sym] = "D"
                 else:
                     cap_tier_map[sym] = "S"
+            print(f"📊 Cap tiers: {n_syms} symbols, M<{mega_cutoff} L<{large_cutoff} D<{mid_cutoff} S>={mid_cutoff}")
 
             # Generate rankings for each weekly date
             rankings_out = {}
