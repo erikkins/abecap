@@ -3953,6 +3953,108 @@ def handler(event, context):
             traceback.print_exc()
             return {"status": "failed", "error": str(e)}
 
+    # Handle ranking history generation for bar-chart-race visualization
+    if event.get("ranking_history"):
+        _rh_cfg = event["ranking_history"] if isinstance(event["ranking_history"], dict) else {}
+        _rh_lookback = _rh_cfg.get("lookback_days", 365)
+        _rh_top_n = _rh_cfg.get("top_n", 100)
+        print(f"📊 Generating ranking history: lookback={_rh_lookback}d, top_n={_rh_top_n}")
+
+        try:
+            import pandas as pd
+            from datetime import datetime, timedelta
+            from app.services.data_export import S3_BUCKET as _rh_bucket
+
+            # Get trading day calendar from SPY
+            spy_df = scanner_service.data_cache.get("SPY")
+            if spy_df is None or len(spy_df) < 60:
+                return {"status": "error", "error": "SPY data not available"}
+
+            cutoff = pd.Timestamp.now() - pd.Timedelta(days=_rh_lookback)
+            trading_days = spy_df.index[spy_df.index >= cutoff]
+
+            # Sample weekly (every Friday, or last trading day of each week)
+            weekly_dates = []
+            for d in trading_days:
+                d_naive = d.tz_localize(None) if hasattr(d, 'tz') and d.tz else d
+                if d_naive.weekday() == 4:  # Friday
+                    weekly_dates.append(d_naive)
+            # If last trading day isn't a Friday, include it
+            last_td = trading_days[-1]
+            last_td_naive = last_td.tz_localize(None) if hasattr(last_td, 'tz') and last_td.tz else last_td
+            if not weekly_dates or weekly_dates[-1] != last_td_naive:
+                weekly_dates.append(last_td_naive)
+
+            print(f"📊 {len(weekly_dates)} weekly snapshots from {weekly_dates[0].date()} to {weekly_dates[-1].date()}")
+
+            # Compute cap tiers via 60-day avg dollar volume (price × volume) — computed once
+            dollar_vol_ranks = []
+            for sym, df in scanner_service.data_cache.items():
+                if len(df) < 60:
+                    continue
+                tail = df.tail(60)
+                avg_dv = (tail["close"] * tail["volume"]).mean()
+                dollar_vol_ranks.append((sym, avg_dv))
+            dollar_vol_ranks.sort(key=lambda x: x[1], reverse=True)
+            cap_tier_map = {}
+            for i, (sym, _) in enumerate(dollar_vol_ranks):
+                if i < 30:
+                    cap_tier_map[sym] = "M"
+                elif i < 150:
+                    cap_tier_map[sym] = "L"
+                elif i < 500:
+                    cap_tier_map[sym] = "D"
+                else:
+                    cap_tier_map[sym] = "S"
+
+            # Generate rankings for each weekly date
+            rankings_out = {}
+            dates_out = []
+            for wdate in weekly_dates:
+                try:
+                    ranked = scanner_service.rank_stocks_momentum(
+                        apply_market_filter=False, as_of_date=wdate
+                    )
+                    date_str = wdate.strftime("%Y-%m-%d")
+                    dates_out.append(date_str)
+                    rankings_out[date_str] = [
+                        {
+                            "r": i + 1,
+                            "s": r.symbol,
+                            "sc": round(r.composite_score, 2),
+                            "sec": r.sector or "",
+                            "t": cap_tier_map.get(r.symbol, "S"),
+                        }
+                        for i, r in enumerate(ranked[:_rh_top_n])
+                    ]
+                except Exception as ex:
+                    print(f"⚠️ Ranking failed for {wdate}: {ex}")
+
+            payload = {
+                "generated_at": datetime.utcnow().isoformat() + "Z",
+                "dates": dates_out,
+                "cap_tier_legend": {"M": "Mega Cap", "L": "Large Cap", "D": "Mid Cap", "S": "Small Cap"},
+                "rankings": rankings_out,
+            }
+
+            import json as _rh_json
+            body = _rh_json.dumps(payload, separators=(",", ":"))
+            s3 = boto3.client("s3", region_name="us-east-1")
+            s3.put_object(
+                Bucket=_rh_bucket,
+                Key="visualizations/ranking-history.json",
+                Body=body.encode("utf-8"),
+                ContentType="application/json",
+            )
+            print(f"✅ Ranking history uploaded: {len(dates_out)} dates, {len(body)} bytes")
+            return {"status": "ok", "dates": len(dates_out), "bytes": len(body)}
+
+        except Exception as e:
+            import traceback
+            print(f"❌ Ranking history failed: {e}")
+            traceback.print_exc()
+            return {"status": "failed", "error": str(e)}
+
     # Handle intraday crossover simulation (direct Lambda invoke for testing)
     if event.get("simulate_intraday_crossover"):
         config = event["simulate_intraday_crossover"]
