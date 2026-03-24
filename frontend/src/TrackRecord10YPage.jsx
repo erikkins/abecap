@@ -78,7 +78,9 @@ export default function TrackRecord10YPage() {
             Full-Decade Track Record
           </h1>
           <p className="text-lg text-blue-200/80 max-w-2xl mx-auto">
-            10 years. 2 bear markets. A pandemic crash. 3 bull runs. One strategy — tested through every regime without hindsight bias.
+            10 years. 2 bear markets. A pandemic crash. 3 bull runs.
+            <br />
+            One strategy — tested through every regime without hindsight bias.
           </p>
         </div>
       </section>

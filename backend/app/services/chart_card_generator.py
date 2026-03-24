@@ -375,19 +375,11 @@ class ChartCardGenerator:
         ax.text(0.95, 0.97, 'Signal Intelligence', fontsize=15,
                 color=BRAND_GRAY, va='top', ha='right', fontfamily='sans-serif')
 
-        # --- Gold divider ---
+        # --- Top gold divider ---
         ax.plot([0.08, 0.92], [0.935, 0.935], color=BRAND_ACCENT, lw=1.5, alpha=0.6)
 
-        # --- Headline ---
-        if headline:
-            ax.text(0.5, 0.85, headline, fontsize=36, fontweight='bold',
-                    color=BRAND_GOLD, va='center', ha='center',
-                    fontfamily='sans-serif')
-
-        # --- Body text (wrapped, preserving paragraph breaks) ---
-        # Strip hashtags for the card
+        # --- Prepare body text lines ---
         clean_text = text.split('#')[0].strip() if '#' in text else text
-        # Preserve original line breaks, wrap each paragraph separately
         paragraphs = clean_text.split('\n')
         all_lines = []
         for para in paragraphs:
@@ -395,21 +387,57 @@ class ChartCardGenerator:
             if not para:
                 all_lines.append('')  # blank line between paragraphs
             else:
-                all_lines.extend(textwrap.fill(para, width=38).split('\n'))
-        start_y = 0.65 if headline else 0.72
-        line_spacing = 0.038
-        line_idx = 0
-        for line in all_lines[:15]:  # max 15 lines
-            if not line:
-                line_idx += 0.6  # smaller gap for blank lines
-                continue
-            ax.text(0.5, start_y - line_idx * line_spacing, line,
-                    fontsize=19, color='white', va='center', ha='center',
-                    fontfamily='sans-serif')
-            line_idx += 1
+                all_lines.extend(textwrap.fill(para, width=36).split('\n'))
+        # Trim trailing/leading blanks, cap at 18 lines
+        while all_lines and not all_lines[0]:
+            all_lines.pop(0)
+        while all_lines and not all_lines[-1]:
+            all_lines.pop()
+        all_lines = all_lines[:18]
 
-        # --- Gold divider ---
-        ax.plot([0.08, 0.92], [0.20, 0.20], color=BRAND_ACCENT, lw=1.5, alpha=0.6)
+        # --- Compute vertical layout ---
+        # Content zone: y=0.14 (above footer divider) to y=0.92 (below header divider)
+        content_top = 0.90
+        content_bottom = 0.16
+        content_height = content_top - content_bottom
+
+        # Calculate total height needed for headline + body
+        line_spacing = 0.034
+        headline_height = 0.08 if headline else 0
+        gap_after_headline = 0.04 if headline else 0
+        # Count effective lines (blanks = 0.5 line height)
+        body_height = 0
+        for line in all_lines:
+            body_height += line_spacing * (0.5 if not line else 1.0)
+        total_height = headline_height + gap_after_headline + body_height
+
+        # Center the text block vertically in the content zone
+        top_y = content_bottom + (content_height + total_height) / 2
+
+        # --- Headline ---
+        cursor_y = top_y
+        if headline:
+            ax.text(0.5, cursor_y, headline, fontsize=34, fontweight='bold',
+                    color=BRAND_GOLD, va='top', ha='center',
+                    fontfamily='sans-serif')
+            # Small gold accent line under headline
+            accent_y = cursor_y - headline_height + 0.005
+            ax.plot([0.35, 0.65], [accent_y, accent_y],
+                    color=BRAND_GOLD, lw=1.5, alpha=0.35)
+            cursor_y = accent_y - gap_after_headline
+
+        # --- Body text ---
+        for line in all_lines:
+            if not line:
+                cursor_y -= line_spacing * 0.5
+                continue
+            ax.text(0.5, cursor_y, line,
+                    fontsize=18, color='white', va='top', ha='center',
+                    fontfamily='sans-serif', linespacing=1.3)
+            cursor_y -= line_spacing
+
+        # --- Bottom gold divider ---
+        ax.plot([0.08, 0.92], [0.12, 0.12], color=BRAND_ACCENT, lw=1.5, alpha=0.6)
 
         # --- Footer ---
         ax.text(0.05, 0.03, 'rigacap.com', fontsize=14,
