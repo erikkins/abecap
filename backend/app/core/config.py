@@ -110,6 +110,10 @@ class Settings(BaseSettings):
     # Signal universe filter — 0 = full universe, >0 = top N by 60-day avg volume
     SIGNAL_UNIVERSE_SIZE: int = int(os.getenv("SIGNAL_UNIVERSE_SIZE", "0"))
 
+    # Liquidity tier bonus — top TIER1_SIZE symbols get +TIER1_BONUS added to composite_score
+    SIGNAL_TIER1_SIZE: int = int(os.getenv("SIGNAL_TIER1_SIZE", "150"))
+    SIGNAL_TIER1_BONUS: float = float(os.getenv("SIGNAL_TIER1_BONUS", "0"))
+
     # Track Record — canonical walk-forward sim IDs (yearly sims stitched to +289%)
     TRACK_RECORD_SIM_IDS: List[int] = [113, 114, 115, 116, 112]
 

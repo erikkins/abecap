@@ -575,7 +575,9 @@ class WalkForwardService:
         initial_positions: Optional[Dict[str, dict]] = None,
         force_close_at_end: bool = True,
         max_positions_override: Optional[int] = None,
-        position_size_pct_override: Optional[float] = None
+        position_size_pct_override: Optional[float] = None,
+        tier1_set: Optional[set] = None,
+        tier1_bonus: float = 0.0,
     ) -> Tuple[float, float, str, List[PeriodTrade], Dict[str, dict]]:
         """
         Simulate trading for a period using custom parameters (for AI-generated strategies).
@@ -592,6 +594,9 @@ class WalkForwardService:
                 backtester.max_positions = max_positions_override
             if position_size_pct_override is not None:
                 backtester.position_size_pct = position_size_pct_override / 100
+            if tier1_set and tier1_bonus > 0:
+                backtester.tier1_set = tier1_set
+                backtester.tier1_bonus = tier1_bonus
 
             # Apply sector cap to ticker list if V2 param is set
             effective_tickers = ticker_list
@@ -666,7 +671,9 @@ class WalkForwardService:
         initial_positions: Optional[Dict[str, dict]] = None,
         force_close_at_end: bool = True,
         max_positions_override: Optional[int] = None,
-        position_size_pct_override: Optional[float] = None
+        position_size_pct_override: Optional[float] = None,
+        tier1_set: Optional[set] = None,
+        tier1_bonus: float = 0.0,
     ) -> Tuple[float, List[Dict], float, str, List[PeriodTrade], Dict[str, dict]]:
         """
         Simulate trading for a single period using a specific strategy.
@@ -683,6 +690,9 @@ class WalkForwardService:
             backtester.max_positions = max_positions_override
         if position_size_pct_override is not None:
             backtester.position_size_pct = position_size_pct_override / 100
+        if tier1_set and tier1_bonus > 0:
+            backtester.tier1_set = tier1_set
+            backtester.tier1_bonus = tier1_bonus
 
         try:
             result = backtester.run_backtest(
@@ -775,6 +785,8 @@ class WalkForwardService:
         continuation_state: Optional[Dict] = None,  # Restored state from previous chunk
         optimizer_version: str = "v1",  # "v1" or "v2" — V2 uses multi-objective Pareto
         risk_preference: float = 0.5,  # V2 only: 0.0=conservative, 1.0=aggressive
+        tier1_size: int = 0,  # Top N symbols get liquidity bonus (0 = disabled)
+        tier1_bonus: float = 0.0,  # Composite score bonus for tier-1 symbols
     ) -> WalkForwardResult:
         """
         Run walk-forward simulation with AI optimization over a historical period.
@@ -1032,8 +1044,10 @@ class WalkForwardService:
 
             # Recompute symbol universe as of this period's start date (survivorship-bias-free)
             top_symbols = self._get_top_symbols_as_of(period_start, max_symbols)
+            # Compute per-period tier1 set for liquidity bonus (survivorship-bias-free)
+            tier1_set_period = set(self._get_top_symbols_as_of(period_start, tier1_size)) if tier1_size > 0 and tier1_bonus > 0 else set()
             print(f"[WF-SERVICE] Period {i+1}/{len(periods)}: {period_start.strftime('%Y-%m-%d')} to {period_end.strftime('%Y-%m-%d')} "
-                  f"({len(top_symbols)} symbols)")
+                  f"({len(top_symbols)} symbols" + (f", tier1={len(tier1_set_period)}" if tier1_set_period else "") + ")")
             period_ai_opt = None
 
             # If using fixed strategy, skip strategy evaluation (but AI optimization still runs)
@@ -1239,7 +1253,9 @@ class WalkForwardService:
                     initial_positions=carry_in if carry_in else None,
                     force_close_at_end=force_close,
                     max_positions_override=max_positions,
-                    position_size_pct_override=position_size_pct
+                    position_size_pct_override=position_size_pct,
+                    tier1_set=tier1_set_period,
+                    tier1_bonus=tier1_bonus,
                 )
                 strategy_name = "AI-Optimized"
                 if error:
@@ -1251,7 +1267,9 @@ class WalkForwardService:
                     initial_positions=carry_in if carry_in else None,
                     force_close_at_end=force_close,
                     max_positions_override=max_positions,
-                    position_size_pct_override=position_size_pct
+                    position_size_pct_override=position_size_pct,
+                    tier1_set=tier1_set_period,
+                    tier1_bonus=tier1_bonus,
                 )
                 strategy_name = active_strategy.name
                 if error:
@@ -1644,7 +1662,12 @@ class WalkForwardService:
         # Get symbol universe as of this period's start date (survivorship-bias-free)
         _max_symbols = config.get("max_symbols", 50)
         top_symbols = self._get_top_symbols_as_of(period_start, _max_symbols)
-        print(f"[WF-PERIOD] Universe: {len(top_symbols)} symbols as of {period_start.strftime('%Y-%m-%d')}")
+        # Compute per-period tier1 set for liquidity bonus (survivorship-bias-free)
+        _tier1_size = config.get("tier1_size", 0)
+        _tier1_bonus = config.get("tier1_bonus", 0.0)
+        tier1_set_period = set(self._get_top_symbols_as_of(period_start, _tier1_size)) if _tier1_size > 0 and _tier1_bonus > 0 else set()
+        print(f"[WF-PERIOD] Universe: {len(top_symbols)} symbols as of {period_start.strftime('%Y-%m-%d')}"
+              + (f", tier1={len(tier1_set_period)}" if tier1_set_period else ""))
 
         # Reconstruct active state from state dict
         active_strategy = None
@@ -1841,7 +1864,9 @@ class WalkForwardService:
                     active_params, active_strategy_type, period_start, period_end,
                     capital, ticker_list=top_symbols, strategy_name="AI-Optimized",
                     initial_positions=carry_in if carry_in else None,
-                    force_close_at_end=force_close
+                    force_close_at_end=force_close,
+                    tier1_set=tier1_set_period,
+                    tier1_bonus=_tier1_bonus,
                 )
                 strategy_name = "AI-Optimized"
                 if info:
@@ -1854,7 +1879,9 @@ class WalkForwardService:
                 new_capital, eq_pts, period_return, info, period_trades, new_carried = self._simulate_period_trading(
                     active_strategy, period_start, period_end, capital, ticker_list=top_symbols,
                     initial_positions=carry_in if carry_in else None,
-                    force_close_at_end=force_close
+                    force_close_at_end=force_close,
+                    tier1_set=tier1_set_period,
+                    tier1_bonus=_tier1_bonus,
                 )
                 strategy_name = active_strategy.name
                 if info:

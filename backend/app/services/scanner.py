@@ -473,6 +473,13 @@ class ScannerService:
         candidates = []
         signal_universe = self._get_signal_universe()
 
+        # Liquidity tier bonus: top N symbols get a composite score boost
+        tier1_bonus = settings.SIGNAL_TIER1_BONUS
+        tier1_set: set = set()
+        if tier1_bonus > 0 and settings.SIGNAL_TIER1_SIZE > 0:
+            from app.services.strategy_analyzer import get_top_liquid_symbols
+            tier1_set = set(get_top_liquid_symbols(max_symbols=settings.SIGNAL_TIER1_SIZE))
+
         for symbol in self.data_cache:
             if signal_universe is not None and symbol not in signal_universe:
                 continue
@@ -529,6 +536,10 @@ class ScannerService:
                 long_mom * settings.LONG_MOM_WEIGHT -
                 vol * settings.VOLATILITY_PENALTY
             )
+
+            # Liquidity tier bonus
+            if tier1_bonus > 0 and symbol in tier1_set:
+                composite_score += tier1_bonus
 
             # Calculate trailing stop
             trailing_stop_pct = regime_params.get('trailing_stop_pct', settings.TRAILING_STOP_PCT) if regime_params else settings.TRAILING_STOP_PCT

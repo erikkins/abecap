@@ -212,6 +212,9 @@ class BacktesterService:
         self.hybrid_trailing_pct = 8.0
         self.max_hold_days = 60
         self.sector_cap = 0              # 0 = disabled
+        # Liquidity tier bonus (injected by walk-forward service per period)
+        self.tier1_set: set = set()
+        self.tier1_bonus: float = 0.0
 
     def _calculate_enhanced_metrics(
         self,
@@ -608,6 +611,10 @@ class BacktesterService:
             long_mom * self.long_mom_weight -
             volatility * self.volatility_penalty
         )
+
+        # Liquidity tier bonus
+        if self.tier1_bonus > 0 and symbol in self.tier1_set:
+            composite_score += self.tier1_bonus
 
         return {
             'symbol': symbol,
