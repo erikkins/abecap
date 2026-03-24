@@ -4017,15 +4017,21 @@ def handler(event, context):
                     )
                     date_str = wdate.strftime("%Y-%m-%d")
                     dates_out.append(date_str)
+                    top = ranked[:_rh_top_n]
+                    # Clamp outlier scores: if #1 is >5x #2, cap at 2x #2
+                    if len(top) >= 2 and top[0].composite_score > top[1].composite_score * 5:
+                        score_cap = top[1].composite_score * 2
+                    else:
+                        score_cap = float("inf")
                     rankings_out[date_str] = [
                         {
                             "r": i + 1,
                             "s": r.symbol,
-                            "sc": round(r.composite_score, 2),
+                            "sc": round(min(r.composite_score, score_cap), 2),
                             "sec": r.sector or "",
                             "t": cap_tier_map.get(r.symbol, "S"),
                         }
-                        for i, r in enumerate(ranked[:_rh_top_n])
+                        for i, r in enumerate(top)
                     ]
                 except Exception as ex:
                     print(f"⚠️ Ranking failed for {wdate}: {ex}")
