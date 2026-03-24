@@ -2032,9 +2032,28 @@ def handler(event, context):
             from app.core.database import RegimeHistory
             from sqlalchemy import text
 
-            # Optional: load a specific pickle (e.g. 10yr) instead of production
+            # Option 1: fetch SPY/VIX from yfinance (lightweight, no pickle needed)
+            fetch_years = config.get("fetch_years")
+            # Option 2: load a specific pickle (e.g. 10yr) — needs 4096+ MB
             pickle_key = config.get("pickle_key")
-            if pickle_key:
+
+            if fetch_years:
+                import yfinance as yf
+                import pandas as pd
+                period = f"{fetch_years}y"
+                print(f"📥 Fetching SPY + VIX from yfinance ({period})...")
+                spy_raw = yf.download("SPY", period=period, progress=False)
+                vix_raw = yf.download("^VIX", period=period, progress=False)
+                # Normalize columns to lowercase
+                for df in [spy_raw, vix_raw]:
+                    df.columns = [c.lower() if isinstance(c, str) else c for c in df.columns]
+                    # Handle MultiIndex from yfinance
+                    if isinstance(df.columns, pd.MultiIndex):
+                        df.columns = [c[0].lower() for c in df.columns]
+                scanner_service.data_cache["SPY"] = spy_raw
+                scanner_service.data_cache["^VIX"] = vix_raw
+                print(f"✅ SPY: {len(spy_raw)} bars, VIX: {len(vix_raw)} bars")
+            elif pickle_key:
                 import boto3
                 import gzip
                 import pickle as pkl
