@@ -4037,9 +4037,9 @@ def handler(event, context):
                 "rankings": rankings_out,
             }
 
-            import json as _rh_json
+            import json as _rh_json, boto3 as _rh_boto
             body = _rh_json.dumps(payload, separators=(",", ":"))
-            s3 = boto3.client("s3", region_name="us-east-1")
+            s3 = _rh_boto.client("s3", region_name="us-east-1")
             s3.put_object(
                 Bucket=_rh_bucket,
                 Key="visualizations/ranking-history.json",
