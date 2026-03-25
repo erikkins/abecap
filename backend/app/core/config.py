@@ -155,15 +155,23 @@ EXCLUDED_SYMBOLS = [
     # Leveraged/inverse single-stock ETFs (Direxion, GraniteShares, etc.)
     'TSLS', 'TSLQ', 'TSLL', 'NVDL', 'NVDS', 'NVDQ', 'NVD',
     'AAPD', 'AAPU', 'AMZU', 'AMZD', 'MSFU', 'MSFD',
-    'METU', 'METD', 'CONL', 'CONY',
+    'METU', 'METD', 'CONL', 'CONY', 'MSTX', 'MSTU',
+    # Index/broad market ETFs (individual stocks only)
+    'SPY', 'QQQ', 'IWM', 'DIA', 'VTI', 'VOO',
+    # Sector ETFs
+    'XLB', 'XLE', 'XLF', 'XLK', 'XLV', 'SOXX', 'SMH', 'KRE', 'XBI',
+    # International ETFs
+    'FXI', 'KWEB', 'EEM', 'EFA', 'IEFA', 'VWO',
+    # Smart beta / thematic ETFs
+    'SCHD', 'SCHX', 'FNDX', 'ARKK',
     # Commodity ETFs (not equity momentum)
     'GLD', 'IAU', 'GLDM', 'IAUM', 'SGOL', 'SLV', 'SIVR',
     'DBC', 'DBA', 'USO', 'UNG', 'PDBC', 'GSG',
     # Bond/Treasury/Fixed-income ETFs (not equity momentum)
     'TLT', 'TLH', 'IEF', 'SHY', 'SPTL', 'AGG', 'BND', 'LQD', 'HYG', 'JNK',
     'JAAA', 'VTEB', 'USHY', 'JEPQ',
-    # Crypto leveraged ETFs
-    'BITX', 'BITU', 'SBIT',
+    # Crypto ETFs (spot and leveraged)
+    'BITX', 'BITU', 'SBIT', 'IBIT', 'FBTC', 'ARKB', 'GBTC', 'ETHE', 'ETHA', 'ETH',
 ]
 
 def get_universe():

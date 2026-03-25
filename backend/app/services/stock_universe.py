@@ -29,9 +29,8 @@ LOCAL_CACHE_FILE = LOCAL_CACHE_DIR / "symbols_cache.json"
 # S3 key for universe cache
 S3_UNIVERSE_KEY = "universe/symbols_cache.json"
 
-# Excluded symbols: leveraged/inverse products, commodities, bonds
-# Equity-tracking ETFs (SPY, QQQ, sector ETFs) are still allowed
-# Commodity/bond ETFs removed — not equity momentum, dilutes signal quality
+# Excluded symbols: ALL ETFs, leveraged/inverse products, commodities, bonds
+# Individual stocks ONLY — customers pay for stock picks, not "buy SPY"
 EXCLUDED_PATTERNS = [
     # Leveraged/Inverse index ETFs (2x/3x products with daily decay)
     'TQQQ', 'SQQQ', 'QLD', 'QID', 'SPXU', 'SPXS', 'UPRO', 'SSO', 'SDS', 'SH',
@@ -58,6 +57,22 @@ EXCLUDED_PATTERNS = [
     'GOVT', 'VGSH', 'VGIT', 'VGLT', 'VCSH', 'VCIT', 'VCLT',
     'SCHZ', 'SCHQ', 'SCHO', 'SCHR',
     'JAAA', 'VTEB', 'USHY', 'JEPQ',
+    # Index/broad market ETFs (customers want stock picks, not "buy SPY")
+    'SPY', 'QQQ', 'IWM', 'DIA', 'RSP', 'VTI', 'VOO', 'IVV', 'SPLG',
+    'MDY', 'IJR', 'IJH', 'IWB', 'IWF', 'IWD', 'IWN', 'IWO', 'IWP',
+    # International ETFs
+    'IEFA', 'VWO', 'FXI', 'KWEB', 'ASHR', 'EEM', 'EFA', 'INDA', 'EWZ', 'EWJ',
+    # Sector ETFs
+    'XLB', 'XLC', 'XLE', 'XLF', 'XLI', 'XLK', 'XLP', 'XLRE', 'XLS', 'XLU', 'XLV', 'XLY',
+    'SOXX', 'SMH', 'KRE', 'KBE', 'XBI', 'IBB', 'XOP', 'OIH', 'ITB', 'XHB',
+    'GDX', 'GDXJ', 'SILJ',
+    # Smart beta / dividend / thematic ETFs
+    'SCHD', 'SCHX', 'FNDX', 'ARKK', 'ARKW', 'ARKF', 'ARKQ', 'ARKG',
+    'QUAL', 'MTUM', 'VLUE', 'USMV', 'HDV', 'VIG', 'DGRO', 'NOBL',
+    # Crypto ETFs (spot — not individual stocks)
+    'IBIT', 'FBTC', 'ARKB', 'BITB', 'GBTC', 'ETHE', 'ETHA', 'ETH',
+    # Leveraged single-stock ETFs missed earlier
+    'MSTX', 'MSTU',
     # Index symbols (not tradeable)
     '^DJI', '^GSPC', '^IXIC',
     # Crypto leveraged ETFs
