@@ -311,20 +311,24 @@ class WalkForwardService:
         Get top liquid symbols by 60-day average volume AS OF a specific date.
         Eliminates survivorship bias by only considering volume data available at that point.
         If max_symbols=0, returns the full production universe (no filtering).
+
+        Uses _WF_EXCLUDED_SET (minimal: leveraged/inverse/volatility only) instead of
+        _EXCLUDED_SET (full ETF exclusion) so walk-forward sims include regular ETFs
+        for accurate historical performance measurement.
         """
-        from app.services.scanner import _EXCLUDED_SET
+        from app.services.scanner import _WF_EXCLUDED_SET
 
         if max_symbols == 0:
             # Full production universe — all symbols meeting basic eligibility
             return [s for s, df in scanner_service.data_cache.items()
-                    if s not in _EXCLUDED_SET and len(df) >= 200
+                    if s not in _WF_EXCLUDED_SET and len(df) >= 200
                     and 'volume' in df.columns and 'close' in df.columns
                     and df['volume'].max() >= 500_000 and df['close'].max() >= 15.0]
 
         as_of_ts = pd.Timestamp(as_of_date)
         symbol_volumes = []
         for symbol, df in scanner_service.data_cache.items():
-            if symbol in _EXCLUDED_SET:
+            if symbol in _WF_EXCLUDED_SET:
                 continue
             # Only use data up to as_of_date
             hist = df[df.index <= as_of_ts]

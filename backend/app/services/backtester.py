@@ -710,12 +710,14 @@ class BacktesterService:
                     profit_target_pct=self.profit_target_pct * 100
                 )
 
-        # Get symbols to use (excluding ETFs/leveraged products)
+        # Get symbols to use
         from app.services.scanner import _EXCLUDED_SET
-        available_symbols = [s for s in scanner_service.data_cache.keys() if s not in _EXCLUDED_SET]
         if ticker_list:
-            # Filter to only tickers in the provided list that we have data for
-            available_symbols = [s for s in ticker_list if s in scanner_service.data_cache and s not in _EXCLUDED_SET]
+            # Trust the caller's filtered list (WF uses its own exclusion set)
+            available_symbols = [s for s in ticker_list if s in scanner_service.data_cache]
+        else:
+            # No ticker_list: apply full exclusion (standalone backtests)
+            available_symbols = [s for s in scanner_service.data_cache.keys() if s not in _EXCLUDED_SET]
 
         # Get all symbols with enough data
         symbols = []
