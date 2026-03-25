@@ -580,6 +580,9 @@ class WalkForwardService:
         position_size_pct_override: Optional[float] = None,
         tier1_set: Optional[set] = None,
         tier1_bonus: float = 0.0,
+        dwap_threshold_pct_override: Optional[float] = None,
+        near_50d_high_pct_override: Optional[float] = None,
+        trailing_stop_pct_override: Optional[float] = None,
     ) -> Tuple[float, float, str, List[PeriodTrade], Dict[str, dict]]:
         """
         Simulate trading for a period using custom parameters (for AI-generated strategies).
@@ -599,6 +602,12 @@ class WalkForwardService:
             if tier1_set and tier1_bonus > 0:
                 backtester.tier1_set = tier1_set
                 backtester.tier1_bonus = tier1_bonus
+            if dwap_threshold_pct_override is not None:
+                backtester.dwap_threshold_pct = dwap_threshold_pct_override / 100
+            if near_50d_high_pct_override is not None:
+                backtester.near_50d_high_pct = near_50d_high_pct_override
+            if trailing_stop_pct_override is not None:
+                backtester.trailing_stop_pct = trailing_stop_pct_override / 100
 
             # Apply sector cap to ticker list if V2 param is set
             effective_tickers = ticker_list
@@ -676,6 +685,9 @@ class WalkForwardService:
         position_size_pct_override: Optional[float] = None,
         tier1_set: Optional[set] = None,
         tier1_bonus: float = 0.0,
+        dwap_threshold_pct_override: Optional[float] = None,
+        near_50d_high_pct_override: Optional[float] = None,
+        trailing_stop_pct_override: Optional[float] = None,
     ) -> Tuple[float, List[Dict], float, str, List[PeriodTrade], Dict[str, dict]]:
         """
         Simulate trading for a single period using a specific strategy.
@@ -695,6 +707,12 @@ class WalkForwardService:
         if tier1_set and tier1_bonus > 0:
             backtester.tier1_set = tier1_set
             backtester.tier1_bonus = tier1_bonus
+        if dwap_threshold_pct_override is not None:
+            backtester.dwap_threshold_pct = dwap_threshold_pct_override / 100
+        if near_50d_high_pct_override is not None:
+            backtester.near_50d_high_pct = near_50d_high_pct_override
+        if trailing_stop_pct_override is not None:
+            backtester.trailing_stop_pct = trailing_stop_pct_override / 100
 
         try:
             result = backtester.run_backtest(
@@ -789,6 +807,9 @@ class WalkForwardService:
         risk_preference: float = 0.5,  # V2 only: 0.0=conservative, 1.0=aggressive
         tier1_size: int = 0,  # Top N symbols get liquidity bonus (0 = disabled)
         tier1_bonus: float = 0.0,  # Composite score bonus for tier-1 symbols
+        dwap_threshold_pct: Optional[float] = None,  # Override DWAP entry threshold (e.g., 2.0 for 2%)
+        near_50d_high_pct: Optional[float] = None,  # Override breakout window (e.g., 10.0 for 10%)
+        trailing_stop_pct: Optional[float] = None,  # Override trailing stop (e.g., 15.0 for 15%)
     ) -> WalkForwardResult:
         """
         Run walk-forward simulation with AI optimization over a historical period.
@@ -1258,6 +1279,9 @@ class WalkForwardService:
                     position_size_pct_override=position_size_pct,
                     tier1_set=tier1_set_period,
                     tier1_bonus=tier1_bonus,
+                    dwap_threshold_pct_override=dwap_threshold_pct,
+                    near_50d_high_pct_override=near_50d_high_pct,
+                    trailing_stop_pct_override=trailing_stop_pct,
                 )
                 strategy_name = "AI-Optimized"
                 if error:
@@ -1272,6 +1296,9 @@ class WalkForwardService:
                     position_size_pct_override=position_size_pct,
                     tier1_set=tier1_set_period,
                     tier1_bonus=tier1_bonus,
+                    dwap_threshold_pct_override=dwap_threshold_pct,
+                    near_50d_high_pct_override=near_50d_high_pct,
+                    trailing_stop_pct_override=trailing_stop_pct,
                 )
                 strategy_name = active_strategy.name
                 if error:
@@ -1861,6 +1888,11 @@ class WalkForwardService:
             equity_points = []
             new_carried = {}
 
+            # Extract entry timing overrides from config
+            _dwap_threshold = config.get("dwap_threshold_pct")
+            _near_50d_high = config.get("near_50d_high_pct")
+            _trailing_stop = config.get("trailing_stop_pct")
+
             if using_ai_params and active_params:
                 new_capital, period_return, info, period_trades, new_carried = self._simulate_period_with_params(
                     active_params, active_strategy_type, period_start, period_end,
@@ -1869,6 +1901,9 @@ class WalkForwardService:
                     force_close_at_end=force_close,
                     tier1_set=tier1_set_period,
                     tier1_bonus=_tier1_bonus,
+                    dwap_threshold_pct_override=_dwap_threshold,
+                    near_50d_high_pct_override=_near_50d_high,
+                    trailing_stop_pct_override=_trailing_stop,
                 )
                 strategy_name = "AI-Optimized"
                 if info:
@@ -1884,6 +1919,9 @@ class WalkForwardService:
                     force_close_at_end=force_close,
                     tier1_set=tier1_set_period,
                     tier1_bonus=_tier1_bonus,
+                    dwap_threshold_pct_override=_dwap_threshold,
+                    near_50d_high_pct_override=_near_50d_high,
+                    trailing_stop_pct_override=_trailing_stop,
                 )
                 strategy_name = active_strategy.name
                 if info:

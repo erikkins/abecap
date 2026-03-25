@@ -470,6 +470,9 @@ async def _run_walk_forward_job(job_config: dict, wf_state_key: str = None):
                 risk_preference=job_config.get("risk_preference", 0.5),
                 tier1_size=job_config.get("tier1_size", 0),
                 tier1_bonus=job_config.get("tier1_bonus", 0.0),
+                dwap_threshold_pct=job_config.get("dwap_threshold_pct"),
+                near_50d_high_pct=job_config.get("near_50d_high_pct"),
+                trailing_stop_pct=job_config.get("trailing_stop_pct"),
             )
 
             # Check if more chunks are needed
