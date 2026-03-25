@@ -212,6 +212,7 @@ class BacktesterService:
         self.hybrid_trailing_pct = 8.0
         self.max_hold_days = 60
         self.sector_cap = 0              # 0 = disabled
+        self.regime_reentry_mode = False  # False = classic (SPY>MA200 only), True = smart re-entry
         # Liquidity tier bonus (injected by walk-forward service per period)
         self.tier1_set: set = set()
         self.tier1_bonus: float = 0.0
@@ -449,6 +450,62 @@ class BacktesterService:
             return True
 
         return spy_price > spy_ma200
+
+    def _check_regime_reentry(self, date: pd.Timestamp, cash_mode_days: int) -> bool:
+        """
+        Smarter regime re-entry check. Used when regime_reentry_mode is enabled.
+        Returns True if conditions suggest it's safe to re-enter the market,
+        even if SPY is still below MA200.
+
+        Two fast re-entry paths:
+        1. Trend recovery: SPY > MA50 (shorter-term uptrend restored)
+        2. V-recovery: SPY dropped >8% recently but is bouncing (above 10-day SMA)
+
+        Anti-churn: Must be in cash at least 5 days before allowing re-entry.
+        """
+        # Anti-churn cooldown
+        if cash_mode_days < 5:
+            return False
+
+        if 'SPY' not in scanner_service.data_cache:
+            return False
+
+        spy_df = scanner_service.data_cache['SPY']
+        row = self._get_row_for_date(spy_df, date)
+        if row is None:
+            return False
+
+        spy_price = row['close']
+        spy_ma50 = row.get('ma_50', np.nan)
+        spy_ma200 = row.get('ma_200', np.nan)
+
+        # Path A: If SPY already above MA200, standard re-entry (always allowed)
+        if not pd.isna(spy_ma200) and spy_price > spy_ma200:
+            return True
+
+        # Path B: Trend recovery — SPY above MA50 (faster signal than MA200)
+        if not pd.isna(spy_ma50) and spy_price > spy_ma50:
+            return True
+
+        # Path C: V-recovery detection — sharp drop + bounce
+        # Check if SPY dropped >8% from its 30-day high but is now recovering
+        try:
+            loc = spy_df.index.get_indexer([date], method='ffill')[0]
+            if loc < 0:
+                loc = None
+        except Exception:
+            loc = None
+        if loc is not None and loc >= 30:
+            recent_high = spy_df['close'].iloc[loc-30:loc].max()
+            drawdown_pct = (spy_price - recent_high) / recent_high
+            # SPY dropped >8% from recent high
+            if drawdown_pct < -0.08:
+                # Check if bouncing: price > 10-day SMA
+                sma_10 = spy_df['close'].iloc[loc-9:loc+1].mean()
+                if spy_price > sma_10:
+                    return True
+
+        return False
 
     def _check_exit_condition(
         self,
@@ -753,6 +810,7 @@ class BacktesterService:
         trade_id = 0
         last_rebalance: Optional[pd.Timestamp] = None
         in_cash_mode = False  # True when market is unfavorable
+        cash_mode_day_count = 0  # Days spent in cash mode (for anti-churn cooldown)
 
         # Seed carried positions from previous walk-forward period
         if initial_positions:
@@ -832,6 +890,7 @@ class BacktesterService:
                 # If market turns unfavorable, close all positions
                 if not market_favorable and not in_cash_mode:
                     in_cash_mode = True
+                    cash_mode_day_count = 0
                     for symbol in list(positions.keys()):
                         pos = positions[symbol]
                         df = scanner_service.data_cache[symbol]
@@ -870,8 +929,14 @@ class BacktesterService:
                         capital += pos['shares'] * current_price
                     positions.clear()
 
-                elif market_favorable:
-                    in_cash_mode = False
+                elif in_cash_mode:
+                    cash_mode_day_count += 1
+                    # Smart re-entry: use enhanced logic if enabled, else classic SPY>MA200
+                    if self.regime_reentry_mode:
+                        if self._check_regime_reentry(date, cash_mode_day_count):
+                            in_cash_mode = False
+                    elif market_favorable:
+                        in_cash_mode = False
 
             # Check existing positions for exits
             symbols_to_close = []
