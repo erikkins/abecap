@@ -3966,7 +3966,7 @@ def handler(event, context):
 
         try:
             import pandas as pd, json as _rh_j2, boto3 as _rh_boto
-            from datetime import datetime, timedelta
+            from datetime import datetime as _rh_datetime, timedelta as _rh_timedelta
             from app.services.data_export import S3_BUCKET as _rh_bucket
 
             # Get trading day calendar from SPY
@@ -4052,7 +4052,7 @@ def handler(event, context):
                     print(f"⚠️ Ranking failed for {wdate}: {ex}")
 
             payload = {
-                "generated_at": datetime.utcnow().isoformat() + "Z",
+                "generated_at": _rh_datetime.utcnow().isoformat() + "Z",
                 "dates": dates_out,
                 "cap_tier_legend": {"M": "Mega Cap", "L": "Large Cap", "D": "Mid Cap", "S": "Small Cap"},
                 "rankings": rankings_out,
