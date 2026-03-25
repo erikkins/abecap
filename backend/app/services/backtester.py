@@ -721,7 +721,9 @@ class BacktesterService:
 
         # Get all symbols with enough data
         symbols = []
-        min_data_points = lookback_days + 200  # Need extra for indicator calculation
+        # When start_date is given (WF periods), only need 200 for indicator calculation (MA200)
+        # When using lookback_days, need lookback + 200 for full range
+        min_data_points = 200 if start_date else lookback_days + 200
         for symbol in available_symbols:
             df = scanner_service.data_cache[symbol]
             if len(df) >= min_data_points:

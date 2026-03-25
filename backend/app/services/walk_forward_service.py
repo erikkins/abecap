@@ -321,7 +321,7 @@ class WalkForwardService:
         if max_symbols == 0:
             # Full production universe — all symbols meeting basic eligibility
             return [s for s, df in scanner_service.data_cache.items()
-                    if s not in _WF_EXCLUDED_SET and len(df) >= 200
+                    if s not in _WF_EXCLUDED_SET and len(df) >= 60
                     and 'volume' in df.columns and 'close' in df.columns
                     and df['volume'].max() >= 500_000 and df['close'].max() >= 15.0]
 
@@ -332,7 +332,7 @@ class WalkForwardService:
                 continue
             # Only use data up to as_of_date
             hist = df[df.index <= as_of_ts]
-            if len(hist) < 200:
+            if len(hist) < 60:  # Need 60 days for volume average; backtester handles indicator minimums
                 continue
             if 'volume' not in hist.columns or 'close' not in hist.columns:
                 continue
