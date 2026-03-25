@@ -29,19 +29,34 @@ LOCAL_CACHE_FILE = LOCAL_CACHE_DIR / "symbols_cache.json"
 # S3 key for universe cache
 S3_UNIVERSE_KEY = "universe/symbols_cache.json"
 
-# Excluded symbols - only leveraged/inverse products (genuinely dangerous)
-# Regular ETFs (SLV, GLD, SPY, etc.) are allowed — the sector cap in
-# scanner.py prevents concentration (max 5 per sector)
+# Excluded symbols: leveraged/inverse products, commodities, bonds
+# Equity-tracking ETFs (SPY, QQQ, sector ETFs) are still allowed
+# Commodity/bond ETFs removed — not equity momentum, dilutes signal quality
 EXCLUDED_PATTERNS = [
     # Leveraged/Inverse index ETFs (2x/3x products with daily decay)
     'TQQQ', 'SQQQ', 'QLD', 'QID', 'SPXU', 'SPXS', 'UPRO', 'SSO', 'SDS', 'SH',
     'TNA', 'TZA', 'FAS', 'FAZ', 'LABU', 'LABD', 'NUGT', 'DUST', 'JNUG', 'JDST',
+    # 1x inverse index ETFs (ProShares Short, etc.)
+    'PSQ', 'DOG', 'RWM', 'SBB', 'MYY', 'SEF', 'EUM', 'EFZ',
+    # Leveraged/inverse sector & thematic ETFs
+    'FNGD', 'FNGU', 'SOXL', 'SOXS', 'TECL', 'TECS', 'CURE', 'PILL',
+    'TMF', 'TMV', 'TYD', 'TYO', 'DRN', 'DRV', 'DFEN', 'WEBS',
+    'ERX', 'ERY', 'GUSH', 'DRIP', 'NAIL', 'REK',
     # Leveraged/inverse single-stock ETFs (Direxion, GraniteShares, etc.)
-    'TSLS', 'TSLQ', 'TSLL', 'NVDL', 'NVDS', 'NVDQ',
+    'TSLS', 'TSLQ', 'TSLL', 'NVDL', 'NVDS', 'NVDQ', 'NVD',
     'AAPD', 'AAPU', 'AMZU', 'AMZD', 'MSFU', 'MSFD',
     'METU', 'METD', 'CONL', 'CONY',
+    # Commodity ETFs (gold, silver, metals — not equity momentum)
+    'GLD', 'IAU', 'GLDM', 'IAUM', 'SGOL', 'OUNZ', 'BAR', 'AAAU',
+    'SLV', 'SIVR', 'PSLV', 'PPLT', 'PALL',
+    'DBC', 'DBA', 'DBB', 'DBO', 'USO', 'BNO', 'UNG', 'PDBC', 'GSG', 'COMT',
     # Leveraged commodity ETFs (2x/inverse)
     'AGQ', 'ZSL', 'UGL', 'GLL',
+    # Bond/Treasury ETFs (not equity momentum)
+    'TLT', 'TLH', 'IEF', 'IEI', 'SHY', 'BIL', 'SPTL', 'SPTI', 'SPTS',
+    'AGG', 'BND', 'BNDX', 'LQD', 'HYG', 'JNK', 'MBB', 'VMBS', 'MUB',
+    'GOVT', 'VGSH', 'VGIT', 'VGLT', 'VCSH', 'VCIT', 'VCLT',
+    'SCHZ', 'SCHQ', 'SCHO', 'SCHR',
     # Crypto leveraged ETFs
     'BITX', 'BITU', 'SBIT',
     # Volatility products (contango decay)

@@ -147,10 +147,20 @@ EXCLUDED_SYMBOLS = [
     # Leveraged/inverse index ETFs
     'VXX', 'UVXY', 'SVXY', 'SSO', 'SDS', 'SPXU', 'TQQQ', 'SQQQ',
     'QLD', 'QID', 'FAS', 'FAZ', 'TNA', 'TZA',
+    # 1x inverse index ETFs
+    'PSQ', 'DOG', 'RWM', 'SBB', 'MYY', 'SEF', 'EUM', 'EFZ',
+    # Leveraged/inverse sector & thematic ETFs
+    'FNGD', 'FNGU', 'SOXL', 'SOXS', 'TECL', 'TECS',
+    'TMF', 'TMV', 'ERX', 'ERY', 'GUSH', 'DRIP',
     # Leveraged/inverse single-stock ETFs (Direxion, GraniteShares, etc.)
-    'TSLS', 'TSLQ', 'TSLL', 'NVDL', 'NVDS', 'NVDQ',
+    'TSLS', 'TSLQ', 'TSLL', 'NVDL', 'NVDS', 'NVDQ', 'NVD',
     'AAPD', 'AAPU', 'AMZU', 'AMZD', 'MSFU', 'MSFD',
     'METU', 'METD', 'CONL', 'CONY',
+    # Commodity ETFs (not equity momentum)
+    'GLD', 'IAU', 'GLDM', 'IAUM', 'SGOL', 'SLV', 'SIVR',
+    'DBC', 'DBA', 'USO', 'UNG', 'PDBC', 'GSG',
+    # Bond/Treasury ETFs (not equity momentum)
+    'TLT', 'TLH', 'IEF', 'SHY', 'SPTL', 'AGG', 'BND', 'LQD', 'HYG', 'JNK',
     # Crypto leveraged ETFs
     'BITX', 'BITU', 'SBIT',
 ]
