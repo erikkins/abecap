@@ -1361,83 +1361,78 @@ class SchedulerService:
             self._alerted_double_signals.update(persisted_dedup)
 
             import pandas as pd
-            from sqlalchemy import select
             from app.api.signals import find_dwap_crossover_date
 
-            # Compute regime-adjusted params for consistency with dashboard
-            regime_effective_params = None
-            try:
-                from app.services.market_regime import market_regime_service, get_regime_adjusted_params
-                current_regime = market_regime_service.get_current_regime()
-                if current_regime:
-                    regime_effective_params = get_regime_adjusted_params(current_regime)['effective']
-            except Exception as re_err:
-                logger.warning(f"Regime params for double signals (non-fatal): {re_err}")
+            # Read dashboard signals — the SINGLE SOURCE OF TRUTH for what's a signal
+            from app.services.data_export import data_export_service
+            dashboard = data_export_service.read_dashboard_json()
+            dashboard_signals = {}
+            if dashboard and dashboard.get('buy_signals'):
+                dashboard_signals = {s['symbol']: s for s in dashboard['buy_signals']}
 
-            # Get momentum rankings (top 20)
-            momentum_rankings = scanner_service.rank_stocks_momentum(
-                apply_market_filter=True,
-                regime_params=regime_effective_params,
-            )
-            top_momentum = {
-                r.symbol: {'rank': i + 1, 'data': r}
-                for i, r in enumerate(momentum_rankings[:20])
-            }
-
-            # Find stocks that crossed DWAP +5% recently (within last 3 trading days)
+            # Find NEW double signals from dashboard signals only
             new_signals = []
             approaching = []
             today_str = now.strftime('%Y-%m-%d')
 
-            for symbol, mom in top_momentum.items():
-                df = scanner_service.data_cache.get(symbol)
-                if df is None or len(df) < 1:
-                    continue
+            for symbol, sig in dashboard_signals.items():
+                pct_above = sig.get('pct_above_dwap', 0)
+                days_since = sig.get('days_since_crossover')
+                crossover_date = sig.get('dwap_crossover_date')
 
-                row = df.iloc[-1]
-                price = row['close']
-                dwap = row.get('dwap')
+                # Only alert if crossover was recent (within last 3 days) and not already alerted
+                alert_key = f"{symbol}_{crossover_date or today_str}"
 
-                if pd.isna(dwap) or dwap <= 0:
-                    continue
-
-                pct_above = (price / dwap - 1) * 100
-
-                # Check for approaching trigger (3-5%)
-                if 3.0 <= pct_above < 5.0:
-                    distance = 5.0 - pct_above
-                    approaching.append({
+                if days_since is not None and days_since <= 3 and alert_key not in self._alerted_double_signals:
+                    new_signals.append({
                         'symbol': symbol,
-                        'price': float(price),
+                        'price': sig.get('price', 0),
+                        'dwap': sig.get('dwap', 0),
                         'pct_above_dwap': pct_above,
-                        'distance_to_trigger': distance,
-                        'momentum_rank': mom['rank'],
+                        'momentum_rank': sig.get('momentum_rank', 0),
+                        'momentum_score': sig.get('momentum_score', 0),
+                        'short_momentum': sig.get('short_momentum', 0),
+                        'long_momentum': sig.get('long_momentum', 0),
+                        'dwap_crossover_date': crossover_date or today_str,
+                        'days_since_crossover': days_since or 0,
                     })
+                    self._alerted_double_signals.add(alert_key)
 
-                # Check for double signals (>= 5% above DWAP)
-                elif pct_above >= 5.0:
-                    # Find crossover date
-                    crossover_date, days_since = find_dwap_crossover_date(symbol, threshold_pct=5.0, lookback_days=5)
+            # Check for approaching signals (momentum stocks near DWAP threshold)
+            # These use their own ranking since they're not yet ensemble signals
+            try:
+                regime_effective_params = None
+                from app.services.market_regime import market_regime_service, get_regime_adjusted_params
+                current_regime = market_regime_service.get_current_regime()
+                if current_regime:
+                    regime_effective_params = get_regime_adjusted_params(current_regime)['effective']
 
-                    # Only alert if crossover was recent (within last 3 days) and not already alerted
-                    alert_key = f"{symbol}_{crossover_date or today_str}"
-
-                    if days_since is not None and days_since <= 3 and alert_key not in self._alerted_double_signals:
-                        mom_data = mom['data']
-                        new_signals.append({
-                            'symbol': symbol,
+                momentum_rankings = scanner_service.rank_stocks_momentum(
+                    apply_market_filter=True,
+                    regime_params=regime_effective_params,
+                )
+                for i, r in enumerate(momentum_rankings[:20]):
+                    if r.symbol in dashboard_signals:
+                        continue  # Already a signal
+                    df = scanner_service.data_cache.get(r.symbol)
+                    if df is None or len(df) < 1:
+                        continue
+                    row = df.iloc[-1]
+                    price = row['close']
+                    dwap_val = row.get('dwap')
+                    if pd.isna(dwap_val) or dwap_val <= 0:
+                        continue
+                    pct_above = (price / dwap_val - 1) * 100
+                    if 3.0 <= pct_above < 5.0:
+                        approaching.append({
+                            'symbol': r.symbol,
                             'price': float(price),
-                            'dwap': float(dwap),
                             'pct_above_dwap': pct_above,
-                            'momentum_rank': mom['rank'],
-                            'momentum_score': mom_data.composite_score,
-                            'short_momentum': mom_data.short_momentum,
-                            'long_momentum': mom_data.long_momentum,
-                            'dwap_crossover_date': crossover_date or today_str,
-                            'days_since_crossover': days_since or 0,
+                            'distance_to_trigger': 5.0 - pct_above,
+                            'momentum_rank': i + 1,
                         })
-                        # Mark as alerted
-                        self._alerted_double_signals.add(alert_key)
+            except Exception as ap_err:
+                logger.warning(f"Approaching signals (non-fatal): {ap_err}")
 
             # Persist dedup to S3 (always save — even if no new signals, to maintain state)
             self._save_double_signal_dedup(self._alerted_double_signals)
