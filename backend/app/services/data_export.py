@@ -354,6 +354,11 @@ class DataExportService:
         """
         Export all cached data to a single gzipped pickle file.
         This is the fastest format to load (no parsing/splitting needed).
+
+        GUARDRAILS:
+        - Refuses to overwrite if new pickle is >20% smaller than existing (data loss protection)
+        - Auto-archives existing pickle before overwrite (weekly rotation)
+        - Logs size comparison for monitoring
         """
         if not data_cache:
             return {"success": False, "message": "No data to export", "count": 0}
@@ -374,20 +379,68 @@ class DataExportService:
             symbol_names = list(clean_cache.keys())
 
             # Stream pickle to disk first to avoid holding ~1 GB in RAM
-            # (pkl_bytes ~639 MB + gzipped ~344 MB would exceed 3008 MB Lambda limit)
             import tempfile, os
             tmp_path = os.path.join(tempfile.gettempdir(), "all_data.pkl.gz")
             with gzip.open(tmp_path, 'wb') as f:
                 pickle.dump(clean_cache, f)
             del clean_cache
-            file_size = os.path.getsize(tmp_path)
+            new_size = os.path.getsize(tmp_path)
+            new_size_mb = new_size / 1024 / 1024
 
             if self._use_s3():
                 s3 = self._get_s3_client()
+                pickle_key = 'prices/all_data.pkl.gz'
+
+                # GUARDRAIL: Check existing pickle size before overwriting
+                existing_size = 0
+                try:
+                    head = s3.head_object(Bucket=S3_BUCKET, Key=pickle_key)
+                    existing_size = head['ContentLength']
+                except Exception:
+                    pass  # No existing pickle, OK to write
+
+                existing_size_mb = existing_size / 1024 / 1024
+                shrink_pct = ((existing_size - new_size) / existing_size * 100) if existing_size > 0 else 0
+
+                print(f"📦 Pickle size check: new={new_size_mb:.1f} MB, existing={existing_size_mb:.1f} MB, shrink={shrink_pct:.1f}%")
+
+                # Block if new pickle is >20% smaller (likely data loss)
+                if existing_size > 0 and shrink_pct > 20:
+                    print(f"🚫 PICKLE GUARDRAIL: Refusing to overwrite! New pickle ({new_size_mb:.1f} MB) is "
+                          f"{shrink_pct:.0f}% smaller than existing ({existing_size_mb:.1f} MB). "
+                          f"This likely means historical data was lost during incremental update.")
+                    os.remove(tmp_path)
+                    return {
+                        "success": False,
+                        "message": f"Guardrail blocked: new pickle {shrink_pct:.0f}% smaller ({new_size_mb:.1f} vs {existing_size_mb:.1f} MB)",
+                        "count": num_symbols,
+                        "guardrail": True,
+                    }
+
+                # Auto-archive: save weekly backup (once per week, keyed by ISO week)
+                try:
+                    week_key = datetime.now().strftime("%Y-W%W")
+                    archive_key = f"prices/backups/weekly_{week_key}.pkl.gz"
+                    # Only archive if no backup exists for this week yet
+                    try:
+                        s3.head_object(Bucket=S3_BUCKET, Key=archive_key)
+                    except Exception:
+                        # No backup for this week — create one from existing pickle
+                        if existing_size > 0:
+                            s3.copy_object(
+                                Bucket=S3_BUCKET,
+                                CopySource={'Bucket': S3_BUCKET, 'Key': pickle_key},
+                                Key=archive_key,
+                            )
+                            print(f"📦 Weekly pickle archived: {archive_key} ({existing_size_mb:.1f} MB)")
+                except Exception as arch_err:
+                    print(f"⚠️ Weekly archive failed (non-fatal): {arch_err}")
+
+                # Write new pickle
                 with open(tmp_path, 'rb') as f:
                     s3.put_object(
                         Bucket=S3_BUCKET,
-                        Key='prices/all_data.pkl.gz',
+                        Key=pickle_key,
                         Body=f,
                         ContentType='application/octet-stream'
                     )
@@ -405,12 +458,12 @@ class DataExportService:
             self.last_export = datetime.now()
             self.exported_symbols = symbol_names
 
-            print(f"✅ Exported pickle with {num_symbols} symbols ({file_size / 1024 / 1024:.1f} MB)")
+            print(f"✅ Exported pickle with {num_symbols} symbols ({new_size_mb:.1f} MB)")
 
             return {
                 "success": True,
                 "count": num_symbols,
-                "total_size_mb": round(file_size / 1024 / 1024, 2),
+                "total_size_mb": round(new_size_mb, 2),
                 "storage": storage_type,
                 "bucket": S3_BUCKET if self._use_s3() else None,
                 "timestamp": self.last_export.isoformat()
