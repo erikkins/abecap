@@ -93,6 +93,31 @@ V2_CONSTRAINED_PARAM_SPACES: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# === V2M (Medium Constrained) — wider than v2c, exit type locked ===
+# Theory: exit_type=trailing_stop is the key guardrail. Let other params breathe.
+V2_MEDIUM_PARAM_SPACES: Dict[str, Dict[str, Any]] = {
+    "ensemble": {
+        "dwap_threshold_pct": {"low": 3.0, "high": 7.0, "step": 0.5},       # full range
+        "trailing_stop_pct": {"low": 10.0, "high": 18.0, "step": 1.0},      # wider than v2c (was 10-14)
+        "max_positions": {"low": 4, "high": 8, "step": 1},                   # full range
+        "position_size_pct": {"low": 12.0, "high": 20.0, "step": 1.0},      # full range
+        "near_50d_high_pct": {"low": 2.0, "high": 8.0, "step": 1.0},        # slightly narrowed
+        "short_mom_weight": {"low": 0.3, "high": 0.7, "step": 0.05},
+        "long_mom_weight": {"low": 0.1, "high": 0.5, "step": 0.05},
+        "volatility_penalty": {"low": 0.05, "high": 0.30, "step": 0.05},
+        "short_momentum_days": {"type": "categorical", "choices": [5, 10, 15, 20]},
+        "long_momentum_days": {"type": "categorical", "choices": [40, 60, 90, 120]},
+        "rsi_oversold_filter": {"low": 80, "high": 100, "step": 10},         # mostly disabled
+        "volume_ratio_min": {"low": 0.0, "high": 0.6, "step": 0.3},         # mostly disabled
+        # EXIT TYPE LOCKED: trailing_stop only (proven best, removes worst outcomes)
+        "exit_type": {"type": "categorical", "choices": ["trailing_stop"]},
+        "hybrid_initial_target_pct": {"low": 15.0, "high": 15.0, "step": 2.5},
+        "hybrid_trailing_pct": {"low": 8.0, "high": 8.0, "step": 1.0},
+        "max_hold_days": {"low": 60, "high": 60, "step": 10},
+        "sector_cap": {"low": 0, "high": 3, "step": 1},
+    },
+}
+
 # Conditional parameters: only sampled when parent param matches
 V2_CONDITIONAL_PARAMS = {
     "hybrid_initial_target_pct": {"parent": "exit_type", "condition": "hybrid"},
