@@ -1407,8 +1407,9 @@ function ModelPortfolioTab({ fetchWithAuth }) {
         const daysSince = Math.ceil((Date.now() - entryDate.getTime()) / 86400000);
         days = Math.max(days, daysSince + 30);
       }
-      const res = await fetchWithAuth(`/api/stock/${symbol}/history?days=${days}`);
-      let prices = res?.data || res || [];
+      const response = await fetchWithAuth(`${API_URL}/api/stock/${symbol}/history?days=${days}`);
+      const res = await response.json();
+      let prices = res?.data || [];
       if (!Array.isArray(prices)) prices = [];
 
       // Annotate chart data with buy/sell markers
