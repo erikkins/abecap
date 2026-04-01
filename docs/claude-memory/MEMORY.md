@@ -16,9 +16,10 @@
 ## Pickle Safety
 - **Current: 7y pickle** (2019-06-03 → 2026-03-27, 4360 symbols, 269 MB). Built Mar 27, 2026.
 - **CAN build locally** with backend venv (`numpy==1.26.3`). System numpy 2.x won't work.
-- **NEVER replace without backup.** Size guardrail blocks >20% shrink. Weekly auto-archive.
+- **NEVER replace without backup.** Guardrail checks symbol count (was byte-size, broke Mar 28-Apr 1). Weekly auto-archive.
 - Pickle ONLY loads on Worker Lambda (3008+ MB). API Lambda will OOM.
 - **10y pickle OOMs at 3008 MB** (347 MB compressed, 728 MB raw). Needs 4096+ MB Lambda.
+- **Pickle shrink bug (fixed Apr 1 2026):** `fetch_incremental` strips indicator columns (dwap, ma_50, etc.) for lazy recompute, legitimately shrinking pickle ~50%. Old byte-size guardrail blocked ALL daily exports since Mar 28. Fixed: guardrail now checks symbol count, not byte size.
 - Backups: `s3://rigacap-prod-price-data-149218244179/prices/backups/`
 
 ## Strategy IDs
@@ -92,6 +93,9 @@
 - **WF payload overrides:** `max_positions`, `position_size_pct`, `dwap_threshold_pct`, `near_50d_high_pct`, `trailing_stop_pct`
 - Exit reason for period-end: `rebalance_exit`. Ensemble DB params: 6×15%.
 - **DWAP stale crosses perform BETTER** — stale (90+d) = 56.8% win vs fresh (0-10d) = 49.6%
+
+## Active Tasks
+- [Pickle fix verification](project_pickle_fix_apr1.md) — check at 4:45 PM EDT Apr 1 that pickle exports correctly
 
 ## Other
 - [Concurrency rules](feedback_concurrency_guardrail.md) — NEVER launch >3 WF jobs during market hours
