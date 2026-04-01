@@ -1261,8 +1261,15 @@ def handler(event, context):
 
             # 4. Persist refreshed cache to S3 pickle (slow — only if time permits)
             export_result = data_export_service.export_pickle(scanner_service.data_cache)
-            print(f"💾 Data cache persisted to S3: {export_result.get('count', 0)} symbols")
-            _log_step("Pickle Export", "ok", f"{export_result.get('count', 0)} symbols, {export_result.get('size_mb', '?')} MB")
+            pkl_ok = export_result.get('success', True)
+            pkl_status = "ok" if pkl_ok else "warning"
+            pkl_detail = f"{export_result.get('count', 0)} symbols, {export_result.get('size_mb', '?')} MB"
+            if not pkl_ok:
+                pkl_detail = export_result.get('message', 'export failed')
+                print(f"⚠️ Pickle export failed: {pkl_detail}")
+            else:
+                print(f"💾 Data cache persisted to S3: {export_result.get('count', 0)} symbols")
+            _log_step("Pickle Export", pkl_status, pkl_detail)
 
             # GC after pickle export to reclaim serialization buffers
             import gc

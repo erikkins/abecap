@@ -335,27 +335,23 @@ class ScannerService:
                 if replace_days > 0:
                     # Replace mode: drop old rows in the replace window, use fresh data
                     cutoff_ts = today - timedelta(days=replace_days)
-                    keep_old = existing_df[existing_df.index < cutoff_ts][['open', 'high', 'low', 'close', 'volume']]
+                    keep_old = existing_df[existing_df.index < cutoff_ts]
                     new_rows = new_df[new_df.index >= cutoff_ts][['open', 'high', 'low', 'close', 'volume']]
                     combined = pd.concat([keep_old, new_rows])
                 else:
-                    # Normal mode: only append truly new rows
+                    # Normal mode: append new rows, keep all existing columns (including
+                    # pre-computed indicators like dwap, ma_50, etc.) so the pickle
+                    # stays full-size and WF sims can use them on cold start.
                     last_cached_date = existing_df.index.max()
                     new_rows = new_df[new_df.index > last_cached_date]
                     if new_rows.empty:
                         skipped += 1
                         continue
-                    combined = pd.concat([existing_df[['open', 'high', 'low', 'close', 'volume']],
-                                        new_rows[['open', 'high', 'low', 'close', 'volume']]])
+                    new_rows = new_rows[['open', 'high', 'low', 'close', 'volume']]
+                    combined = pd.concat([existing_df, new_rows])
 
                 combined = combined[~combined.index.duplicated(keep='last')]
                 combined = combined.sort_index()
-
-                # Drop stale indicator columns — recomputed lazily during scan()
-                combined = combined.drop(
-                    columns=[c for c in INDICATOR_COLS if c in combined.columns],
-                    errors='ignore',
-                )
 
                 self.data_cache[symbol] = combined
                 updated += 1
