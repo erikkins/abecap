@@ -98,6 +98,15 @@
 - [Pickle fix verification](project_pickle_fix_apr1.md) — VERIFIED Apr 1 4:34 PM, 256.5 MB, working
 - [WF job dedup](project_wf_dedup.md) — add dedup check before creating WF jobs (dupes waste Lambda $)
 
+## User Profile
+- [Erik — solopreneur founder](user_profile.md) — actor background, lean budget, wants full automation from content to video to leads
+
+## Marketing Pipeline (Future)
+- **Content → Video → Social → Leads:** Social Intelligence Engine → Synthesia/HeyGen API → Buffer → HubSpot
+- **Two content tracks:** AI avatar videos (automated) + founder-led videos (Erik shoots/edits)
+- **Admin centralized:** Manage everything from RigaCap admin tab
+- **NOT investing until strategy is locked at 20%+ annualized and live track record established**
+
 ## Other
 - [Concurrency rules](feedback_concurrency_guardrail.md) — NEVER launch >3 WF jobs during market hours
 - [Signal consistency](feedback_signal_consistency.md) — all emails/alerts read from dashboard.json only
