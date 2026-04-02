@@ -352,6 +352,7 @@ class WalkForwardService:
         optimizer_version: str,
         risk_preference: float,
         ensemble_seeds: int,
+        time_budget_s: float = 800.0,
     ) -> Optional[AIOptimizationResult]:
         """
         Run AI optimization N times with different seeds and take median of params.
@@ -359,23 +360,56 @@ class WalkForwardService:
         For numeric params: take the median across all N runs.
         For categorical params (e.g., exit_type): take the mode (most common value).
 
+        Adaptive trial count: times each seed run and reduces n_trials for remaining
+        seeds if projected to exceed time_budget_s (default 800s, leaving 100s buffer
+        for the 900s Lambda timeout).
+
         Returns a single AIOptimizationResult with the ensembled params.
         """
+        import time as _time
         from statistics import median, mode as stats_mode
 
         all_results: List[AIOptimizationResult] = []
+        current_n_trials = n_trials
+        budget_start = _time.time()
+
         for seed_idx in range(ensemble_seeds):
+            elapsed = _time.time() - budget_start
+            remaining_time = time_budget_s - elapsed
+            remaining_seeds = ensemble_seeds - seed_idx
+
+            # Adaptive: if projected to exceed budget, reduce trials
+            if seed_idx > 0 and remaining_seeds > 0:
+                avg_time_per_seed = elapsed / seed_idx
+                projected = avg_time_per_seed * remaining_seeds
+                if projected > remaining_time:
+                    # Scale down trials proportionally, minimum 10
+                    scale = remaining_time / projected
+                    current_n_trials = max(10, int(current_n_trials * scale))
+                    print(f"[WF-ENSEMBLE] Adaptive: reducing n_trials to {current_n_trials} "
+                          f"(elapsed={elapsed:.0f}s, remaining={remaining_time:.0f}s, "
+                          f"{remaining_seeds} seeds left)")
+
+            # Skip if we're already past budget
+            if remaining_time < 30:
+                print(f"[WF-ENSEMBLE] Skipping seed {seed_idx}: only {remaining_time:.0f}s left")
+                break
+
+            seed_start = _time.time()
             result = self._run_ai_optimization_at_date(
                 as_of_date, strategy_type, lookback_days, ticker_list,
                 warm_start_params=warm_start_params,
-                n_trials=n_trials,
+                n_trials=current_n_trials,
                 optimizer_version=optimizer_version,
                 risk_preference=risk_preference,
                 seed_offset=seed_idx,
             )
+            seed_dur = _time.time() - seed_start
             if result:
                 all_results.append(result)
-                print(f"[WF-ENSEMBLE] Seed {seed_idx}: return={result.expected_return_pct:.1f}%, "
+                print(f"[WF-ENSEMBLE] Seed {seed_idx}: {seed_dur:.0f}s, "
+                      f"n_trials={current_n_trials}, "
+                      f"return={result.expected_return_pct:.1f}%, "
                       f"params={result.best_params}")
 
         if not all_results:
