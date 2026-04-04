@@ -189,7 +189,7 @@ const HowItWorksSection = () => (
 
       <div className="grid md:grid-cols-4 gap-8">
         {[
-          { step: 1, title: 'Scan', desc: 'Our algorithms analyze 6,500+ stocks daily, ranking by momentum, quality, and market conditions' },
+          { step: 1, title: 'Scan', desc: 'Our algorithms analyze 4,000+ stocks daily, filtering down to the top 200 by volume and ranking by momentum and quality' },
           { step: 2, title: 'Signal', desc: 'When criteria align, you get actionable alerts with entry, stop, and target levels' },
           { step: 3, title: 'Buy', desc: 'Execute through your broker with confidence — every signal includes entry, stop, and target levels' },
           { step: 4, title: 'Profit', desc: 'Trailing stops protect gains while letting winners run' },
@@ -296,7 +296,7 @@ const PricingSection = ({ onGetStarted }) => {
     'Portfolio tracking',
     'Performance analytics',
     'Mobile-friendly dashboard',
-    '6,500+ stocks scanned daily',
+    '4,000+ stocks scanned daily',
     'Sector & company insights',
   ];
 
@@ -485,7 +485,7 @@ const FAQSection = () => (
         />
         <FAQItem
           question="How many signals do you generate per day?"
-          answer="On average, we identify 3-8 quality signals per week from our universe of 6,500+ stocks. We prioritize quality over quantity - our focused approach targets only the best risk-adjusted opportunities."
+          answer="On average, we generate 3-4 high-conviction signals per month. We scan thousands of stocks but only the top 200 by trading volume qualify as candidates. When market conditions aren't right, the system stays quiet — that discipline is a big part of why it beats the S&P 500."
         />
         <FAQItem
           question="What's your track record?"
