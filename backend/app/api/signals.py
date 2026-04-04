@@ -583,6 +583,10 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
         traceback.print_exc()
 
     # --- Regime-adaptive parameters ---
+    # Regime detection (for display/dashboard) — keep active
+    # Regime param adjustments — DISABLED (walk-forward validated: fixed params beat
+    # regime-adaptive by +18pp annualized. The regime EXIT filter (SPY < 200MA → cash)
+    # handles macro risk; per-regime stop/position tweaks just add noise.)
     regime_adjustments = None
     regime_effective_params = None
     try:
@@ -590,7 +594,16 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
         current_regime = market_regime_service.get_current_regime()
         if current_regime:
             regime_adjustments = get_regime_adjusted_params(current_regime)
-            regime_effective_params = regime_adjustments['effective']
+            # Use base params only — no per-regime adjustments
+            regime_effective_params = {
+                'trailing_stop_pct': 12.0,
+                'near_50d_high_pct': 3.0,
+                'max_positions': 6,
+                'position_size_pct': 15.0,
+            }
+            # Override the adjustments display to show no changes
+            regime_adjustments['effective'] = regime_effective_params
+            regime_adjustments['changes'] = []
     except Exception as e:
         print(f"Regime adjustments error (non-fatal): {e}")
 
@@ -1341,18 +1354,11 @@ async def _get_positions_with_guidance(db: AsyncSession, user, regime_forecast_d
                 except Exception:
                     pass
 
-            # Use regime-adjusted trailing stop if available
-            from app.services.market_regime import get_regime_adjusted_params
-            regime_trailing_stop = settings.TRAILING_STOP_PCT
-            current_regime = market_regime_service.get_current_regime()
-            if current_regime:
-                adjusted = get_regime_adjusted_params(current_regime)
-                regime_trailing_stop = adjusted['effective']['trailing_stop_pct']
-
+            # Fixed trailing stop — regime adjustments disabled (validated: fixed beats adaptive by +18pp ann)
             positions_with_guidance = scanner_service.generate_sell_signals(
                 positions=pos_dicts,
                 regime_forecast=regime_forecast_obj,
-                trailing_stop_pct=regime_trailing_stop,
+                trailing_stop_pct=settings.TRAILING_STOP_PCT,
             )
     except Exception as e:
         print(f"Positions guidance error: {e}")
