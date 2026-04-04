@@ -95,10 +95,10 @@
 - **DWAP stale crosses perform BETTER** — stale (90+d) = 56.8% win vs fresh (0-10d) = 49.6%
 
 ## Active Tasks
-- [Pickle fix verification](project_pickle_fix_apr1.md) — VERIFIED Apr 1 4:34 PM, 256.5 MB, working
-- [WF job dedup](project_wf_dedup.md) — add dedup check before creating WF jobs (dupes waste Lambda $)
-- [Optimizer expansion](project_optimizer_expansion.md) — run 100+ trials locally, explore new params (100MA, ADX, ATR stops, sector momentum, earnings avoidance)
+- **[BREAKTHROUGH: 19.9% avg annualized](project_tournament_breakthrough.md)** — near_50d_high_pct 5%→3%, validated 7/7 start dates
+- [WF job dedup](project_wf_dedup.md) — add dedup check before creating WF jobs
 - [WF launch protocol](feedback_wf_launch.md) — ALWAYS use periods_limit=1, test ONE job first
+- [Pickle fix](project_pickle_fix_apr1.md) — VERIFIED working
 
 ## User Profile
 - [Erik — solopreneur founder](user_profile.md) — actor background, lean budget, wants full automation from content to video to leads
