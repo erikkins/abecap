@@ -48,7 +48,23 @@ position_size_pct: 15.0  (unchanged)
 All other params: baseline (Job 224)
 ```
 
-### Next Steps
-- Test with 2% and 4% to confirm 3% is the sweet spot (or if even tighter is better)
-- Update production strategy config
-- Run live for 1-2 months to validate out-of-sample
+### Additional Validations (Apr 3-4 2026)
+- **2% vs 3% vs 4%:** 3% confirmed as sweet spot (21.2% ann vs 19.9% at 2%)
+- **10-year WF:** +497% (19.6% ann), Sharpe 0.97 — validated, not projected
+- **Regime adjustments DISABLED:** both original and flipped directions destroy returns (19.9% → 1.7% / 2.8%). Fixed params across all regimes is optimal. Regime EXIT filter (SPY < 200MA → cash) still active — that's the real risk management.
+- **Signal frequency:** 3-4 signals per month with 3% filter (was claiming ~15)
+- **All marketing pages updated** with validated numbers
+
+### Production Config (deployed Apr 3 2026)
+```
+near_50d_high_pct: 3.0  (was 5.0)
+trailing_stop_pct: 12.0  (unchanged, fixed across all regimes)
+regime param adjustments: DISABLED
+regime exit filter: ACTIVE (SPY < 200MA → cash)
+All other params: baseline
+```
+
+### What Goes Live Monday Apr 7
+- First scan with 3% breakout filter at 4:30 PM EDT
+- Fixed params, no regime adjustments, no optimizer
+- Monitor for signal quality and frequency
