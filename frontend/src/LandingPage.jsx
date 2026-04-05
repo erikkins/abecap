@@ -213,13 +213,14 @@ const HowItWorksSection = () => (
 const StatsSection = () => (
   <section className="py-16 bg-indigo-600">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-8 text-center text-white">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-8 text-center text-white">
         {[
           { value: '~20%', label: 'Annualized Return' },
           { value: '+497%', label: '10-Year Return' },
-          { value: '0.97', label: 'Sharpe Ratio' },
+          { value: '$59,730', label: 'From $10k (10yr)' },
           { value: '100%', label: 'Years Positive' },
-          { value: '2x', label: 'Market Returns (10yr)' },
+          { value: '+6%', label: 'During 2022 Crash' },
+          { value: '0.97', label: 'Sharpe Ratio' },
         ].map(({ value, label }) => (
           <div key={label}>
             <div className="text-4xl lg:text-5xl font-bold mb-2">{value}</div>
@@ -229,7 +230,7 @@ const StatsSection = () => (
       </div>
       <p className="text-indigo-200 text-sm mt-6 text-center max-w-2xl mx-auto">
         Walk-forward simulation results — year-by-year testing with no hindsight bias.
-        Our Ensemble approach adapts through every market regime, from bull runs to bear markets.
+        <br />Our Ensemble approach adapts through every market regime, from bull runs to bear markets.
       </p>
 
       {/* Compact equity curve */}
