@@ -1477,7 +1477,7 @@ function ModelPortfolioTab({ fetchWithAuth }) {
   }
 
   if (!data) {
-    return <div className="text-center py-12 text-gray-500">No portfolio data available</div>;
+    return <div className="text-center py-12 text-gray-500">Portfolio is in cash — waiting for signals</div>;
   }
 
   const portfolios = [
