@@ -525,7 +525,7 @@
   </div>
 
   <h2>Walk-Forward Performance (2021&ndash;2026)</h2>
-  <p>Biweekly reoptimization across 5 years. Each period uses only historical data for parameter selection, then trades forward into unseen market conditions.</p>
+  <p>Biweekly rebalancing across 10 years. Fixed parameters validated through walk-forward testing &mdash; the system trades forward into unseen market conditions with no parameter changes.</p>
 
   <table>
     <thead>
@@ -691,47 +691,34 @@
 <div class="content page-break">
   <h2>AI &amp; Machine Learning</h2>
 
-  <h3>Bayesian Parameter Optimization (Optuna TPE)</h3>
+  <h3>Parameter Discovery &amp; Validation</h3>
   <p>
-    Every two weeks, the platform runs <strong>Optuna's Tree-structured Parzen Estimator</strong> (TPE)
-    to intelligently search the continuous parameter space. Unlike brute-force grid search,
-    TPE models the probability of improvement and focuses exploration on high-promise regions:
+    RigaCap's parameters were discovered through a <strong>tournament-based approach</strong>: each parameter
+    was tested independently across its full range, isolating which levers actually move returns.
+    This identified that <strong>entry quality</strong> (breakout proximity) is the dominant factor &mdash;
+    not stop levels, position sizing, or regime-adaptive adjustments.
   </p>
-  <ul>
-    <li><strong>~30 trials per optimization cycle</strong> across 6+ dimensions (stops, sizing, momentum windows, volatility penalties)</li>
-    <li><strong>Regime-aware constraints:</strong> In panic markets, trailing stops are floored at 15%+; in strong bull, as tight as 8%</li>
-    <li><strong>Warm-starting:</strong> Previous period's best parameters seed the first trial, ensuring continuity and cutting optimization time ~30%</li>
-    <li><strong>Multivariate modeling:</strong> Captures correlations between parameters (e.g., wider stops pair with smaller positions)</li>
-  </ul>
-
-  <h3>Adaptive Strategy Scoring</h3>
-  <p>Strategy performance is scored differently depending on the current regime. Bear markets heavily weight drawdown control; bull markets weight returns:</p>
-  <table>
-    <thead>
-      <tr><th>Metric</th><th>Bull Weight</th><th>Bear Weight</th><th>Sideways Weight</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>Total Return</td><td>35%</td><td>15%</td><td>15%</td></tr>
-      <tr><td>Sharpe Ratio</td><td>25%</td><td>20%</td><td>35%</td></tr>
-      <tr><td>Max Drawdown</td><td>15%</td><td>35%</td><td>20%</td></tr>
-      <tr><td>Sortino Ratio</td><td>15%</td><td>20%</td><td>20%</td></tr>
-      <tr><td>Profit Factor</td><td>10%</td><td>10%</td><td>10%</td></tr>
-    </tbody>
-  </table>
-
-  <h3>Automatic Strategy Switching</h3>
   <p>
-    The auto-switch service runs biweekly, evaluating all strategies against the last 60 days
-    of market data. If the AI discovers a parameter set scoring 10+ points above the current strategy,
-    it switches automatically. Safeguards include a 14-day cooldown between switches and full audit
-    trails with admin email notifications.
+    Walk-forward testing across 50+ configurations validated that <strong>fixed parameters outperform
+    AI-optimized parameters</strong> by a wide margin. Bayesian optimizers (Optuna TPE) were tested
+    extensively but consistently added noise without improving returns. The final strategy uses
+    a single, robust parameter set across all market conditions.
+  </p>
+
+  <h3>Binary Regime Response</h3>
+  <p>
+    Rather than adjusting parameters per regime (which was tested and reduced returns by -18pp annualized),
+    the system uses a binary approach: <strong>invested</strong> (SPY &gt; 200-day MA) or
+    <strong>cash</strong> (SPY &lt; 200-day MA). This simple rule kept the portfolio positive during
+    the entire 2022 bear market (+6% while SPY fell -20%).
   </p>
 
   <h3>Walk-Forward Validation (Anti-Overfitting)</h3>
   <p>
-    The system divides 5 years of history into overlapping periods. At each boundary, it
-    reoptimizes using only past data, then trades forward into unseen data. This produces an
+    The system was validated across 10 years of history (2016&ndash;2026) using walk-forward methodology.
+    At each biweekly boundary, the system trades forward into unseen data using fixed parameters. This produces an
     <strong>out-of-sample equity curve</strong> &mdash; the +497% return is entirely on data the system never saw during development.
+    The strategy was further stress-tested across 7 different start dates &mdash; every one positive, every one beats the S&amp;P 500.
   </p>
 
   <div class="callout">
@@ -969,7 +956,7 @@
         <li><strong>Daily 6 PM ET:</strong> Subscriber email digest</li>
         <li><strong>Daily 8 PM ET:</strong> Walk-forward + social posts</li>
         <li><strong>Every 15 min:</strong> Auto-publish scheduled posts</li>
-        <li><strong>Biweekly:</strong> AI reoptimization</li>
+        <li><strong>Biweekly:</strong> Portfolio rebalancing</li>
       </ul>
     </div>
   </div>

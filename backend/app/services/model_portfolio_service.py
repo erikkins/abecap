@@ -294,14 +294,10 @@ class ModelPortfolioService:
 
             exit_reason = None
 
-            # Period boundary → force close
-            if is_boundary:
-                exit_reason = "rebalance_exit"
-            else:
-                # Check trailing stop
-                hwm = pos.highest_price or pos.entry_price
-                stop_pct = trailing_stop_pct if trailing_stop_pct is not None else TRAILING_STOP_PCT
-                trailing_stop_level = hwm * (1 - stop_pct / 100)
+            # Check trailing stop (carry positions — no force-close at boundaries)
+            hwm = pos.highest_price or pos.entry_price
+            stop_pct = trailing_stop_pct if trailing_stop_pct is not None else TRAILING_STOP_PCT
+            trailing_stop_level = hwm * (1 - stop_pct / 100)
                 if close_price <= trailing_stop_level:
                     exit_reason = "trailing_stop"
 

@@ -986,19 +986,23 @@
 </div>
 
 <div class="content page-break">
-  <h3>Regime Parameter Adjustments</h3>
+  <h3>Regime Response</h3>
+  <p>Walk-forward testing validated that <strong>fixed parameters across all regimes</strong> outperform
+  regime-adaptive adjustments by +18 percentage points annualized. The system uses a single, consistent
+  set of parameters regardless of regime. The regime's role is binary: <strong>stay invested</strong> or
+  <strong>go to cash</strong> (SPY &lt; 200-day MA).</p>
   <table>
     <thead>
       <tr><th>Regime</th><th>Trailing Stop</th><th>Max Positions</th><th>Position Size</th><th>Action</th></tr>
     </thead>
     <tbody>
-      <tr><td style="color:#10B981"><strong>Strong Bull</strong></td><td>&minus;2% (tighter)</td><td>+1</td><td>+2%</td><td>Stay invested</td></tr>
-      <tr><td style="color:#84CC16"><strong>Weak Bull</strong></td><td>No change</td><td>No change</td><td>No change</td><td>Stay invested</td></tr>
-      <tr><td style="color:#8B5CF6"><strong>Rotating Bull</strong></td><td>+1% (wider)</td><td>No change</td><td>No change</td><td>Stay invested</td></tr>
-      <tr><td style="color:#F59E0B"><strong>Range-Bound</strong></td><td>No change</td><td>&minus;1</td><td>No change</td><td>Tighten stops</td></tr>
-      <tr><td style="color:#F97316"><strong>Weak Bear</strong></td><td>+3% (wider)</td><td>&minus;2</td><td>&minus;3%</td><td>Reduce exposure</td></tr>
-      <tr><td style="color:#EF4444"><strong>Panic/Crash</strong></td><td>+5% (widest)</td><td>&minus;3</td><td>&minus;5%</td><td>Go to cash</td></tr>
-      <tr><td style="color:#06B6D4"><strong>Recovery</strong></td><td>+2%</td><td>No change</td><td>No change</td><td>Gradual re-entry</td></tr>
+      <tr><td style="color:#10B981"><strong>Strong Bull</strong></td><td>12% (fixed)</td><td>6</td><td>15%</td><td>Stay invested</td></tr>
+      <tr><td style="color:#84CC16"><strong>Weak Bull</strong></td><td>12% (fixed)</td><td>6</td><td>15%</td><td>Stay invested</td></tr>
+      <tr><td style="color:#8B5CF6"><strong>Rotating Bull</strong></td><td>12% (fixed)</td><td>6</td><td>15%</td><td>Stay invested</td></tr>
+      <tr><td style="color:#F59E0B"><strong>Range-Bound</strong></td><td>12% (fixed)</td><td>6</td><td>15%</td><td>Stay invested</td></tr>
+      <tr><td style="color:#F97316"><strong>Weak Bear</strong></td><td colspan="3" style="text-align:center; color:#EF4444;"><strong>Cash &mdash; SPY below 200-day MA</strong></td><td>Go to cash</td></tr>
+      <tr><td style="color:#EF4444"><strong>Panic/Crash</strong></td><td colspan="3" style="text-align:center; color:#EF4444;"><strong>Cash &mdash; SPY below 200-day MA</strong></td><td>Go to cash</td></tr>
+      <tr><td style="color:#06B6D4"><strong>Recovery</strong></td><td>12% (fixed)</td><td>6</td><td>15%</td><td>Re-enter when SPY &gt; 200MA</td></tr>
     </tbody>
   </table>
 
@@ -1027,17 +1031,18 @@
       <text x="531" y="58" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="700" fill="#ffffff">Panic</text>
       <text x="623" y="58" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" font-weight="700" fill="#ffffff">Recovery</text>
 
-      <!-- Parameter annotations below -->
-      <text x="76" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">stop &minus;2%</text>
-      <text x="76" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">pos +1</text>
+      <!-- Parameter annotations below — fixed params, binary action -->
+      <text x="76" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">12% stop</text>
+      <text x="76" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">INVESTED</text>
 
-      <text x="349" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">pos &minus;1</text>
+      <text x="258" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">12% stop</text>
+      <text x="258" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">INVESTED</text>
 
-      <text x="440" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">stop +3%</text>
-      <text x="440" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">pos &minus;2</text>
+      <text x="440" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#EF4444">SPY &lt; 200MA</text>
+      <text x="440" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#EF4444">GO TO CASH</text>
 
-      <text x="531" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">stop +5%</text>
-      <text x="531" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#64748b">GO TO CASH</text>
+      <text x="531" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#EF4444">SPY &lt; 200MA</text>
+      <text x="531" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7" fill="#EF4444">GO TO CASH</text>
 
       <!-- Risk gradient arrow -->
       <text x="30" y="120" font-family="Inter, sans-serif" font-size="9" font-weight="600" fill="#22c55e">LOW RISK</text>
@@ -1068,7 +1073,7 @@
   </ul>
   <p>
     The forecast produces a <strong>recommended action</strong> ranging from
-    <code>stay_invested</code> &rarr; <code>tighten_stops</code> &rarr; <code>reduce_exposure</code> &rarr; <code>go_to_cash</code>.
+    <code>stay_invested</code> (SPY &gt; 200MA) &rarr; <code>go_to_cash</code> (SPY &lt; 200MA). Binary action &mdash; no intermediate steps.
   </p>
 </div>
 
@@ -1120,7 +1125,7 @@
     <li style="font-size: 0.82rem; margin-bottom: 0.3rem;"><strong>Regime Exit (go_to_cash):</strong> Immediate sell regardless of P&L &mdash; capital preservation</li>
     <li style="font-size: 0.82rem; margin-bottom: 0.3rem;"><strong>Trailing Stop Hit:</strong> Price &le; HWM &times; 0.88 &mdash; overrides regime warnings</li>
     <li style="font-size: 0.82rem; margin-bottom: 0.3rem;"><strong>Warning Zone:</strong> Within 3% of stop level &mdash; email alert, no action</li>
-    <li style="font-size: 0.82rem; margin-bottom: 0.3rem;"><strong>Regime Warning:</strong> reduce_exposure or tighten_stops &mdash; email alert</li>
+    <li style="font-size: 0.82rem; margin-bottom: 0.3rem;"><strong>Regime Warning:</strong> SPY approaching 200MA &mdash; email alert</li>
   </ol>
 
   <!-- SVG 5: Trailing Stop Visualization -->
