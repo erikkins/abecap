@@ -1472,6 +1472,7 @@ async def get_dashboard_data(
         'fresh_signal_dates': fresh_signal_dates,
         'total_fresh_count': total_fresh_count,
         'data_date': cached.get('data_date'),
+        'market_context': cached.get('market_context'),
     }
 
 
