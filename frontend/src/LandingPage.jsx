@@ -37,24 +37,17 @@ const HeroSection = ({ onGetStarted }) => (
 
         {/* Main headline */}
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
-          Beat the Market with
+          Hedge Fund Returns.
           <span className="block bg-gradient-to-r from-yellow-200 via-yellow-300 to-orange-300 bg-clip-text text-transparent pb-2">
-            AI-Powered Trading Signals
+            $39/month.
           </span>
         </h1>
 
         {/* Subheadline */}
         <p className="max-w-2xl mx-auto text-lg sm:text-xl text-blue-100 mb-3">
-          Our Ensemble approach combines three proven factors<br />into one system that evolves through every market cycle:
+          Stop trading on emotions. Start trading on math.
         </p>
-        <div className="flex items-center justify-center gap-2 sm:gap-3 mb-4">
-          <span className="text-yellow-300 font-semibold text-base sm:text-lg">Timing</span>
-          <span className="text-blue-300/40">·</span>
-          <span className="text-yellow-300 font-semibold text-base sm:text-lg">Momentum Quality</span>
-          <span className="text-blue-300/40">·</span>
-          <span className="text-yellow-300 font-semibold text-base sm:text-lg">Adaptive Risk</span>
-        </div>
-        <p className="text-sm text-blue-200/70 mb-8">High-conviction signals only — we'd rather say nothing than say something wrong</p>
+        <p className="text-sm text-blue-200/70 mb-8">+497% over 10 years. Never a losing year. We scan 4,000 stocks daily<br />and only speak up when the math says go.</p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col items-center gap-4 mb-12">
