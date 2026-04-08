@@ -648,15 +648,15 @@ const LAUNCH_POSTS = [
     label: 'Performance Stats',
     imageUrl: '/launch-cards/launch-2.png',
     twitter: {
-      text: "Year-by-year walk-forward results:\n\n2021: +8% (ramp-up year)\n2022: +6% while SPY fell -20% \u2705\n2023: +5% \u2705\n2024: +20% \u2705\n2025: +57% \u2705\n\n5-Year avg: +152% | ~20% annualized\nAll 7 tested start dates positive. All beat SPY.\n\nrigacap.com/track-record",
+      text: "Year-by-year walk-forward results:\n\n2021: +8% (ramp-up year)\n2022: +6% while SPY fell -20% \u2705\n2023: +5% \u2705\n2024: +20% \u2705\n2025: +57% \u2705\n\n5-Year avg: +152% | ~20% annualized\nEvery tested start date positive. All beat SPY.\n\nrigacap.com/track-record",
       hashtags: '#trading #performance #walkforward',
     },
     instagram: {
-      text: "Let's talk numbers. All of them.\n\n2021: +8.3% (strategy ramp-up)\n2022: +6.0% (SPY fell -20% \u2014 we stayed positive)\n2023: +4.5% (cautious in recovery)\n2024: +20.3% (near parity with SPY)\n2025: +57.4% (breakout year, tripled SPY)\n\n5-Year Avg: +152% | ~20% annualized\n10-Year: +497% | Sharpe 0.97\n\nTested across 7 different start dates. Every single one positive. Every single one beats the S&P 500.\n\nAnd when the market crashed in 2022? Our system gained 6% while everyone else lost 20%. That's not luck. That's a system that knows when to sit on its hands.\n\nPast performance doesn't guarantee future results. But honest testing beats a screenshot of someone's best week.\n\nrigacap.com/track-record",
+      text: "Let's talk numbers. All of them.\n\n2021: +8.3% (strategy ramp-up)\n2022: +6.0% (SPY fell -20% \u2014 we stayed positive)\n2023: +4.5% (cautious in recovery)\n2024: +20.3% (near parity with SPY)\n2025: +57.4% (breakout year, tripled SPY)\n\n5-Year Avg: +152% | ~20% annualized\n10-Year: +497% | Sharpe 0.97\n\nTested across every market condition since 2016. Every single start date positive. Every single one beats the S&P 500.\n\nAnd when the market crashed in 2022? Our system gained 6% while everyone else lost 20%. That's not luck. That's a system that knows when to sit on its hands.\n\nPast performance doesn't guarantee future results. But honest testing beats a screenshot of someone's best week.\n\nrigacap.com/track-record",
       hashtags: '#trading #algotrading #performance #walkforward #stockmarket #investing #rigacap',
     },
     threads: {
-      text: "Year-by-year walk-forward results:\n\n2021: +8%\n2022: +6% (SPY fell -20%!)\n2023: +5%\n2024: +20%\n2025: +57%\n\n5-Year avg: +152% | ~20% annualized\n10-Year: +497% | Sharpe 0.97\n\nAll 7 tested start dates positive. All beat SPY.\n\nrigacap.com/track-record",
+      text: "Year-by-year walk-forward results:\n\n2021: +8%\n2022: +6% (SPY fell -20%!)\n2023: +5%\n2024: +20%\n2025: +57%\n\n5-Year avg: +152% | ~20% annualized\n10-Year: +497% | Sharpe 0.97\n\nEvery tested start date positive. All beat SPY.\n\nrigacap.com/track-record",
     },
   },
   {
@@ -664,15 +664,15 @@ const LAUNCH_POSTS = [
     label: 'How It Works',
     imageUrl: '/launch-cards/launch-3.png',
     twitter: {
-      text: "How we pick trades:\n\n1\uFE0F\u20E3 Timing \u2014 proprietary breakout detection catches moves before the crowd\n2\uFE0F\u20E3 Quality \u2014 only top-ranked momentum stocks pass\n3\uFE0F\u20E3 Risk \u2014 7 market regimes, adapted daily\n\nAll 3 must agree. Most stocks fail. That's the point.\n\n~6\u20138 make the cut every 2 weeks.",
+      text: "How we pick trades:\n\n1\uFE0F\u20E3 Timing \u2014 proprietary breakout detection catches moves before the crowd\n2\uFE0F\u20E3 Quality \u2014 only top-ranked momentum stocks pass\n3\uFE0F\u20E3 Risk \u2014 7 market regimes, adapted daily\n\nAll 3 must agree. Most stocks fail. That's the point.\n\n3-4 signals per month. Zero when conditions aren't right.",
       hashtags: '#trading #ensemble #momentum #riskmanagement',
     },
     instagram: {
-      text: "Why three factors instead of one? Because markets are complicated and anyone who says otherwise is selling you something.\n\nFactor 1: Breakout Timing\nOur proprietary accumulation breakout model catches moves early \u2014 before they show up on everyone's screener.\n\nFactor 2: Momentum Quality\nNot all breakouts deserve your money. We rank by 10-day and 60-day momentum, filter for volatility, and confirm with volume.\n\nFactor 3: Regime Detection\n7 market regimes detected daily. Because \"buy the dip\" is great advice in a bull market and terrible advice in a crash.\n\nAll 3 factors must align for a signal. Out of thousands of stocks, only 6\u20138 make the cut every two weeks. Most days, nothing qualifies.\n\nThat's not a bug \u2014 it's the whole point. Picky systems make money. Trigger-happy ones don't.",
+      text: "Why three factors instead of one? Because markets are complicated and anyone who says otherwise is selling you something.\n\nFactor 1: Breakout Timing\nOur proprietary accumulation breakout model catches moves early \u2014 before they show up on everyone's screener.\n\nFactor 2: Momentum Quality\nNot all breakouts deserve your money. We rank by 10-day and 60-day momentum, filter for volatility, and confirm with volume.\n\nFactor 3: Regime Detection\n7 market regimes detected daily. Because \"buy the dip\" is great advice in a bull market and terrible advice in a crash.\n\nAll 3 factors must align for a signal. Out of thousands of stocks, only 3-4 make the cut per month. Most days, nothing qualifies.\n\nThat's not a bug \u2014 it's the whole point. Picky systems make money. Trigger-happy ones don't.",
       hashtags: '#trading #algotrading #ensemble #momentum #riskmanagement #rigacap',
     },
     threads: {
-      text: "How we pick trades:\n\n1. Timing \u2014 proprietary breakout detection catches moves before the crowd\n2. Quality \u2014 only top-ranked momentum stocks pass\n3. Risk \u2014 7 market regimes, adapted daily\n\nAll 3 must agree. Most stocks fail. That's the point.\n\nOut of thousands scanned, ~6\u20138 make the cut every 2 weeks.\n\nrigacap.com",
+      text: "How we pick trades:\n\n1. Timing \u2014 proprietary breakout detection catches moves before the crowd\n2. Quality \u2014 only top-ranked momentum stocks pass\n3. Risk \u2014 7 market regimes, adapted daily\n\nAll 3 must agree. Most stocks fail. That's the point.\n\nOut of thousands scanned, 3-4 make the cut per month.\n\nrigacap.com",
     },
   },
   {
@@ -696,15 +696,15 @@ const LAUNCH_POSTS = [
     label: 'Signal Teaser',
     imageUrl: '/launch-cards/launch-5.png',
     twitter: {
-      text: "Every two weeks we scan thousands of stocks through a 3-factor gauntlet.\n\nMost fail. 6\u20138 survive.\n\nThose land in your inbox before the market opens. 3-4 signals per month on average. Zero when conditions aren't right — and that discipline is why we beat the market.\n\nrigacap.com",
+      text: "Every day we scan thousands of stocks through a 3-factor gauntlet.\n\nMost fail. Only the strongest survive.\n\nThose land in your inbox before the market opens. 3-4 signals per month on average. Zero when conditions aren't right — and that discipline is why we beat the market.\n\nrigacap.com",
       hashtags: '#trading #signals #stockmarket',
     },
     instagram: {
-      text: "Here's what happens every two weeks inside RigaCap:\n\nScan thousands of stocks. Rank by momentum. Filter for quality. Check the market regime. Score them. Rank again. Throw out anything that doesn't pass all 3 factors.\n\nThe result? 6\u20138 high-conviction buy signals, delivered to your inbox before the market opens.\n\nThat's 3-4 signals per month on average. And when the market is ugly? The system goes quiet. No forced trades. No \"well, this one looks okay I guess.\" Just silence \u2014 which is exactly what you want when everyone else is panicking.\n\nNo screeners to configure. No charts to stare at. No FOMO-scrolling at 2am.\n\nJust signals. Walk-forward verified. Every single one.\n\nrigacap.com",
+      text: "Here's what happens every day inside RigaCap:\n\nScan thousands of stocks. Rank by momentum. Filter for quality. Check the market regime. Score them. Rank again. Throw out anything that doesn't pass all 3 factors.\n\nThe result? A handful of high-conviction buy signals, delivered to your inbox before the market opens.\n\nThat's 3-4 signals per month on average. And when the market is ugly? The system goes quiet. No forced trades. No \"well, this one looks okay I guess.\" Just silence \u2014 which is exactly what you want when everyone else is panicking.\n\nNo screeners to configure. No charts to stare at. No FOMO-scrolling at 2am.\n\nJust signals. Walk-forward verified. Every single one.\n\nrigacap.com",
       hashtags: '#trading #signals #stockmarket #algotrading #investing #rigacap',
     },
     threads: {
-      text: "Every two weeks we scan thousands of stocks through a 3-factor gauntlet.\n\nMost fail. 6\u20138 survive.\n\nThose land in your inbox before the market opens. 3-4 signals per month on average. Zero when conditions aren't right — and that discipline is why we beat the market.\n\nNo screeners. No charts. No 2am FOMO-scrolling.\n\nJust signals. Walk-forward verified.\n\nrigacap.com",
+      text: "Every day we scan thousands of stocks through a 3-factor gauntlet.\n\nMost fail. Only the strongest survive.\n\nThose land in your inbox before the market opens. 3-4 signals per month on average. Zero when conditions aren't right — and that discipline is why we beat the market.\n\nNo screeners. No charts. No 2am FOMO-scrolling.\n\nJust signals. Walk-forward verified.\n\nrigacap.com",
     },
   },
 ];
