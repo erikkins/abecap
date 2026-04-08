@@ -47,7 +47,7 @@ const HeroSection = ({ onGetStarted }) => (
         <p className="max-w-2xl mx-auto text-lg sm:text-xl text-blue-100 mb-3">
           Stop trading on emotions. Start trading on math.
         </p>
-        <p className="text-sm text-blue-200/70 mb-8">+497% over 10 years. Never a losing year. We scan 4,000 stocks daily<br />and only speak up when the math says go.</p>
+        <p className="text-sm text-blue-200/70 mb-8">+497% over 10 years. Never a losing year.<br />We scan 4,000 stocks daily and only speak up when the math says go.</p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col items-center gap-4 mb-12">
