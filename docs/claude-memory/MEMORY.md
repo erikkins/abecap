@@ -111,6 +111,7 @@
 
 ## Social Posts
 - [Full text in approval emails](feedback_social_emails_full_text.md) — never truncate post previews in admin emails
+- [No "7 dates" in public content](feedback_no_7_dates.md) — say "multiple start dates", never cite the specific count
 
 ## Other
 - [SLOW DOWN before Lambda jobs](feedback_slow_down_lambda.md) — think first, compute locally if possible, ONE job at a time
