@@ -19,6 +19,7 @@ import Blog2022StoryPage from './Blog2022StoryPage';
 import BlogBacktestsPage from './BlogBacktestsPage';
 import BlogMarketCrashPage from './BlogMarketCrashPage';
 import BlogMarketRegimesPage from './BlogMarketRegimesPage';
+import BlogIndexPage from './BlogIndexPage';
 import { PrivacyPage, TermsPage, ContactPage } from './LegalPages';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginModal from './components/LoginModal';
@@ -4394,6 +4395,7 @@ export default function App() {
         <Route path="/track-record" element={<TrackRecordPage />} />
         <Route path="/track-record-10y" element={<TrackRecord10YPage />} />
         <Route path="/market-regime" element={<MarketRegimePage />} />
+        <Route path="/blog" element={<BlogIndexPage />} />
         <Route path="/blog/2022-story" element={<Blog2022StoryPage />} />
         <Route path="/blog/backtests" element={<BlogBacktestsPage />} />
         <Route path="/blog/market-crash" element={<BlogMarketCrashPage />} />

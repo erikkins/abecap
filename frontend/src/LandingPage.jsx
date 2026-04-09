@@ -532,6 +532,7 @@ const Footer = () => (
           <span className="text-xl font-bold text-white">RigaCap</span>
         </div>
         <div className="flex gap-8 text-sm">
+          <a href="/blog" className="hover:text-white transition-colors">Blog</a>
           <a href="/terms" className="hover:text-white transition-colors">Terms</a>
           <a href="/privacy" className="hover:text-white transition-colors">Privacy</a>
           <a href="/contact" className="hover:text-white transition-colors">Contact</a>

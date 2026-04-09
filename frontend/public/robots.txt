@@ -1,9 +1,9 @@
 User-agent: *
 Allow: /
+
 Disallow: /app
-Disallow: /dashboard
 Disallow: /admin
-Disallow: /reset-password
-Disallow: /forgot-password
+Disallow: /dashboard
+Disallow: /api
 
 Sitemap: https://rigacap.com/sitemap.xml
