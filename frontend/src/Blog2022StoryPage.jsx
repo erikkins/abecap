@@ -180,10 +180,12 @@ export default function Blog2022StoryPage() {
                 <span className="text-red-400 font-bold">1</span>
               </div>
               <div>
-                <h3 className="text-white font-semibold mb-1">Market Regime Filter</h3>
+                <h3 className="text-white font-semibold mb-1">7-Regime Market Intelligence</h3>
                 <p className="text-gray-400 text-sm m-0">
-                  When SPY drops below its 200-day moving average, the system stops buying entirely.
-                  No new positions. Full cash. This single rule avoided the worst of 2022.
+                  Our proprietary model classifies the market into 7 distinct regimes — from
+                  strong bull to panic crash. When conditions shift to unfavorable territory,
+                  the system stops buying entirely. No new positions. Full cash. This alone
+                  avoided the worst of 2022.
                 </p>
               </div>
             </div>
@@ -194,11 +196,11 @@ export default function Blog2022StoryPage() {
                 <span className="text-amber-400 font-bold">2</span>
               </div>
               <div>
-                <h3 className="text-white font-semibold mb-1">Trailing Stops</h3>
+                <h3 className="text-white font-semibold mb-1">Automatic Downside Protection</h3>
                 <p className="text-gray-400 text-sm m-0">
-                  Every position has a 12% trailing stop from its high water mark. If a stock
-                  reverses, we exit automatically — locking in gains and limiting losses
-                  before they compound.
+                  Every position has a dynamic trailing stop that locks in gains as a stock rises.
+                  If it reverses, we exit automatically — no hesitation, no hoping for a bounce.
+                  Losses are capped before they can compound.
                 </p>
               </div>
             </div>
@@ -209,9 +211,10 @@ export default function Blog2022StoryPage() {
                 <span className="text-blue-400 font-bold">3</span>
               </div>
               <div>
-                <h3 className="text-white font-semibold mb-1">Breakout Quality Filter</h3>
+                <h3 className="text-white font-semibold mb-1">Ensemble Entry Scoring</h3>
                 <p className="text-gray-400 text-sm m-0">
-                  We only enter stocks within 3% of their 50-day high with confirmed volume.
+                  We don't chase stocks — we wait for multiple independent signals to align.
+                  Timing, momentum, and breakout confirmation must all agree before we enter.
                   In a bear market, almost nothing passes this filter — which is exactly the point.
                 </p>
               </div>
