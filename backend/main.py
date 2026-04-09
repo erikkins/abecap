@@ -3837,6 +3837,65 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # New user notification — sends admin email if any users signed up today
+    if event.get("new_user_check"):
+        print("👤 New user check triggered")
+
+        async def _check_new_users():
+            from app.core.database import async_session, User, Subscription
+            from app.services.email_service import admin_email_service, ADMIN_EMAILS
+            from sqlalchemy import select, and_, func
+            from datetime import datetime, timedelta
+
+            async with async_session() as db:
+                # Users created in the last 24 hours
+                since = datetime.utcnow() - timedelta(hours=24)
+                result = await db.execute(
+                    select(User).where(User.created_at >= since).order_by(User.created_at.desc())
+                )
+                new_users = result.scalars().all()
+
+                if not new_users:
+                    print("👤 No new users in the last 24h")
+                    return {"status": "ok", "new_users": 0}
+
+                # Get subscription status for each
+                user_lines = []
+                for u in new_users:
+                    sub_result = await db.execute(
+                        select(Subscription).where(Subscription.user_id == u.id)
+                    )
+                    sub = sub_result.scalar_one_or_none()
+                    sub_status = sub.status if sub else "no subscription"
+                    auth_method = "Google" if u.google_id else "Apple" if u.apple_id else "email"
+                    user_lines.append(f"• {u.name or u.email} ({u.email}) — {auth_method}, {sub_status}")
+
+                body = f"<h2>🎉 {len(new_users)} New User{'s' if len(new_users) != 1 else ''} Today</h2>"
+                body += "<div style='font-family:monospace; font-size:14px; line-height:2; padding:16px; background:#f3f4f6; border-radius:8px;'>"
+                body += "<br>".join(user_lines)
+                body += "</div>"
+
+                subject = f"🎉 {len(new_users)} new user{'s' if len(new_users) != 1 else ''} signed up today"
+
+                for admin in ADMIN_EMAILS:
+                    await admin_email_service.send_admin_alert(admin, subject, body)
+
+                print(f"👤 Notified admins: {len(new_users)} new users")
+                return {"status": "ok", "new_users": len(new_users)}
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_check_new_users())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ New user check failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
     # Handle ticker health check (EventBridge: 7 AM ET Mon-Fri)
     if event.get("ticker_health_check"):
         print("🩺 Ticker health check triggered")

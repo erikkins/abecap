@@ -1170,6 +1170,27 @@ resource "aws_lambda_permission" "generate_social_posts" {
   source_arn    = aws_cloudwatch_event_rule.generate_social_posts.arn
 }
 
+resource "aws_cloudwatch_event_rule" "new_user_check" {
+  name                = "${local.prefix}-new-user-check"
+  description         = "Check for new user signups daily at 9 PM ET (1 AM UTC)"
+  schedule_expression = "cron(0 1 * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "new_user_check" {
+  rule      = aws_cloudwatch_event_rule.new_user_check.name
+  target_id = "lambda-new-user-check"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ new_user_check = true })
+}
+
+resource "aws_lambda_permission" "new_user_check" {
+  statement_id  = "AllowNewUserCheckEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.new_user_check.arn
+}
+
 resource "aws_cloudwatch_event_rule" "monthly_recap" {
   name                = "${local.prefix}-monthly-recap"
   description         = "Generate monthly recap social posts on the 1st at 2 PM UTC (10 AM ET)"
