@@ -4,7 +4,7 @@ import { ArrowLeft, TrendingUp, BarChart3, Shield, Activity, ArrowRight } from '
 import TrackRecordChart from './components/TrackRecordChart';
 
 const YEARLY_DATA = [
-  { period: '2021', return: '+8.3%', range: '-14% to +55%', spy: '+21.0%', context: 'Post-COVID rally, strategy ramp-up', positive: true },
+  { period: '2021', return: '+8.3%', range: '-14% to +55%', spy: '+21.0%', context: 'Volatile year — tight stops limited gains in choppy momentum', positive: true },
   { period: '2022', return: '+6.0%', range: '+4% to +8%', spy: '-20.4%', context: 'Fed rate hikes — RigaCap stayed positive while SPY fell 20%', positive: true },
   { period: '2023', return: '+4.5%', range: '+2% to +10%', spy: '+23.4%', context: 'Cautious positioning during AI-driven recovery', positive: true },
   { period: '2024', return: '+20.3%', range: '+20% to +22%', spy: '+23.8%', context: 'Election volatility, near parity with SPY', positive: true },
