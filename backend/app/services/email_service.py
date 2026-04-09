@@ -3111,10 +3111,8 @@ class AdminEmailService(EmailService):
         urgency = "in 1 hour" if hours_before <= 1 else f"in ~{hours_before} hours"
         header_bg = "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)" if hours_before <= 1 else "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
 
-        # Truncate preview for email, convert newlines to <br> for HTML
-        preview_text = (post.text_content or "")[:300]
-        if len(post.text_content or "") > 300:
-            preview_text += "..."
+        # Full post text in email so admin can review before it goes live
+        preview_text = post.text_content or ""
         import html as _html
         preview_html = _html.escape(preview_text).replace("\n", "<br>")
 
