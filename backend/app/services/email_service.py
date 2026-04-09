@@ -2503,6 +2503,105 @@ Trading involves risk. Past performance does not guarantee future results.
         )
 
 
+    async def send_winback_email(
+        self,
+        to_email: str,
+        user_name: str,
+        user_id: str = None,
+    ) -> bool:
+        """
+        Send win-back email to a paid subscriber who just cancelled.
+
+        Sent 24 hours after cancellation with 20% off comeback offer.
+        Different from the D8 trial drip — this targets paying customers who churned.
+        """
+        first_name = user_name.split()[0] if user_name else "there"
+
+        subject = "We're sorry to see you go — here's 20% off if you change your mind"
+
+        content = f"""
+                <p style="font-size: 18px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    Hey {first_name},
+                </p>
+                <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    We noticed your RigaCap subscription was cancelled. We're sorry to see you go.
+                </p>
+                <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
+                    If something wasn't working for you, we'd genuinely love to hear about it —
+                    just reply to this email. We're a small team and we read every response.
+                </p>
+
+                <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
+                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #92400e; border-left: 4px solid #172554; padding-left: 12px;">
+                        What You'll Be Missing
+                    </h2>
+                    <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
+                        <li><strong>3-4 high-conviction signals</strong> per month (not 15 low-quality picks)</li>
+                        <li><strong>+6% in 2022</strong> while the S&amp;P fell 20% — our system knows when to sit out</li>
+                        <li><strong>7-regime market intelligence</strong> — know when conditions favor trading vs cash</li>
+                        <li>Trailing stops, breakout filters, and ensemble scoring — <strong>all automated</strong></li>
+                    </ul>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); border-radius: 16px; padding: 24px; margin: 24px 0; text-align: center;">
+                    <p style="margin: 0 0 8px 0; font-size: 14px; color: rgba(255,255,255,0.9); text-transform: uppercase; font-weight: 600;">
+                        Come Back Offer
+                    </p>
+                    <p style="margin: 0 0 16px 0; font-size: 24px; font-weight: 700; color: #ffffff;">
+                        Get 20% Off Your Next Month
+                    </p>
+                    <a href="https://rigacap.com/app?promo=COMEBACK20"
+                       style="display: inline-block; background-color: #ffffff; color: #172554; font-size: 16px; font-weight: 600; padding: 14px 32px; border-radius: 10px; text-decoration: none;">
+                        Reactivate Now &rarr;
+                    </a>
+                </div>
+
+                <div style="background-color: #eff6ff; border-radius: 12px; padding: 20px; margin: 24px 0; border-left: 4px solid #172554;">
+                    <p style="margin: 0; font-size: 14px; color: #1e3a5f;">
+                        <strong>See what you'd be getting:</strong>
+                        Our full walk-forward track record — 5 years, zero losing years, no hindsight bias.
+                        <a href="https://rigacap.com/track-record" style="color: #1e40af; text-decoration: underline;">View Track Record &rarr;</a>
+                    </p>
+                </div>
+
+                <p style="font-size: 14px; color: #6b7280; margin: 24px 0 0 0;">
+                    This offer is valid for 30 days. No pressure — but we'd love to have you back.
+                </p>
+        """
+
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+            <td style="background: linear-gradient(135deg, #1f2937 0%, #374151 100%); padding: 48px 24px; text-align: center;">
+                <img src="https://rigacap.com/email-logo-v2.png" alt="RigaCap" width="48" height="48" style="display: block; margin: 0 auto 16px auto;" />
+                <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
+                    We'll Miss You
+                </h1>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 40px 32px;">
+                {content}
+                <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
+                    Happy trading, wherever it takes you.<br>
+                    <strong>The RigaCap Team</strong>
+                </p>
+            </td>
+        </tr>
+        {self._email_footer_html(user_id)}
+    </table>
+</body>
+</html>"""
+
+        return await self.send_email(to_email, subject, html, user_id=user_id)
+
+
 # Singleton instance
 email_service = EmailService()
 

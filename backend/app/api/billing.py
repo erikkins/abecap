@@ -155,7 +155,7 @@ async def create_portal_session(
     try:
         session = stripe.billing_portal.Session.create(
             customer=user.stripe_customer_id,
-            return_url=f"{settings.FRONTEND_URL}/dashboard"
+            return_url=f"{settings.FRONTEND_URL}/dashboard?portal_return=1"
         )
         return PortalResponse(portal_url=session.url)
     except stripe.InvalidRequestError as e:
@@ -516,6 +516,23 @@ async def handle_subscription_deleted(sub: dict, db: AsyncSession):
         await db.commit()
         print(f"✅ Webhook: subscription deleted/canceled")
 
+        # Send win-back email to the cancelled subscriber
+        try:
+            user_result = await db.execute(
+                select(User).where(User.id == subscription.user_id)
+            )
+            user = user_result.scalar_one_or_none()
+            if user and user.email:
+                from app.services.email_service import email_service
+                await email_service.send_winback_email(
+                    to_email=user.email,
+                    user_name=user.full_name or user.email,
+                    user_id=str(user.id),
+                )
+                print(f"📧 Win-back email sent to {user.email}")
+        except Exception as e:
+            print(f"⚠️ Win-back email failed: {e}")
+
 
 async def handle_payment_failed(invoice: dict, db: AsyncSession):
     """Handle failed payment."""
@@ -531,3 +548,38 @@ async def handle_payment_failed(invoice: dict, db: AsyncSession):
             subscription.status = "past_due"
             await db.commit()
             print(f"✅ Webhook: payment failed, status=past_due")
+
+
+# === Cancel Survey ===
+
+class CancelSurveyRequest(BaseModel):
+    reason: str  # "too_expensive", "not_enough_signals", "confusing", "not_useful", "other"
+    detail: Optional[str] = None  # Free-text elaboration
+    would_return: Optional[bool] = None  # "Would you come back if we improved?"
+
+
+@router.post("/cancel-survey")
+async def submit_cancel_survey(
+    survey: CancelSurveyRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Store cancel survey response. Called from frontend after Stripe portal return."""
+    from sqlalchemy import text
+
+    await db.execute(
+        text("""
+            INSERT INTO cancel_surveys (user_id, email, reason, detail, would_return, created_at)
+            VALUES (:user_id, :email, :reason, :detail, :would_return, NOW())
+        """),
+        {
+            "user_id": str(user.id),
+            "email": user.email,
+            "reason": survey.reason,
+            "detail": survey.detail,
+            "would_return": survey.would_return,
+        }
+    )
+    await db.commit()
+    print(f"📋 Cancel survey from {user.email}: reason={survey.reason}")
+    return {"status": "ok"}

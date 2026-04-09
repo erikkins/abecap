@@ -15,6 +15,7 @@ import LandingPage from './LandingPage';
 import TrackRecordPage from './TrackRecordPage';
 import TrackRecord10YPage from './TrackRecord10YPage';
 import MarketRegimePage from './MarketRegimePage';
+import Blog2022StoryPage from './Blog2022StoryPage';
 import { PrivacyPage, TermsPage, ContactPage } from './LegalPages';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginModal from './components/LoginModal';
@@ -4390,6 +4391,7 @@ export default function App() {
         <Route path="/track-record" element={<TrackRecordPage />} />
         <Route path="/track-record-10y" element={<TrackRecord10YPage />} />
         <Route path="/market-regime" element={<MarketRegimePage />} />
+        <Route path="/blog/2022-story" element={<Blog2022StoryPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/app" element={

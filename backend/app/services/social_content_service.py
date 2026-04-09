@@ -100,6 +100,34 @@ class SocialContentService:
         await db.commit()
         logger.info(f"Generated {len(posts)} social posts from simulation {simulation_id}, auto-scheduled for {publish_at.isoformat()}")
 
+        # Auto-generate chart card images for Instagram posts
+        try:
+            from app.services.chart_card_generator import chart_card_generator
+            ig_posts = [p for p in posts if p.platform == "instagram" and p.image_metadata_json]
+            for post in ig_posts:
+                meta = json.loads(post.image_metadata_json)
+                png_bytes = chart_card_generator.generate_trade_card(
+                    symbol=meta.get("symbol", "???"),
+                    entry_price=meta.get("entry_price", 0),
+                    exit_price=meta.get("exit_price", 0),
+                    entry_date=meta.get("entry_date", ""),
+                    exit_date=meta.get("exit_date", ""),
+                    pnl_pct=meta.get("pnl_pct", 0),
+                    exit_reason=meta.get("exit_reason", "trailing_stop"),
+                )
+                date_str = meta.get("exit_date", "")[:10].replace("-", "")
+                s3_key = chart_card_generator.upload_to_s3(
+                    png_bytes, post.id, meta.get("symbol", "UNK"), date_str
+                )
+                if s3_key:
+                    post.image_s3_key = s3_key
+                    logger.info(f"Chart card generated for post {post.id}: {s3_key}")
+            if ig_posts:
+                await db.commit()
+                logger.info(f"Auto-generated chart cards for {len(ig_posts)} Instagram posts")
+        except Exception as e:
+            logger.error(f"Chart card auto-generation failed (posts still scheduled): {e}")
+
         # Send batch cancel notification email so admin can kill bad ones
         try:
             from app.services.post_scheduler_service import post_scheduler_service
