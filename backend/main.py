@@ -4465,6 +4465,31 @@ def handler(event, context):
 
     # Social post admin (direct Lambda invocation)
     # Actions: list, approve, publish, approve_and_publish, delete, attach_image
+    # Read-only DB query for admin use (no mutations)
+    if event.get("db_read"):
+        query_sql = event["db_read"]
+        print(f"📖 DB read query: {query_sql[:200]}")
+
+        async def _db_read():
+            from sqlalchemy import text
+            async with async_session() as db:
+                result = await db.execute(text(query_sql))
+                rows = result.fetchall()
+                columns = result.keys() if hasattr(result, 'keys') else []
+                return {
+                    "rows": [dict(zip(columns, row)) for row in rows],
+                    "count": len(rows),
+                }
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            return loop.run_until_complete(_db_read())
+        except Exception as e:
+            return {"error": str(e)}
+
     if event.get("social_admin"):
         config = event["social_admin"]
         action = config.get("action", "list")
