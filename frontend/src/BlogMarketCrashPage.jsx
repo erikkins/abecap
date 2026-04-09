@@ -364,7 +364,7 @@ export default function BlogMarketCrashPage() {
         {/* CTA */}
         <div className="bg-gradient-to-br from-indigo-900/50 to-blue-900/50 border border-indigo-500/30 rounded-2xl p-8 sm:p-10 my-12 text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
-            Stop Trading on Emotions. Start Trading on Math.
+            Stop Trading on Emotions.<br />Start Trading on Math.
           </h2>
           <p className="text-blue-200/80 mb-6 max-w-lg mx-auto">
             RigaCap's system protected capital through 2022 — and has never had a losing year
