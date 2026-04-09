@@ -1,15 +1,15 @@
 ---
-name: SLOW DOWN — think before launching Lambda jobs
-description: Do not launch Lambda WF jobs impulsively. Think first, compute locally if possible, never launch duplicates.
+name: Never duplicate Lambda WF jobs with identical params
+description: Don't re-launch a WF job that's already running with the same params. Parallel jobs with DIFFERENT params are fine.
 type: feedback
 originSessionId: 7dc69abd-ade1-4ef8-b901-42d3cee7df53
 ---
-SLOW DOWN before launching any Lambda walk-forward job.
+Never launch a duplicate WF job with the same params as one already running.
 
-**Why:** On Apr 9 2026, launched 3 WF jobs when only 1 was needed. One timed out (harmless), one was the real job, and one was completely useless (tried to use an unsupported `excluded_symbols` param). Could have computed the no-GME answer from existing trade data in 2 seconds instead of launching a whole job.
+**Why:** On Apr 9 2026, launched 3 jobs with identical params when only 1 was needed. Also launched a job with an unsupported `excluded_symbols` param instead of computing the answer from existing trade data.
 
 **How to apply:**
-1. Before launching ANY Lambda job, ask: can I compute this from data I already have?
-2. Never launch a second job without confirming the first one failed or finished
+1. Before launching ANY Lambda job, ask: is an identical job already running?
+2. Parallel jobs with DIFFERENT params (e.g., 12 different start dates) are fine
 3. Check if params are actually supported BEFORE invoking
-4. One job at a time. Period.
+4. If you can compute the answer from data you already have, do that instead of launching a job
