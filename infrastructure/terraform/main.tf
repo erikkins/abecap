@@ -1170,6 +1170,27 @@ resource "aws_lambda_permission" "generate_social_posts" {
   source_arn    = aws_cloudwatch_event_rule.generate_social_posts.arn
 }
 
+resource "aws_cloudwatch_event_rule" "monthly_recap" {
+  name                = "${local.prefix}-monthly-recap"
+  description         = "Generate monthly recap social posts on the 1st at 2 PM UTC (10 AM ET)"
+  schedule_expression = "cron(0 14 1 * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "monthly_recap" {
+  rule      = aws_cloudwatch_event_rule.monthly_recap.name
+  target_id = "lambda-monthly-recap"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ monthly_recap = {} })
+}
+
+resource "aws_lambda_permission" "monthly_recap" {
+  statement_id  = "AllowMonthlyRecapEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.monthly_recap.arn
+}
+
 # ============================================================================
 # Step Functions - Walk-Forward Simulation
 # ============================================================================

@@ -13,7 +13,7 @@ from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
 
-from app.core.database import SocialPost, WalkForwardSimulation
+from app.core.database import SocialPost, WalkForwardSimulation, RegimeForecastSnapshot, ModelPosition
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,7 @@ class SocialContentService:
         "missed_opportunity": "#StockTrading #MissedTrade #AlgoTrading #TradingSignals #RigaCap",
         "weekly_recap": "#WeeklyRecap #StockMarket #AlgoTrading #TradingResults #RigaCap",
         "regime_commentary": "#MarketRegime #StockMarket #TradingStrategy #MarketAnalysis #RigaCap",
+        "monthly_recap": "#MonthlyRecap #StockMarket #AlgoTrading #TradingResults #RigaCap",
     }
 
     async def generate_from_nightly_wf(
@@ -249,6 +250,222 @@ class SocialContentService:
         await db.commit()
 
         return posts
+
+    async def generate_monthly_recap(
+        self, db: AsyncSession, year: int = None, month: int = None
+    ) -> List[SocialPost]:
+        """
+        Generate monthly recap posts for Twitter, Instagram, and Threads.
+
+        Pulls closed trades from model_positions and regime data from regime_forecast_snapshots
+        for the given month. Defaults to last month if not specified.
+        """
+        from sqlalchemy import and_, extract
+
+        now = datetime.utcnow()
+        if year is None or month is None:
+            # Default to last month
+            first_of_this_month = now.replace(day=1)
+            last_month = first_of_this_month - timedelta(days=1)
+            year = last_month.year
+            month = last_month.month
+
+        month_start = datetime(year, month, 1)
+        if month == 12:
+            month_end = datetime(year + 1, 1, 1)
+        else:
+            month_end = datetime(year, month + 1, 1)
+
+        month_name = month_start.strftime("%B %Y")
+
+        # Get closed trades for the month (live positions with exit_date in this month)
+        trades_result = await db.execute(
+            select(ModelPosition).where(
+                and_(
+                    ModelPosition.portfolio_type == "live",
+                    ModelPosition.status == "closed",
+                    ModelPosition.exit_date >= month_start,
+                    ModelPosition.exit_date < month_end,
+                )
+            ).order_by(ModelPosition.exit_date)
+        )
+        closed_trades = trades_result.scalars().all()
+
+        # Get regime snapshots for the month
+        regime_result = await db.execute(
+            select(RegimeForecastSnapshot).where(
+                and_(
+                    RegimeForecastSnapshot.snapshot_date >= month_start,
+                    RegimeForecastSnapshot.snapshot_date < month_end,
+                )
+            ).order_by(RegimeForecastSnapshot.snapshot_date)
+        )
+        regime_snaps = regime_result.scalars().all()
+
+        # Compute trade stats
+        total = len(closed_trades)
+        winners = [t for t in closed_trades if (t.pnl_pct or 0) > 0]
+        wins = len(winners)
+        win_rate = (wins / total * 100) if total > 0 else 0
+        best_trade = max(closed_trades, key=lambda t: t.pnl_pct or 0) if closed_trades else None
+        worst_trade = min(closed_trades, key=lambda t: t.pnl_pct or 0) if closed_trades else None
+
+        # Count new entries this month
+        entries_result = await db.execute(
+            select(func.count()).select_from(ModelPosition).where(
+                and_(
+                    ModelPosition.portfolio_type == "live",
+                    ModelPosition.entry_date >= month_start,
+                    ModelPosition.entry_date < month_end,
+                )
+            )
+        )
+        signals_fired = entries_result.scalar() or 0
+
+        # Regime summary
+        regime_names = [r.current_regime for r in regime_snaps]
+        dominant_regime = max(set(regime_names), key=regime_names.count) if regime_names else "Unknown"
+        dominant_regime_display = dominant_regime.replace("_", " ").title()
+
+        # SPY performance for the month
+        spy_start = regime_snaps[0].spy_close if regime_snaps else None
+        spy_end = regime_snaps[-1].spy_close if regime_snaps else None
+        spy_return = ((spy_end - spy_start) / spy_start * 100) if spy_start and spy_end else None
+
+        # VIX average
+        vix_values = [r.vix_close for r in regime_snaps if r.vix_close]
+        avg_vix = sum(vix_values) / len(vix_values) if vix_values else None
+
+        posts = []
+        date_key = f"{year}-{month:02d}"
+
+        # === Zero-signal month (special case) ===
+        if signals_fired == 0 and total == 0:
+            twitter_text = f"{month_name} recap: 0 signals fired.\n\n"
+            twitter_text += f"Regime: {dominant_regime_display}"
+            if avg_vix:
+                twitter_text += f" | VIX avg: {avg_vix:.0f}"
+            twitter_text += "\n\nThe system detected unfavorable conditions and waited. "
+            twitter_text += "Sometimes the best trade is no trade.\n\n"
+            if spy_return is not None:
+                twitter_text += f"SPY: {spy_return:+.1f}% | RigaCap: 0% (cash)\n\n"
+            twitter_text += "rigacap.com"
+
+            ig_text = f"Monthly Report: {month_name}\n\n"
+            ig_text += f"Signals fired: 0\n"
+            ig_text += f"Regime: {dominant_regime_display}\n"
+            if spy_return is not None and avg_vix:
+                ig_text += f"SPY: {spy_return:+.1f}% | VIX avg: {avg_vix:.0f}\n"
+            ig_text += f"RigaCap: 0% (full cash)\n\n"
+            ig_text += f"The 7-regime model classified conditions as {dominant_regime_display} "
+            ig_text += "and refused to deploy capital. No forced trades. No activity for the sake of activity.\n\n"
+            ig_text += "When conditions improve, the signals will fire.\n\n"
+            ig_text += "rigacap.com"
+
+            threads_text = f"{month_name}: 0 signals.\n\n"
+            threads_text += f"Regime: {dominant_regime_display}. "
+            threads_text += "The system waited.\n\n"
+            if spy_return is not None:
+                threads_text += f"SPY: {spy_return:+.1f}% | RigaCap: cash\n\n"
+            threads_text += "rigacap.com"
+
+        # === Active month ===
+        else:
+            # Twitter (concise)
+            twitter_text = f"{month_name} recap: {signals_fired} signal{'s' if signals_fired != 1 else ''}"
+            if total > 0:
+                twitter_text += f", {wins}W-{total - wins}L"
+            twitter_text += ".\n\n"
+            if best_trade:
+                twitter_text += f"Best: ${best_trade.symbol} {best_trade.pnl_pct:+.1f}% in {self._calc_days_held_pos(best_trade)}d\n"
+            twitter_text += f"Regime: {dominant_regime_display}\n\n"
+            if spy_return is not None:
+                twitter_text += f"SPY: {spy_return:+.1f}%\n\n"
+            twitter_text += "rigacap.com"
+
+            # Instagram (detailed)
+            ig_text = f"Monthly Report: {month_name}\n\n"
+            ig_text += f"Signals: {signals_fired}"
+            if total > 0:
+                ig_text += f" | Winners: {wins} | Win rate: {win_rate:.0f}%\n"
+            else:
+                ig_text += "\n"
+            if best_trade:
+                ig_text += f"Best trade: ${best_trade.symbol} {best_trade.pnl_pct:+.1f}% in {self._calc_days_held_pos(best_trade)} days\n"
+            # List other notable winners
+            other_winners = sorted(
+                [t for t in winners if t != best_trade],
+                key=lambda t: t.pnl_pct or 0, reverse=True
+            )[:2]
+            if other_winners:
+                also = ", ".join(f"${t.symbol} {t.pnl_pct:+.1f}%" for t in other_winners)
+                ig_text += f"Also: {also}\n"
+            if worst_trade and (worst_trade.pnl_pct or 0) < 0:
+                ig_text += f"Worst: ${worst_trade.symbol} {worst_trade.pnl_pct:+.1f}%\n"
+            ig_text += f"\nRegime: {dominant_regime_display}"
+            if avg_vix:
+                ig_text += f" | VIX avg: {avg_vix:.0f}"
+            ig_text += "\n"
+            if spy_return is not None:
+                ig_text += f"SPY: {spy_return:+.1f}%\n"
+            ig_text += "\nEvery trade entry and exit is walk-forward validated. "
+            ig_text += "No hindsight. No curve-fitting.\n\n"
+            ig_text += "Full track record: rigacap.com/track-record"
+
+            # Threads (mid-length)
+            threads_text = f"{month_name}: {signals_fired} signal{'s' if signals_fired != 1 else ''}"
+            if total > 0:
+                threads_text += f", {wins}/{total} winners"
+            threads_text += ".\n\n"
+            if best_trade:
+                threads_text += f"Best: ${best_trade.symbol} {best_trade.pnl_pct:+.1f}%\n"
+            threads_text += f"Regime: {dominant_regime_display}\n\n"
+            threads_text += "rigacap.com"
+
+        # Create posts
+        source_data = json.dumps({
+            "month": month_name,
+            "signals_fired": signals_fired,
+            "total_closed": total,
+            "wins": wins,
+            "win_rate": round(win_rate, 1),
+            "dominant_regime": dominant_regime,
+            "spy_return": round(spy_return, 1) if spy_return else None,
+            "best_trade": {"symbol": best_trade.symbol, "pnl_pct": best_trade.pnl_pct} if best_trade else None,
+        })
+
+        for platform, text in [("twitter", twitter_text), ("instagram", ig_text), ("threads", threads_text[:500])]:
+            post = SocialPost(
+                post_type="monthly_recap",
+                platform=platform,
+                status="scheduled",
+                scheduled_for=datetime.utcnow() + timedelta(hours=12),
+                text_content=text,
+                hashtags=self.HASHTAGS["monthly_recap"],
+                source_data_json=source_data,
+            )
+            db.add(post)
+            posts.append(post)
+
+        await db.commit()
+        logger.info(f"Generated {len(posts)} monthly recap posts for {month_name}")
+
+        # Send cancel notification
+        try:
+            from app.services.post_scheduler_service import post_scheduler_service
+            await post_scheduler_service._send_batch_notification(posts, hours_before=12)
+        except Exception as e:
+            logger.error(f"Failed to send monthly recap notification: {e}")
+
+        return posts
+
+    @staticmethod
+    def _calc_days_held_pos(position) -> int:
+        """Calculate days held from a ModelPosition object."""
+        if position.entry_date and position.exit_date:
+            days = (position.exit_date - position.entry_date).days
+            return max(days, 1)
+        return 1
 
     @staticmethod
     def _calc_days_held(trade: dict) -> int:

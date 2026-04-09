@@ -3185,6 +3185,40 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # Generate monthly recap social posts
+    if event.get("monthly_recap"):
+        config = event["monthly_recap"]
+        print(f"📊 Generating monthly recap posts: {config}")
+
+        async def _monthly_recap():
+            from app.services.social_content_service import social_content_service
+            from app.core.database import async_session
+
+            async with async_session() as db:
+                posts = await social_content_service.generate_monthly_recap(
+                    db,
+                    year=config.get("year"),
+                    month=config.get("month"),
+                )
+                return {
+                    "status": "ok",
+                    "posts_generated": len(posts),
+                    "post_ids": [p.id for p in posts],
+                }
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_monthly_recap())
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Monthly recap failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
     # Scan followed accounts for reply opportunities (direct Lambda invocation)
     if event.get("scan_replies"):
         print("🔍 Scanning for reply opportunities")
