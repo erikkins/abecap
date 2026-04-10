@@ -95,6 +95,7 @@
 - **DWAP stale crosses perform BETTER** — stale (90+d) = 56.8% win vs fresh (0-10d) = 49.6%
 
 ## Active Tasks
+- **[NEXT: Upgrade to 8@12%](project_8x12_upgrade.md)** — switch production, update all references, first priority next session
 - **[BREAKTHROUGH: 19.9% avg annualized](project_tournament_breakthrough.md)** — near_50d_high_pct 5%→3%, validated 7/7 start dates
 - [WF job dedup](project_wf_dedup.md) — add dedup check before creating WF jobs
 - [WF launch protocol](feedback_wf_launch.md) — ALWAYS use periods_limit=1, test ONE job first
