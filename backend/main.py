@@ -4600,6 +4600,10 @@ def handler(event, context):
             from sqlalchemy import text
             async with async_session() as db:
                 result = await db.execute(text(query_sql))
+                # Auto-commit for write operations
+                is_write = query_sql.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE'))
+                if is_write:
+                    await db.commit()
                 rows = result.fetchall()
                 columns = result.keys() if hasattr(result, 'keys') else []
                 return {

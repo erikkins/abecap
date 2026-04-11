@@ -800,6 +800,8 @@ class WalkForwardService:
             backtester.regime_reentry_mode = regime_reentry_mode
             backtester.bear_keep_pct = bear_keep_pct
             backtester.graduated_reentry = graduated_reentry
+            backtester.profit_lock_pct = profit_lock_pct
+            backtester.profit_lock_stop_pct = profit_lock_stop_pct
 
             # Apply sector cap to ticker list if V2 param is set
             effective_tickers = ticker_list
@@ -1014,6 +1016,8 @@ class WalkForwardService:
         warmup_periods: int = 0,  # Use fixed params for first N periods before enabling optimizer
         ensemble_seeds: int = 0,  # Run optimizer N times with different seeds, take median (0=disabled)
         regime_fixed_params: Optional[Dict[str, Dict[str, Any]]] = None,  # Map regime→params, skip optimizer
+        profit_lock_pct: float = 0,  # Tighten trailing stop once up X%; 0=disabled
+        profit_lock_stop_pct: float = 6.0,  # Tightened trailing stop % from peak
     ) -> WalkForwardResult:
         """
         Run walk-forward simulation with AI optimization over a historical period.
