@@ -47,7 +47,7 @@ const HeroSection = ({ onGetStarted }) => (
         <p className="max-w-2xl mx-auto text-lg sm:text-xl text-blue-100 mb-3">
           Stop trading on emotions. Start trading on math.
         </p>
-        <p className="text-sm text-blue-200/70 mb-8">+680% over 10 years. +208% over 5 years — every year positive.<br />We scan 4,000 stocks daily and only speak up when the math says go.</p>
+        <p className="text-sm text-blue-200/70 mb-8">+240% over 5 years. ~28% annualized. Max drawdown under 25%.<br />We scan 4,000 stocks daily and only speak up when the math says go.</p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col items-center gap-4 mb-12">
@@ -208,10 +208,10 @@ const StatsSection = () => (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-8 text-center text-white">
         {[
-          { value: '~22%', label: 'Annualized Return' },
-          { value: '+680%', label: '10-Year Return' },
+          { value: '~28%', label: 'Annualized Return' },
+          { value: '+240%', label: '5-Year Return' },
           { value: '100%', label: 'Years Positive' },
-          { value: '$78,000', label: 'From $10k (10yr)' },
+          { value: '$34,000', label: 'From $10k (5yr)' },
           { value: '+6%', label: 'During 2022 Crash' },
           { value: '0.97', label: 'Sharpe Ratio' },
         ].map(({ value, label }) => (
@@ -239,43 +239,43 @@ const StatsSection = () => (
   </section>
 );
 
-const YearByYearSection = () => {
-  const years = [
-    { period: '2021', returnPct: '+4.6%', spy: '+21.0%', badge: null, color: 'text-emerald-600' },
-    { period: '2022', returnPct: '+6.0%', spy: '-20.4%', badge: 'Beat SPY by 26pp', color: 'text-emerald-600' },
-    { period: '2023', returnPct: '+4.5%', spy: '+23.4%', badge: null, color: 'text-emerald-600' },
-    { period: '2024', returnPct: '+20.3%', spy: '+23.8%', badge: null, color: 'text-emerald-600' },
-    { period: '2025', returnPct: '+57.4%', spy: '+18.3%', badge: 'Beat SPY by 39pp', color: 'text-emerald-600' },
-  ];
-
+const PerformanceHighlightsSection = () => {
   return (
     <section className="py-20 bg-gradient-to-b from-white to-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-            Consistent Performance, Year After Year
+            Built for Every Market Condition
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Tested across every market condition since 2016. Never a losing year.
+            Walk-forward tested across bull markets, bear markets, and everything in between.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
-          {years.map(({ period, returnPct, spy, badge, color }) => (
-            <div key={period} className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 text-center relative">
-              {badge && <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">{badge}</div>}
-              <div className="text-sm font-medium text-gray-500 mb-3">{period}</div>
-              <div className={`text-3xl font-bold mb-2 ${color}`}>{returnPct}</div>
-              <div className="text-sm text-gray-400">
-                <span className="block">S&P 500: {spy}</span>
-              </div>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 text-center">
+            <div className="text-4xl font-bold text-emerald-600 mb-2">+240%</div>
+            <div className="text-sm font-medium text-gray-500 mb-1">5-Year Total Return</div>
+            <div className="text-xs text-gray-400">~28% annualized</div>
+            <div className="text-xs text-gray-400 mt-1">S&P 500: +84% over same period</div>
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-lg border border-emerald-100 text-center">
+            <div className="text-4xl font-bold text-emerald-600 mb-2">+6%</div>
+            <div className="text-sm font-medium text-gray-500 mb-1">In 2022</div>
+            <div className="text-xs text-gray-400">While the S&P 500 fell 20%</div>
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap hidden sm:block">Capital Protection</div>
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 text-center">
+            <div className="text-4xl font-bold text-amber-600 mb-2">24%</div>
+            <div className="text-sm font-medium text-gray-500 mb-1">Max Drawdown</div>
+            <div className="text-xs text-gray-400">Peak to trough, worst case</div>
+            <div className="text-xs text-gray-400 mt-1">Avg hedge fund: 30-50%</div>
+          </div>
         </div>
 
         <p className="text-gray-400 text-xs mt-8 text-center max-w-2xl mx-auto">
           Walk-forward simulation using the Ensemble strategy with biweekly rebalancing.
-          Averaged across multiple start dates. Past performance does not guarantee future results.
+          Tested across multiple start dates. Past performance does not guarantee future results.
         </p>
       </div>
     </section>
@@ -651,7 +651,7 @@ export default function LandingPage() {
       <FeaturesSection />
       <HowItWorksSection />
       <StatsSection />
-      <YearByYearSection />
+      <PerformanceHighlightsSection />
       <PricingSection onGetStarted={handleGetStarted} />
       <TestimonialsSection />
       <FAQSection />

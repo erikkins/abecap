@@ -268,7 +268,7 @@ export default function Blog2022StoryPage() {
           <p className="text-gray-300 leading-relaxed text-base">
             The system doesn't try to beat the market every year. In bull markets like 2023,
             it may lag the S&P. But it never gives back what it earned. Over 5 years,
-            the average total return is +208% vs. the S&P's +84%.
+            the average total return is +240% vs. the S&P's +84%.
           </p>
 
           {/* Methodology Note */}

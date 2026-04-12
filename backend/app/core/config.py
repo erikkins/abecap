@@ -57,21 +57,22 @@ class Settings(BaseSettings):
     APPLE_KEY_ID: str = os.getenv("APPLE_KEY_ID", "")
     
     # Trading strategy (legacy DWAP - kept for backward compatibility)
-    DWAP_THRESHOLD_PCT: float = 5.0
+    DWAP_THRESHOLD_PCT: float = 6.5  # TPE Trial 37 (was 5.0)
     STOP_LOSS_PCT: float = 8.0
     PROFIT_TARGET_PCT: float = 20.0
     MIN_VOLUME: int = 500_000
     MIN_PRICE: float = 20.0
     VOLUME_SPIKE_MULT: float = 1.5
 
-    # MOMENTUM STRATEGY v2 (Sharpe 1.48)
-    MAX_POSITIONS: int = 5
-    POSITION_SIZE_PCT: float = 18.0
+    # ENSEMBLE STRATEGY — TPE Trial 37 optimized (Apr 11, 2026)
+    # +240% avg across 8 start dates, Sharpe 0.89, MaxDD 23.7%
+    MAX_POSITIONS: int = 8  # was 5 (v2) / 6 (ensemble)
+    POSITION_SIZE_PCT: float = 17.0  # was 18 (v2) / 15 (ensemble)
     SHORT_MOMENTUM_DAYS: int = 10
     LONG_MOMENTUM_DAYS: int = 60
-    TRAILING_STOP_PCT: float = 12.0
+    TRAILING_STOP_PCT: float = 13.0  # was 12.0
     MARKET_FILTER_ENABLED: bool = True
-    MARKET_FILTER_PANIC_ONLY: bool = False  # True = only exit on panic (SPY >10% below 200MA + VIX >30), False = exit on any SPY < 200MA
+    MARKET_FILTER_PANIC_ONLY: bool = False
     REBALANCE_FREQUENCY: str = "weekly"
 
     # Scoring weights
@@ -80,7 +81,7 @@ class Settings(BaseSettings):
     VOLATILITY_PENALTY: float = 0.2
 
     # Quality filters
-    NEAR_50D_HIGH_PCT: float = 5.0  # Within 5% of 50-day high (reverted Apr 10 — 3% caused losing 2023, 5% validated +199% avg across 7 dates)
+    NEAR_50D_HIGH_PCT: float = 5.0  # TPE confirmed 5% optimal
     MOMENTUM_SECTOR_CAP: int = 5  # Max stocks per sector in momentum top-N
     
     # Data

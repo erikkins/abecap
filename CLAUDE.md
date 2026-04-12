@@ -88,21 +88,14 @@ PORTFOLIO:
 - Biweekly rebalancing
 ```
 
-**Walk-Forward Results (2021-2026, 5 years, no hindsight bias):**
+**Walk-Forward Results — TPE Trial 37 (2021-2026, 5 years, no hindsight bias):**
 
-| Year | Return | S&P 500 |
-|------|--------|---------|
-| 2021 | +4.6% | +21.0% |
-| 2022 | +6.2% | -20.4% |
-| 2023 | +0.3% | +23.4% |
-| 2024 | +83.2% | +23.8% |
-| 2025 | +17.8% | +18.3% |
-| **5-Year Avg** | **+208%** | **+84%** |
-
-- ~25% annualized return (avg across multiple start dates)
-- 0.88 Sharpe ratio
-- All years positive regardless of start date
-- 10-Year: +680% ($10k → $78k), 22% annualized
+- **+240% average** across 8 start dates (~28% annualized)
+- **0.89 Sharpe ratio**
+- **24% max drawdown** (worst case 25.3%)
+- **All start dates positive** (worst: +83%)
+- S&P 500 over same period: +84%
+- 10-Year: +603%, 24% MaxDD
 
 ## Architecture
 
