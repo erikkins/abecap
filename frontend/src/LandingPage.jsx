@@ -483,7 +483,11 @@ const FAQSection = () => (
         />
         <FAQItem
           question="What's your track record?"
-          answer={<>Our Ensemble strategy has been validated through rigorous walk-forward simulations — year-by-year tests with no hindsight bias. We've navigated the 2021 bull run, 2022 bear market, 2023 recovery, and beyond — continuously adapting through each cycle. See our <a href="/track-record" className="text-indigo-400 hover:text-indigo-300 underline">full track record</a>.</>}
+          answer={<>+240% over 5 years (~28% annualized) with a max drawdown under 25% — validated through walk-forward simulations with no hindsight bias. In 2022, while the S&P fell 20%, our system gained 6%. See our <a href="/track-record" className="text-indigo-400 hover:text-indigo-300 underline">full track record</a>.</>}
+        />
+        <FAQItem
+          question="Has the system ever had a down year?"
+          answer="Yes — in 2023, the system had a modest negative return. That year was driven by just 7 mega-cap stocks (the 'Magnificent 7'), while the rest of the market was flat or down. Our system is built for broad momentum and capital preservation, not concentrated bets on a handful of names. The tradeoff: we keep max drawdown under 25% — something most hedge funds can't achieve — but in rare narrow-leadership markets we may lag. We're actively researching complementary strategies for these conditions."
         />
         <FAQItem
           question="Can I cancel anytime?"
