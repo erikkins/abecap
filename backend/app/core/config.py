@@ -116,8 +116,8 @@ class Settings(BaseSettings):
     SIGNAL_TIER1_SIZE: int = int(os.getenv("SIGNAL_TIER1_SIZE", "150"))
     SIGNAL_TIER1_BONUS: float = float(os.getenv("SIGNAL_TIER1_BONUS", "0"))
 
-    # Track Record — canonical walk-forward sim IDs (yearly sims stitched to +289%)
-    TRACK_RECORD_SIM_IDS: List[int] = [113, 114, 115, 116, 112]
+    # Track Record — TPE Trial 37, Jan 1 2021 start, single continuous sim
+    TRACK_RECORD_SIM_IDS: List[int] = [793]
 
     # AWS
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
