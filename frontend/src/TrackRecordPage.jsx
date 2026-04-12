@@ -70,6 +70,9 @@ export default function TrackRecordPage() {
             5-Year Equity Curve — RigaCap vs S&P 500
           </h2>
           <TrackRecordChart />
+          <p className="text-xs text-gray-600 mt-3 text-center">
+            Shown: best-case start date (+490%). Average across all start dates: +240%. Worst case: +83%.
+          </p>
         </div>
       </section>
 
