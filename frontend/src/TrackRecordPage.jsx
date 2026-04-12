@@ -161,7 +161,7 @@ export default function TrackRecordPage() {
             <div>
               <h3 className="text-white font-semibold mb-2">Rebalancing</h3>
               <p className="text-gray-400 text-sm leading-relaxed">
-                The portfolio reoptimizes biweekly with a maximum of 8 positions at 17% each. Parameters adapt
+                The portfolio reoptimizes biweekly across up to 8 positions. Parameters adapt
                 through 7 distinct market regimes — from strong bull to panic/crash — without manual intervention.
               </p>
             </div>
