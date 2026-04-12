@@ -1,65 +1,54 @@
 ---
-name: Position sizing, filter, and risk management tests — Apr 9-11, 2026
-description: Comprehensive A/B testing of position counts, sizing, breakout filters, regime exit rules, pyramiding, profit lock, and bear_keep. TPE optimizer running.
+name: Strategy optimization — Apr 9-12, 2026 (FINAL: Trial 37)
+description: Comprehensive strategy optimization. Final config: TPE Trial 37 — +240% avg, 24% MaxDD, ~28% annualized.
 type: project
 originSessionId: 7dc69abd-ade1-4ef8-b901-42d3cee7df53
 ---
-## Position Sizing & Filter Tests (Apr 9-10, 2026)
+## FINAL CONFIG: TPE Trial 37 (Deployed Apr 12, 2026)
 
-### Final Config: 6@15% / 5% filter
-- **Avg 5-year: +208%** (~25% annualized) across 8 start dates
-- **Avg Sharpe: 0.88**
-- **All years positive, worst case +126%**
-- **10-year: +680%** ($10k → $78k), 22% annualized
-- MaxDD avg: 30.6% (target: <20%)
+```
+dwap_threshold_pct: 6.5%  (was 5.0%)
+trailing_stop_pct: 13%    (was 12%)
+near_50d_high_pct: 5%     (unchanged)
+max_positions: 8           (was 6)
+position_size_pct: 17%     (was 15%)
+bear_keep_pct: 0.1         (keep top 10% during regime exit)
+pyramid_threshold_pct: 15% (add when up 15%)
+pyramid_size_pct: 2.5%     (small add)
+pyramid_max_adds: 2
+profit_lock_pct: 15%       (tighten stop when up 15%)
+profit_lock_stop_pct: 5%   (tightened stop)
+```
 
-### Key Findings
+### Results (8 start dates, 2021-2026):
+- **Avg: +240%** (~28% annualized)
+- **Sharpe: 0.89**
+- **MaxDD: 24% avg** (worst 25.3%)
+- **All start dates positive** (worst +83%)
+- **10-Year: +603%**
+- **2023: -4%** (known weakness — narrow leadership market)
 
-**Breakout Filter:**
-- 3% filter (Apr 3 "breakthrough"): REVERTED — caused losing 2023 across all configs
-- 5% filter: validated as better, all years positive
+### What Was Tested (Exhaustive)
+- Position sizing: 6/8/10/12/15 positions at various sizes
+- Breakout filter: 3%/5%/8% near_50d_high
+- Regime exit: 200MA vs panic-only (200MA wins)
+- Profit lock: 15→6%, 30→10% (hurts returns)
+- Pyramiding: various combos (25/5/1 best in combo with other levers)
+- Bear keep: gradual regime exit (was dead code — fixed)
+- RS Leaders secondary strategy (ABANDONED — start-date sensitive)
+- Megacap fallback: 52-week high entry, own_ma50 exit, regime delay (couldn't fix 2023)
+- Regime confirmation delay: 5/10/15/20 days (makes it WORSE)
+- TPE Run 1: 50 trials, 4 objectives, 11 params — found Trial 37
+- TPE Run 2: 30 trials, megacap-specific for 2023 (marginal improvement only)
 
-**Position Sizing (5-year, Jan 1):**
-| Config | Return | Sharpe | MaxDD |
-|--------|--------|--------|-------|
-| 6 @ 15% | +276% | 0.96 | 28% |
-| 8 @ 12% | +194% | 0.93 | 25% |
-| 12 @ 8% | +131% | 0.82 | 24% |
+### 2023 Problem (Accepted)
+- Narrow leadership (Mag 7) + SPY wobbling around 200MA = whipsaw exits
+- Every attempt to fix 2023 either blows up 2022 protection or increases MaxDD
+- Accepted as structural cost of sub-25% MaxDD
+- Marketing: don't show year-by-year, lead with 5-year total
 
-Concentration (6@15%) wins over 5 years despite worse 2021.
-
-**Regime Exit:**
-- 200MA exit > panic-only (panic had 35-40% drawdowns)
-- `bear_keep_pct` (gradual exit) was dead code — fixed Apr 11
-
-**BEAR 30% (keep top 70% during regime exit, 8 dates):**
-- Avg: +228%, Sharpe 0.93, MaxDD 30.7%
-- 5/8 dates under 30% MaxDD, but Feb 12 (35.9%), Mar 19/Oct 1 (32.2%) still over
-
-**Pyramiding (PYR 25/5/1 = add 5% when up 25%, max 1 add):**
-- 5-year avg: +278% (8 dates), best single: +476%
-- But Feb 12 MaxDD 37.2%, 10-year MaxDD 34%
-- 10-year return: +560% (WORSE than baseline +680%)
-
-**Profit Lock (tighten trailing stop after gains):**
-- Lock 15→6%: +210%, worse across the board
-- Lock 30→10%: +250%, same MaxDD, less return
-- Cuts big winners that drive returns
-
-**RS Leaders Secondary Strategy: ABANDONED**
-- RS=2 hit +533% on Jan 1 but failed 7-date validation (-1% on Oct 1)
-- Individual stock RS too noisy/sensitive to start date
-
-### TPE Optimizer (Running Apr 11)
-50 trials × 4 start dates, optimizing:
-1. Maximize avg return
-2. Maximize avg Sharpe
-3. Minimize worst MaxDD
-4. Minimize return spread across dates
-
-Search space: trailing_stop (8-15%), near_50d_high (3-8%), dwap_threshold (3-8%), max_positions (4-8), position_size (10-20%), bear_keep (0-0.5), pyramid (0-40/0-15/0-2), profit_lock (0-40/4-10%)
-
-### Next: MDD Reduction Features (if TPE doesn't find <20% MDD)
-1. VIX-adjusted position sizing
-2. Drawdown circuit breaker (halve positions when down 15%)
-3. Tighter trailing stop in bear regimes (8% vs 12%)
+### Marketing (Current):
+- No year-by-year tables anywhere
+- Lead with: +240% / ~28% ann / 24% MaxDD
+- 2022 highlight: +6% while SPY -20%
+- No "never a losing year" claim
