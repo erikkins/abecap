@@ -94,9 +94,9 @@ export default function TrackRecordPage() {
             <div className="text-xs text-gray-600 mt-2">Capital preservation when it matters</div>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <div className="text-amber-400 text-3xl font-bold">-24%</div>
+            <div className="text-amber-400 text-3xl font-bold">24%</div>
             <div className="text-sm text-gray-400 mt-1">Max Drawdown</div>
-            <div className="text-xs text-gray-600 mt-2">Avg hedge fund: -30% to -50%</div>
+            <div className="text-xs text-gray-600 mt-2">Avg hedge fund: 30% to 50%</div>
           </div>
         </div>
       </section>
