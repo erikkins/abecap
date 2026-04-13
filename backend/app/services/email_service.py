@@ -1418,6 +1418,17 @@ Unsubscribe: https://rigacap.com/unsubscribe
                     </p>
                 </div>
 
+                <div style="background-color: #f9fafb; border-radius: 12px; padding: 20px; margin: 24px 0; border-left: 4px solid #172554;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #172554;">How we trade</h3>
+                    <p style="margin: 0 0 8px 0; font-size: 15px; color: #374151; line-height: 1.6;">
+                        <strong style="color: #059669;">Winners run ~3 weeks at +20%.</strong>
+                        <strong style="color: #92400e;">Losers get cut in 12 days at &minus;9%.</strong>
+                    </p>
+                    <p style="margin: 0; font-size: 13px; color: #6b7280; line-height: 1.5;">
+                        No bag-holding for months. The system knows when to let a trade work and when to admit it isn't.
+                    </p>
+                </div>
+
                 <div style="background-color: #eff6ff; border-radius: 12px; padding: 20px; margin: 24px 0;">
                     <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #1e40af;">What you'll keep with a subscription:</h3>
                     <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
@@ -1460,15 +1471,14 @@ Unsubscribe: https://rigacap.com/unsubscribe
                     </ul>
                 </div>
 
-                <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 16px; padding: 24px; margin: 24px 0; text-align: center;">
-                    <p style="margin: 0; font-size: 14px; color: #059669; text-transform: uppercase; font-weight: 600;">
-                        Latest Year Performance
+                <div style="background-color: #f9fafb; border-radius: 12px; padding: 20px; margin: 24px 0; border-left: 4px solid #172554;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #172554;">How we trade</h3>
+                    <p style="margin: 0 0 8px 0; font-size: 15px; color: #374151; line-height: 1.6;">
+                        <strong style="color: #059669;">Winners run ~3 weeks at +20%.</strong>
+                        <strong style="color: #92400e;">Losers get cut in 12 days at &minus;9%.</strong>
                     </p>
-                    <p style="margin: 8px 0 0 0; font-size: 42px; font-weight: 700; color: #059669;">
-                        87.5%
-                    </p>
-                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #374151;">
-                        Walk-forward return (2025-2026) &bull; 2.32 Sharpe ratio
+                    <p style="margin: 0; font-size: 13px; color: #6b7280; line-height: 1.5;">
+                        No bag-holding for months. The system knows when to let a trade work and when to admit it isn't.
                     </p>
                 </div>
 
