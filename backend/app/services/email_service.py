@@ -1497,9 +1497,9 @@ Unsubscribe: https://rigacap.com/unsubscribe
                         While You Were Away
                     </h2>
                     <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
-                        <li>The ensemble generates <strong>3-4 high-conviction signals per month</strong></li>
+                        <li>The ensemble generates <strong>6-8 high-conviction signals every 2 weeks</strong></li>
                         <li>Walk-forward tested: <strong>+240% over 5 years</strong>, no hindsight bias</li>
-                        <li>80% of years profitable (4 out of 5)</li>
+                        <li>The S&amp;P 500 returned just <strong>+84%</strong> over the same 5 years — nearly <strong>3&times; the market</strong></li>
                     </ul>
                 </div>
 
