@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 675px; overflow: hidden;
+    background: #0b153d;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif; }
+  .card {
+    width: 1200px; height: 675px;
+    background: radial-gradient(ellipse at 30% 25%, #1e40af 0%, #172554 50%, #0b153d 100%);
+    position: relative;
+    overflow: hidden;
+    color: #fff;
+    display: flex; flex-direction: column;
+  }
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  .glow {
+    position: absolute; top: -200px; right: -150px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(251,191,36,0.12) 0%, transparent 65%);
+    pointer-events: none;
+  }
+  .header {
+    display: flex; align-items: center; gap: 36px;
+    padding: 60px 80px 0;
+    position: relative;
+  }
+  .logo { width: 140px; height: 140px; flex-shrink: 0; }
+  .brand { display: flex; flex-direction: column; }
+  .wordmark {
+    font-size: 92px; font-weight: 800; letter-spacing: -3px;
+    line-height: 1; color: #ffffff;
+  }
+  .tagline {
+    margin-top: 10px;
+    font-size: 26px; font-weight: 600;
+    color: #fbbf24;
+  }
+  .divider {
+    margin: 36px 80px 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #fbbf24 30%, #fbbf24 70%, transparent);
+  }
+  .pillars {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    padding: 32px 80px 0;
+  }
+  .pillar {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(251,191,36,0.3);
+    border-radius: 14px;
+    padding: 22px 24px;
+  }
+  .pillar-title {
+    font-size: 26px; font-weight: 800;
+    color: #fbbf24;
+    margin-bottom: 6px;
+  }
+  .pillar-body {
+    font-size: 18px; font-weight: 600;
+    color: #e2e8f0;
+  }
+  .footer {
+    margin-top: auto;
+    padding: 0 80px 36px;
+    display: flex; justify-content: space-between; align-items: center;
+    position: relative;
+  }
+  .disclaimer {
+    font-size: 17px; font-weight: 500;
+    color: #94a3b8; letter-spacing: 0.3px;
+  }
+  .url {
+    font-size: 22px; font-weight: 700;
+    color: #ffffff; letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="grid"></div>
+  <div class="glow"></div>
+  <div class="header">
+    <img class="logo" src="file:///Users/erikkins/CODE/stocker-app/design/brand/rigacap-icon-halo.png">
+    <div class="brand">
+      <div class="wordmark">RigaCap</div>
+      <div class="tagline">Algorithmic Trading Signals</div>
+    </div>
+  </div>
+  <div class="divider"></div>
+  <div class="pillars">
+    <div class="pillar">
+      <div class="pillar-title">Timing</div>
+      <div class="pillar-body">Breakout Detection</div>
+    </div>
+    <div class="pillar">
+      <div class="pillar-title">Quality</div>
+      <div class="pillar-body">Momentum Ranking</div>
+    </div>
+    <div class="pillar">
+      <div class="pillar-title">Protection</div>
+      <div class="pillar-body">Regime Intelligence</div>
+    </div>
+  </div>
+  <div class="footer">
+    <div class="disclaimer">Signals only — execute via your broker</div>
+    <div class="url">rigacap.com</div>
+  </div>
+</div>
+</body>
+</html>

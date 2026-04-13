@@ -119,7 +119,7 @@ class EmailService:
                     Trading involves risk. Past performance does not guarantee future results.
                 </p>
                 <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
-                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                    &copy; {datetime.now().year} RigaCap, LLC. All rights reserved.
                 </p>
             </td>
         </tr>'''
@@ -853,7 +853,7 @@ Your friend gets their first month free, and you get a free month when they subs
                     Trading involves risk. Past performance does not guarantee future results.
                 </p>
                 <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
-                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                    &copy; {datetime.now().year} RigaCap, LLC. All rights reserved.
                 </p>
             </td>
         </tr>
@@ -934,7 +934,7 @@ Trading involves risk. Past performance does not guarantee future results.
         <tr>
             <td style="background-color:#f9fafb; padding:24px; text-align:center; border-top:1px solid #e5e7eb;">
                 <p style="margin:0; font-size:12px; color:#9ca3af;">
-                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                    &copy; {datetime.now().year} RigaCap, LLC. All rights reserved.
                 </p>
             </td>
         </tr>
@@ -1093,7 +1093,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                     Trading involves risk. Past performance does not guarantee future results.
                 </p>
                 <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
-                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                    &copy; {datetime.now().year} RigaCap, LLC. All rights reserved.
                 </p>
             </td>
         </tr>
@@ -1233,7 +1233,7 @@ Trading involves risk. Past performance does not guarantee future results.
         <tr>
             <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
                 <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                    &copy; {datetime.now().year} RigaCap, LLC. All rights reserved.
                 </p>
             </td>
         </tr>
@@ -2220,7 +2220,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
                     Trading involves risk. Past performance does not guarantee future results.
                 </p>
                 <p style="margin:8px 0 0 0; font-size:12px; color:#9ca3af;">
-                    &copy; {datetime.now().year} RigaCap. All rights reserved.
+                    &copy; {datetime.now().year} RigaCap, LLC. All rights reserved.
                 </p>
             </td>
         </tr>

@@ -18,7 +18,7 @@ const PageWrapper = ({ title, children }) => (
         {children}
       </div>
       <div className="mt-16 pt-8 border-t border-gray-800 text-center text-sm text-gray-500">
-        &copy; {new Date().getFullYear()} RigaCap. All rights reserved.
+        &copy; {new Date().getFullYear()} RigaCap, LLC. All rights reserved.
       </div>
     </div>
   </div>
@@ -37,7 +37,7 @@ export function PrivacyPage() {
       <p className="text-sm text-gray-500">Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
 
       <Section title="Overview">
-        <p>RigaCap ("we", "us", "our") operates the rigacap.com website and related services. This policy describes how we collect, use, and protect your personal information.</p>
+        <p>RigaCap, LLC ("we", "us", "our") operates the rigacap.com website and related services. This policy describes how we collect, use, and protect your personal information.</p>
       </Section>
 
       <Section title="Information We Collect">
@@ -111,7 +111,7 @@ export function TermsPage() {
       </Section>
 
       <Section title="Not Investment Advice">
-        <p className="text-amber-400/80 font-medium">RigaCap is not a registered investment advisor, broker-dealer, or financial planner. The signals, data, and content provided through the Service are for informational and educational purposes only and do not constitute investment advice, financial advice, trading advice, or any other kind of advice.</p>
+        <p className="text-amber-400/80 font-medium">RigaCap, LLC is not a registered investment advisor, broker-dealer, or financial planner. The signals, data, and content provided through the Service are for informational and educational purposes only and do not constitute investment advice, financial advice, trading advice, or any other kind of advice.</p>
         <p>You are solely responsible for your own investment decisions. Trading stocks involves substantial risk of loss and is not suitable for every investor. Past performance of our algorithms does not guarantee future results.</p>
       </Section>
 
@@ -140,7 +140,7 @@ export function TermsPage() {
       </Section>
 
       <Section title="Limitation of Liability">
-        <p>To the maximum extent permitted by law, RigaCap shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, trading losses, or data loss, arising from your use of the Service.</p>
+        <p>To the maximum extent permitted by law, RigaCap, LLC shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, trading losses, or data loss, arising from your use of the Service.</p>
         <p>Our total liability for any claim related to the Service is limited to the amount you paid us in the 12 months preceding the claim.</p>
       </Section>
 
@@ -185,7 +185,7 @@ export function ContactPage() {
       </Section>
 
       <Section title="Mailing Address">
-        <p className="text-gray-500">RigaCap<br/>United States</p>
+        <p className="text-gray-500">RigaCap, LLC<br/>United States</p>
       </Section>
 
       <p className="text-sm text-gray-500 mt-8">We typically respond within 1 business day.</p>

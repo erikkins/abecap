@@ -437,7 +437,7 @@ export default function BlogBacktestsPage() {
 
       {/* Footer */}
       <footer className="border-t border-gray-800 py-8 text-center text-xs text-gray-600">
-        <p>&copy; {new Date().getFullYear()} RigaCap. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} RigaCap, LLC. All rights reserved.</p>
       </footer>
     </div>
   );

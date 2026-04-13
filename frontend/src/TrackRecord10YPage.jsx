@@ -282,7 +282,7 @@ export default function TrackRecord10YPage() {
 
       {/* Footer */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-8 pt-4 border-t border-gray-800 text-center text-sm text-gray-500">
-        &copy; {new Date().getFullYear()} RigaCap. All rights reserved.
+        &copy; {new Date().getFullYear()} RigaCap, LLC. All rights reserved.
       </div>
     </div>
   );

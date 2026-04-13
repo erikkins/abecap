@@ -542,7 +542,7 @@ const Footer = () => (
           <a href="/contact" className="hover:text-white transition-colors">Contact</a>
         </div>
         <div className="text-sm">
-          &copy; {new Date().getFullYear()} RigaCap. All rights reserved.
+          &copy; {new Date().getFullYear()} RigaCap, LLC. All rights reserved.
         </div>
       </div>
       <div className="mt-8 pt-8 border-t border-gray-800 text-center text-sm">
