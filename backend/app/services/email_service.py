@@ -709,13 +709,45 @@ class EmailService:
         fresh_count = len(fresh_signals)
         watchlist = dashboard_data.get('watchlist') or []
 
-        # Build The Reading line
-        reading_bits = [f"<strong>Regime: {regime_name}.</strong>"]
+        # Build The Reading line — plain-English first, jargon in context.
+        regime_glosses = {
+            "Strong Bull": "broad rally across most sectors",
+            "Weak Bull": "advancing, but leadership is narrow",
+            "Rotating Bull": "broad market healthy, but sector leadership is churning",
+            "Range Bound": "sideways, no clear trend commitment",
+            "Weak Bear": "drifting lower on weak breadth",
+            "Panic Crash": "sharp sell-off — system is defensive",
+            "Recovery": "bouncing from the lows, rebuilding trend",
+        }
+        gloss = regime_glosses.get(regime_name, "")
+        regime_line = (
+            f"<strong>Regime: {regime_name}</strong>"
+            + (f" — {gloss}." if gloss else ".")
+        )
+        reading_bits = [regime_line]
+
         if spy_price is not None:
-            chg = f"{'+' if (spy_change or 0) >= 0 else ''}{spy_change:.2f}%" if spy_change is not None else ""
-            reading_bits.append(f"SPY closed at ${spy_price:,.2f}" + (f" ({chg})" if chg else "") + ".")
+            if spy_change is not None:
+                direction = "up" if spy_change >= 0 else "down"
+                reading_bits.append(
+                    f"The S&amp;P 500 closed {direction} {abs(spy_change):.2f}% at ${spy_price:,.0f}."
+                )
+            else:
+                reading_bits.append(f"The S&amp;P 500 closed at ${spy_price:,.0f}.")
+
         if vix_level is not None:
-            reading_bits.append(f"VIX at {vix_level:.2f}.")
+            if vix_level < 15:
+                vix_label = "low"
+            elif vix_level < 20:
+                vix_label = "moderate"
+            elif vix_level < 30:
+                vix_label = "elevated"
+            else:
+                vix_label = "high"
+            reading_bits.append(
+                f"Market anxiety (the VIX) sits at {vix_level:.0f} — {vix_label}."
+            )
+
         reading_line = " ".join(reading_bits)
 
         # Build watchlist line
@@ -845,13 +877,21 @@ class EmailService:
 </body>
 </html>"""
 
-        spy_txt = f"${spy_price:,.2f}" if spy_price is not None else "$?"
-        vix_txt = f"{vix_level:.2f}" if vix_level is not None else "?"
+        if spy_price is not None and spy_change is not None:
+            spy_txt = f"up {abs(spy_change):.2f}% at ${spy_price:,.0f}" if spy_change >= 0 else f"down {abs(spy_change):.2f}% at ${spy_price:,.0f}"
+        elif spy_price is not None:
+            spy_txt = f"at ${spy_price:,.0f}"
+        else:
+            spy_txt = "—"
+        vix_txt = f"{vix_level:.0f}" if vix_level is not None else "?"
+        regime_txt = f"{regime_name}" + (f" — {gloss}" if gloss else "")
         text = f"""MARKET, MEASURED.
 {date_str}
 
 THE READING
-{regime_name}. SPY {spy_txt}, VIX {vix_txt}.
+Regime: {regime_txt}.
+The S&P 500 closed {spy_txt}.
+Market anxiety (the VIX) sits at {vix_txt}.
 
 {('WHAT THE SYSTEM SEES' + chr(10) + market_context + chr(10) + chr(10)) if market_context else ''}
 WHAT THE SYSTEM IS DOING
