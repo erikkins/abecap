@@ -3402,6 +3402,85 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # Force-refetch specific symbols with SPLIT adjustment, overwrite in pickle.
+    # Used to fix known-split symbols (NVDA, CMG, WMT) that were cached with
+    # unadjusted prices. {"refetch_split_adjusted": {"symbols": ["NVDA"]}}
+    if event.get("refetch_split_adjusted"):
+        cfg = event.get("refetch_split_adjusted") or {}
+        symbols = cfg.get("symbols") or []
+        if not symbols:
+            return {"error": "symbols list required"}
+        print(f"🔧 Refetching {len(symbols)} symbols with SPLIT adjustment")
+
+        try:
+            from datetime import datetime, timedelta
+            from alpaca.data.historical import StockHistoricalDataClient
+            from alpaca.data.requests import StockBarsRequest
+            from alpaca.data.timeframe import TimeFrame
+            from alpaca.data.enums import DataFeed, Adjustment
+            from app.services.data_export import data_export_service
+            from app.core.config import settings as _settings
+            import pandas as _pd
+            import numpy as _np
+
+            client = StockHistoricalDataClient(
+                api_key=_settings.ALPACA_API_KEY,
+                secret_key=_settings.ALPACA_SECRET_KEY,
+            )
+            end = datetime.now()
+            start = end - timedelta(days=7 * 365 + 30)
+            req = StockBarsRequest(
+                symbol_or_symbols=symbols,
+                timeframe=TimeFrame.Day,
+                start=start,
+                end=end,
+                feed=DataFeed.SIP,
+                adjustment=Adjustment.SPLIT,
+            )
+            bars = client.get_stock_bars(req)
+            results = {}
+            for sym in symbols:
+                if sym not in bars.data:
+                    results[sym] = {"error": "no data"}
+                    continue
+                rows = bars.data[sym]
+                df = _pd.DataFrame([{
+                    'open': b.open, 'high': b.high, 'low': b.low,
+                    'close': b.close, 'volume': b.volume,
+                    'date': b.timestamp.date(),
+                } for b in rows])
+                df['date'] = _pd.to_datetime(df['date'])
+                df = df.set_index('date').sort_index()
+                # Verify fix: max daily abs log-return
+                closes = df['close'].values
+                if (closes > 0).all() and len(closes) > 1:
+                    log_rets = _np.abs(_np.log(closes[1:] / closes[:-1]))
+                    max_pct = (_np.exp(log_rets.max()) - 1) * 100
+                else:
+                    max_pct = None
+
+                # Overwrite in cache (strip indicators so next scan recomputes)
+                scanner_service.data_cache[sym] = df
+                results[sym] = {
+                    "bars_fetched": len(df),
+                    "start": str(df.index[0].date()),
+                    "end": str(df.index[-1].date()),
+                    "max_daily_move_pct": round(max_pct, 2) if max_pct else None,
+                    "cached": True,
+                }
+
+            # Export pickle back to S3 so next cold start has clean data
+            export_result = data_export_service.export_all(scanner_service.data_cache)
+            return {
+                "status": "ok",
+                "results": results,
+                "pickle_export": export_result,
+            }
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())
+            return {"error": str(e)[:500]}
+
     # Alpaca corporate actions API test — check if paid-tier access works
     # {"alpaca_corp_actions_test": {"symbols": ["NVDA", "AAPL"], "days_back": 365}}
     if event.get("alpaca_corp_actions_test"):
