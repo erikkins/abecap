@@ -792,7 +792,7 @@ Your friend gets their first month free, and you get a free month when they subs
                         Here's what you get:
                     </h2>
                     <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
-                        <li><strong>Daily Ensemble signals</strong> — ~15 per month, delivered before market open</li>
+                        <li><strong>Ensemble signals</strong> — 3-4 high-conviction picks per month, delivered before market open</li>
                         <li><strong>Simple & Advanced views</strong> — See clear buy/sell actions or dive into technical details</li>
                         <li><strong>Smart watchlist</strong> — Get alerted when stocks approach buy triggers</li>
                         <li><strong>Trailing stop protection</strong> — Adaptive risk management</li>
@@ -868,7 +868,7 @@ Welcome to RigaCap, {first_name}!
 Your journey to smarter trading starts now.
 
 Here's what you get:
-- Daily Ensemble signals — ~15 per month, delivered before market open
+- Ensemble signals — 3-4 high-conviction picks per month, delivered before market open
 - Simple & Advanced views — clear actions or full technical details
 - Smart watchlist — alerts when stocks approach buy triggers
 - Trailing stop protection — adaptive risk management
