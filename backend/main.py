@@ -3402,6 +3402,51 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # Alpaca corporate actions API test — check if paid-tier access works
+    # {"alpaca_corp_actions_test": {"symbols": ["NVDA", "AAPL"], "days_back": 365}}
+    if event.get("alpaca_corp_actions_test"):
+        cfg = event.get("alpaca_corp_actions_test") or {}
+        symbols = cfg.get("symbols", ["NVDA"])
+        days_back = cfg.get("days_back", 90)
+        print(f"🧪 Alpaca corp-actions test: {symbols} last {days_back}d")
+
+        try:
+            from datetime import datetime, timedelta, date as _date
+            from alpaca.data.historical.corporate_actions import CorporateActionsClient
+            from alpaca.data.requests import CorporateActionsRequest
+
+            client = CorporateActionsClient(
+                api_key=settings.ALPACA_API_KEY,
+                secret_key=settings.ALPACA_SECRET_KEY,
+            )
+            req = CorporateActionsRequest(
+                symbols=symbols,
+                start=_date.today() - timedelta(days=days_back),
+                end=_date.today(),
+            )
+            result = client.get_corporate_actions(req)
+            # Extract counts by type
+            summary = {}
+            if hasattr(result, 'data') and isinstance(result.data, dict):
+                for action_type, actions in result.data.items():
+                    summary[action_type] = len(actions) if actions else 0
+            return {
+                "status": "success",
+                "has_access": True,
+                "symbols_queried": symbols,
+                "days_back": days_back,
+                "action_type_counts": summary,
+                "raw_keys": list(result.data.keys()) if hasattr(result, 'data') else [],
+            }
+        except Exception as e:
+            import traceback
+            return {
+                "status": "error",
+                "has_access": False,
+                "error": str(e)[:500],
+                "trace_hint": traceback.format_exc()[:400],
+            }
+
     # Data-quality diagnostic — count universe rejections by reason
     # {"data_quality_diagnostic": {"_": 1}}
     if event.get("data_quality_diagnostic"):
