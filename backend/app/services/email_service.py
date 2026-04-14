@@ -821,7 +821,8 @@ class EmailService:
         <tr><td style="padding: 36px 40px 0 40px;">
             <div style="border-top: 1px solid #e5e7eb; padding-top: 28px;">
                 <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.7; color: #1f2937; font-style: italic;">
-                    Three-to-four signals a month, sometimes zero. We trade when the math is clear — not when the news is loud.
+                    Three-to-four signals a month, sometimes zero.<br>
+                    We trade when the math is clear — not when the news is loud.
                 </p>
                 <p style="margin: 0 0 8px 0; font-size: 15px; color: #374151;">
                     Want the signals when they fire?
