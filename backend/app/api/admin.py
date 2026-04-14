@@ -305,17 +305,17 @@ INITIAL_STRATEGIES = [
     },
     {
         "name": "DWAP+Momentum Ensemble",
-        "description": "DWAP timing entry (catches early breakouts) + momentum quality filter (only top-ranked stocks) + trailing stop exit (lets winners run).",
+        "description": "DWAP timing entry (catches early breakouts) + momentum quality filter (only top-ranked stocks) + trailing stop exit (lets winners run). TPE Trial 37 optimized.",
         "strategy_type": "ensemble",
         "parameters": {
-            "dwap_threshold_pct": 5.0,      # Entry: 5% above DWAP
+            "dwap_threshold_pct": 6.5,      # TPE Trial 37
             "volume_spike_mult": 1.3,
             "short_momentum_days": 10,
             "long_momentum_days": 60,
             "near_50d_high_pct": 5.0,
-            "max_positions": 6,
-            "position_size_pct": 15.0,
-            "trailing_stop_pct": 12.0,
+            "max_positions": 8,             # TPE Trial 37 (was 6)
+            "position_size_pct": 17.0,      # TPE Trial 37 (was 15)
+            "trailing_stop_pct": 13.0,      # TPE Trial 37 (was 12)
             "market_filter_enabled": True,
             "min_volume": 500000,
             "min_price": 15.0
