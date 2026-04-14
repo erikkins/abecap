@@ -3358,6 +3358,67 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # Replay historical scans over a date range to find fresh signals we missed
+    # during the indicator-strip bug window. Returns fresh buy signals per date.
+    # {"historical_fresh_signals": {"start_date": "2026-04-07", "end_date": "2026-04-13"}}
+    if event.get("historical_fresh_signals"):
+        cfg = event.get("historical_fresh_signals") or {}
+        start_date = cfg.get("start_date")
+        end_date = cfg.get("end_date")
+        if not start_date or not end_date:
+            return {"error": "start_date and end_date required (YYYY-MM-DD)"}
+        print(f"🕰 Replaying fresh signals {start_date} → {end_date}")
+
+        async def _replay():
+            import pandas as _pd
+            from app.api.signals import _compute_dashboard_live
+
+            spy_df = scanner_service.data_cache.get('SPY')
+            if spy_df is None:
+                return {"error": "SPY not in cache"}
+
+            start_ts = _pd.Timestamp(start_date)
+            end_ts = _pd.Timestamp(end_date)
+            if hasattr(spy_df.index, 'tz') and spy_df.index.tz is not None:
+                start_ts = start_ts.tz_localize(spy_df.index.tz)
+                end_ts = end_ts.tz_localize(spy_df.index.tz)
+            trading_days = spy_df.loc[start_ts:end_ts].index
+
+            by_date = {}
+            async with async_session() as db:
+                for ts in trading_days:
+                    date_str = ts.strftime('%Y-%m-%d')
+                    try:
+                        data = await _compute_dashboard_live(
+                            db=db, user=None, momentum_top_n=30,
+                            fresh_days=5, as_of_date=date_str,
+                        )
+                        signals = data.get('buy_signals', [])
+                        fresh = [
+                            {k: s.get(k) for k in ['symbol','price','dwap','pct_above_dwap',
+                                                   'ensemble_score','signal_strength_label',
+                                                   'momentum_rank','is_fresh','days_since_entry']}
+                            for s in signals if s.get('is_fresh')
+                        ]
+                        by_date[date_str] = {
+                            "fresh_count": len(fresh),
+                            "fresh_signals": fresh,
+                        }
+                    except Exception as e:
+                        by_date[date_str] = {"error": str(e)[:200]}
+            return {"dates": by_date}
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            return loop.run_until_complete(_replay())
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())
+            return {"error": str(e)}
+
     # One-time backfill: force-recompute indicators for all cached symbols
     # and re-export the pickle to S3. Use after fixing fetch_incremental
     # indicator-strip bug to repair the in-S3 pickle's NaN-tail rows.
