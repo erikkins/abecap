@@ -764,13 +764,22 @@ class EmailService:
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Georgia, serif; background-color: #f5f5f0; color: #1f2937;">
     <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 640px; margin: 0 auto; background-color: #ffffff;">
         <tr>
-            <td style="padding: 48px 40px 24px 40px; border-bottom: 1px solid #e5e7eb;">
-                <h1 style="margin: 0; font-size: 32px; font-weight: 700; color: #172554; letter-spacing: -0.5px;">
-                    Market, Measured.
-                </h1>
-                <p style="margin: 8px 0 0 0; font-size: 14px; color: #6b7280; font-style: italic;">
-                    {date_str}
-                </p>
+            <td style="padding: 40px 40px 24px 40px; border-bottom: 1px solid #e5e7eb;">
+                <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                    <tr>
+                        <td style="vertical-align: middle; width: 48px;">
+                            <img src="https://rigacap.com/email-logo-v2.png" alt="RigaCap" width="40" height="40" style="display: block; border-radius: 6px;" />
+                        </td>
+                        <td style="vertical-align: middle; padding-left: 14px;">
+                            <h1 style="margin: 0; font-size: 30px; font-weight: 700; color: #172554; letter-spacing: -0.5px; line-height: 1.1;">
+                                Market, Measured.
+                            </h1>
+                            <p style="margin: 4px 0 0 0; font-size: 13px; color: #6b7280; font-style: italic;">
+                                {date_str}
+                            </p>
+                        </td>
+                    </tr>
+                </table>
             </td>
         </tr>
 
