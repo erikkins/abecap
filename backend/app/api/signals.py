@@ -1310,6 +1310,7 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
 async def _get_positions_with_guidance(db: AsyncSession, user, regime_forecast_data: dict):
     """Get user-specific positions with sell guidance (~200ms)."""
     from app.services.market_regime import market_regime_service, RegimeForecast
+    from app.core.config import settings
 
     positions_with_guidance = []
     try:
