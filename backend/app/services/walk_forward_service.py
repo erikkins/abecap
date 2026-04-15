@@ -800,8 +800,10 @@ class WalkForwardService:
             backtester.regime_reentry_mode = regime_reentry_mode
             backtester.bear_keep_pct = bear_keep_pct
             backtester.graduated_reentry = graduated_reentry
-            backtester.profit_lock_pct = profit_lock_pct
-            backtester.profit_lock_stop_pct = profit_lock_stop_pct
+            # profit_lock_pct / profit_lock_stop_pct already applied via
+            # backtester.configure(strategy_params) above (StrategyParams
+            # dataclass contains them). Overriding here via undeclared locals
+            # caused NameError when TPE set them non-zero (Apr 14 2026 bug).
 
             # Apply sector cap to ticker list if V2 param is set
             effective_tickers = ticker_list
