@@ -44,8 +44,8 @@
 
     <!-- GA4 loaded dynamically after cookie consent (see CookieConsent.jsx) -->
 
-    <!-- Cloudflare Turnstile -->
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <!-- Cloudflare Turnstile (explicit render only — no DOM auto-scan) -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
     <!-- Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Apple Sign In -->
