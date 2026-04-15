@@ -106,6 +106,9 @@
 ## Deferred Infra Improvements
 - **Lambda AL2023 migration** — update Dockerfile base from `python:3.9` to `python:3.11+` (AL2023). Enables DuckDB httpfs extension (needs glibc 2.28+), 10-25% faster Python. Zero AWS cost increase. Estimated 2-4 hours. Do after Parquet Session 3 cutover completes.
 
+## Data Hygiene Roadmap
+- **[Layer 2 — corp-actions + ticker-reuse detection](project_data_hygiene_layer2_apr2026.md)** — nightly Alpaca corp-actions poll + asset-ID integrity check. Catches ticker reuse, silent splits, delistings before next-day scan. ~4-5 hour build.
+
 ## Trial 37 Validation Tasks
 - **MDD forensics** — once 8-date clean run completes, pull equity curve for a representative start date, identify peak→trough window, cross-ref with trade exits during that window. Determine specific event (2022 bear, summer 2024, or regime-shift lag).
 - **Secondary strategy (after TPE re-optimization)** — if optimized clean-data numbers still leave a gap vs advertised, test: (1) megacap defensive overlay during regime exits, (2) RS Leaders redux on clean data, (3) low-vol sleeve for bear regimes, (4) inverse-vol ETF during regime transitions.
