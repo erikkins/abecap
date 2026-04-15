@@ -238,6 +238,36 @@ Rollback is a 30-60 second operation. Any failure during Step 5-7 → roll back 
 
 ---
 
+## Bundle with this same-day (optional, ~60 min additional)
+
+Since we're in deploy mode, consider bundling these related fixes:
+
+### MMC-class false-positive fix in `verify_asset_ids`
+
+Alpaca's Trading API returns 404 for some real symbols (MMC, possibly dozens more) that exist in their Data API. Our nightly hygiene marks them `missing_in_alpaca` which is misleading.
+
+**Two-part fix:**
+1. **Bulk pre-fetch** — call `TradingClient.get_all_assets()` once at start of `verify_asset_ids`, build a symbol→asset map, lookup against that instead of 4500 individual `get_asset()` calls. ~30 min.
+2. **Data-API fallback** — if a symbol isn't in the Trading asset map, check if our pickle has recent bars for it. If yes → mark as `unverifiable` (don't alarm). Only flag `missing_in_alpaca` if BOTH APIs lack it. ~30 min.
+
+See `~/.claude/projects/.../memory/feedback_alpaca_asset_api_inconsistency.md` for full context.
+
+**Why bundle:** AL2023 deploy requires active Lambda monitoring anyway. Small, isolated code change in `symbol_metadata_service.py` is low-risk to add during the same validation window. Confirms parallelized bulk fetch still works under new runtime.
+
+### Remove `/tmp` download workaround in `query_parquet`
+
+Current `data_export.py::query_parquet` downloads the S3 parquet to `/tmp` before DuckDB queries it, because AL2's glibc 2.26 can't load DuckDB's httpfs extension. Post-AL2023 (glibc 2.34), native httpfs works.
+
+**Fix:** replace the /tmp download block with native httpfs setup:
+```python
+conn.execute("INSTALL httpfs; LOAD httpfs;")
+conn.execute(f"SET s3_region = '{region}';")
+conn.execute("CREATE SECRET aws_creds (TYPE S3, PROVIDER CREDENTIAL_CHAIN);")
+conn.execute(f"CREATE VIEW prices AS SELECT * FROM 's3://{S3_BUCKET}/prices/all_data.parquet';")
+```
+
+~15 min. Drops ~20 seconds off every `parquet_diagnose` call.
+
 ## Don't do this during
 
 - Active TPE runs (computing on local pickle anyway, but avoid confusion)
