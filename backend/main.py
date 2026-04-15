@@ -990,6 +990,11 @@ def handler(event, context):
             _steps = []
             _scan_t0 = _time_mod.time()
             _step_t0 = _scan_t0
+            # Collects (step_name, exception_repr) for non-fatal pipeline failures
+            # so we can send a single consolidated admin alert at the end of the scan.
+            # Prior to Apr 15 2026, these failures only printed ⚠️ warnings — the
+            # live portfolio silently sat in cash for 9 days behind an IndentError.
+            pipeline_failures: list = []
 
             def _log_step(name, status, detail=""):
                 nonlocal _step_t0
@@ -1411,6 +1416,7 @@ def handler(event, context):
                         await _notify_portfolio_change("SELL", exit_result)
             except Exception as pe:
                 print(f"⚠️ Portfolio exit processing failed (non-fatal): {pe}")
+                pipeline_failures.append(("Portfolio Exits", repr(pe)))
             _log_step("Portfolio Exits", "ok",
                        f"{len(exit_result) if exit_result else 0} exits, regime_stop={regime_stop if 'regime_stop' in dir() else '?'}%")
 
@@ -1437,8 +1443,33 @@ def handler(event, context):
                         await _notify_portfolio_change("BUY", buy_trades)
             except Exception as pe:
                 print(f"⚠️ Portfolio entry processing failed (non-fatal): {pe}")
+                pipeline_failures.append(("Portfolio Entries", repr(pe)))
             _log_step("Portfolio Entries", "ok",
                        f"{entry_result.get('entries', 0) if isinstance(entry_result, dict) else 0} entries, cash={entry_result.get('remaining_cash', '?') if isinstance(entry_result, dict) else '?'}")
+
+            # Silent-cash detector: fresh ensemble signals exist but live portfolio
+            # opened zero positions AND has free slots. Flags cases like the Apr 6-15
+            # IndentError where entries silently failed while signals kept firing.
+            try:
+                entries_opened = entry_result.get('entries', 0) if isinstance(entry_result, dict) else 0
+                if persisted > 0 and entries_opened == 0:
+                    from sqlalchemy import select as _sel, func as _fn
+                    from app.core.database import ModelPosition as _MP
+                    async with async_session() as _cap_db:
+                        open_count = (await _cap_db.execute(
+                            _sel(_fn.count(_MP.id)).where(
+                                _MP.portfolio_type == "live",
+                                _MP.status == "open",
+                            )
+                        )).scalar() or 0
+                    if open_count < 6:  # MAX_POSITIONS
+                        pipeline_failures.append((
+                            "Silent Cash",
+                            f"{persisted} fresh ensemble signals, 0 entries opened, "
+                            f"{open_count}/6 positions held — entry pipeline may be silently broken"
+                        ))
+            except Exception as _cde:
+                print(f"⚠️ Silent-cash detector failed (non-fatal): {_cde}")
 
             # 7c. Signal track record: enter ALL fresh signals + check exits (regime-aware)
             try:
@@ -1452,6 +1483,7 @@ def handler(event, context):
                     print(f"📊 [SIGNAL-TRACK] exits={len(st_exits)}, entries={st_entries} (stop={regime_stop}%)")
             except Exception as ste:
                 print(f"⚠️ Signal track record processing failed (non-fatal): {ste}")
+                pipeline_failures.append(("Signal Track Record", repr(ste)))
             _log_step("Signal Track Record", "ok",
                        f"exits={len(st_exits) if 'st_exits' in dir() else '?'}, entries={st_entries if 'st_entries' in dir() else '?'}")
 
@@ -1462,6 +1494,7 @@ def handler(event, context):
                     print(f"📊 [SNAPSHOT] {snap_result}")
             except Exception as sne:
                 print(f"⚠️ Daily snapshot failed (non-fatal): {sne}")
+                pipeline_failures.append(("Daily Snapshot", repr(sne)))
             snap_detail = ""
             if isinstance(snap_result, dict) and snap_result.get("live"):
                 snap_detail = f"live=${snap_result['live'].get('total_value', '?')}, {snap_result['live'].get('num_positions', '?')} positions"
@@ -1524,6 +1557,31 @@ def handler(event, context):
                 regime_stop=regime_stop if 'regime_stop' in dir() else None,
             )
 
+            # Consolidated admin alert for any non-fatal pipeline failures
+            if pipeline_failures:
+                try:
+                    from app.services.email_service import admin_email_service, ADMIN_EMAILS
+                    body_lines = [
+                        f"Daily scan on {date.today().isoformat()} completed but "
+                        f"{len(pipeline_failures)} pipeline step(s) failed non-fatally.",
+                        "",
+                        "Affected steps:",
+                    ]
+                    for step_name, err in pipeline_failures:
+                        body_lines.append(f"  • {step_name}: {err}")
+                    body_lines += [
+                        "",
+                        f"Scan summary: {len(signals)} signals, {persisted} ensemble persisted.",
+                        "",
+                        "Check CloudWatch /aws/lambda/rigacap-prod-worker for full tracebacks.",
+                    ]
+                    msg = "\n".join(body_lines)
+                    subject = f"⚠️ Daily scan pipeline: {len(pipeline_failures)} step(s) failed"
+                    for admin in ADMIN_EMAILS:
+                        await admin_email_service.send_admin_alert(admin, subject, msg)
+                except Exception as _ae:
+                    print(f"⚠️ Failed to send pipeline-failure admin alert: {_ae}")
+
             return {
                 "status": "success",
                 "signals": len(signals),
@@ -1533,6 +1591,7 @@ def handler(event, context):
                 "ensemble_signals_persisted": persisted,
                 "portfolio_entries": entry_result,
                 "settlement_check": settlement,
+                "pipeline_failures": [f[0] for f in pipeline_failures] or None,
             }
 
         try:

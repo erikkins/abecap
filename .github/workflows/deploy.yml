@@ -28,12 +28,20 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       
+      # Syntax gate: catch IndentErrors, SyntaxErrors, etc. before deploy.
+      # A dedented line in model_portfolio_service.py silently took the live
+      # portfolio offline for 9 days in April 2026 — compileall catches that
+      # class of bug in <1 second, no test fixtures required.
+      - name: Python syntax check (compileall)
+        run: |
+          python -m compileall -q backend/app backend/main.py
+
       - name: Install backend dependencies
         run: |
           cd backend
           pip install -r requirements.txt
           pip install pytest pytest-asyncio
-      
+
       - name: Run backend tests
         run: |
           cd backend
