@@ -80,9 +80,10 @@ class SymbolMetadataService:
                 try:
                     asset = client.get_asset(symbol)
                     current_id = str(asset.id) if asset and asset.id else None
-                    current_first_date = (
-                        asset.attributes.get("first_trade_date") if asset and hasattr(asset, "attributes") else None
-                    )
+                    # asset.attributes is a LIST per Alpaca SDK — not a dict.
+                    # Previously we called .get() on it which threw AttributeError
+                    # and mislabeled every symbol as missing_in_alpaca.
+                    current_first_date = None  # Not currently used; placeholder
                 except Exception as e:
                     # Asset not found in Alpaca (delisted or never listed)
                     summary[symbol] = {
