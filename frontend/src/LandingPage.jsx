@@ -260,7 +260,7 @@ const PerformanceHighlightsSection = () => {
             <div className="text-xs text-gray-400">~28% annualized</div>
             <div className="text-xs text-gray-400 mt-1">S&P 500: +84% over same period</div>
           </div>
-          <div className="bg-white rounded-2xl p-8 shadow-lg border border-emerald-100 text-center">
+          <div className="relative bg-white rounded-2xl p-8 shadow-lg border border-emerald-100 text-center">
             <div className="text-4xl font-bold text-emerald-600 mb-2">+6%</div>
             <div className="text-sm font-medium text-gray-500 mb-1">In 2022</div>
             <div className="text-xs text-gray-400">While the S&P 500 fell 20%</div>
