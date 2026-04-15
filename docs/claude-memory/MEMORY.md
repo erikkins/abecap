@@ -101,6 +101,9 @@
 - **[Parquet migration — triphasic plan](project_storage_migration_roadmap.md)** — agreed Apr 14 2026 to do NOW while user base <10. Session 1: dual-write + reader path (backward compat). Session 2: migrate consumers (scanner/backtester/WF). Session 3: cutover + cleanup. 2-3 focused sessions.
 
 ## Trial 37 Validation Tasks
+- **MDD forensics** — once 8-date clean run completes, pull equity curve for a representative start date, identify peak→trough window, cross-ref with trade exits during that window. Determine specific event (2022 bear, summer 2024, or regime-shift lag).
+- **Secondary strategy (after TPE re-optimization)** — if optimized clean-data numbers still leave a gap vs advertised, test: (1) megacap defensive overlay during regime exits, (2) RS Leaders redux on clean data, (3) low-vol sleeve for bear regimes, (4) inverse-vol ETF during regime transitions.
+
 
 - **[Strategy optimization FINAL](project_position_sizing_tests_apr2026.md)** — TPE Trial 37 deployed: +240% avg, 24% MaxDD, ~28% ann. 2023 weakness accepted.
 - **[MDD reduction ideas](project_mdd_reduction_ideas.md)** — VIX-adjusted sizing, drawdown circuit breaker, bear regime stops — for TPE Run 2
