@@ -110,6 +110,11 @@
 - **[Layer 2 — corp-actions + ticker-reuse detection](project_data_hygiene_layer2_apr2026.md)** — nightly Alpaca corp-actions poll + asset-ID integrity check. Catches ticker reuse, silent splits, delistings before next-day scan. ~4-5 hour build. DEPLOYED Apr 15 2026.
 - **[Alpaca Trading API symbol inconsistency](feedback_alpaca_asset_api_inconsistency.md)** — MMC and similar real tradeable symbols return 404 on `/v2/assets/{sym}` while Data API has full bars. Bulk-fetch via `get_all_assets()` + data-API fallback fixes (~30-60 min).
 
+## Trial 37 & Clean-Data Reoptimization
+- **[Trial 37 was over-fit to corrupted pickle](project_trial37_overfit_clean_data.md)** — advertised +240%/0.89/24% MDD collapses to +96%/0.58/36.6% on clean data. TPE run3 re-optimizing in background, ~12h. Don't quote old numbers externally.
+- **[AL2023 canary staged, not deployed](project_al2023_canary_staged.md)** — image in ECR, Dockerfile change local-only, rollback SHA captured. Follow runbook when ready.
+- **[Silent signal drought root cause](feedback_silent_signal_drought_rootcause.md)** — fetch_incremental + _ensure_indicators two-layer bug. Fixed + 3 safeguards added.
+
 ## Trial 37 Validation Tasks
 - **MDD forensics** — once 8-date clean run completes, pull equity curve for a representative start date, identify peak→trough window, cross-ref with trade exits during that window. Determine specific event (2022 bear, summer 2024, or regime-shift lag).
 - **Secondary strategy (after TPE re-optimization)** — if optimized clean-data numbers still leave a gap vs advertised, test: (1) megacap defensive overlay during regime exits, (2) RS Leaders redux on clean data, (3) low-vol sleeve for bear regimes, (4) inverse-vol ETF during regime transitions.
