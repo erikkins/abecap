@@ -298,8 +298,8 @@ class ModelPortfolioService:
             hwm = pos.highest_price or pos.entry_price
             stop_pct = trailing_stop_pct if trailing_stop_pct is not None else TRAILING_STOP_PCT
             trailing_stop_level = hwm * (1 - stop_pct / 100)
-                if close_price <= trailing_stop_level:
-                    exit_reason = "trailing_stop"
+            if close_price <= trailing_stop_level:
+                exit_reason = "trailing_stop"
 
             if exit_reason:
                 result = await self._close_position(db, pos, close_price, exit_reason)
