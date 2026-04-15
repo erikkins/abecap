@@ -449,16 +449,80 @@ class ScannerService:
         if price <= 0 or dwap <= 0:
             return False
 
-        # DWAP plausibility — corrupted series produce wildly off-band ratios.
-        # AGL had ratio ~24x. Range [0.5, 2.0] catches both directions.
+        # Static DWAP-ratio check removed (2.0x rejected legit AAOI-class
+        # movers, 5.0x was still arbitrary). Replaced with abrupt-jump
+        # detection below — catches the actual *signature* of corrupted
+        # data (unadjusted splits, ticker reuse, pre-IPO leakage) rather
+        # than the magnitude of DWAP deviation.
         ratio = price / dwap
-        if ratio > 2.0 or ratio < 0.5:
+        if ratio > 50.0 or ratio < 0.02:
+            # Only reject the most extreme cases at the ratio gate;
+            # abrupt-jump check below handles the rest.
             return False
 
         # Stale-volume corruption — vol_avg dragged up by huge pre-split bars.
-        # If recent volume is >100x smaller than the 200-day average, the
-        # historical series is suspect.
         if vol_avg > 0 and volume > 0 and (volume / vol_avg) < 0.01:
+            return False
+
+        # Long-gap corruption (ticker reuse). If the symbol has any >10-day
+        # gap between consecutive trading days in its history, that's a
+        # delisting + reuse signature. Excludes 10-ish such symbols.
+        if len(df.index) > 1:
+            gaps = df.index.to_series().diff().dt.days
+            if gaps.max() > 10:
+                return False
+
+        # Abrupt-jump corruption detection. Clean split-adjusted series should
+        # never show a single-day close change > ~65% (log-return > 0.5). Such
+        # jumps are signatures of unadjusted splits, ticker reuse, or stitched
+        # series. Runs over the last 252 days of close prices.
+        if not self._has_clean_price_trajectory(df):
+            return False
+
+        return True
+
+    def _has_clean_price_trajectory(self, df: pd.DataFrame, lookback: int = 252) -> bool:
+        """
+        Detect data corruption by looking for abrupt price discontinuities
+        in the recent close-price series. Returns True if the trajectory
+        looks clean, False if corruption is detected.
+
+        Catches:
+        - Unadjusted splits (e.g., AKTS shows overnight -95% move)
+        - Ticker reuse (old co. delisted, new co. took symbol — cluster
+          jump between two different price regimes)
+        - Pre-IPO price leakage (a long zero-volume tail followed by real
+          trading — manifests as a big jump when real volume begins)
+        - Missed corporate actions (reverse mergers, SPAC migrations)
+
+        Does NOT flag:
+        - Legitimate earnings gaps (typically < 40%)
+        - Real-world bull runs like NVDA or AAOI (smooth trajectory)
+        - Flash crashes followed by recovery (single-day extreme but
+          short-lived, still caught by the threshold)
+        """
+        import numpy as _np
+        if df is None or len(df) < 2:
+            return True  # Not enough data to assess — defer to other checks
+
+        # Take the most recent `lookback` rows, or all if shorter
+        closes = df['close'].tail(min(lookback, len(df))).values
+        if len(closes) < 2:
+            return True
+
+        # Guard against zero/negative prices
+        valid_mask = closes > 0
+        if not valid_mask.all():
+            return False  # Bad data
+
+        # Compute absolute log-returns between consecutive days
+        log_returns = _np.abs(_np.log(closes[1:] / closes[:-1]))
+
+        # Any single-day log-return > 0.5 (~65% move) is corruption.
+        # Earnings gaps rarely exceed 40% (log ~0.34). Real market moves
+        # above 65% overnight are essentially only unadjusted splits or
+        # data errors.
+        if (log_returns > 0.5).any():
             return False
 
         return True

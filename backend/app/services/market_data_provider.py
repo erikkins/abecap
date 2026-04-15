@@ -159,12 +159,15 @@ class AlpacaProvider(MarketDataProvider):
             batch = alpaca_formatted[i:i + BATCH_SIZE]
 
             try:
+                # Import Adjustment lazily to match existing import pattern
+                from alpaca.data.enums import Adjustment
                 request = StockBarsRequest(
                     symbol_or_symbols=batch,
                     timeframe=TimeFrame.Day,
                     start=start_dt,
                     end=end_dt,
                     feed=DataFeed.SIP,  # Pro subscription — consolidated volume
+                    adjustment=Adjustment.SPLIT,  # Apply split adjustment (was RAW default); prevents artifact trades from unadjusted splits like NVDA 2024-06-10
                 )
 
                 loop = asyncio.get_event_loop()
