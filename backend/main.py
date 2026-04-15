@@ -1316,6 +1316,18 @@ def handler(event, context):
             pkl_ok = export_result.get('success', True)
             pkl_status = "ok" if pkl_ok else "warning"
             pkl_detail = f"{export_result.get('count', 0)} symbols, {export_result.get('size_mb', '?')} MB"
+
+            # 4b. SHADOW WRITE: parquet export (Parquet migration, Apr 2026).
+            # Runs alongside pickle — pickle remains primary read path until
+            # consumers are migrated. Any failure is logged but non-blocking.
+            try:
+                pq_result = data_export_service.export_parquet(scanner_service.data_cache)
+                if pq_result.get('success'):
+                    print(f"📦 Shadow parquet: {pq_result['count']} symbols, {pq_result['size_mb']} MB")
+                else:
+                    print(f"⚠️ Shadow parquet failed: {pq_result.get('message')}")
+            except Exception as _e:
+                print(f"⚠️ Shadow parquet error (non-blocking): {_e}")
             if not pkl_ok:
                 pkl_detail = export_result.get('message', 'export failed')
                 print(f"⚠️ Pickle export failed: {pkl_detail}")

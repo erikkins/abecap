@@ -475,6 +475,160 @@ class DataExportService:
             print(traceback.format_exc())
             return {"success": False, "message": str(e), "count": 0}
 
+    def export_parquet(self, data_cache: Dict[str, pd.DataFrame]) -> Dict:
+        """
+        Export all cached data to a single consolidated Parquet file.
+
+        Parquet advantages over pickle (Apr 2026 migration):
+        - Columnar compression (typically 30-50% smaller than gzipped pickle)
+        - Strict schema (pyarrow catches NaN-tail bugs, type drift, etc.)
+        - Fast partial reads — can query one symbol without loading full file
+        - Cross-language compatible (DuckDB, Spark, BigQuery can read directly)
+        - Atomic per-symbol updates (when partitioned) vs pickle's all-or-nothing
+
+        This is a SHADOW write — runs alongside export_pickle during the
+        migration. Once parquet read path is validated on all consumers,
+        the pickle path can be retired.
+
+        Storage layout: single file at s3://<bucket>/prices/all_data.parquet
+        with rows concatenated across symbols, 'symbol' column added for
+        grouping on read.
+        """
+        if not data_cache:
+            return {"success": False, "message": "No data to export", "count": 0}
+
+        try:
+            import tempfile, os
+
+            # Filter small dataframes, build concatenated DataFrame with symbol col
+            frames = []
+            for symbol, df in data_cache.items():
+                if df is None or len(df) < 50:
+                    continue
+                df_copy = df.copy()
+                df_copy['symbol'] = symbol
+                # Reset index to expose date as a column (parquet prefers explicit cols)
+                df_copy = df_copy.reset_index()
+                # Normalize index column name to 'date'
+                if 'date' not in df_copy.columns:
+                    for candidate in ['index', 'Index', 'Date']:
+                        if candidate in df_copy.columns:
+                            df_copy = df_copy.rename(columns={candidate: 'date'})
+                            break
+                # Ensure tz-naive datetime for parquet compatibility
+                if 'date' in df_copy.columns:
+                    df_copy['date'] = pd.to_datetime(df_copy['date']).dt.tz_localize(None) \
+                        if getattr(pd.to_datetime(df_copy['date']).dt, 'tz', None) is not None \
+                        else pd.to_datetime(df_copy['date'])
+                frames.append(df_copy)
+
+            if not frames:
+                return {"success": False, "message": "No valid data to export", "count": 0}
+
+            combined = pd.concat(frames, ignore_index=True)
+            num_symbols = combined['symbol'].nunique()
+
+            # Stream parquet to disk first
+            tmp_path = os.path.join(tempfile.gettempdir(), "all_data.parquet")
+            # zstd has best compression for float-heavy financial data
+            combined.to_parquet(tmp_path, index=False, compression='zstd')
+            new_size = os.path.getsize(tmp_path)
+            new_size_mb = new_size / 1024 / 1024
+
+            if self._use_s3():
+                s3 = self._get_s3_client()
+                parquet_key = 'prices/all_data.parquet'
+                with open(tmp_path, 'rb') as f:
+                    s3.put_object(
+                        Bucket=S3_BUCKET,
+                        Key=parquet_key,
+                        Body=f.read(),
+                        ContentType='application/vnd.apache.parquet',
+                    )
+                os.remove(tmp_path)
+                storage = "S3"
+                location = f"s3://{S3_BUCKET}/{parquet_key}"
+            else:
+                local_path = LOCAL_DATA_DIR / "all_data.parquet"
+                import shutil
+                shutil.move(tmp_path, local_path)
+                storage = "local"
+                location = str(local_path)
+
+            logger.info(f"✅ Exported parquet: {num_symbols} symbols, {new_size_mb:.1f} MB → {location}")
+            return {
+                "success": True,
+                "count": num_symbols,
+                "total_rows": len(combined),
+                "size_mb": round(new_size_mb, 2),
+                "storage": storage,
+                "location": location,
+            }
+
+        except Exception as e:
+            import traceback
+            print(f"❌ Failed to export parquet: {e}")
+            print(traceback.format_exc())
+            return {"success": False, "message": str(e), "count": 0}
+
+    def import_parquet(self, symbols: Optional[List[str]] = None) -> Dict[str, pd.DataFrame]:
+        """
+        Import cached data from the consolidated Parquet file.
+
+        Args:
+            symbols: Optional list of specific symbols to import. If None,
+                imports all symbols (equivalent to pickle's bulk load).
+                When provided, uses parquet's columnar read to fetch ONLY
+                those symbols — no need to load the full file.
+
+        Returns:
+            Dict mapping symbol -> DataFrame (same shape as import_all's
+            pickle path).
+
+        This is the Parquet counterpart to pickle's _import_from_s3. Same
+        API, different underlying storage.
+        """
+        try:
+            import tempfile, os
+            data_cache: Dict[str, pd.DataFrame] = {}
+
+            if self._use_s3():
+                s3 = self._get_s3_client()
+                parquet_key = 'prices/all_data.parquet'
+                # Stream to disk — large files OOM if fully buffered
+                tmp_path = os.path.join(tempfile.gettempdir(), "import_all_data.parquet")
+                with open(tmp_path, 'wb') as f:
+                    obj = s3.get_object(Bucket=S3_BUCKET, Key=parquet_key)
+                    for chunk in obj['Body'].iter_chunks(chunk_size=8 * 1024 * 1024):
+                        f.write(chunk)
+                source = tmp_path
+            else:
+                source = str(LOCAL_DATA_DIR / "all_data.parquet")
+
+            # Use pyarrow for filtered reads if a symbol subset is requested
+            if symbols:
+                filters = [('symbol', 'in', symbols)]
+                df = pd.read_parquet(source, filters=filters)
+            else:
+                df = pd.read_parquet(source)
+
+            if self._use_s3() and os.path.exists(source):
+                os.remove(source)
+
+            # Split back into per-symbol DataFrames, restoring the date index
+            for sym, group in df.groupby('symbol'):
+                group = group.drop(columns=['symbol']).set_index('date').sort_index()
+                data_cache[sym] = group
+
+            logger.info(f"📦 Imported {len(data_cache)} symbols from parquet")
+            return data_cache
+
+        except Exception as e:
+            import traceback
+            print(f"❌ Failed to import parquet: {e}")
+            print(traceback.format_exc())
+            return {}
+
     def export_consolidated(self, data_cache: Dict[str, pd.DataFrame]) -> Dict:
         """
         Export all cached data to a single consolidated gzipped CSV file.
