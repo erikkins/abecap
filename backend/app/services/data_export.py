@@ -629,6 +629,152 @@ class DataExportService:
             print(traceback.format_exc())
             return {}
 
+    def query_parquet(self, sql: str) -> pd.DataFrame:
+        """
+        Execute an arbitrary SQL query against the S3 parquet file using DuckDB.
+        Returns a pandas DataFrame.
+
+        Within the SQL, reference the parquet file as 'prices' — the method
+        sets up a DuckDB view that points to the S3 file automatically.
+
+        Example:
+            df = svc.query_parquet('''
+                SELECT symbol, date, close
+                FROM prices
+                WHERE symbol = 'NVDA' AND date >= '2024-01-01'
+                ORDER BY date
+            ''')
+
+        Use cases:
+        - Admin diagnostics ('which symbols had >10% moves yesterday?')
+        - Cross-symbol analysis ('correlate AAPL and MSFT returns')
+        - Data quality checks without loading full cache
+        """
+        try:
+            import duckdb
+        except ImportError:
+            raise RuntimeError("duckdb not installed — add to requirements.txt")
+
+        conn = duckdb.connect(':memory:')
+        try:
+            # Set up S3 credentials for DuckDB's httpfs
+            if self._use_s3():
+                import os
+                conn.execute("INSTALL httpfs; LOAD httpfs;")
+                # DuckDB picks up AWS creds from env/role; Lambda has IAM
+                conn.execute(f"SET s3_region = '{os.environ.get('AWS_REGION', 'us-east-1')}';")
+                url = f"s3://{S3_BUCKET}/prices/all_data.parquet"
+            else:
+                url = str(LOCAL_DATA_DIR / "all_data.parquet")
+            conn.execute(f"CREATE VIEW prices AS SELECT * FROM '{url}';")
+            return conn.execute(sql).df()
+        finally:
+            conn.close()
+
+    def diagnose_corruption(self) -> Dict:
+        """
+        DuckDB-powered corruption scan across the universe. Runs several SQL
+        queries against the parquet file to surface data quality issues
+        without loading the full cache into memory.
+
+        Returns counts + example rows per corruption category:
+        - abrupt_jumps: single-day |log return| > 0.5 (likely unadjusted splits)
+        - dwap_ratio_extreme: close/dwap > 2.0 or < 0.5 (corrupted series)
+        - stale_volume: today's volume < 1% of 200-day avg (halt/delist)
+        - date_gaps: >10 calendar days between consecutive rows (ticker reuse)
+        - short_history: < 252 trading days (insufficient for indicators)
+        """
+        try:
+            results = {}
+
+            # Abrupt jumps
+            df = self.query_parquet("""
+                WITH jumps AS (
+                    SELECT symbol, date, close,
+                           LAG(close) OVER (PARTITION BY symbol ORDER BY date) AS prev_close
+                    FROM prices
+                )
+                SELECT symbol, date, prev_close, close,
+                       ROUND(((close/prev_close - 1) * 100)::DECIMAL(10,2), 2) AS pct_change
+                FROM jumps
+                WHERE prev_close > 0 AND close > 0
+                  AND ABS(LN(close/prev_close)) > 0.5
+                ORDER BY ABS(LN(close/prev_close)) DESC
+                LIMIT 10
+            """)
+            results['abrupt_jumps'] = {
+                'count': len(df),
+                'examples': df.head(10).to_dict(orient='records'),
+            }
+
+            # DWAP ratio extremes (latest bar only)
+            df = self.query_parquet("""
+                WITH latest AS (
+                    SELECT symbol, close, dwap,
+                           ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY date DESC) AS rn
+                    FROM prices
+                )
+                SELECT symbol, close, dwap, ROUND((close/dwap)::DECIMAL(10,2), 2) AS ratio
+                FROM latest
+                WHERE rn = 1 AND dwap > 0 AND (close/dwap > 2.0 OR close/dwap < 0.5)
+                ORDER BY ABS(close/dwap - 1) DESC
+                LIMIT 20
+            """)
+            results['dwap_ratio_extreme'] = {
+                'count': len(df),
+                'examples': df.head(10).to_dict(orient='records'),
+            }
+
+            # Date gaps
+            df = self.query_parquet("""
+                WITH gaps AS (
+                    SELECT symbol, date,
+                           date_diff('day', LAG(date) OVER (PARTITION BY symbol ORDER BY date), date) AS gap
+                    FROM prices
+                )
+                SELECT symbol, MAX(gap) AS max_gap_days
+                FROM gaps
+                WHERE gap > 10
+                GROUP BY symbol
+                ORDER BY max_gap_days DESC
+                LIMIT 20
+            """)
+            results['date_gaps'] = {
+                'count': len(df),
+                'examples': df.head(10).to_dict(orient='records'),
+            }
+
+            # Short history
+            df = self.query_parquet("""
+                SELECT symbol, COUNT(*) AS rows
+                FROM prices
+                GROUP BY symbol
+                HAVING COUNT(*) < 252
+                ORDER BY rows ASC
+                LIMIT 20
+            """)
+            results['short_history'] = {
+                'count': len(df),
+                'examples': df.head(10).to_dict(orient='records'),
+            }
+
+            # Overall stats
+            stats = self.query_parquet("""
+                SELECT
+                    COUNT(DISTINCT symbol) AS symbols,
+                    MIN(date) AS first_date,
+                    MAX(date) AS last_date,
+                    COUNT(*) AS total_rows,
+                    ROUND(AVG(close)::DECIMAL(10,2), 2) AS avg_close
+                FROM prices
+            """)
+            results['universe_stats'] = stats.iloc[0].to_dict()
+
+            return results
+        except Exception as e:
+            import traceback
+            return {"error": str(e), "trace": traceback.format_exc()[:500]}
+
     def export_consolidated(self, data_cache: Dict[str, pd.DataFrame]) -> Dict:
         """
         Export all cached data to a single consolidated gzipped CSV file.

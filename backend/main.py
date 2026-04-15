@@ -3414,6 +3414,44 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # DuckDB-powered diagnostic scan over the S3 parquet file.
+    # {"parquet_diagnose": {"_": 1}}
+    if event.get("parquet_diagnose"):
+        print("🦆 Running DuckDB corruption diagnostic over parquet")
+        try:
+            from app.services.data_export import data_export_service
+            return data_export_service.diagnose_corruption()
+        except Exception as e:
+            import traceback
+            return {"error": str(e), "trace": traceback.format_exc()[:800]}
+
+    # Arbitrary SQL against the parquet file.
+    # {"parquet_query": {"sql": "SELECT ... FROM prices ..."}}
+    if event.get("parquet_query"):
+        cfg = event.get("parquet_query") or {}
+        sql = cfg.get("sql")
+        if not sql:
+            return {"error": "sql required"}
+        try:
+            from app.services.data_export import data_export_service
+            df = data_export_service.query_parquet(sql)
+            # Convert to records, cap at 200 rows for safety
+            records = df.head(200).to_dict(orient='records')
+            # Handle non-JSON-serializable types (Timestamp, Decimal)
+            for r in records:
+                for k, v in list(r.items()):
+                    if hasattr(v, 'isoformat'):
+                        r[k] = v.isoformat()
+                    elif hasattr(v, '__float__'):
+                        try:
+                            r[k] = float(v)
+                        except Exception:
+                            r[k] = str(v)
+            return {"rows": records, "count": len(df), "truncated": len(df) > 200}
+        except Exception as e:
+            import traceback
+            return {"error": str(e), "trace": traceback.format_exc()[:500]}
+
     # Test parquet shadow write — exports current cache to S3 parquet + verifies
     # round-trip read. {"test_parquet_roundtrip": {"_": 1}}
     if event.get("test_parquet_roundtrip"):
