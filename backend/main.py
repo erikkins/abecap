@@ -3706,7 +3706,6 @@ def handler(event, context):
         print(f"🔧 Refetching {len(symbols)} symbols with SPLIT adjustment")
 
         try:
-            from datetime import datetime, timedelta
             from alpaca.data.historical import StockHistoricalDataClient
             from alpaca.data.requests import StockBarsRequest
             from alpaca.data.timeframe import TimeFrame
@@ -3820,7 +3819,7 @@ def handler(event, context):
         print(f"🧪 Alpaca corp-actions test: {symbols} last {days_back}d")
 
         try:
-            from datetime import datetime, timedelta, date as _date
+            from datetime import date as _date
             from alpaca.data.historical.corporate_actions import CorporateActionsClient
             from alpaca.data.requests import CorporateActionsRequest
             from app.core.config import settings as _settings
