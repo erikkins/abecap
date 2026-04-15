@@ -107,7 +107,8 @@
 - **Lambda AL2023 migration** — update Dockerfile base from `python:3.9` to `python:3.11+` (AL2023). Enables DuckDB httpfs extension (needs glibc 2.28+), 10-25% faster Python. Zero AWS cost increase. Estimated 2-4 hours. Do after Parquet Session 3 cutover completes.
 
 ## Data Hygiene Roadmap
-- **[Layer 2 — corp-actions + ticker-reuse detection](project_data_hygiene_layer2_apr2026.md)** — nightly Alpaca corp-actions poll + asset-ID integrity check. Catches ticker reuse, silent splits, delistings before next-day scan. ~4-5 hour build.
+- **[Layer 2 — corp-actions + ticker-reuse detection](project_data_hygiene_layer2_apr2026.md)** — nightly Alpaca corp-actions poll + asset-ID integrity check. Catches ticker reuse, silent splits, delistings before next-day scan. ~4-5 hour build. DEPLOYED Apr 15 2026.
+- **[Alpaca Trading API symbol inconsistency](feedback_alpaca_asset_api_inconsistency.md)** — MMC and similar real tradeable symbols return 404 on `/v2/assets/{sym}` while Data API has full bars. Bulk-fetch via `get_all_assets()` + data-API fallback fixes (~30-60 min).
 
 ## Trial 37 Validation Tasks
 - **MDD forensics** — once 8-date clean run completes, pull equity curve for a representative start date, identify peak→trough window, cross-ref with trade exits during that window. Determine specific event (2022 bear, summer 2024, or regime-shift lag).
@@ -139,6 +140,7 @@
 - [Twitter media upload field naming](reference_twitter_media_api.md) — use 'media' for raw bytes, 'media_data' for base64; wrong field silently drops images
 
 ## Other
+- [No dated callouts in design docs](feedback_no_dated_callouts_in_docs.md) — don't sprinkle "(Apr 2026)" or "newly added" markers; keep docs evergreen, let git history carry the session-dated context
 - [Signal frequency = "3-4 per month"](feedback_signal_frequency_claim.md) — never "6-8 every 2 weeks" or "~15/month"; both are stale drift
 - [SVG attachments cause 400 loops](feedback_svg_attachments.md) — always pre-convert SVG→PNG before downstream use
 - [SLOW DOWN before Lambda jobs](feedback_slow_down_lambda.md) — think first, compute locally if possible, ONE job at a time
