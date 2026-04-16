@@ -2349,6 +2349,13 @@ function Dashboard() {
         setCache(CACHE_KEYS.DASHBOARD, data);
       }
 
+      // Reload user positions so metric cards update (Portfolio Value, P&L, Positions)
+      const posResult = await api.get('/api/portfolio/positions');
+      if (posResult.positions) {
+        setPositions(posResult.positions);
+        setCache(CACHE_KEYS.POSITIONS, posResult.positions);
+      }
+
       // Also reload trades
       const tradesResult = await api.get('/api/portfolio/trades?limit=50');
       if (tradesResult.trades) {
