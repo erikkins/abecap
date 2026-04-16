@@ -1730,7 +1730,37 @@ class WalkForwardService:
             )
             db.add(sim_record)
 
-        await db.commit()
+        # Final DB commit with retry + reconnect. Long runs (29+ hours) can
+        # exhaust the async connection; without this retry, the entire run's
+        # output is lost when the final INSERT fails with
+        # asyncpg.ConnectionDoesNotExistError — which cost us 29 hours on
+        # run3 (Apr 16 2026). The retry reconnects and re-executes the same
+        # pending transaction.
+        _db_commit_err = None
+        for _attempt in range(1, 4):
+            try:
+                await db.commit()
+                _db_commit_err = None
+                break
+            except Exception as _ce:
+                _db_commit_err = _ce
+                print(f"[WF-SERVICE] DB commit attempt {_attempt}/3 failed: {_ce!r}")
+                # Rollback the failed txn, sleep briefly, then retry
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
+                await asyncio.sleep(2 ** _attempt)
+
+        if _db_commit_err is not None:
+            # All retries exhausted. Log the data SIZE so we know what was
+            # about to be written and surface the result anyway — the
+            # caller (local runner) will pickle it to disk.
+            print(f"[WF-SERVICE] ⚠️ FINAL DB COMMIT FAILED after 3 retries: {_db_commit_err!r}")
+            print(f"[WF-SERVICE] Result will be RETURNED to caller despite DB failure — pickle it!")
+            print(f"[WF-SERVICE] Payload sizes — switch_history: {len(switch_history_data)} bytes, "
+                  f"equity_curve: {len(equity_curve_data)} bytes, "
+                  f"trades: {len(trades_data)} bytes, errors: {len(errors_data)} bytes")
 
         # Log error summary
         if simulation_errors:
