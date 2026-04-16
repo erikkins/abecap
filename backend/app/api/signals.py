@@ -1058,11 +1058,25 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
             generated = existing_dashboard.get('generated_at', '')
             cached_regime = existing_dashboard.get('regime_forecast', {}).get('current_regime')
             current_regime = regime_forecast_data.get('current_regime') if regime_forecast_data else None
-            if date.today().isoformat() in generated and cached_regime == current_regime:
+            # Cache invalidation now also checks signal composition — not just
+            # date+regime. Previously an intraday_monitor run at 11am would
+            # generate a briefing when fresh_count=8, then the 4:30 PM scan
+            # would hit the cache even though fresh_count had dropped to 6.
+            # Result: published briefing cited wrong counts.
+            cached_total = len(existing_dashboard.get('buy_signals', []))
+            cached_fresh = sum(1 for s in existing_dashboard.get('buy_signals', []) if s.get('is_fresh'))
+            current_total = len(buy_signals)
+            current_fresh = sum(1 for s in buy_signals if s.get('is_fresh'))
+            if (date.today().isoformat() in generated
+                    and cached_regime == current_regime
+                    and cached_total == current_total
+                    and cached_fresh == current_fresh):
                 market_context = existing_dashboard['market_context']
-                print(f"📝 Market context (cached, regime={cached_regime}): {market_context}")
+                print(f"📝 Market context (cached, regime={cached_regime}, total={cached_total}, fresh={cached_fresh}): {market_context}")
             elif cached_regime != current_regime:
                 print(f"📝 Market context cache invalidated: regime changed {cached_regime} → {current_regime}")
+            elif cached_total != current_total or cached_fresh != current_fresh:
+                print(f"📝 Market context cache invalidated: signals shifted (cached {cached_total}/{cached_fresh} fresh → now {current_total}/{current_fresh} fresh)")
 
         # Only generate if not already cached for today
         if not market_context:

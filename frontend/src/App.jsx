@@ -3579,6 +3579,13 @@ function Dashboard() {
 
                       return (
                         <div>
+                          {/* AI Market Briefing — shown whenever it exists, not just empty state */}
+                          {dashboardData?.market_context && (
+                            <div className="px-4 py-3 mx-4 mt-4 mb-2 bg-blue-50/50 border border-blue-100 rounded-lg">
+                              <p className="text-sm text-gray-700 italic leading-relaxed">{dashboardData.market_context}</p>
+                            </div>
+                          )}
+
                           {/* Buy Signals section (fresh) */}
                           {freshSignals.length > 0 ? (
                             <div>
