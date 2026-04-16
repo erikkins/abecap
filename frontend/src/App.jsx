@@ -2707,7 +2707,9 @@ function Dashboard() {
                 {/* Metrics row */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="text-center">
-                    <p className="text-[10px] text-indigo-200 uppercase tracking-wide">Beating SPY</p>
+                    <p className="text-[10px] text-indigo-200 uppercase tracking-wide">
+                      {journeyData.alpha_pct != null && journeyData.alpha_pct < 0 ? 'vs SPY' : 'Beating SPY'}
+                    </p>
                     <p className={`text-xl font-bold ${journeyData.alpha_pct != null ? ((journeyData.alpha_pct >= 0) ? 'text-green-300' : 'text-red-300') : ''}`}>
                       {journeyData.alpha_pct != null
                         ? `${journeyData.alpha_pct >= 0 ? '+' : ''}${journeyData.alpha_pct}%`
