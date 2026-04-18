@@ -125,6 +125,7 @@
 
 - **[Strategy optimization FINAL](project_position_sizing_tests_apr2026.md)** — TPE Trial 37 deployed: +240% avg, 24% MaxDD, ~28% ann. 2023 weakness accepted.
 - **[MDD reduction ideas](project_mdd_reduction_ideas.md)** — VIX-adjusted sizing, drawdown circuit breaker, bear regime stops — for TPE Run 2
+- **[Bear Ripper strategy](project_bear_ripper_strategy.md)** — targeted bear-regime sub-strategy: find 1-2 high-conviction trades during bear markets to reduce MDD from 30% to ~20%. Start after clean-data strategy is locked.
 - **[BREAKTHROUGH: 19.9% avg annualized](project_tournament_breakthrough.md)** — near_50d_high_pct 5%→3%, validated 7/7 start dates
 - [WF job dedup](project_wf_dedup.md) — add dedup check before creating WF jobs
 - [WF launch protocol](feedback_wf_launch.md) — ALWAYS use periods_limit=1, test ONE job first
