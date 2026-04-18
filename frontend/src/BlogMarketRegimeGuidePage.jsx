@@ -48,6 +48,8 @@ const actionTable = [
 export default function BlogMarketRegimeGuidePage() {
   useEffect(() => {
     document.title = "Market Regime Trading: A Beginner's Guide | RigaCap";
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute('content', 'Most investors think bull or bear. Reality has 7 distinct market regimes. Learn how to read the market mood and trade accordingly.');
   }, []);
 
   return (

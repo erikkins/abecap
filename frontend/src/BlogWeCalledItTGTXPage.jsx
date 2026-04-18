@@ -4,6 +4,8 @@ import { ArrowLeft, Zap, TrendingUp, DollarSign, BarChart3, ArrowRight, Target, 
 
 export default function BlogWeCalledItTGTXPage() {
   useEffect(() => { document.title = 'We Called It: TGTX +46% | RigaCap'; }, []);
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute('content', 'How RigaCap spotted TG Therapeutics +46% breakout in just 14 days. A $22 biotech stock nobody was watching.');
   return (
     <div className="min-h-screen bg-gray-950 text-gray-300">
       {/* Nav */}

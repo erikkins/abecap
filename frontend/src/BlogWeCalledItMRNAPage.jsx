@@ -4,6 +4,8 @@ import { ArrowLeft, TrendingUp, ArrowRight, DollarSign, ShieldCheck, Target, Clo
 
 export default function BlogWeCalledItMRNAPage() {
   useEffect(() => { document.title = 'We Called It: Moderna +51% | RigaCap'; }, []);
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute('content', 'How RigaCap caught Moderna +51% run in summer 2021 and locked in gains with a trailing stop before the stock crashed 66%.');
   return (
     <div className="min-h-screen bg-gray-950 text-gray-300">
       {/* Nav */}

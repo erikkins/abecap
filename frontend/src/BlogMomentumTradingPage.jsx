@@ -4,6 +4,8 @@ import { ArrowLeft, ArrowRight, TrendingUp, Filter, Shield, Zap, BarChart3, Acti
 
 export default function BlogMomentumTradingPage() {
   useEffect(() => { document.title = 'Momentum Trading Explained | RigaCap'; }, []);
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute('content', 'Momentum trading is not day trading. Learn how RigaCap uses DWAP timing, momentum ranking, and volume confirmation to catch breakouts.');
   return (
     <div className="min-h-screen bg-gray-950 text-gray-300">
       {/* Nav */}

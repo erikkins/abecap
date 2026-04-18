@@ -4,6 +4,8 @@ import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, BarChart3, Target, Ale
 
 export default function BlogWalkForwardResultsPage() {
   useEffect(() => { document.title = 'Inside Our 5-Year Walk-Forward | RigaCap'; }, []);
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute('content', 'Inside RigaCap 5-year walk-forward simulation: +297% total return, 1.10 Sharpe ratio, tested across 138 biweekly periods.');
   return (
     <div className="min-h-screen bg-gray-950 text-gray-300">
       {/* Nav */}
