@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, TrendingUp, Filter, Shield, Zap, BarChart3, Acti
 export default function BlogMomentumTradingPage() {
   useEffect(() => { document.title = 'Momentum Trading Explained | RigaCap'; }, []);
     const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute('content', 'Momentum trading is not day trading. Learn how RigaCap uses DWAP timing, momentum ranking, and volume confirmation to catch breakouts.');
+    if (meta) meta.setAttribute('content', 'Momentum trading is not day trading. Learn how RigaCap uses breakout timing, momentum ranking, and volume confirmation to catch breakouts.');
   return (
     <div className="min-h-screen bg-gray-950 text-gray-300">
       {/* Nav */}
@@ -98,7 +98,7 @@ export default function BlogMomentumTradingPage() {
                 </div>
                 <div>
                   <h3 className="text-white font-semibold text-base m-0">Filter 1: Timing</h3>
-                  <p className="text-gray-500 text-sm m-0">DWAP Breakout</p>
+                  <p className="text-gray-500 text-sm m-0">Breakout Detection</p>
                 </div>
               </div>
               <p className="text-gray-400 text-sm m-0">
@@ -259,7 +259,7 @@ export default function BlogMomentumTradingPage() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
-                  <p className="text-gray-500 text-xs m-0">DWAP Breakout</p>
+                  <p className="text-gray-500 text-xs m-0">Breakout Detection</p>
                   <p className="text-green-400 font-semibold text-sm m-0">+7.2% above</p>
                 </div>
                 <div>

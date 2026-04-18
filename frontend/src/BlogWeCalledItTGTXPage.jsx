@@ -116,7 +116,7 @@ export default function BlogWeCalledItTGTXPage() {
                 <span className="text-purple-400 font-bold">1</span>
               </div>
               <div>
-                <h3 className="text-white font-semibold mb-1">DWAP Breakout Confirmed</h3>
+                <h3 className="text-white font-semibold mb-1">Breakout Detection Confirmed</h3>
                 <p className="text-gray-400 text-sm m-0">
                   Price crossed well above its 200-day weighted average — the timing
                   signal that catches early breakouts before they become obvious. TGTX

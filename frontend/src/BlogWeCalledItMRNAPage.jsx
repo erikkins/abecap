@@ -89,7 +89,7 @@ export default function BlogWeCalledItMRNAPage() {
           </p>
           <p className="text-gray-300 leading-relaxed text-base">
             Our ensemble system noticed. Three independent signals aligned simultaneously:
-            the DWAP breakout confirmed a shift in the stock's price structure, momentum
+            the breakout detection confirmed a shift in the stock's price structure, momentum
             ranking placed MRNA in the top 5 of our entire universe, and a volume spike
             confirmed institutional money was flowing in. When the math lines up like
             that, the system acts.
@@ -142,7 +142,7 @@ export default function BlogWeCalledItMRNAPage() {
                 </div>
                 <div>
                   <div className="text-white font-semibold text-sm">Jun 10 — Entry at $217</div>
-                  <div className="text-gray-500 text-xs mt-0.5">Ensemble signal fires: DWAP breakout + top momentum + volume spike</div>
+                  <div className="text-gray-500 text-xs mt-0.5">Ensemble signal fires: breakout detection + top momentum + volume spike</div>
                 </div>
               </div>
               <div className="flex items-start gap-4 pl-1">
@@ -279,7 +279,7 @@ export default function BlogWeCalledItMRNAPage() {
                 <span className="text-emerald-400 font-bold">1</span>
               </div>
               <div>
-                <h3 className="text-white font-semibold mb-1">DWAP Breakout (Timing)</h3>
+                <h3 className="text-white font-semibold mb-1">Breakout Detection (Timing)</h3>
                 <p className="text-gray-400 text-sm m-0">
                   MRNA's price crossed 5% above its 200-day weighted average — a reliable
                   signal that institutional accumulation is shifting the stock's equilibrium
