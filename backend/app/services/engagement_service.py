@@ -33,7 +33,7 @@ MONITORED_ACCOUNTS = [
     ("elerianm", "Mohamed El-Erian", "macro economics"),
     ("TrendSpider", "TrendSpider", "technical analysis platform"),
     # High-value additions to follow
-    ("TraderLion_", "TraderLion", "momentum/growth trading community"),
+    ("TraderLion", "TraderLion", "momentum/growth trading community"),
     ("IBDinvestors", "IBD Investors", "momentum/growth methodology"),
     ("WillieDelwiche", "Willie Delwiche", "market breadth + regimes"),
     ("AndrewThrasher", "Andrew Thrasher", "market breadth analysis"),
