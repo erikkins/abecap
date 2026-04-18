@@ -13,24 +13,32 @@ from typing import List, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-# Curated finance accounts to monitor. Add/remove as needed.
+# Curated finance accounts to monitor — pulled from RigaCap's actual
+# Twitter following list + hand-picked additions for engagement value.
 # Format: (twitter_handle, display_name, why_we_follow)
 MONITORED_ACCOUNTS = [
-    ("unusual_whales", "Unusual Whales", "options flow + market data"),
-    ("TrendSpider", "TrendSpider", "technical analysis platform"),
-    ("OptionsPlay", "OptionsPlay", "options strategy education"),
-    ("stockabortiond", "The Stock Sniper", "momentum trading"),
-    ("FinanceLancelot", "Finance Lancelot", "market commentary"),
-    ("CiovaccoCapital", "Ciovacco Capital", "regime/trend analysis"),
-    ("AndrewThrasher", "Andrew Thrasher", "market breadth + regimes"),
-    ("sentabortiond", "Sentiment Trader", "sentiment/fear analysis"),
-    ("LizAnnSonders", "Liz Ann Sonders", "macro market commentary"),
-    ("RyanDetrick", "Ryan Detrick", "seasonality + market stats"),
-    ("jabortiondmoor7", "Jason Moore", "quant trading"),
-    ("Investopedia", "Investopedia", "finance education"),
-    ("tastylive", "tastylive", "trading education"),
-    ("TheChartGuys", "The Chart Guys", "technical analysis"),
+    # Already following on Twitter
     ("MacroCharts", "Macro Charts", "macro + regime analysis"),
+    ("sentimentrader", "SentimenTrader", "sentiment/fear analysis"),
+    ("markminervini", "Mark Minervini", "SEPA momentum methodology"),
+    ("unusual_whales", "Unusual Whales", "market data + flow"),
+    ("GarethSoloway", "Gareth Soloway", "technical analysis + macro"),
+    ("LindaRaschke", "Linda Raschke", "systematic trading legend"),
+    ("Ritholtz", "Barry Ritholtz", "market commentary + macro"),
+    ("morganhousel", "Morgan Housel", "investing psychology"),
+    ("PeterLBrandt", "Peter Brandt", "technical analysis + risk mgmt"),
+    ("mikeharrisNY", "Michael Harris", "quant analysis"),
+    ("thetraderisk", "Trade Risk", "objective market research"),
+    ("RedDogT3", "Scott Redler", "market strategy"),
+    ("elerianm", "Mohamed El-Erian", "macro economics"),
+    ("TrendSpider", "TrendSpider", "technical analysis platform"),
+    # High-value additions to follow
+    ("TraderLion_", "TraderLion", "momentum/growth trading community"),
+    ("IBDinvestors", "IBD Investors", "momentum/growth methodology"),
+    ("WillieDelwiche", "Willie Delwiche", "market breadth + regimes"),
+    ("AndrewThrasher", "Andrew Thrasher", "market breadth analysis"),
+    ("RyanDetrick", "Ryan Detrick", "seasonality + market stats"),
+    ("LizAnnSonders", "Liz Ann Sonders", "Schwab chief strategist"),
 ]
 
 # Topics we have strong takes on — used for keyword filtering
