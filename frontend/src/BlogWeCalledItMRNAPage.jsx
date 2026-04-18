@@ -281,9 +281,9 @@ export default function BlogWeCalledItMRNAPage() {
               <div>
                 <h3 className="text-white font-semibold mb-1">Breakout Detection (Timing)</h3>
                 <p className="text-gray-400 text-sm m-0">
-                  MRNA's price crossed 5% above its 200-day weighted average — a reliable
+                  MRNA's price broke decisively above a key long-term support level — a reliable
                   signal that institutional accumulation is shifting the stock's equilibrium
-                  higher. This catches breakouts early, before they show up on charts.
+                  higher. Our proprietary breakout indicator catches these moves early.
                 </p>
               </div>
             </div>

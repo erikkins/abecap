@@ -118,9 +118,9 @@ export default function BlogWeCalledItTGTXPage() {
               <div>
                 <h3 className="text-white font-semibold mb-1">Breakout Detection Confirmed</h3>
                 <p className="text-gray-400 text-sm m-0">
-                  Price crossed well above its 200-day weighted average — the timing
-                  signal that catches early breakouts before they become obvious. TGTX
-                  was showing sustained strength above its long-term baseline, not a
+                  Price broke decisively above its long-term support level — our proprietary
+                  breakout indicator catches these moves before they become obvious. TGTX
+                  was showing sustained strength above its baseline, not a
                   one-day spike.
                 </p>
               </div>
