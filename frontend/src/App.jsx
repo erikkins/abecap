@@ -19,6 +19,12 @@ import Blog2022StoryPage from './Blog2022StoryPage';
 import BlogBacktestsPage from './BlogBacktestsPage';
 import BlogMarketCrashPage from './BlogMarketCrashPage';
 import BlogMarketRegimesPage from './BlogMarketRegimesPage';
+import BlogMarketRegimeGuidePage from './BlogMarketRegimeGuidePage';
+import BlogMomentumTradingPage from './BlogMomentumTradingPage';
+import BlogTrailingStopsPage from './BlogTrailingStopsPage';
+import BlogWalkForwardResultsPage from './BlogWalkForwardResultsPage';
+import BlogWeCalledItMRNAPage from './BlogWeCalledItMRNAPage';
+import BlogWeCalledItTGTXPage from './BlogWeCalledItTGTXPage';
 import BlogIndexPage from './BlogIndexPage';
 import { PrivacyPage, TermsPage, ContactPage } from './LegalPages';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -4437,6 +4443,12 @@ export default function App() {
         <Route path="/blog/backtests" element={<BlogBacktestsPage />} />
         <Route path="/blog/market-crash" element={<BlogMarketCrashPage />} />
         <Route path="/blog/market-regimes" element={<BlogMarketRegimesPage />} />
+        <Route path="/blog/trailing-stops" element={<BlogTrailingStopsPage />} />
+        <Route path="/blog/momentum-trading" element={<BlogMomentumTradingPage />} />
+        <Route path="/blog/walk-forward-results" element={<BlogWalkForwardResultsPage />} />
+        <Route path="/blog/market-regime-guide" element={<BlogMarketRegimeGuidePage />} />
+        <Route path="/blog/we-called-it-mrna" element={<BlogWeCalledItMRNAPage />} />
+        <Route path="/blog/we-called-it-tgtx" element={<BlogWeCalledItTGTXPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/app" element={

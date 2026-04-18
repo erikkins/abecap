@@ -1,8 +1,32 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, BookOpen, BarChart3, Shield, Brain } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, BarChart3, Shield, Brain, TrendingUp, Zap, Target, LineChart } from 'lucide-react';
 
 const POSTS = [
+  {
+    title: 'Inside Our 5-Year Walk-Forward: +297%',
+    path: '/blog/walk-forward-results',
+    description: 'We spent months trying to break our own strategy. It held up.',
+    category: 'Results',
+    icon: LineChart,
+    badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  },
+  {
+    title: 'We Called It: Moderna +51%',
+    path: '/blog/we-called-it-mrna',
+    description: 'How the ensemble caught MRNA\'s summer 2021 run — and locked in gains before the crash.',
+    category: 'We Called It',
+    icon: TrendingUp,
+    badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+  },
+  {
+    title: 'We Called It: TGTX +46%',
+    path: '/blog/we-called-it-tgtx',
+    description: 'A $22 biotech nobody was watching. Our system was.',
+    category: 'We Called It',
+    icon: Zap,
+    badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+  },
   {
     title: 'The 2022 Story',
     path: '/blog/2022-story',
@@ -10,6 +34,30 @@ const POSTS = [
     category: 'Case Study',
     icon: BarChart3,
     badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+  },
+  {
+    title: 'Momentum Trading Explained',
+    path: '/blog/momentum-trading',
+    description: 'Not day trading. Not guessing. A rules-based system that catches breakouts.',
+    category: 'Education',
+    icon: Target,
+    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+  },
+  {
+    title: 'How Trailing Stops Protect Your Portfolio',
+    path: '/blog/trailing-stops',
+    description: 'The exit strategy that lets winners run and cuts losers short — automatically.',
+    category: 'Education',
+    icon: Shield,
+    badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  },
+  {
+    title: 'Market Regime Trading: A Beginner\'s Guide',
+    path: '/blog/market-regime-guide',
+    description: 'Most investors think bull or bear. Reality has seven moods.',
+    category: 'Education',
+    icon: BookOpen,
+    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
   },
   {
     title: 'Why Most Backtests Are Lies',
@@ -28,7 +76,7 @@ const POSTS = [
     badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
   },
   {
-    title: 'The 7 Market Regimes',
+    title: 'The 7 Market Regimes (Deep Dive)',
     path: '/blog/market-regimes',
     description: 'Most strategies have one mode. Ours detects seven.',
     category: 'Intelligence',

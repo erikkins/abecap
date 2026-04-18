@@ -1,0 +1,450 @@
+import React, { useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, TrendingUp, Filter, Shield, Zap, BarChart3, Activity, AlertTriangle } from 'lucide-react';
+
+export default function BlogMomentumTradingPage() {
+  useEffect(() => { document.title = 'Momentum Trading Explained | RigaCap'; }, []);
+  return (
+    <div className="min-h-screen bg-gray-950 text-gray-300">
+      {/* Nav */}
+      <nav className="bg-gray-900 border-b border-gray-800">
+        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
+          <Link to="/" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+            <ArrowLeft size={18} />
+            <span className="text-sm">Back to RigaCap</span>
+          </Link>
+        </div>
+      </nav>
+
+      {/* Hero */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-blue-900/80 via-gray-900 to-indigo-900/60">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl"></div>
+        </div>
+        <div className="relative max-w-3xl mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-sm font-medium mb-6">
+            <TrendingUp className="w-4 h-4 text-blue-300" />
+            <span className="text-white/90">Strategy Deep Dive</span>
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight mb-4">
+            Momentum Trading Explained
+          </h1>
+          <p className="text-lg text-blue-200/80 max-w-2xl mx-auto">
+            How stock signals actually work — and why three filters
+            <br className="hidden sm:block" />
+            are better than one.
+          </p>
+        </div>
+      </section>
+
+      {/* Article Body */}
+      <article className="max-w-3xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+        <div className="prose prose-invert prose-lg max-w-none">
+
+          {/* Section 1: What is Momentum Trading */}
+          <h2 className="text-2xl font-bold text-white mt-0 mb-4 flex items-center gap-2">
+            <TrendingUp className="w-6 h-6 text-blue-400 flex-shrink-0" />
+            What Is Momentum Trading?
+          </h2>
+          <p className="text-gray-300 leading-relaxed text-base">
+            Momentum trading is built on a simple observation: stocks that have been going up
+            tend to keep going up, and stocks that have been going down tend to keep going down.
+            This isn't speculation — it's one of the most well-documented phenomena in academic
+            finance, studied and confirmed across decades of market data.
+          </p>
+          <p className="text-gray-300 leading-relaxed text-base">
+            But momentum trading is <em>not</em> day trading. It's not staring at charts all day
+            or making impulsive decisions. It's a systematic, rules-based approach where every
+            buy and sell decision follows predefined criteria. No emotions, no hunches, no overrides.
+          </p>
+          <p className="text-gray-300 leading-relaxed text-base">
+            A momentum system doesn't care about headlines, earnings surprises, or social media
+            sentiment. It measures price behavior against objective thresholds and acts only when
+            the data says to act.
+          </p>
+
+          {/* Highlight Box */}
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-6 my-8">
+            <p className="text-blue-200 font-semibold text-lg m-0 mb-2">
+              Momentum is not prediction.
+            </p>
+            <p className="text-blue-200/80 m-0">
+              A momentum system doesn't try to predict what a stock will do. It identifies
+              what a stock is <em>already doing</em> — trending — and rides that trend until
+              the data says it's over. The edge comes from consistency, not clairvoyance.
+            </p>
+          </div>
+
+          {/* Section 2: The Three Filters */}
+          <h2 className="text-2xl font-bold text-white mt-12 mb-4 flex items-center gap-2">
+            <Filter className="w-6 h-6 text-indigo-400 flex-shrink-0" />
+            The Three Filters Behind Every Signal
+          </h2>
+          <p className="text-gray-300 leading-relaxed text-base">
+            RigaCap doesn't use a single indicator to generate signals. Instead, every potential
+            trade must pass through three independent filters before it becomes a signal. Each
+            filter targets a different dimension of stock behavior.
+          </p>
+
+          {/* Filter Cards */}
+          <div className="grid gap-4 my-8 not-prose">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-white font-semibold text-base m-0">Filter 1: Timing</h3>
+                  <p className="text-gray-500 text-sm m-0">DWAP Breakout</p>
+                </div>
+              </div>
+              <p className="text-gray-400 text-sm m-0">
+                The stock's price must break above its Daily Weighted Average Price by a meaningful
+                margin. This catches early breakouts — moments when a stock transitions from
+                consolidation into a genuine uptrend. Without this filter, you'd be buying stocks
+                that are merely drifting sideways.
+              </p>
+            </div>
+
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-white font-semibold text-base m-0">Filter 2: Quality</h3>
+                  <p className="text-gray-500 text-sm m-0">Momentum Ranking</p>
+                </div>
+              </div>
+              <p className="text-gray-400 text-sm m-0">
+                Every stock in the universe is scored on a composite momentum metric — a blend of
+                short-term momentum, long-term momentum, and a volatility penalty. Only the
+                highest-ranked stocks survive. This ensures you're not just buying breakouts,
+                but the <em>best</em> breakouts.
+              </p>
+            </div>
+
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
+                  <Activity className="w-5 h-5 text-green-400" />
+                </div>
+                <div>
+                  <h3 className="text-white font-semibold text-base m-0">Filter 3: Confirmation</h3>
+                  <p className="text-gray-500 text-sm m-0">Price + Volume</p>
+                </div>
+              </div>
+              <p className="text-gray-400 text-sm m-0">
+                The stock must be trading near its 50-day high, with a volume spike confirming
+                institutional interest. A breakout without volume is often a fake-out. This filter
+                separates real institutional moves from noise.
+              </p>
+            </div>
+          </div>
+
+          {/* Section 3: Why 3 Filters Matter */}
+          <h2 className="text-2xl font-bold text-white mt-12 mb-4 flex items-center gap-2">
+            <Shield className="w-6 h-6 text-green-400 flex-shrink-0" />
+            Why Three Filters, Not One?
+          </h2>
+          <p className="text-gray-300 leading-relaxed text-base">
+            Any single filter catches too many false positives. A stock can break above its
+            weighted average and immediately reverse. A stock can rank high on momentum from
+            a one-day spike that doesn't sustain. A stock can be near its 50-day high on
+            declining volume, suggesting the move is exhausted.
+          </p>
+          <p className="text-gray-300 leading-relaxed text-base">
+            When all three agree simultaneously, something meaningful is happening. The stock
+            is breaking out (timing), it's one of the strongest movers in the market (quality),
+            and institutions are stepping in with real volume (confirmation). That convergence
+            creates a high-conviction signal.
+          </p>
+
+          {/* Comparison Table */}
+          <div className="my-8 not-prose overflow-x-auto">
+            <table className="w-full text-sm border border-gray-800 rounded-xl overflow-hidden">
+              <thead>
+                <tr className="bg-gray-900">
+                  <th className="text-left text-gray-400 font-medium px-4 py-3 border-b border-gray-800">Scenario</th>
+                  <th className="text-center text-gray-400 font-medium px-4 py-3 border-b border-gray-800">Timing</th>
+                  <th className="text-center text-gray-400 font-medium px-4 py-3 border-b border-gray-800">Quality</th>
+                  <th className="text-center text-gray-400 font-medium px-4 py-3 border-b border-gray-800">Confirm</th>
+                  <th className="text-left text-gray-400 font-medium px-4 py-3 border-b border-gray-800">Outcome</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-gray-800/50">
+                  <td className="text-gray-300 px-4 py-3">Stock breaks out on low volume</td>
+                  <td className="text-center text-green-400 px-4 py-3">Pass</td>
+                  <td className="text-center text-green-400 px-4 py-3">Pass</td>
+                  <td className="text-center text-red-400 px-4 py-3">Fail</td>
+                  <td className="text-gray-500 px-4 py-3">No signal — likely fake-out</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="text-gray-300 px-4 py-3">Momentum spike, no breakout</td>
+                  <td className="text-center text-red-400 px-4 py-3">Fail</td>
+                  <td className="text-center text-green-400 px-4 py-3">Pass</td>
+                  <td className="text-center text-green-400 px-4 py-3">Pass</td>
+                  <td className="text-gray-500 px-4 py-3">No signal — chasing, not leading</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="text-gray-300 px-4 py-3">Near high but weak ranking</td>
+                  <td className="text-center text-green-400 px-4 py-3">Pass</td>
+                  <td className="text-center text-red-400 px-4 py-3">Fail</td>
+                  <td className="text-center text-green-400 px-4 py-3">Pass</td>
+                  <td className="text-gray-500 px-4 py-3">No signal — mediocre momentum</td>
+                </tr>
+                <tr>
+                  <td className="text-white font-medium px-4 py-3">All three aligned</td>
+                  <td className="text-center text-green-400 px-4 py-3">Pass</td>
+                  <td className="text-center text-green-400 px-4 py-3">Pass</td>
+                  <td className="text-center text-green-400 px-4 py-3">Pass</td>
+                  <td className="text-amber-400 font-medium px-4 py-3">Signal fired</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-gray-300 leading-relaxed text-base">
+            Think of it as triangulation. One reading can be wrong. Three independent readings
+            pointing the same direction dramatically reduce false signals and increase the
+            probability you're entering a genuine trend.
+          </p>
+
+          {/* Section 4: Ensemble Scoring */}
+          <h2 className="text-2xl font-bold text-white mt-12 mb-4 flex items-center gap-2">
+            <BarChart3 className="w-6 h-6 text-amber-400 flex-shrink-0" />
+            How Ensemble Scoring Works
+          </h2>
+          <p className="text-gray-300 leading-relaxed text-base">
+            Once a stock passes all three filters, it receives a composite score that ranks
+            it against other qualifying stocks. The formula blends three components:
+          </p>
+          <ul className="text-gray-300 text-base space-y-2">
+            <li>
+              <strong className="text-white">Short-term momentum (10-day):</strong> Captures
+              recent acceleration. A stock surging over the last two weeks gets a higher
+              short-term score than one that's been flat.
+            </li>
+            <li>
+              <strong className="text-white">Long-term momentum (60-day):</strong> Confirms the
+              trend has staying power. A 10-day spike means little if the stock has been
+              declining for three months.
+            </li>
+            <li>
+              <strong className="text-white">Volatility penalty:</strong> Subtracts points for
+              erratic price action. Two stocks with identical momentum scores aren't equal if
+              one got there in a straight line and the other whipsawed. The smoother path
+              is more reliable.
+            </li>
+          </ul>
+
+          {/* Sample Signal Card */}
+          <div className="my-8 not-prose">
+            <p className="text-gray-500 text-xs uppercase tracking-wider mb-3 font-medium">
+              Example Signal Breakdown
+            </p>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <span className="text-white font-bold text-xl">NVDA</span>
+                  <span className="ml-3 px-2 py-0.5 bg-green-500/20 text-green-400 text-xs font-medium rounded-full">
+                    Fresh Signal
+                  </span>
+                </div>
+                <span className="text-amber-400 font-bold text-lg">Score: 87</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-gray-500 text-xs m-0">DWAP Breakout</p>
+                  <p className="text-green-400 font-semibold text-sm m-0">+7.2% above</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 text-xs m-0">Momentum Rank</p>
+                  <p className="text-blue-400 font-semibold text-sm m-0">#3 of 100</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 text-xs m-0">Near 50d High</p>
+                  <p className="text-green-400 font-semibold text-sm m-0">Within 2.1%</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 text-xs m-0">Volume Spike</p>
+                  <p className="text-green-400 font-semibold text-sm m-0">1.8x average</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-gray-300 leading-relaxed text-base">
+            The composite score ranks every signal by strength. A stock scoring 90 represents
+            stronger convergence than one scoring 65. This ranking determines which stocks
+            make it into the portfolio when qualifying signals outnumber available positions.
+          </p>
+
+          {/* Section 5: Why 6 Positions */}
+          <h2 className="text-2xl font-bold text-white mt-12 mb-4 flex items-center gap-2">
+            <Activity className="w-6 h-6 text-indigo-400 flex-shrink-0" />
+            Why Only 6 Positions?
+          </h2>
+          <p className="text-gray-300 leading-relaxed text-base">
+            Most momentum strategies spread capital across 20 or 30 positions. More diversification
+            sounds safer, but for momentum specifically, that logic backfires. When you dilute across
+            30 positions, you inevitably include stocks ranked 15th, 20th, 25th — stocks that barely
+            qualified. Those mediocre positions drag down the winners and flatten returns toward
+            the market average.
+          </p>
+          <p className="text-gray-300 leading-relaxed text-base">
+            Six positions at roughly 15% each strikes the balance: concentrated enough to
+            capture meaningful gains from top-ranked stocks, diversified enough that one bad
+            trade doesn't derail the portfolio. Trailing stops provide the real risk management.
+          </p>
+
+          {/* Highlight Box */}
+          <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-6 my-8">
+            <p className="text-indigo-200 font-semibold text-lg m-0 mb-2">
+              Concentration is a feature, not a bug.
+            </p>
+            <p className="text-indigo-200/80 m-0">
+              If your system is good at identifying the best opportunities, putting meaningful
+              capital behind them produces better risk-adjusted returns than spreading thin.
+              The catch is that your system has to actually be good — which is why the three-filter
+              approach matters so much.
+            </p>
+          </div>
+
+          {/* Section 6: Fresh vs Monitoring */}
+          <h2 className="text-2xl font-bold text-white mt-12 mb-4 flex items-center gap-2">
+            <Zap className="w-6 h-6 text-amber-400 flex-shrink-0" />
+            Fresh Signals vs. Monitoring
+          </h2>
+          <p className="text-gray-300 leading-relaxed text-base">
+            When you log into RigaCap, you'll see signals labeled as either "fresh" or
+            "monitoring." Understanding the difference is important for timing your entries.
+          </p>
+          <p className="text-gray-300 leading-relaxed text-base">
+            A <strong className="text-green-400">fresh signal</strong> means the stock just
+            passed all three filters for the first time, or re-qualified after a gap. The
+            system is saying "this is actionable right now."
+          </p>
+          <p className="text-gray-300 leading-relaxed text-base">
+            A <strong className="text-blue-400">monitoring signal</strong> means the stock
+            previously fired a signal and still meets the criteria. The trend is intact but
+            the initial entry window may have passed — you'd be entering later in the move.
+          </p>
+          <p className="text-gray-300 leading-relaxed text-base">
+            Fresh signals are the highest-conviction entries, representing the earliest
+            detection of a new trend. Monitoring signals confirm existing positions remain
+            valid, or offer a second chance if you missed the initial signal — but the
+            risk/reward profile shifts as the move matures.
+          </p>
+
+          {/* Section 7: Market Regime Filter */}
+          <h2 className="text-2xl font-bold text-white mt-12 mb-4 flex items-center gap-2">
+            <AlertTriangle className="w-6 h-6 text-red-400 flex-shrink-0" />
+            The Market Regime Filter
+          </h2>
+          <p className="text-gray-300 leading-relaxed text-base">
+            Everything above — the three filters, the scoring, the concentration — only
+            matters when the broader market is cooperating. Momentum strategies are inherently
+            long-biased. When the entire market is falling, even the "best" stocks get pulled lower.
+          </p>
+          <p className="text-gray-300 leading-relaxed text-base">
+            RigaCap's regime filter monitors market health using multiple indicators, including
+            whether the S&P 500 is above or below its long-term moving average. When the regime
+            shifts bearish, the system stops issuing buy signals and exits positions regardless
+            of their individual strength.
+          </p>
+          <p className="text-gray-300 leading-relaxed text-base">
+            This is where most investors go wrong — finding a stock that looks great on its
+            own merits while ignoring the broader market falling around it. In a true bear
+            market, no stock is an island.
+          </p>
+
+          {/* Regime States */}
+          <div className="my-8 not-prose grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+              <p className="text-green-400 font-semibold text-sm m-0 mb-1">Bullish Regime</p>
+              <p className="text-gray-400 text-xs m-0">
+                Market trend is healthy. All three filters active. New signals issued normally.
+                Portfolio fully invested in top-ranked positions.
+              </p>
+            </div>
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+              <p className="text-red-400 font-semibold text-sm m-0 mb-1">Bearish Regime</p>
+              <p className="text-gray-400 text-xs m-0">
+                Market trend is broken. No new buy signals. Existing positions exit via
+                trailing stops or regime-forced sells. Capital moves to cash until conditions improve.
+              </p>
+            </div>
+          </div>
+
+          <p className="text-gray-300 leading-relaxed text-base">
+            Going to cash during bear markets isn't about timing the bottom — it's about
+            capital preservation. Missing the last 10% of a bull run costs far less than
+            riding a 30% drawdown. The system re-enters when the regime shifts back to
+            bullish, systematically, without guessing when the bottom is in.
+          </p>
+
+          {/* Highlight Box */}
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-6 my-8">
+            <p className="text-amber-200 font-semibold text-lg m-0 mb-2">
+              The best trade is sometimes no trade at all.
+            </p>
+            <p className="text-amber-200/80 m-0">
+              Sitting in cash while the market drops isn't failure — it's the system working
+              exactly as designed. Protecting capital during downturns is what allows aggressive
+              re-entry when the trend resumes.
+            </p>
+          </div>
+
+        </div>
+
+        {/* CTA */}
+        <div className="bg-gradient-to-br from-indigo-900/50 to-blue-900/50 border border-indigo-500/30 rounded-2xl p-8 sm:p-10 my-12 text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+            See Today's Signals
+          </h2>
+          <p className="text-blue-200/80 mb-6 max-w-lg mx-auto">
+            Three filters. Ensemble scoring. Market regime awareness.
+            See which stocks are passing all three right now.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              to="/app"
+              className="inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-gray-950 font-semibold px-8 py-3 rounded-xl transition-colors text-base"
+            >
+              Start Free Trial
+              <ArrowRight size={18} />
+            </Link>
+            <Link
+              to="/track-record"
+              className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-medium px-8 py-3 rounded-xl transition-colors text-base"
+            >
+              View Track Record
+            </Link>
+          </div>
+          <p className="text-xs text-gray-500 mt-4">
+            7-day free trial. $39/month after. Cancel anytime.
+          </p>
+        </div>
+
+        {/* Disclaimer */}
+        <p className="text-xs text-gray-600 leading-relaxed">
+          All performance references are based on walk-forward simulations using historical market data.
+          Past performance does not guarantee future results. Momentum strategies involve risk including
+          loss of principal. RigaCap provides trading signals only — execute trades through your own
+          brokerage account. This article is for educational purposes and does not constitute investment
+          advice. See our{' '}
+          <Link to="/terms" className="text-gray-500 underline hover:text-gray-400">Terms of Service</Link>{' '}
+          for full disclaimers.
+        </p>
+      </article>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-800 py-8 text-center text-xs text-gray-600">
+        <p>&copy; {new Date().getFullYear()} RigaCap, LLC. All rights reserved.</p>
+      </footer>
+    </div>
+  );
+}
