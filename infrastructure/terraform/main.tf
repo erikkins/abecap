@@ -929,6 +929,33 @@ resource "aws_lambda_permission" "market_measured_weekly" {
 }
 
 # ============================================================================
+# EventBridge - Daily Engagement Opportunities (9 AM ET = 13:00 UTC during EDT)
+# Scans Twitter feeds, filters for relevant posts, generates Claude-drafted
+# comment suggestions. Admin email to founder.
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "engagement_opportunities" {
+  name                = "${local.prefix}-engagement-opportunities"
+  description         = "Daily engagement opportunities scan at 9 AM ET"
+  schedule_expression = "cron(0 13 ? * MON-FRI *)"
+}
+
+resource "aws_cloudwatch_event_target" "engagement_opportunities" {
+  rule      = aws_cloudwatch_event_rule.engagement_opportunities.name
+  target_id = "lambda-engagement-opportunities"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ engagement_opportunities = { _ = 1 } })
+}
+
+resource "aws_lambda_permission" "engagement_opportunities" {
+  statement_id  = "AllowEngagementOpportunitiesEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.engagement_opportunities.arn
+}
+
+# ============================================================================
 # EventBridge - Double Signal Alerts (5 PM ET = 21:00 UTC during EDT)
 # ============================================================================
 

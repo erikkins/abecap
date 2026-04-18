@@ -4855,6 +4855,102 @@ def handler(event, context):
             print(traceback.format_exc())
             return {"error": str(e)}
 
+    # Daily engagement opportunities — scans Twitter feeds from curated
+    # finance accounts, filters for topics we have takes on, generates
+    # Claude-drafted comment suggestions. Sent as admin email at 9 AM ET.
+    # {"engagement_opportunities": {"_": 1}}
+    if event.get("engagement_opportunities"):
+        print("🎯 Engagement opportunities scan")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            async def _scan_engagement():
+                from app.services.engagement_service import engagement_service
+                from app.services.email_service import admin_email_service
+
+                cfg = event.get("engagement_opportunities") or {}
+                max_opps = cfg.get("max", 5)
+                hours = cfg.get("hours", 24)
+
+                opportunities = await engagement_service.scan_engagement_opportunities(
+                    max_opportunities=max_opps,
+                    since_hours=hours,
+                )
+
+                if not opportunities:
+                    print("📭 No engagement opportunities found")
+                    return {"status": "ok", "opportunities": 0}
+
+                if opportunities and opportunities[0].get("error"):
+                    return {"status": "error", "error": opportunities[0]["error"]}
+
+                # Build email
+                rows = []
+                for i, opp in enumerate(opportunities, 1):
+                    tweet_preview = opp["tweet_text"][:200]
+                    if len(opp["tweet_text"]) > 200:
+                        tweet_preview += "..."
+                    topics = ", ".join(opp["matched_topics"][:4])
+                    rows.append(f"""
+                    <tr><td colspan="2" style="padding:12px 0 4px;border-top:1px solid #e5e7eb;">
+                        <span style="font-size:11px;color:#6b7280;text-transform:uppercase;">#{i} &middot; @{opp['handle']} &middot; {topics}</span>
+                    </td></tr>
+                    <tr><td style="padding:4px 0;">
+                        <p style="margin:0;font-size:14px;color:#374151;line-height:1.5;">"{tweet_preview}"</p>
+                        <p style="margin:4px 0 0;font-size:12px;color:#9ca3af;">
+                            ❤️ {opp.get('likes',0)} &middot; 🔄 {opp.get('retweets',0)} &middot; 💬 {opp.get('replies',0)}
+                            &nbsp;&nbsp;<a href="{opp['tweet_url']}" style="color:#3b82f6;">View &rarr;</a>
+                        </p>
+                    </td></tr>
+                    <tr><td style="padding:4px 0 8px;">
+                        <div style="background:#f0fdf4;border-left:3px solid #22c55e;padding:8px 12px;border-radius:4px;">
+                            <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Suggested reply</p>
+                            <p style="margin:4px 0 0;font-size:14px;color:#111827;line-height:1.5;">{opp['suggested_comment']}</p>
+                        </div>
+                    </td></tr>""")
+
+                html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f3f4f6;">
+<table cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;margin:0 auto;background:#fff;">
+<tr><td style="background:#172554;padding:14px 20px;">
+<h1 style="margin:0;color:#fff;font-size:17px;font-weight:700;">
+🎯 Engagement Opportunities &middot; {len(opportunities)} posts
+</h1></td></tr>
+<tr><td style="padding:8px 20px;background:#f9fafb;border-bottom:1px solid #e5e7eb;">
+<p style="margin:0;font-size:13px;color:#6b7280;">
+Copy a suggested reply, tweak if needed, paste on the post. 5 minutes max.
+</p></td></tr>
+<tr><td style="padding:4px 20px 16px;">
+<table cellpadding="0" cellspacing="0" style="width:100%;">
+{''.join(rows)}
+</table></td></tr>
+<tr><td style="padding:10px 20px;background:#f9fafb;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center;">
+RigaCap Admin &middot; Engagement Opportunities
+</td></tr></table></body></html>"""
+
+                ok = await admin_email_service.send_email(
+                    to_email="erik@rigacap.com",
+                    subject=f"🎯 {len(opportunities)} Engagement Opportunities",
+                    html_content=html,
+                )
+                return {
+                    "status": "ok" if ok else "email_failed",
+                    "opportunities": len(opportunities),
+                    "accounts_scanned": len([h for h, _, _ in __import__('app.services.engagement_service', fromlist=['MONITORED_ACCOUNTS']).MONITORED_ACCOUNTS]),
+                }
+
+            result = loop.run_until_complete(_scan_engagement())
+            print(f"🎯 Engagement result: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())
+            return {"error": str(e)}
+
     # Morning admin health check — scheduled 7 AM ET Mon-Fri.
     # Reads yesterday's pipeline log + dashboard + indicator validity and
     # emails Erik a concise status digest. Flags anything unusual.
