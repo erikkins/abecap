@@ -657,22 +657,21 @@ class DataExportService:
 
         conn = duckdb.connect(':memory:')
         try:
+            # Set DuckDB home to /tmp on Lambda (no writable home dir)
+            conn.execute("SET home_directory='/tmp';")
+            conn.execute("SET extension_directory='/tmp/duckdb_extensions';")
+
             if self._use_s3():
-                # Lambda's glibc is too old for DuckDB's httpfs extension
-                # (needs glibc 2.28). Workaround: load parquet via pyarrow
-                # into memory, register the DataFrame with DuckDB.
-                # Cost: ~1.5 GB RAM for the 272 MB parquet (Worker Lambda has 4GB).
-                import tempfile, os, boto3
-                tmp_path = os.path.join(tempfile.gettempdir(), "duckdb_prices.parquet")
-                s3 = boto3.client('s3', region_name=os.environ.get('AWS_REGION', 'us-east-1'))
-                with open(tmp_path, 'wb') as f:
-                    obj = s3.get_object(Bucket=S3_BUCKET, Key='prices/all_data.parquet')
-                    for chunk in obj['Body'].iter_chunks(chunk_size=8 * 1024 * 1024):
-                        f.write(chunk)
-                conn.execute(f"CREATE VIEW prices AS SELECT * FROM '{tmp_path}';")
-                result = conn.execute(sql).df()
-                os.remove(tmp_path)
-                return result
+                # AL2023 (glibc 2.34) supports DuckDB httpfs natively.
+                # Query parquet directly on S3 — no /tmp download needed.
+                import os
+                region = os.environ.get('AWS_REGION', 'us-east-1')
+                conn.execute("INSTALL httpfs; LOAD httpfs;")
+                conn.execute(f"SET s3_region = '{region}';")
+                conn.execute("CREATE SECRET aws_creds (TYPE S3, PROVIDER CREDENTIAL_CHAIN);")
+                s3_url = f"s3://{S3_BUCKET}/prices/all_data.parquet"
+                conn.execute(f"CREATE VIEW prices AS SELECT * FROM '{s3_url}';")
+                return conn.execute(sql).df()
             else:
                 url = str(LOCAL_DATA_DIR / "all_data.parquet")
                 conn.execute(f"CREATE VIEW prices AS SELECT * FROM '{url}';")
