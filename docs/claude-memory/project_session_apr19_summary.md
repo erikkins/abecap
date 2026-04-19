@@ -4,9 +4,11 @@ description: Multi-day session summary — strategy validated at +384%, circuit 
 type: project
 originSessionId: 39ce1e26-1ab7-4fbd-8e9a-6c892d933b00
 ---
-## Headline Result: +384.6% / 1.19 Sharpe / 30% MDD
+## Headline Result: +384.6% / 1.19 Sharpe / 30% MDD (FINAL)
 
 **Run5 (adaptive TPE, clean data):** +297.8% / 1.10 Sharpe / 29.97% MDD — reproduced 3x, fully saved (pickle + 138 JSON files + 138 DB rows).
+
+**Canonical simulation:** sim_id=1032 (DB), precomputed params replay with CB=3/10d.
 
 **Circuit Breaker (Cascade Guard):** 3 same-day trailing stops → 10-day entry pause. Grid-searched 12 configs via 2-minute precomputed-params replay. Winner adds +87pp return with same MDD. Final: **+384.6% / 1.19 Sharpe / 30.4% MDD**.
 
