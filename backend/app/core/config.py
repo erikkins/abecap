@@ -57,32 +57,42 @@ class Settings(BaseSettings):
     APPLE_KEY_ID: str = os.getenv("APPLE_KEY_ID", "")
     
     # Trading strategy (legacy DWAP - kept for backward compatibility)
-    DWAP_THRESHOLD_PCT: float = 6.5  # TPE Trial 37 (was 5.0)
+    DWAP_THRESHOLD_PCT: float = 5.5  # Run5 adaptive optimizer (was 6.5 Trial 37)
     STOP_LOSS_PCT: float = 8.0
     PROFIT_TARGET_PCT: float = 20.0
     MIN_VOLUME: int = 500_000
-    MIN_PRICE: float = 15.0  # Aligned with Trial 37 backtest (was 20.0)
+    MIN_PRICE: float = 15.0
     VOLUME_SPIKE_MULT: float = 1.5
 
-    # ENSEMBLE STRATEGY — TPE Trial 37 optimized (Apr 11, 2026)
-    # +240% avg across 8 start dates, Sharpe 0.89, MaxDD 23.7%
-    MAX_POSITIONS: int = 8  # was 5 (v2) / 6 (ensemble)
-    POSITION_SIZE_PCT: float = 17.0  # was 18 (v2) / 15 (ensemble)
-    SHORT_MOMENTUM_DAYS: int = 10
+    # ENSEMBLE STRATEGY — Run5 adaptive optimizer (Apr 18, 2026)
+    # +297.8% over 5.3 years, Sharpe 1.10, MaxDD 29.97%
+    # These defaults are from the latest period (period 138).
+    # The biweekly TPE cron will update these dynamically.
+    MAX_POSITIONS: int = 4
+    POSITION_SIZE_PCT: float = 20.0
+    SHORT_MOMENTUM_DAYS: int = 5
     LONG_MOMENTUM_DAYS: int = 60
-    TRAILING_STOP_PCT: float = 13.0  # was 12.0
+    TRAILING_STOP_PCT: float = 14.0
     MARKET_FILTER_ENABLED: bool = True
     MARKET_FILTER_PANIC_ONLY: bool = False
-    REBALANCE_FREQUENCY: str = "weekly"
+    REBALANCE_FREQUENCY: str = "biweekly"
 
     # Scoring weights
-    SHORT_MOM_WEIGHT: float = 0.5
-    LONG_MOM_WEIGHT: float = 0.3
-    VOLATILITY_PENALTY: float = 0.2
+    SHORT_MOM_WEIGHT: float = 0.3
+    LONG_MOM_WEIGHT: float = 0.2
+    VOLATILITY_PENALTY: float = 0.15
 
     # Quality filters
-    NEAR_50D_HIGH_PCT: float = 5.0  # TPE confirmed 5% optimal
-    MOMENTUM_SECTOR_CAP: int = 5  # Max stocks per sector in momentum top-N
+    NEAR_50D_HIGH_PCT: float = 7.0  # Run5 latest period
+    MOMENTUM_SECTOR_CAP: int = 0  # Run5: no sector cap
+
+    # Profit lock (tighten trailing stop once position is up X%)
+    PROFIT_LOCK_PCT: float = 12.0  # Tighten stop once up 12%
+    PROFIT_LOCK_STOP_PCT: float = 6.0  # Tightened trailing stop %
+
+    # Anti-squeeze filters
+    MAX_RECENT_RETURN_PCT: float = 40.0  # Reject if up >40% in last ~10d
+    PRICE_VELOCITY_CAP_PCT: float = 965.0  # Reject extreme daily velocity
     
     # Data
     DATA_LOOKBACK_DAYS: int = 252

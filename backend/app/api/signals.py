@@ -594,12 +594,23 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
         current_regime = market_regime_service.get_current_regime()
         if current_regime:
             regime_adjustments = get_regime_adjusted_params(current_regime)
-            # Use base params only — no per-regime adjustments
+            # Run5-optimized params (Apr 18 2026) — from the latest period
+            # of the adaptive TPE walk-forward that produced +297.8% / 1.10
+            # Sharpe over 5.3 years. These replace the old Trial 37 params
+            # which were validated on dirty data.
             regime_effective_params = {
-                'trailing_stop_pct': 12.0,
-                'near_50d_high_pct': 3.0,
-                'max_positions': 6,
-                'position_size_pct': 15.0,
+                'trailing_stop_pct': 14.0,
+                'near_50d_high_pct': 7.0,
+                'max_positions': 4,
+                'position_size_pct': 20.0,
+                'dwap_threshold_pct': 5.5,
+                'short_momentum_days': 5,
+                'profit_lock_pct': 12,
+                'profit_lock_stop_pct': 6.0,
+                'max_recent_return_pct': 40,
+                'price_velocity_cap_pct': 965,
+                'sector_cap': 0,
+                'volume_ratio_min': 0.0,
             }
             # Override the adjustments display to show no changes
             regime_adjustments['effective'] = regime_effective_params
