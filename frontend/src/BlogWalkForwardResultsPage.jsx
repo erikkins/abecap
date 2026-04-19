@@ -6,14 +6,14 @@ import MarketMeasuredSignup from './components/MarketMeasuredSignup';
 export default function BlogWalkForwardResultsPage() {
   useEffect(() => { document.title = 'Inside Our 5-Year Walk-Forward | RigaCap'; }, []);
     const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute('content', 'Inside RigaCap 5-year walk-forward simulation: +297% total return, 1.10 Sharpe ratio, tested across 138 rebalancing periods.');
+    if (meta) meta.setAttribute('content', 'Inside RigaCap 5-year walk-forward simulation: +384% total return, 1.19 Sharpe ratio, tested across 138 rebalancing periods.');
 
     // OG tags for social sharing
-    document.querySelector('meta[property="og:title"]')?.setAttribute('content', 'Inside Our 5-Year Walk-Forward: +297% Validated | RigaCap');
-    document.querySelector('meta[property="og:description"]')?.setAttribute('content', 'Inside RigaCap 5-year walk-forward simulation: +297% total return, 1.10 Sharpe ratio, tested across 138 rebalancing periods with zero look-ahead bias.');
+    document.querySelector('meta[property="og:title"]')?.setAttribute('content', 'Inside Our 5-Year Walk-Forward: +384% Validated | RigaCap');
+    document.querySelector('meta[property="og:description"]')?.setAttribute('content', 'Inside RigaCap 5-year walk-forward simulation: +384% total return, 1.19 Sharpe ratio, tested across 138 rebalancing periods with zero look-ahead bias.');
     document.querySelector('meta[property="og:url"]')?.setAttribute('content', 'https://rigacap.com/blog/walk-forward-results');
-    document.querySelector('meta[name="twitter:title"]')?.setAttribute('content', 'Inside Our 5-Year Walk-Forward: +297% Validated | RigaCap');
-    document.querySelector('meta[name="twitter:description"]')?.setAttribute('content', 'Inside RigaCap 5-year walk-forward simulation: +297% total return, 1.10 Sharpe ratio, tested across 138 rebalancing periods with zero look-ahead bias.');
+    document.querySelector('meta[name="twitter:title"]')?.setAttribute('content', 'Inside Our 5-Year Walk-Forward: +384% Validated | RigaCap');
+    document.querySelector('meta[name="twitter:description"]')?.setAttribute('content', 'Inside RigaCap 5-year walk-forward simulation: +384% total return, 1.19 Sharpe ratio, tested across 138 rebalancing periods with zero look-ahead bias.');
     // JSON-LD Article schema
     const existingSchema = document.querySelector('script[type="application/ld+json"]');
     if (existingSchema) existingSchema.remove();
@@ -22,8 +22,8 @@ export default function BlogWalkForwardResultsPage() {
     schema.text = JSON.stringify({
       "@context": "https://schema.org",
       "@type": "Article",
-      "headline": "Inside Our 5-Year Walk-Forward: +297% Validated",
-      "description": "Inside RigaCap 5-year walk-forward simulation: +297% total return, 1.10 Sharpe ratio, tested across 138 rebalancing periods with zero look-ahead bias.",
+      "headline": "Inside Our 5-Year Walk-Forward: +384% Validated",
+      "description": "Inside RigaCap 5-year walk-forward simulation: +384% total return, 1.19 Sharpe ratio, tested across 138 rebalancing periods with zero look-ahead bias.",
       "author": {"@type": "Organization", "name": "RigaCap"},
       "publisher": {"@type": "Organization", "name": "RigaCap", "url": "https://rigacap.com"},
       "url": "https://rigacap.com/blog/walk-forward-results",
@@ -70,7 +70,7 @@ export default function BlogWalkForwardResultsPage() {
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-gray-900 border border-emerald-500/30 rounded-xl p-6 text-center">
             <TrendingUp className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
-            <div className="text-3xl sm:text-4xl font-bold text-emerald-400">+297.8%</div>
+            <div className="text-3xl sm:text-4xl font-bold text-emerald-400">+384.6%</div>
             <div className="text-xs text-gray-500 uppercase tracking-wider mt-1">Our Strategy</div>
             <div className="text-xs text-gray-600 mt-0.5">5-Year Walk-Forward</div>
           </div>
@@ -181,8 +181,8 @@ export default function BlogWalkForwardResultsPage() {
             </thead>
             <tbody>
               {[
-                { metric: 'Total Return', ours: '+297.8%', spy: '+85.9%', highlight: true },
-                { metric: 'Sharpe Ratio', ours: '1.10', spy: '0.65' },
+                { metric: 'Total Return', ours: '+384.6%', spy: '+85.9%', highlight: true },
+                { metric: 'Sharpe: 1.19', spy: '0.65' },
                 { metric: 'Max Drawdown', ours: '-29.97%', spy: '-25.4%' },
                 { metric: 'Annualized Return', ours: '~30%', spy: '~12%' },
                 { metric: 'Testing Periods', ours: '138', spy: '—' },
@@ -199,7 +199,7 @@ export default function BlogWalkForwardResultsPage() {
 
         <div className="prose prose-invert prose-lg max-w-none">
           <p className="text-gray-300 leading-relaxed text-base">
-            A 1.10 Sharpe ratio won't make hedge fund managers jealous — but for a fully
+            A 1.19 Sharpe ratio won't make hedge fund managers jealous — but for a fully
             systematic, rules-based strategy with no discretionary overrides, it signals
             genuine risk-adjusted alpha. The S&P 500's Sharpe over the same window was roughly
             0.65. Our strategy delivered nearly triple the total return with a similar drawdown
@@ -301,7 +301,7 @@ export default function BlogWalkForwardResultsPage() {
         <div className="grid grid-cols-2 gap-4 my-8">
           <div className="bg-gray-900 border border-emerald-500/30 rounded-xl p-6 text-center">
             <Zap className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
-            <div className="text-3xl sm:text-4xl font-bold text-emerald-400">+297.8%</div>
+            <div className="text-3xl sm:text-4xl font-bold text-emerald-400">+384.6%</div>
             <div className="text-xs text-gray-500 uppercase tracking-wider mt-1">Adaptive</div>
             <div className="text-xs text-gray-600 mt-0.5">Re-optimized biweekly</div>
           </div>

@@ -5,14 +5,14 @@ import TrackRecordChart from './components/TrackRecordChart';
 import MarketMeasuredSignup from './components/MarketMeasuredSignup';
 
 const HEADLINE_METRICS = [
-  { value: '+240%', label: '5-Year Return', subtitle: 'Walk-forward validated', color: 'text-emerald-400' },
-  { value: '~28%', label: 'Annualized Return', subtitle: 'Across multiple start dates', color: 'text-emerald-400' },
-  { value: '0.89', label: 'Sharpe Ratio', subtitle: 'Risk-adjusted performance', color: 'text-amber-400' },
+  { value: '+384%', label: '5-Year Return', subtitle: 'Walk-forward validated', color: 'text-emerald-400' },
+  { value: '~33%', label: 'Annualized Return', subtitle: 'Across multiple start dates', color: 'text-emerald-400' },
+  { value: '1.19', label: 'Sharpe Ratio', subtitle: 'Risk-adjusted performance', color: 'text-amber-400' },
   { value: '24%', label: 'Max Drawdown', subtitle: 'Peak to trough', color: 'text-amber-400' },
 ];
 
 const BENCHMARKS = [
-  { name: 'RigaCap Ensemble', value: 240, label: '+240%', color: 'from-amber-400 to-amber-500' },
+  { name: 'RigaCap Ensemble', value: 240, label: '+384%', color: 'from-amber-400 to-amber-500' },
   { name: 'S&P 500', value: 84, label: '+84%', color: 'from-gray-400 to-gray-500' },
 ];
 
@@ -72,7 +72,7 @@ export default function TrackRecordPage() {
           </h2>
           <TrackRecordChart />
           <p className="text-xs text-gray-600 mt-3 text-center">
-            Shown: best-case start date (+490%). Average across all start dates: +240%. Worst case: +83%.
+            Shown: best-case start date (+490%). Average across all start dates: +384%. Worst case: +83%.
           </p>
         </div>
       </section>
@@ -85,7 +85,7 @@ export default function TrackRecordPage() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <div className="text-emerald-400 text-3xl font-bold">+240%</div>
+            <div className="text-emerald-400 text-3xl font-bold">+384%</div>
             <div className="text-sm text-gray-400 mt-1">5-Year Total Return</div>
             <div className="text-xs text-gray-600 mt-2">vs S&P 500: +84%</div>
           </div>

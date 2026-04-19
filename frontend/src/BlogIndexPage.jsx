@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, BookOpen, BarChart3, Shield, Brain, TrendingUp, 
 
 const POSTS = [
   {
-    title: 'Inside Our 5-Year Walk-Forward: +297%',
+    title: 'Inside Our 5-Year Walk-Forward: +384%',
     path: '/blog/walk-forward-results',
     description: 'We spent months trying to break our own strategy. It held up.',
     category: 'Results',

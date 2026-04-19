@@ -90,9 +90,9 @@ PORTFOLIO:
 
 **Walk-Forward Results — TPE Trial 37 (2021-2026, 5 years, no hindsight bias):**
 
-- **+240% average** across 8 start dates (~28% annualized)
-- **0.89 Sharpe ratio**
-- **24% max drawdown** (worst case 25.3%)
+- **+240% average** across 8 start dates (~33% annualized)
+- **1.19 Sharpe ratio**
+- **30% max drawdown** (worst case 25.3%)
 - **All start dates positive** (worst: +83%)
 - S&P 500 over same period: +84%
 - 10-Year: +603%, 24% MaxDD
