@@ -273,14 +273,40 @@ class DataExportService:
                 self._save_metadata()
                 return data_cache
             except Exception as e:
-                # Handle both NoSuchKey and other errors
                 error_code = getattr(getattr(e, 'response', {}), 'get', lambda *a: None)('Error', {}).get('Code')
                 if error_code == 'NoSuchKey' or 'NoSuchKey' in str(e):
-                    print("📦 No pickle file found, trying CSV...")
+                    print("📦 No pickle file found, trying parquet...")
                 else:
-                    print(f"⚠️ Pickle load failed: {e}, trying CSV...")
+                    print(f"⚠️ Pickle load failed: {e}, trying parquet...")
 
-            # Fallback to CSV (slower)
+            # Fallback 1: Parquet via DuckDB httpfs (AL2023 native, no /tmp)
+            if not data_cache:
+                try:
+                    import duckdb, os
+                    print("📦 Loading from parquet via DuckDB httpfs...")
+                    conn = duckdb.connect(':memory:')
+                    conn.execute("SET home_directory='/tmp';")
+                    conn.execute("SET extension_directory='/tmp/duckdb_extensions';")
+                    region = os.environ.get('AWS_REGION', 'us-east-1')
+                    conn.execute("INSTALL httpfs; LOAD httpfs;")
+                    conn.execute(f"SET s3_region = '{region}';")
+                    conn.execute("CREATE SECRET aws_creds (TYPE S3, PROVIDER CREDENTIAL_CHAIN);")
+                    s3_url = f"s3://{S3_BUCKET}/prices/all_data.parquet"
+                    df_all = conn.execute(f"SELECT * FROM '{s3_url}'").df()
+                    conn.close()
+                    print(f"📦 Read {len(df_all)} rows from parquet, splitting by symbol...")
+                    df_all['date'] = pd.to_datetime(df_all['date'])
+                    for symbol, group in df_all.groupby('symbol'):
+                        data_cache[symbol] = group.drop('symbol', axis=1).set_index('date').sort_index()
+                    print(f"✅ Loaded {len(data_cache)} symbols from parquet (fallback)")
+                    self.exported_symbols = list(data_cache.keys())
+                    self.last_export = datetime.now()
+                    self._save_metadata()
+                    return data_cache
+                except Exception as pq_err:
+                    print(f"⚠️ Parquet fallback failed: {pq_err}, trying CSV...")
+
+            # Fallback 2: CSV (slowest)
             try:
                 print("📦 Loading CSV data from S3...")
                 response = s3.get_object(Bucket=S3_BUCKET, Key='prices/all_prices.csv.gz')
