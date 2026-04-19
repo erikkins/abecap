@@ -806,6 +806,14 @@ class WalkForwardService:
             # dataclass contains them). Overriding here via undeclared locals
             # caused NameError when TPE set them non-zero (Apr 14 2026 bug).
 
+            # Circuit breaker (Lever 10) — halt entries on cascading stops
+            if hasattr(strategy_params, 'circuit_breaker_stops'):
+                backtester.circuit_breaker_stops = strategy_params.circuit_breaker_stops
+            if hasattr(strategy_params, 'circuit_breaker_pause_days'):
+                backtester.circuit_breaker_pause_days = strategy_params.circuit_breaker_pause_days
+            if hasattr(strategy_params, 'circuit_breaker_tighten_pct'):
+                backtester.circuit_breaker_tighten_pct = strategy_params.circuit_breaker_tighten_pct
+
             # Apply sector cap to ticker list if V2 param is set
             effective_tickers = ticker_list
             if strategy_params.sector_cap > 0 and ticker_list:

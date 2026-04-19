@@ -223,6 +223,10 @@ class BacktesterService:
         self.pyramid_threshold_pct = 0    # Add to position once up X%; 0=disabled
         self.pyramid_size_pct = 0.0       # Size of the add-on position (% of initial capital)
         self.pyramid_max_adds = 0         # Max times to pyramid into one position; 0=disabled
+        # Circuit breaker (Lever 10): halt new entries when stops cascade
+        self.circuit_breaker_stops = 3    # N stops in one period triggers pause; 0=disabled
+        self.circuit_breaker_pause_days = 10  # Days to pause new entries after trigger
+        self.circuit_breaker_tighten_pct = 0  # Tighten stops to X% when triggered; 0=no change
         # Liquidity tier bonus (injected by walk-forward service per period)
         self.tier1_set: set = set()
         self.tier1_bonus: float = 0.0
@@ -1175,6 +1179,39 @@ class BacktesterService:
                         pos['pyramid_adds'] = adds + 1
                         pos['high_water_mark'] = max(pos.get('high_water_mark', current_price), current_price)
                         capital -= add_shares * current_price
+
+            # Circuit breaker: count trailing stops this period
+            period_stops = sum(1 for t in trades
+                              if t.exit_reason == 'trailing_stop'
+                              and t.exit_date == date_str)
+            if period_stops > 0 and self.circuit_breaker_stops > 0:
+                if not hasattr(self, '_cb_stop_count'):
+                    self._cb_stop_count = 0
+                    self._cb_pause_until = None
+                self._cb_stop_count += period_stops
+                # Check if circuit breaker should trigger
+                if (self._cb_stop_count >= self.circuit_breaker_stops
+                        and (self._cb_pause_until is None or date > self._cb_pause_until)):
+                    self._cb_pause_until = date + timedelta(days=self.circuit_breaker_pause_days)
+                    self._cb_stop_count = 0
+                    # Optionally tighten stops on remaining positions
+                    if self.circuit_breaker_tighten_pct > 0:
+                        for _sym, _pos in positions.items():
+                            _pos['tightened_stop'] = self.circuit_breaker_tighten_pct / 100
+
+            # Circuit breaker pause: skip new entries
+            if (hasattr(self, '_cb_pause_until') and self._cb_pause_until
+                    and date <= self._cb_pause_until):
+                # Still in pause window — track equity but don't enter
+                position_value = sum(
+                    pos['shares'] * self._get_row_for_date(
+                        scanner_service.data_cache[sym], date)['close']
+                    for sym, pos in positions.items()
+                    if sym in scanner_service.data_cache
+                    and self._get_row_for_date(scanner_service.data_cache[sym], date) is not None
+                )
+                equity_curve.append({'date': date_str, 'equity': capital + position_value})
+                continue
 
             # Skip new entries if in cash mode (unfavorable market)
             if in_cash_mode:

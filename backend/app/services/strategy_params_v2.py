@@ -69,6 +69,13 @@ V2_PARAM_SPACES: Dict[str, Dict[str, Any]] = {
         # 1000 = disabled sentinel.
         "max_recent_return_pct": {"low": 30, "high": 1000, "step": 10},   # reject if up > X% in last 30 days
         "price_velocity_cap_pct": {"low": 15, "high": 1000, "step": 5},    # reject if up > X% in last 5 days
+        # --- Lever 10: Circuit breaker (portfolio-level risk guardrail).
+        # Halts new entries when trailing stops cascade — prevents the
+        # Feb 2021 meme-crash pattern where 6+ stops triggered in 1 week
+        # and all replacement entries also lost. 0 = disabled.
+        "circuit_breaker_stops": {"low": 0, "high": 5, "step": 1},        # N stops triggers pause
+        "circuit_breaker_pause_days": {"low": 5, "high": 20, "step": 5},   # days to pause entries
+        "circuit_breaker_tighten_pct": {"low": 0, "high": 10, "step": 2},  # tighten stops to X% when triggered; 0=no change
     },
 }
 
@@ -145,6 +152,11 @@ V2_MEDIUM_PARAM_SPACES: Dict[str, Dict[str, Any]] = {
         # Anti-squeeze (same bounds as V2)
         "max_recent_return_pct": {"low": 30, "high": 1000, "step": 10},
         "price_velocity_cap_pct": {"low": 15, "high": 1000, "step": 5},
+
+        # Circuit breaker
+        "circuit_breaker_stops": {"low": 0, "high": 5, "step": 1},
+        "circuit_breaker_pause_days": {"low": 5, "high": 20, "step": 5},
+        "circuit_breaker_tighten_pct": {"low": 0, "high": 10, "step": 2},
     },
 }
 
