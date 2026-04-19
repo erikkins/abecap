@@ -1597,23 +1597,35 @@
     </div>
     <div class="feature-card" style="border-left-color: var(--gold);">
       <h4>Controlled Drawdowns</h4>
-      <p>Max drawdown of 24% across the 5-year walk-forward &mdash; the 12% trailing stop and SPY 200MA regime exit prevented catastrophic losses.</p>
+      <p>Max drawdown of 30% across the 5-year walk-forward &mdash; the 14% trailing stop, SPY regime exit, and Cascade Guard prevented catastrophic losses.</p>
+    </div>
+  </div>
+
+  <h3 style="margin-top: 32px;">Cascade Guard</h3>
+  <div class="feature-grid no-break">
+    <div class="feature-card" style="border-left-color: var(--blue);">
+      <h4>Portfolio-Level Circuit Breaker</h4>
+      <p>When 3+ positions hit trailing stop on the same day, the system pauses all new entries for 10 days. Prevents the &ldquo;buying into a falling knife&rdquo; pattern where replacement positions also fail. Triggered 7 times in 5.3 years &mdash; the system is fully active 95% of the time.</p>
+    </div>
+    <div class="feature-card" style="border-left-color: var(--gold);">
+      <h4>+87pp Return Impact</h4>
+      <p>Grid-searched across 12 configurations. This single guardrail lifted returns from +297% to +384% by avoiding concentrated re-entry losses during cascade events, without altering signal quality or reducing time in the market.</p>
     </div>
   </div>
 
   <h3 style="margin-top: 32px;">How We Trade</h3>
   <div class="feature-grid no-break">
     <div class="feature-card" style="border-left-color: var(--green);">
-      <h4>Winners run ~3 weeks at +20%</h4>
-      <p>Median winning hold: 21 days. Average winner: +19.6%. The trailing stop lets profits compound rather than capping them.</p>
+      <h4>Winners average +15%</h4>
+      <p>Average winner: +15.2%. Win/loss ratio: 1.77x &mdash; winners are nearly twice the size of losers. The trailing stop lets profits compound rather than capping them.</p>
     </div>
     <div class="feature-card" style="border-left-color: #b91c1c;">
-      <h4>Losers cut in 12 days at &minus;9%</h4>
-      <p>Median losing hold: 12 days. Average loser: -9.2%. No bag-holding for months &mdash; the system admits when a trade isn't working.</p>
+      <h4>Losers cut at &minus;9%</h4>
+      <p>Average loser: -8.6%. 48.6% win rate &mdash; you don&rsquo;t need to win most trades when your winners are 1.77x your losers. The system admits fast when a trade isn&rsquo;t working.</p>
     </div>
   </div>
   <p style="font-size: 0.82rem; color: #64748b; font-style: italic; margin-top: 8px;">
-    Hold-period stats from Trial 37 walk-forward (job 793, 258 trades over 5+ years).
+    Stats from walk-forward simulation 1032 (333 trades over 5.3 years, adaptive + Cascade Guard).
   </p>
 
   <div class="gold-divider"></div>
