@@ -199,8 +199,13 @@ class PostSchedulerService:
                     skipped += 1
                     continue
 
-            # Increment attempt counter before trying
+            # Mark as 'publishing' + increment attempts BEFORE the API call.
+            # Prevents duplicate posts when two concurrent invocations (cron +
+            # manual trigger) grab the same post. The second invocation sees
+            # 'publishing' and skips it.
             post.publish_attempts = attempts + 1
+            post.status = "publishing"
+            await db.commit()
 
             try:
                 pub_result = await social_posting_service.publish_post(post)
@@ -219,6 +224,8 @@ class PostSchedulerService:
                     if post.publish_attempts >= MAX_PUBLISH_ATTEMPTS:
                         post.status = "publish_failed"
                         logger.warning(f"Post {post.id} marked as publish_failed")
+                    else:
+                        post.status = "approved"  # Reset for retry
                     await self._send_publish_failure_email(post, str(error_msg))
             except Exception as e:
                 logger.error(
@@ -228,6 +235,8 @@ class PostSchedulerService:
                 if post.publish_attempts >= MAX_PUBLISH_ATTEMPTS:
                     post.status = "publish_failed"
                     logger.warning(f"Post {post.id} marked as publish_failed")
+                else:
+                    post.status = "approved"  # Reset for retry
                 await self._send_publish_failure_email(post, str(e))
 
         await db.commit()
