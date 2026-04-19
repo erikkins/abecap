@@ -235,7 +235,7 @@ export default function BlogMarketCrashPage() {
         {/* 2022 Proof Highlight Box */}
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-6 my-8">
           <p className="text-amber-200 font-semibold text-lg m-0 mb-2">
-            In 2022, the S&P 500 fell 20%. Our system gained 6%.
+            In 2022, the S&P 500 fell 20%. Our system preserved capital.
           </p>
           <p className="text-amber-200/80 m-0">
             Not because it predicted the crash — nobody did. But because it had rules

@@ -32,7 +32,7 @@ export default function Blog2022StoryPage() {
             The 2022 Story
           </h1>
           <p className="text-lg text-blue-200/80 max-w-2xl mx-auto">
-            The S&P 500 fell 20%. Our system gained 6%.
+            The S&P 500 fell 20%. Our system preserved capital.
             <br className="hidden sm:block" />
             Here's exactly how — and why it matters.
           </p>
@@ -158,7 +158,7 @@ export default function Blog2022StoryPage() {
 
         <div className="prose prose-invert prose-gray max-w-none">
           <p className="text-gray-300 leading-relaxed text-base">
-            The difference between losing 20% and gaining 6% isn't just 26 percentage points.
+            The difference between losing 20% and staying flat isn't just 20 percentage points.
             It's the compounding effect. Someone who lost 20% in 2022 needed a 25% gain in
             2023 just to get back to even. Our subscribers started 2023 already ahead —
             and compounded from there.

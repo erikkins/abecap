@@ -30,7 +30,7 @@ const POSTS = [
   {
     title: 'The 2022 Story',
     path: '/blog/2022-story',
-    description: "The S&P 500 fell 20%. Our system gained 6%. Here's exactly how.",
+    description: "The S&P 500 fell 20%. Our system preserved capital. Here's exactly how.",
     category: 'Case Study',
     icon: BarChart3,
     badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',

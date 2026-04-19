@@ -85,8 +85,8 @@ export default function TrackRecordPage() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <div className="text-emerald-400 text-3xl font-bold">+6%</div>
-            <div className="text-sm text-gray-400 mt-1">In 2022 (S&P: -20%)</div>
+            <div className="text-emerald-400 text-3xl font-bold">Flat</div>
+            <div className="text-sm text-gray-400 mt-1">2022 (S&P: -20%)</div>
             <div className="text-xs text-gray-600 mt-2">Capital preservation when it matters</div>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
@@ -174,7 +174,7 @@ export default function TrackRecordPage() {
       <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-12">
         <div className="bg-gradient-to-r from-emerald-900/30 to-emerald-800/20 border border-emerald-700/30 rounded-xl p-6 sm:p-8 text-center">
           <Shield className="w-8 h-8 text-emerald-400 mx-auto mb-3" />
-          <div className="text-3xl font-bold text-emerald-400 mb-1">+6% in 2022</div>
+          <div className="text-3xl font-bold text-emerald-400 mb-1">Flat in 2022</div>
           <p className="text-emerald-200/70 text-sm">While the S&P 500 fell 20%, our system stayed positive. 7-regime detection moved to cash before the crash — and max drawdown has never exceeded 25%.</p>
         </div>
       </section>

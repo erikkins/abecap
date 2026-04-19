@@ -639,7 +639,7 @@ const LAUNCH_POSTS = [
       hashtags: '#trading #investing #hedgefund',
     },
     instagram: {
-      text: "Hedge fund returns. $39/month.\n\nLet that sink in.\n\nThe average hedge fund returned ~10% annually over the last decade. They charge 2% of your assets plus 20% of your profits. Minimum investment: $1 million.\n\nOur system returned ~33% annually over the same period. We charge $39/month. No minimums. No performance fees. Everyone gets the same signals, whether you invest $5k or $500k.\n\n+384% over 5 years. Max drawdown around 30%. In 2022, while the S&P fell 20%, we gained 6%.\n\n$10,000 becomes $48,400. That's not a projection \u2014 it's what 10 years of walk-forward testing shows.\n\nStop trading on emotions. Start trading on math.\n\nrigacap.com",
+      text: "Hedge fund returns. $39/month.\n\nLet that sink in.\n\nThe average hedge fund returned ~10% annually over the last decade. They charge 2% of your assets plus 20% of your profits. Minimum investment: $1 million.\n\nOur system returned ~33% annually over the same period. We charge $39/month. No minimums. No performance fees. Everyone gets the same signals, whether you invest $5k or $500k.\n\n+384% over 5 years. Max drawdown around 30%. In 2022, while the S&P fell 20%, we stayed flat.\n\n$10,000 becomes $48,400. That's not a projection \u2014 it's what 10 years of walk-forward testing shows.\n\nStop trading on emotions. Start trading on math.\n\nrigacap.com",
       hashtags: '#trading #investing #hedgefund #algotrading #stockmarket #rigacap',
     },
     threads: {
@@ -651,15 +651,15 @@ const LAUNCH_POSTS = [
     label: 'The 2022 Story',
     imageUrl: '/launch-cards/launch-2.png',
     twitter: {
-      text: "In 2022, the S&P 500 fell 20%.\n\nOur system gained 6%.\n\nIt didn't predict the crash. It just refused to trade in bad conditions. For 5 months, it generated zero signals. Most people would call that broken.\n\nWe call it discipline. And it's why we beat the market.\n\nrigacap.com",
+      text: "In 2022, the S&P 500 fell 20%.\n\nOur system stayed flat.\n\nIt didn't predict the crash. It just refused to trade in bad conditions. For 5 months, it generated zero signals. Most people would call that broken.\n\nWe call it discipline. And it's why we beat the market.\n\nrigacap.com",
       hashtags: '#trading #investing #riskmanagement',
     },
     instagram: {
-      text: "In 2022, the S&P 500 fell 20%. Every \"buy the dip\" bro got crushed.\n\nOur system gained 6%.\n\nHow? It didn't predict the crash. It didn't short anything. It simply refused to trade.\n\nFor 5 consecutive months, it generated zero buy signals. Zero. It detected that conditions were unfavorable and sat on its hands.\n\nMost signal services would've kept spamming you with picks to justify their subscription. We went silent. Because the math said \"not now.\"\n\nThat discipline \u2014 knowing when NOT to trade \u2014 is worth more than any stock pick. It's the difference between +6% and -20%.\n\nYear by year:\n2021: +8%\n2022: +6% (SPY: -20%)\n2023: +5%\n2024: +20%\n2025: +57%\n\nNever. A. Losing. Year.\n\nrigacap.com/track-record",
+      text: "In 2022, the S&P 500 fell 20%. Every \"buy the dip\" bro got crushed.\n\nOur system stayed flat.\n\nHow? It didn't predict the crash. It didn't short anything. It simply refused to trade.\n\nFor 5 consecutive months, it generated zero buy signals. Zero. It detected that conditions were unfavorable and sat on its hands.\n\nMost signal services would've kept spamming you with picks to justify their subscription. We went silent. Because the math said \"not now.\"\n\nThat discipline \u2014 knowing when NOT to trade \u2014 is worth more than any stock pick. It's the difference between flat and -20%.\n\nYear by year:\n2021: +76%\n2022: Flat (SPY: -20%)\n2023: +28%\n2024: +1%\n2025: +53%\n\nNever. A. Losing. Year.\n\nrigacap.com/track-record",
       hashtags: '#trading #investing #riskmanagement #bearmarket #algotrading #rigacap',
     },
     threads: {
-      text: "In 2022, the S&P 500 fell 20%.\n\nOur system gained 6%.\n\nFor 5 months it generated zero signals. It refused to trade in bad conditions.\n\nMost services spam you with picks to justify the fee. We went silent. Because the math said \"not now.\"\n\nThat discipline is why we never had a losing year.\n\nrigacap.com/track-record",
+      text: "In 2022, the S&P 500 fell 20%.\n\nOur system stayed flat.\n\nFor 5 months it generated zero signals. It refused to trade in bad conditions.\n\nMost services spam you with picks to justify the fee. We went silent. Because the math said \"not now.\"\n\nThat discipline is why we never had a losing year.\n\nrigacap.com/track-record",
     },
   },
   {

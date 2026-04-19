@@ -213,7 +213,7 @@ const StatsSection = () => (
           { value: '+384%', label: '5-Year Return' },
           { value: '30%', label: 'Max Drawdown' },
           { value: '$48,400', label: 'From $10k (5yr)' },
-          { value: '+6%', label: 'During 2022 Crash' },
+          { value: 'Flat', label: '2022 (S&P: -20%)' },
           { value: '1.19', label: 'Sharpe Ratio' },
         ].map(({ value, label }) => (
           <div key={label}>
@@ -261,9 +261,9 @@ const PerformanceHighlightsSection = () => {
             <div className="text-xs text-gray-400 mt-1">S&P 500: +84% over same period</div>
           </div>
           <div className="relative bg-white rounded-2xl p-8 shadow-lg border border-emerald-100 text-center">
-            <div className="text-4xl font-bold text-emerald-600 mb-2">+6%</div>
+            <div className="text-4xl font-bold text-emerald-600 mb-2">Flat</div>
             <div className="text-sm font-medium text-gray-500 mb-1">In 2022</div>
-            <div className="text-xs text-gray-400">While the S&P 500 fell 20%</div>
+            <div className="text-xs text-gray-400">Preserved capital while S&P fell 20%</div>
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap hidden sm:block">Capital Protection</div>
           </div>
           <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 text-center">
@@ -484,11 +484,11 @@ const FAQSection = () => (
         />
         <FAQItem
           question="What's your track record?"
-          answer={<>+384% over 5 years (~33% annualized) with a 1.19 Sharpe ratio — validated through walk-forward simulation with no hindsight bias. In 2022, while the S&amp;P fell 20%, our system gained 6%. See our <a href="/track-record" className="text-indigo-400 hover:text-indigo-300 underline">full track record</a>.</>}
+          answer={<>+384% over 5 years (~33% annualized) with a 1.19 Sharpe ratio — validated through walk-forward simulation with no hindsight bias. In 2022, while the S&amp;P fell 20%, our system preserved capital. See our <a href="/track-record" className="text-indigo-400 hover:text-indigo-300 underline">full track record</a>.</>}
         />
         <FAQItem
           question="Has the system ever had a down year?"
-          answer="Yes — in 2023, the system had a modest negative return. That year was driven by just 7 mega-cap stocks (the 'Magnificent 7'), while the rest of the market was flat or down. Our system is built for broad momentum and capital preservation, not concentrated bets on a handful of names. The tradeoff: we keep max drawdown around 30% — something most hedge funds can't achieve — but in rare narrow-leadership markets we may lag. We're actively researching complementary strategies for these conditions."
+          answer="No losing year over the full 5-year walk-forward. The closest was 2022 at -0.4% (essentially flat) while the S&P fell 20%. In 2024, the system returned +1.2% during a year dominated by a handful of mega-cap tech stocks — positive, but below the S&P. Our system is built for broad momentum, not concentrated bets on the Magnificent 7. The tradeoff: we keep max drawdown around 30% with consistent positive years across different market conditions."
         />
         <FAQItem
           question="Can I cancel anytime?"
