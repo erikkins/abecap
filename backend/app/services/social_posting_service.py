@@ -620,11 +620,14 @@ class SocialPostingService:
 
         image_url = None
         if post.image_s3_key:
-            from app.services.chart_card_generator import chart_card_generator
-            # Long expiry for Instagram (needs to download the image)
-            image_url = chart_card_generator.get_presigned_url(
-                post.image_s3_key, expires_in=3600
-            )
+            if post.image_s3_key.startswith("https://") or post.image_s3_key.startswith("http://"):
+                # Already a full URL (e.g. launch cards on CloudFront) — use directly
+                image_url = post.image_s3_key
+            else:
+                from app.services.chart_card_generator import chart_card_generator
+                image_url = chart_card_generator.get_presigned_url(
+                    post.image_s3_key, expires_in=3600
+                )
 
         if post.platform == "twitter":
             reply_to = getattr(post, 'reply_to_tweet_id', None)
