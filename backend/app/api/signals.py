@@ -2547,17 +2547,18 @@ REGIME_COLORS = {
 async def get_public_track_record(db: AsyncSession = Depends(get_db)):
     """
     Public track record data — no auth required.
-    Returns stitched equity curve from canonical 5-year walk-forward sims + regime periods.
+    Returns confidence band (best/avg/worst) from multiple start-date
+    walk-forward sims + regime periods.
     """
     from app.core.config import settings
-    from app.core.database import WalkForwardSimulation, RegimeHistory
+    from app.core.database import WalkForwardSimulation
     from app.services.regime_forecast_service import regime_forecast_service
     from fastapi.responses import JSONResponse
     import json
+    import statistics
 
     sim_ids = settings.TRACK_RECORD_SIM_IDS
 
-    # Fetch canonical sims
     result = await db.execute(
         select(WalkForwardSimulation).where(
             WalkForwardSimulation.id.in_(sim_ids)
@@ -2568,80 +2569,59 @@ async def get_public_track_record(db: AsyncSession = Depends(get_db)):
     if not sims:
         raise HTTPException(status_code=404, detail="Track record data not available")
 
-    # Sort sims by start_date to stitch in order
-    sims_by_id = {s.id: s for s in sims}
-    ordered_sims = [sims_by_id[sid] for sid in sim_ids if sid in sims_by_id]
-
-    # Stitch equity curves: Year 1 starts at $100k, each subsequent year
-    # starts where the previous ended (scale all values proportionally)
-    stitched = []
-    scale_factor = 1.0
-    spy_scale_factor = 1.0
-
-    for i, sim in enumerate(ordered_sims):
+    # Collect all equity curves keyed by date
+    date_buckets = {}
+    for sim in sims:
         if not sim.equity_curve_json:
             continue
-
         curve = json.loads(sim.equity_curve_json)
-        if not curve:
+        for pt in curve:
+            d = pt["date"]
+            if d not in date_buckets:
+                date_buckets[d] = {"equities": [], "spy": pt.get("spy_equity", 100000)}
+            date_buckets[d]["equities"].append(pt["equity"])
+
+    # Build band data — require at least 2 sims per date for meaningful range
+    band = []
+    for d in sorted(date_buckets.keys()):
+        eqs = date_buckets[d]["equities"]
+        if len(eqs) < 2:
             continue
+        band.append({
+            "date": d,
+            "equity": round(statistics.mean(eqs), 2),
+            "best_equity": round(max(eqs), 2),
+            "worst_equity": round(min(eqs), 2),
+            "spy_equity": round(date_buckets[d]["spy"], 2),
+            "n_sims": len(eqs),
+        })
 
-        # For first sim, no scaling needed (starts at 100k)
-        if i == 0:
-            for point in curve:
-                stitched.append({
-                    "date": point["date"],
-                    "equity": round(point["equity"], 2),
-                    "spy_equity": round(point.get("spy_equity", 100000), 2),
-                })
-            if stitched:
-                last_equity = stitched[-1]["equity"]
-                last_spy = stitched[-1]["spy_equity"]
-                scale_factor = last_equity / 100000
-                spy_scale_factor = last_spy / 100000
-        else:
-            # Scale this year's curve so it starts where previous ended
-            first_equity = curve[0]["equity"]
-            first_spy = curve[0].get("spy_equity", 100000)
-            year_equity_scale = (scale_factor * 100000) / first_equity if first_equity else 1
-            year_spy_scale = (spy_scale_factor * 100000) / first_spy if first_spy else 1
-
-            # Skip first point (overlap with previous year's last point)
-            for point in curve[1:]:
-                stitched.append({
-                    "date": point["date"],
-                    "equity": round(point["equity"] * year_equity_scale, 2),
-                    "spy_equity": round(point.get("spy_equity", 100000) * year_spy_scale, 2),
-                })
-
-            if stitched:
-                last_equity = stitched[-1]["equity"]
-                last_spy = stitched[-1]["spy_equity"]
-                scale_factor = last_equity / 100000
-                spy_scale_factor = last_spy / 100000
-
-    # Get regime periods for the same date range
+    # Get regime periods for background bands
     regime_data = await regime_forecast_service.get_regime_periods_from_db(
-        db, start_date="2021-02-01", end_date="2026-02-01"
+        db, start_date="2021-02-01", end_date="2026-04-15"
     )
     regime_periods = regime_data.get("periods", []) if regime_data else []
 
-    # Compute final metrics from stitched curve
-    total_return = 0
+    # Compute metrics from the band
+    avg_return = 0
+    best_return = 0
+    worst_return = 0
     benchmark_return = 0
-    if stitched:
-        total_return = round((stitched[-1]["equity"] / stitched[0]["equity"] - 1) * 100, 1)
-        benchmark_return = round((stitched[-1]["spy_equity"] / stitched[0]["spy_equity"] - 1) * 100, 1)
+    if band:
+        avg_return = round((band[-1]["equity"] / band[0]["equity"] - 1) * 100, 1)
+        best_return = round((band[-1]["best_equity"] / band[0]["best_equity"] - 1) * 100, 1)
+        worst_return = round((band[-1]["worst_equity"] / band[0]["worst_equity"] - 1) * 100, 1)
+        benchmark_return = round((band[-1]["spy_equity"] / band[0]["spy_equity"] - 1) * 100, 1)
 
     response_data = {
-        "equity_curve": stitched,
+        "equity_curve": band,
         "regime_periods": regime_periods,
         "metrics": {
-            "total_return_pct": total_return,
+            "avg_return_pct": avg_return,
+            "best_return_pct": best_return,
+            "worst_return_pct": worst_return,
             "benchmark_return_pct": benchmark_return,
-            "sharpe_median": 1.02,
-            "max_drawdown_pct": -15.1,
-            "win_rate": 80,
+            "n_start_dates": len(sims),
         },
     }
 

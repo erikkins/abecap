@@ -5,15 +5,17 @@ import TrackRecordChart from './components/TrackRecordChart';
 import MarketMeasuredSignup from './components/MarketMeasuredSignup';
 
 const HEADLINE_METRICS = [
-  { value: '+384%', label: '5-Year Return', subtitle: 'Walk-forward validated', color: 'text-emerald-400' },
-  { value: '~35%', label: 'Annualized Return', subtitle: 'Across multiple start dates', color: 'text-emerald-400' },
-  { value: '1.19', label: 'Sharpe Ratio', subtitle: 'Risk-adjusted performance', color: 'text-amber-400' },
-  { value: '30%', label: 'Max Drawdown', subtitle: 'Peak to trough', color: 'text-amber-400' },
+  { value: '+263%', label: 'Average Return', subtitle: '8 start dates, same strategy', color: 'text-emerald-400' },
+  { value: '+165%', label: 'Worst Start Date', subtitle: 'Still 2x SPY\'s +86%', color: 'text-amber-400' },
+  { value: '0.92', label: 'Avg Sharpe Ratio', subtitle: 'Risk-adjusted performance', color: 'text-emerald-400' },
+  { value: '27%', label: 'Avg Max Drawdown', subtitle: 'Peak to trough', color: 'text-amber-400' },
 ];
 
 const BENCHMARKS = [
-  { name: 'RigaCap Ensemble', value: 384, label: '+384%', color: 'from-amber-400 to-amber-500' },
-  { name: 'S&P 500', value: 84, label: '+84%', color: 'from-gray-400 to-gray-500' },
+  { name: 'RigaCap (best start)', value: 568, label: '+568%', color: 'from-blue-300 to-blue-400' },
+  { name: 'RigaCap (average)', value: 263, label: '+263%', color: 'from-amber-400 to-amber-500' },
+  { name: 'RigaCap (worst start)', value: 165, label: '+165%', color: 'from-blue-600 to-blue-700' },
+  { name: 'S&P 500', value: 86, label: '+86%', color: 'from-gray-400 to-gray-500' },
 ];
 
 export default function TrackRecordPage() {
@@ -68,11 +70,11 @@ export default function TrackRecordPage() {
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 sm:p-6">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Activity className="w-5 h-5 text-blue-400" />
-            5-Year Equity Curve — RigaCap vs S&P 500
+            5-Year Equity Curve — 8 Start Dates vs S&P 500
           </h2>
           <TrackRecordChart />
           <p className="text-xs text-gray-600 mt-3 text-center">
-            Shown: best-case start date (+490%). Average across all start dates: +384%. Worst case: +83%.
+            Solid line: average across 8 start dates. Shaded band: best to worst start date. All use the same strategy and parameters.
           </p>
         </div>
       </section>
@@ -119,7 +121,7 @@ export default function TrackRecordPage() {
                 <div className="h-4 bg-gray-800 rounded-full overflow-hidden">
                   <div
                     className={`h-full bg-gradient-to-r ${b.color} rounded-full transition-all duration-1000`}
-                    style={{ width: `${(b.value / 280) * 100}%` }}
+                    style={{ width: `${(b.value / 600) * 100}%` }}
                   />
                 </div>
               </div>

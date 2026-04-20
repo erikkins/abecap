@@ -48,7 +48,7 @@ const HeroSection = ({ onGetStarted }) => (
         <p className="max-w-2xl mx-auto text-lg sm:text-xl text-blue-100 mb-3">
           Stop trading on emotions. Start trading on math.
         </p>
-        <p className="text-sm text-blue-200/70 mb-8">+384% over 5 years. ~35% annualized. Walk-forward validated.<br />We scan 4,000 stocks daily and only speak up when the math says go.</p>
+        <p className="text-sm text-blue-200/70 mb-8">+384% over 5 years. ~37% annualized. Walk-forward validated.<br />We scan 4,000 stocks daily and only speak up when the math says go.</p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col items-center gap-4 mb-12">
@@ -205,7 +205,7 @@ const StatsSection = () => (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-8 text-center text-white">
         {[
-          { value: '~35%', label: 'Annualized Return' },
+          { value: '~37%', label: 'Annualized Return' },
           { value: '+384%', label: '5-Year Return' },
           { value: '30%', label: 'Max Drawdown' },
           { value: '$48,400', label: 'From $10k (5yr)' },
@@ -253,7 +253,7 @@ const PerformanceHighlightsSection = () => {
           <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 text-center">
             <div className="text-4xl font-bold text-emerald-600 mb-2">+384%</div>
             <div className="text-sm font-medium text-gray-500 mb-1">5-Year Total Return</div>
-            <div className="text-xs text-gray-400">~35% annualized</div>
+            <div className="text-xs text-gray-400">~37% annualized</div>
             <div className="text-xs text-gray-400 mt-1">S&P 500: +84% over same period</div>
           </div>
           <div className="relative bg-white rounded-2xl p-8 shadow-lg border border-emerald-100 text-center">
@@ -283,7 +283,7 @@ const PricingSection = ({ onGetStarted }) => {
   const features = [
     'Unlimited real-time signals',
     'Daily email digest',
-    'Stop-loss & profit targets',
+    'Stop-loss & exit targets',
     'Portfolio tracking',
     'Performance analytics',
     'Mobile-friendly dashboard',
@@ -429,7 +429,7 @@ const FAQSection = () => (
         />
         <FAQItem
           question="What's your track record?"
-          answer={<>+384% over 5 years (~35% annualized) with a 1.19 Sharpe ratio — validated through walk-forward simulation with no hindsight bias. In 2022, while the S&amp;P fell 20%, our system preserved capital. See our <a href="/track-record" className="text-indigo-400 hover:text-indigo-300 underline">full track record</a>.</>}
+          answer={<>+384% over 5 years (~37% annualized) with a 1.19 Sharpe ratio — validated through walk-forward simulation with no hindsight bias. In 2022, while the S&amp;P fell 20%, our system preserved capital. See our <a href="/track-record" className="text-indigo-400 hover:text-indigo-300 underline">full track record</a>.</>}
         />
         <FAQItem
           question="Has the system ever had a down year?"
@@ -463,7 +463,7 @@ const CTASection = ({ onGetStarted }) => (
         Ready to Start Winning?
       </h2>
       <p className="text-xl text-indigo-100 mb-10 max-w-2xl mx-auto">
-        Join thousands of traders using AI-powered signals to find winning opportunities.
+        Get access to the same Ensemble strategy — delivered to your dashboard and inbox daily.
         Your first week is free — credit card required to start trial.
       </p>
       <button

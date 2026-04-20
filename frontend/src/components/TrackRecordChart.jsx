@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceArea,
+  ResponsiveContainer, ReferenceArea, Area, ComposedChart,
 } from 'recharts';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -33,10 +33,6 @@ function CustomTooltip({ active, payload, compact }) {
   const data = payload[0]?.payload;
   if (!data) return null;
 
-  const outperformance = data.equity && data.spy_equity
-    ? ((data.equity / data.spy_equity - 1) * 100).toFixed(1)
-    : null;
-
   const regime = data._regime;
 
   return (
@@ -44,16 +40,26 @@ function CustomTooltip({ active, payload, compact }) {
       <div className="text-gray-400 mb-1">{data.date}</div>
       <div className="flex items-center gap-2 mb-0.5">
         <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-        <span className="text-white font-medium">Portfolio: {formatCurrency(data.equity)}</span>
+        <span className="text-white font-medium">Average: {formatCurrency(data.equity)}</span>
       </div>
+      {data.best_equity && !compact && (
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="w-2 h-2 rounded-full bg-blue-300 inline-block" />
+          <span className="text-blue-300">Best: {formatCurrency(data.best_equity)}</span>
+        </div>
+      )}
+      {data.worst_equity && !compact && (
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="w-2 h-2 rounded-full bg-blue-800 inline-block" />
+          <span className="text-blue-400">Worst: {formatCurrency(data.worst_equity)}</span>
+        </div>
+      )}
       <div className="flex items-center gap-2 mb-0.5">
         <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
         <span className="text-gray-300">SPY: {formatCurrency(data.spy_equity)}</span>
       </div>
-      {outperformance && !compact && (
-        <div className={`mt-1 font-medium ${parseFloat(outperformance) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-          {parseFloat(outperformance) >= 0 ? '+' : ''}{outperformance}% vs SPY
-        </div>
+      {data.n_sims && !compact && (
+        <div className="text-gray-600 mt-1">{data.n_sims} start dates</div>
       )}
       {regime && !compact && (
         <div className="mt-1 flex items-center gap-1.5">
@@ -83,13 +89,11 @@ export default function TrackRecordChart({ compact = false, apiUrl = null }) {
       .finally(() => setLoading(false));
   }, [url]);
 
-  // Annotate chart data with regime info for tooltip
   const chartData = useMemo(() => {
     if (!data?.equity_curve) return [];
     const periods = data.regime_periods || [];
 
     return data.equity_curve.map(point => {
-      // Find which regime this date falls in
       let regime = null;
       for (const p of periods) {
         if (point.date >= p.start_date && point.date <= p.end_date) {
@@ -102,7 +106,6 @@ export default function TrackRecordChart({ compact = false, apiUrl = null }) {
     });
   }, [data]);
 
-  // Map regime periods to chart data points for ReferenceArea
   const mappedRegimePeriods = useMemo(() => {
     if (!chartData.length || !data?.regime_periods?.length) return [];
     const chartDates = chartData.map(d => d.date);
@@ -116,7 +119,6 @@ export default function TrackRecordChart({ compact = false, apiUrl = null }) {
         if (chartDates[i] <= period.end_date) { endIdx = i; break; }
       }
 
-      // Extend to next period's start so bands meet edge-to-edge
       const nextPeriod = data.regime_periods[idx + 1];
       if (nextPeriod && endIdx < chartDates.length - 1) {
         const nextStartIdx = chartDates.findIndex(d => d >= nextPeriod.start_date);
@@ -137,7 +139,6 @@ export default function TrackRecordChart({ compact = false, apiUrl = null }) {
     }).filter(Boolean);
   }, [chartData, data]);
 
-  // Unique regimes for legend
   const uniqueRegimes = useMemo(() => {
     if (!data?.regime_periods) return [];
     const seen = new Map();
@@ -155,19 +156,18 @@ export default function TrackRecordChart({ compact = false, apiUrl = null }) {
     return [...seen.values()];
   }, [data]);
 
-  // Thin chart data for compact view (every ~7th point)
   const displayData = useMemo(() => {
     if (!compact || chartData.length < 100) return chartData;
     const step = Math.max(1, Math.floor(chartData.length / 80));
     const result = [];
     for (let i = 0; i < chartData.length; i += step) result.push(chartData[i]);
-    // Always include last point
     if (result[result.length - 1] !== chartData[chartData.length - 1]) {
       result.push(chartData[chartData.length - 1]);
     }
     return result;
   }, [chartData, compact]);
 
+  const hasBand = displayData.length > 0 && displayData[0].best_equity != null;
   const height = compact ? 200 : 350;
 
   if (loading) {
@@ -181,16 +181,15 @@ export default function TrackRecordChart({ compact = false, apiUrl = null }) {
   }
 
   if (error || !chartData.length) {
-    return null; // Fail silently — page content still shows
+    return null;
   }
 
-  // Compute X-axis tick interval
   const tickInterval = compact ? Math.floor(displayData.length / 3) : Math.floor(displayData.length / 6);
 
   return (
     <div>
       <ResponsiveContainer width="100%" height={height}>
-        <LineChart data={displayData} margin={{ top: 10, right: 10, left: compact ? 0 : 10, bottom: 0 }}>
+        <ComposedChart data={displayData} margin={{ top: 10, right: 10, left: compact ? 0 : 10, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
 
           {/* Regime background bands */}
@@ -225,6 +224,30 @@ export default function TrackRecordChart({ compact = false, apiUrl = null }) {
           />
           <Tooltip content={<CustomTooltip compact={compact} />} />
 
+          {/* Confidence band — best to worst range */}
+          {hasBand && !compact && (
+            <Area
+              type="monotone"
+              dataKey="best_equity"
+              stroke="none"
+              fill="rgba(59, 130, 246, 0.08)"
+              fillOpacity={1}
+              activeDot={false}
+              isAnimationActive={false}
+            />
+          )}
+          {hasBand && !compact && (
+            <Area
+              type="monotone"
+              dataKey="worst_equity"
+              stroke="none"
+              fill="#111827"
+              fillOpacity={1}
+              activeDot={false}
+              isAnimationActive={false}
+            />
+          )}
+
           {/* SPY benchmark — dashed amber */}
           <Line
             type="monotone"
@@ -237,7 +260,37 @@ export default function TrackRecordChart({ compact = false, apiUrl = null }) {
             name="SPY"
           />
 
-          {/* Portfolio equity — solid blue */}
+          {/* Worst case — thin dashed blue */}
+          {hasBand && !compact && (
+            <Line
+              type="monotone"
+              dataKey="worst_equity"
+              stroke="#3B82F6"
+              strokeWidth={1}
+              strokeDasharray="4 4"
+              strokeOpacity={0.4}
+              dot={false}
+              activeDot={false}
+              name="Worst Start Date"
+            />
+          )}
+
+          {/* Best case — thin dashed blue */}
+          {hasBand && !compact && (
+            <Line
+              type="monotone"
+              dataKey="best_equity"
+              stroke="#3B82F6"
+              strokeWidth={1}
+              strokeDasharray="4 4"
+              strokeOpacity={0.4}
+              dot={false}
+              activeDot={false}
+              name="Best Start Date"
+            />
+          )}
+
+          {/* Average equity — solid blue (primary) */}
           <Line
             type="monotone"
             dataKey="equity"
@@ -245,19 +298,22 @@ export default function TrackRecordChart({ compact = false, apiUrl = null }) {
             strokeWidth={compact ? 2 : 2.5}
             dot={false}
             activeDot={{ r: 4, fill: '#3B82F6', stroke: '#1E40AF' }}
-            name="Portfolio"
+            name="Average"
           />
-        </LineChart>
+        </ComposedChart>
       </ResponsiveContainer>
 
       {/* Legend */}
       {!compact && (
         <div className="mt-4 space-y-3">
-          {/* Line legend */}
           <div className="flex items-center justify-center gap-6 text-xs">
             <span className="flex items-center gap-1.5">
               <span className="w-5 h-0.5 bg-blue-500 inline-block rounded" />
-              <span className="text-gray-400">RigaCap Ensemble</span>
+              <span className="text-gray-400">Average (all start dates)</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-5 h-0.5 inline-block rounded opacity-40" style={{ background: '#3B82F6', borderTop: '1px dashed #3B82F6' }} />
+              <span className="text-gray-500">Best / Worst start date</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-5 h-0.5 inline-block rounded" style={{ background: '#F59E0B', opacity: 0.7 }} />
