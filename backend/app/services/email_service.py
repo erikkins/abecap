@@ -1187,8 +1187,9 @@ Your friend gets their first month free, and you get a free month when they subs
                 </p>
 
                 <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
-                    Happy trading!<br>
-                    <strong>The RigaCap Team</strong>
+                    Happy trading,<br>
+                    <strong>Erik</strong><br>
+                    <span style="font-size: 13px; color: #6b7280;">Founder, RigaCap</span>
                 </p>
             </td>
         </tr>
@@ -1424,8 +1425,9 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 </p>
 
                 <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
-                    Happy trading!<br>
-                    <strong>The RigaCap Team</strong>
+                    Happy trading,<br>
+                    <strong>Erik</strong><br>
+                    <span style="font-size: 13px; color: #6b7280;">Founder, RigaCap</span>
                 </p>
             </td>
         </tr>
@@ -1653,18 +1655,17 @@ Unsubscribe: https://rigacap.com/unsubscribe
                     Hey {first_name}!
                 </p>
                 <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
-                    Welcome to Day 1! Let's make sure you get the most out of your trial.
-                    Here's how RigaCap finds the best trades:
+                    Welcome aboard. I built RigaCap because I got tired of trading on gut feelings — so I built a system that trades on math instead. Here's how it works:
                 </p>
 
                 <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
                     <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #1e40af; border-left: 4px solid #172554; padding-left: 12px;">
-                        The Ensemble Algorithm
+                        Three Filters, Every Stock
                     </h2>
                     <ol style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
-                        <li><strong>Breakout Timing</strong> — We detect when a stock clears its long-term accumulation zone. This catches early breakouts before the crowd.</li>
-                        <li><strong>Momentum Quality</strong> — We rank stocks by 10-day and 60-day momentum. Only top-ranked stocks make the cut.</li>
-                        <li><strong>Confirmation</strong> — Volume surge + near 50-day high = triple-confirmed entry.</li>
+                        <li><strong>Breakout Detection</strong> — The system spots stocks breaking out of their long-term range before it's obvious on the charts.</li>
+                        <li><strong>Momentum Ranking</strong> — Every stock gets scored and ranked by momentum strength. Only the top-ranked names make the cut.</li>
+                        <li><strong>Confirmation</strong> — Volume spike + near recent highs = high-conviction entry. All three must align.</li>
                     </ol>
                 </div>
 
@@ -1723,7 +1724,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
                         Pro Tip #3: Trailing Stops Protect You
                     </h2>
                     <p style="margin: 0; color: #374151; line-height: 1.6;">
-                        Every position has a <strong>12% trailing stop</strong> from its high water mark.
+                        Every position has a <strong>trailing stop</strong> from its high water mark (currently 14%).
                         You'll get an email alert when a stock approaches the stop —
                         no need to watch prices all day.
                     </p>
@@ -1758,18 +1759,18 @@ Unsubscribe: https://rigacap.com/unsubscribe
                         5-Year Walk-Forward Performance
                     </p>
                     <p style="margin: 0; font-size: 48px; font-weight: 700; color: #059669;">
-                        +240%
+                        +384%
                     </p>
                     <p style="margin: 4px 0 0 0; font-size: 14px; color: #374151;">
-                        ~28% annualized &bull; 0.89 Sharpe &bull; 24% max drawdown &bull; No hindsight bias
+                        ~33% annualized &bull; 1.19 Sharpe &bull; 30% max drawdown &bull; No hindsight bias
                     </p>
                 </div>
 
                 <div style="background-color: #f9fafb; border-radius: 12px; padding: 20px; margin: 24px 0; border-left: 4px solid #172554;">
                     <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #172554;">How we trade</h3>
                     <p style="margin: 0 0 8px 0; font-size: 15px; color: #374151; line-height: 1.6;">
-                        <strong style="color: #059669;">Winners run ~3 weeks at +20%.</strong>
-                        <strong style="color: #92400e;">Losers get cut in 12 days at &minus;9%.</strong>
+                        <strong style="color: #059669;">Average winner: +15%.</strong>
+                        <strong style="color: #92400e;">Average loser: -9%. Cut fast.</strong>
                     </p>
                     <p style="margin: 0; font-size: 13px; color: #6b7280; line-height: 1.5;">
                         No bag-holding for months. The system knows when to let a trade work and when to admit it isn't.
@@ -1821,8 +1822,8 @@ Unsubscribe: https://rigacap.com/unsubscribe
                 <div style="background-color: #f9fafb; border-radius: 12px; padding: 20px; margin: 24px 0; border-left: 4px solid #172554;">
                     <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #172554;">How we trade</h3>
                     <p style="margin: 0 0 8px 0; font-size: 15px; color: #374151; line-height: 1.6;">
-                        <strong style="color: #059669;">Winners run ~3 weeks at +20%.</strong>
-                        <strong style="color: #92400e;">Losers get cut in 12 days at &minus;9%.</strong>
+                        <strong style="color: #059669;">Average winner: +15%.</strong>
+                        <strong style="color: #92400e;">Average loser: -9%. Cut fast.</strong>
                     </p>
                     <p style="margin: 0; font-size: 13px; color: #6b7280; line-height: 1.5;">
                         No bag-holding for months. The system knows when to let a trade work and when to admit it isn't.
@@ -1855,8 +1856,8 @@ Unsubscribe: https://rigacap.com/unsubscribe
                     </h2>
                     <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
                         <li>The ensemble generates <strong>3-4 high-conviction signals per month</strong> — and zero when conditions aren't right</li>
-                        <li>Walk-forward tested: <strong>+240% over 5 years</strong>, no hindsight bias</li>
-                        <li>The S&amp;P 500 returned just <strong>+84%</strong> over the same 5 years — nearly <strong>3&times; the market</strong></li>
+                        <li>Walk-forward tested: <strong>+384% over 5 years</strong>, no hindsight bias</li>
+                        <li>The S&amp;P 500 returned <strong>+86%</strong> over the same period — we beat it by <strong>4.5&times;</strong></li>
                     </ul>
                 </div>
 
@@ -1923,8 +1924,9 @@ Unsubscribe: https://rigacap.com/unsubscribe
             <td style="padding: 40px 32px;">
                 {content}
                 <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
-                    Happy trading!<br>
-                    <strong>The RigaCap Team</strong>
+                    Happy trading,<br>
+                    <strong>Erik</strong><br>
+                    <span style="font-size: 13px; color: #6b7280;">Founder, RigaCap</span>
                 </p>
             </td>
         </tr>

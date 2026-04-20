@@ -65,6 +65,16 @@ TOPIC_KEYWORDS = [
 # Minimum keyword matches to qualify a tweet as relevant
 MIN_KEYWORD_MATCHES = 1
 
+# Skip posts that are hostile to our category — replying would look
+# like we're defending "slick signal services" or picking a fight.
+NEGATIVE_KEYWORDS = [
+    "scam", "slimy", "snake oil", "fraud", "con artist", "rip off",
+    "ripoff", "garbage", "worthless", "waste of money", "don't trust",
+    "never trust", "avoid", "stay away", "predatory", "deceived",
+    "signaling services", "signal service scam", "prop firm",
+    "sim prop", "fake signals", "pump and dump",
+]
+
 
 class EngagementService:
 
@@ -150,8 +160,12 @@ class EngagementService:
         return []
 
     def _score_relevance(self, text: str) -> tuple:
-        """Score a tweet's relevance to RigaCap's topics. Returns (score, matched_keywords)."""
+        """Score a tweet's relevance to RigaCap's topics. Returns (score, matched_keywords).
+        Returns -1 if the post is hostile to our category (negative filter)."""
         text_lower = text.lower()
+        # Skip hostile posts — replying looks like we're defending the industry
+        if any(neg in text_lower for neg in NEGATIVE_KEYWORDS):
+            return -1, []
         matches = [kw for kw in TOPIC_KEYWORDS if kw.lower() in text_lower]
         return len(matches), matches
 
