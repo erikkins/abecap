@@ -1426,7 +1426,6 @@ function ModelPortfolioTab({ fetchWithAuth }) {
     fetchTrades();
     fetchSignalTrackStats();
     fetchSubscriberPreview();
-    fetchGhostComparison();
     fetchRegimeData();
     const interval = setInterval(fetchPortfolio, 30000);
     return () => clearInterval(interval);
