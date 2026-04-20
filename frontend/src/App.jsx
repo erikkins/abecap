@@ -14,6 +14,7 @@ import {
 import LandingPage from './LandingPage';
 import TrackRecordPage from './TrackRecordPage';
 import TrackRecord10YPage from './TrackRecord10YPage';
+import MethodologyPage from './MethodologyPage';
 import MarketRegimePage from './MarketRegimePage';
 import Blog2022StoryPage from './Blog2022StoryPage';
 import BlogBacktestsPage from './BlogBacktestsPage';
@@ -4442,6 +4443,7 @@ export default function App() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/track-record" element={<TrackRecordPage />} />
         <Route path="/track-record-10y" element={<TrackRecord10YPage />} />
+        <Route path="/methodology" element={<MethodologyPage />} />
         <Route path="/market-regime" element={<MarketRegimePage />} />
         <Route path="/blog" element={<BlogIndexPage />} />
         <Route path="/blog/2022-story" element={<Blog2022StoryPage />} />

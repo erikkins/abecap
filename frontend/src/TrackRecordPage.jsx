@@ -167,6 +167,9 @@ export default function TrackRecordPage() {
                 The portfolio reoptimizes biweekly across up to 8 positions. Parameters adapt
                 through 7 distinct market regimes — from strong bull to panic/crash — without manual intervention.
               </p>
+              <Link to="/methodology" className="text-amber-400 hover:text-amber-300 text-sm underline mt-2 inline-block">
+                Full methodology & assumptions →
+              </Link>
             </div>
           </div>
         </div>
