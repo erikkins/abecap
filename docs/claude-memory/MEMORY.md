@@ -145,6 +145,9 @@
 - [Full text in approval emails](feedback_social_emails_full_text.md) — never truncate post previews in admin emails
 - [No "7 dates" in public content](feedback_no_7_dates.md) — say "multiple start dates", never cite the specific count
 
+## Planned Features
+- [Signal slippage tracking](project_signal_slippage_tracking.md) — post-publication price monitoring to measure real achievable execution vs published entry price
+
 ## References
 - [HeyGen avatar ID](reference_heygen.md) — Erik's current avatar for AI video generation
 - [Twitter media upload field naming](reference_twitter_media_api.md) — use 'media' for raw bytes, 'media_data' for base64; wrong field silently drops images
