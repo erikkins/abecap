@@ -147,6 +147,7 @@
 
 ## Planned Features
 - [Signal slippage tracking](project_signal_slippage_tracking.md) — post-publication price monitoring to measure real achievable execution vs published entry price
+- [Balanced content rule](project_balanced_content_rule.md) — every 4th social post must be a loss/quiet week/limitation; trust-building differentiator
 
 ## References
 - [HeyGen avatar ID](reference_heygen.md) — Erik's current avatar for AI video generation
