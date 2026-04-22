@@ -1128,9 +1128,9 @@ Your friend gets their first month free, and you get a free month when they subs
                 </p>
                 <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
                     Thank you for joining RigaCap! We're thrilled to have you on board.
-                    You've just unlocked access to our AI-powered <strong>Ensemble signals</strong> —
-                    combining timing, momentum quality, and adaptive risk management to
-                    find the best opportunities in any market.
+                    You've just unlocked access to our <strong>Ensemble signals</strong> —
+                    a disciplined momentum strategy combining timing, momentum quality, and adaptive risk management.
+                    Walk-forward validated across multiple start dates.
                 </p>
 
                 <!-- What You Get Box -->
@@ -1391,7 +1391,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                         What You'll Lose
                     </h2>
                     <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
-                        <li>Daily AI-powered buy signals</li>
+                        <li>Daily ensemble buy signals</li>
                         <li>Market regime alerts (bull/bear detection)</li>
                         <li>Momentum rankings across 6,500+ stocks</li>
                         <li>Portfolio P&L tracking</li>
@@ -1457,7 +1457,7 @@ Hey {first_name},
 Your RigaCap free trial ends {urgency}!
 
 After that, you'll lose access to:
-- Daily AI-powered buy signals
+- Daily ensemble buy signals
 - Market regime alerts
 - Momentum rankings across 6,500+ stocks
 - Portfolio P&L tracking
@@ -1810,7 +1810,7 @@ Unsubscribe: https://rigacap.com/unsubscribe
 
                 <div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
                     <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2.2;">
-                        <li>Daily AI-powered ensemble buy signals</li>
+                        <li>Daily ensemble buy signals</li>
                         <li>Sell alerts and trailing stop notifications</li>
                         <li>Market regime detection (7 regimes)</li>
                         <li>Momentum rankings across 6,500+ stocks</li>

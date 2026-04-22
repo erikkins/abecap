@@ -193,27 +193,27 @@ const normalizeSignal = (signal) => ({
 // Custom triangle markers for buy/sell points on charts
 const BuyMarker = ({ cx, cy, payload }) => (
   <svg x={cx - 10} y={cy - 20} width={20} height={20} viewBox="0 0 20 20" style={{ cursor: 'pointer' }}>
-    <title>BUY POINT: {payload?.date} @ ${payload?.close?.toFixed(2)}</title>
+    <title>ENTRY: {payload?.date} @ ${payload?.close?.toFixed(2)}</title>
     <polygon
       points="10,2 18,18 2,18"
-      fill="#10B981"
-      stroke="#059669"
-      strokeWidth="1"
+      fill="#7A2430"
+      stroke="#F5F1E8"
+      strokeWidth="1.5"
     />
-    <text x="10" y="14" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">B</text>
+    <text x="10" y="14" textAnchor="middle" fontSize="7" fill="#F5F1E8" fontWeight="500" fontFamily="IBM Plex Mono">E</text>
   </svg>
 );
 
 const SellMarker = ({ cx, cy, payload }) => (
   <svg x={cx - 10} y={cy} width={20} height={20} viewBox="0 0 20 20" style={{ cursor: 'pointer' }}>
-    <title>SELL POINT (+20%): {payload?.date} @ ${payload?.close?.toFixed(2)}</title>
+    <title>EXIT: {payload?.date} @ ${payload?.close?.toFixed(2)}</title>
     <polygon
       points="10,18 18,2 2,2"
-      fill="#EF4444"
-      stroke="#DC2626"
-      strokeWidth="1"
+      fill="#141210"
+      stroke="#F5F1E8"
+      strokeWidth="1.5"
     />
-    <text x="10" y="12" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">S</text>
+    <text x="10" y="12" textAnchor="middle" fontSize="7" fill="#F5F1E8" fontWeight="500" fontFamily="IBM Plex Mono">X</text>
   </svg>
 );
 
@@ -336,7 +336,7 @@ const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy, viewMode = 'advanc
             className="flex-1 px-4 py-3 bg-ink text-paper font-body text-[0.85rem] font-medium tracking-wide hover:bg-claret transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {submitting ? 'Saving...' : 'Track Position'}
+            {submitting ? 'Saving...' : 'Record Entry'}
           </button>
         </div>
       </div>
@@ -371,50 +371,51 @@ const SellModal = ({ symbol, position, currentPrice, stockInfo, onClose, onSell 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
-      <div className="bg-paper-card rounded shadow-2xl max-w-md w-full overflow-hidden">
-        <div className={`px-6 py-4 border-b border-rule ${pnl >= 0 ? 'bg-positive' : 'bg-negative'}`}>
-          <h2 className="text-xl font-bold text-white">Sell {symbol}</h2>
-          {stockInfo?.name && <p className="text-white/80 text-sm">{stockInfo.name}</p>}
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
+      <div className="bg-paper max-w-md w-full border border-ink overflow-hidden">
+        <div className="px-6 py-5 border-b-2 border-ink">
+          <div className="font-body text-[0.68rem] font-medium tracking-[0.22em] uppercase text-ink-mute mb-2">Record Exit</div>
+          <h2 className="font-display text-2xl font-normal text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 96' }}>{symbol}</h2>
+          {stockInfo?.name && <p className="text-ink-mute text-sm mt-0.5">{stockInfo.name}</p>}
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-ink mb-1">Number of Shares</label>
+            <label className="block font-body text-[0.72rem] font-medium tracking-[0.15em] uppercase text-ink-mute mb-2">Number of Shares</label>
             <input
               type="number"
               value={shares}
               onChange={(e) => setShares(Math.max(0, Math.min(position?.shares || 0, parseFloat(e.target.value) || 0)))}
-              className="w-full px-4 py-3 border border-rule-dark rounded focus:ring-2 focus:ring-emerald-500 focus:border-claret"
+              className="w-full px-4 py-3 border border-rule-dark bg-paper-card font-mono text-[0.95rem] focus:outline-none focus:border-ink"
               max={position?.shares || 0}
             />
-            <p className="text-xs text-ink-light mt-1">Max: {position?.shares || 0} shares</p>
+            <p className="font-mono text-[0.72rem] text-ink-light mt-1">Max: {Math.round(position?.shares || 0)} shares</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-ink mb-1">Exit Price</label>
+            <label className="block font-body text-[0.72rem] font-medium tracking-[0.15em] uppercase text-ink-mute mb-2">Exit Price</label>
             <input
               type="number"
               step="0.01"
               value={exitPrice}
               onChange={(e) => setExitPrice(parseFloat(e.target.value) || 0)}
-              className="w-full px-4 py-3 border border-rule-dark rounded focus:ring-2 focus:ring-emerald-500 focus:border-claret"
+              className="w-full px-4 py-3 border border-rule-dark bg-paper-card font-mono text-[0.95rem] focus:outline-none focus:border-ink"
             />
           </div>
 
-          <div className="bg-paper-card rounded p-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-ink-mute">Entry Price</span>
-              <span className="font-medium">${entryPrice.toFixed(2)}</span>
+          <div className="border-t border-b border-rule py-4 space-y-3">
+            <div className="flex justify-between">
+              <span className="font-body text-[0.72rem] font-medium tracking-[0.15em] uppercase text-ink-mute">Entry Price</span>
+              <span className="font-mono text-[0.95rem] text-ink">${entryPrice.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-ink-mute">Total Proceeds</span>
-              <span className="font-semibold">${totalProceeds.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+            <div className="flex justify-between">
+              <span className="font-body text-[0.72rem] font-medium tracking-[0.15em] uppercase text-ink-mute">Total Proceeds</span>
+              <span className="font-mono text-[0.95rem] text-ink">${totalProceeds.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
             </div>
             <div className="border-t border-rule my-2"></div>
-            <div className="flex justify-between text-sm">
-              <span className="text-ink-mute">Profit/Loss</span>
-              <span className={`font-bold ${pnl >= 0 ? 'text-positive' : 'text-negative'}`}>
+            <div className="flex justify-between">
+              <span className="font-body text-[0.72rem] font-medium tracking-[0.15em] uppercase text-ink-mute">Profit / Loss</span>
+              <span className={`font-mono text-[0.95rem] font-medium ${pnl >= 0 ? 'text-positive' : 'text-negative'}`}>
                 {pnl >= 0 ? '+' : ''}{pnl.toLocaleString(undefined, { maximumFractionDigits: 2 })} ({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)
               </span>
             </div>
@@ -424,17 +425,17 @@ const SellModal = ({ symbol, position, currentPrice, stockInfo, onClose, onSell 
         <div className="px-6 py-4 border-t border-rule flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-3 text-ink-mute hover:bg-paper-deep rounded font-medium"
+            className="flex-1 px-4 py-3 text-ink-mute border border-rule-dark hover:border-ink font-body text-[0.85rem] font-medium transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSell}
             disabled={submitting || shares <= 0 || exitPrice <= 0}
-            className={`flex-1 px-4 py-3 text-white rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${pnl >= 0 ? 'bg-positive hover:bg-positive' : 'bg-negative hover:bg-negative'}`}
+            className="flex-1 px-4 py-3 bg-ink text-paper font-body text-[0.85rem] font-medium tracking-wide hover:bg-claret transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign size={18} />}
-            {submitting ? 'Selling...' : 'Confirm Sale'}
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            {submitting ? 'Saving...' : 'Record Exit'}
           </button>
         </div>
       </div>
@@ -690,22 +691,22 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
               <ComposedChart data={chartDataWithLive}>
                 <defs>
                   <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                    <stop offset="0%" stopColor="#141210" stopOpacity={0.08}/>
+                    <stop offset="100%" stopColor="#141210" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#DDD5C7" vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tick={{ fontSize: 11 }}
-                  stroke="#9CA3AF"
+                  tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono', fill: '#8A8279' }}
+                  stroke="#C9BFAC"
                   tickFormatter={(val) => formatChartDate(val)}
                   interval={Math.floor(priceData.length / 6)}
                 />
                 <YAxis
                   yAxisId="price"
-                  tick={{ fontSize: 11 }}
-                  stroke="#9CA3AF"
+                  tick={{ fontSize: 11, fontFamily: 'IBM Plex Mono', fill: '#8A8279' }}
+                  stroke="#C9BFAC"
                   domain={['dataMin - 10', 'dataMax + 10']}
                   tickFormatter={(val) => `$${val.toFixed(0)}`}
                 />
@@ -739,43 +740,41 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                     }
                     return (
                       <div className={`bg-paper-card p-3 rounded-lg shadow-lg border ${borderClass} text-sm`}>
-                        <p className="font-medium text-ink mb-1">
+                        <p className="font-mono font-medium text-ink mb-1.5 text-[0.82rem]">
                           {formatDate(label)}
-                          {isEntryDay && <span className="ml-2 text-positive font-bold">BUY POINT</span>}
-                          {isSellDay && <span className="ml-2 text-claret font-bold">SELL POINT (+20%)</span>}
+                          {isEntryDay && <span className="ml-2 text-[#2D5F3F] font-medium">ENTRY</span>}
+                          {isSellDay && <span className="ml-2 text-[#B8923D] font-medium">EXIT</span>}
                         </p>
-                        <p className="text-claret">Price: ${d?.close?.toFixed(2)}</p>
+                        <p className="font-mono" style={{ color: '#2A2520' }}>Price: ${d?.close?.toFixed(2)}</p>
                         {isEntryDay && data?.entry_price && (
-                          <p className="text-positive font-medium">Entry: ${data.entry_price.toFixed(2)}</p>
+                          <p className="font-mono" style={{ color: '#2D5F3F' }}>Entry: ${data.entry_price.toFixed(2)}</p>
                         )}
                         {isSellDay && data?.sell_price && (
-                          <p className="text-claret font-medium">Exit: ${data.sell_price.toFixed(2)}</p>
+                          <p className="font-mono" style={{ color: '#B8923D' }}>Exit: ${data.sell_price.toFixed(2)}</p>
                         )}
                         {d?.dwap && (
                           <>
-                            <p className="text-claret">Wtd Avg: ${d.dwap.toFixed(2)}</p>
-                            <p className="text-yellow-600">Breakout (+5%): ${(d.dwap * 1.05).toFixed(2)}</p>
+                            <p className="font-mono" style={{ color: '#B8923D' }}>Wtd Avg: ${d.dwap.toFixed(2)}</p>
+                            <p className="font-mono" style={{ color: '#2B6B8C' }}>Breakout: ${(d.dwap * 1.05).toFixed(2)}</p>
                           </>
                         )}
-                        {d?.ma_50 && <p className="text-orange-500">MA50: ${d.ma_50.toFixed(2)}</p>}
-                        {d?.volume > 0 && <p className="text-ink-light">Vol: {(d.volume / 1000000).toFixed(1)}M</p>}
-                        {d?.isLive && <p className="text-claret font-medium">Live Price</p>}
+                        {d?.ma_50 && <p className="font-mono" style={{ color: '#7A2430' }}>MA50: ${d.ma_50.toFixed(2)}</p>}
+                        {d?.volume > 0 && <p className="font-mono text-ink-light">Vol: {(d.volume / 1000000).toFixed(1)}M</p>}
+                        {d?.isLive && <p className="font-mono text-claret font-medium">Live</p>}
                       </div>
                     );
                   }}
                 />
-                {viewMode !== 'simple' && <Bar yAxisId="volume" dataKey="volume" fill="#E5E7EB" opacity={0.5} />}
+                {viewMode !== 'simple' && <Bar yAxisId="volume" dataKey="volume" fill="#A99E87" opacity={0.35} />}
                 {viewMode !== 'simple' && chartDataWithLive.some(d => d.dwap) && (
                   <>
-                    <Line yAxisId="price" type="monotone" dataKey="dwap" stroke="#8B5CF6" strokeWidth={2} dot={false} name="Wtd Avg" />
-                    {/* Breakout trigger line (+5% above weighted avg) */}
+                    <Line yAxisId="price" type="monotone" dataKey="dwap" stroke="#B8923D" strokeWidth={1.5} dot={false} strokeDasharray="6 3" name="Wtd Avg" />
                     <Line
                       yAxisId="price"
                       type="monotone"
                       dataKey={(d) => d.dwap ? d.dwap * 1.05 : null}
-                      stroke="#FBBF24"
-                      strokeWidth={2}
-                      strokeDasharray="6 3"
+                      stroke="#2B6B8C"
+                      strokeWidth={1.5}
                       dot={false}
                       name="Breakout +5%"
                       connectNulls={false}
@@ -783,9 +782,9 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   </>
                 )}
                 {viewMode !== 'simple' && chartDataWithLive.some(d => d.ma_50) && (
-                  <Line yAxisId="price" type="monotone" dataKey="ma_50" stroke="#F97316" strokeWidth={1.5} dot={false} strokeDasharray="5 5" name="MA50" />
+                  <Line yAxisId="price" type="monotone" dataKey="ma_50" stroke="#7A2430" strokeWidth={1.5} dot={false} strokeDasharray="5 5" name="MA50" />
                 )}
-                <Area yAxisId="price" type="monotone" dataKey="close" stroke="#3B82F6" strokeWidth={2} fill="url(#priceGradient)" name="Price" />
+                <Area yAxisId="price" type="monotone" dataKey="close" stroke="#2A2520" strokeWidth={2} fill="url(#priceGradient)" name="Price" />
 
                 {/* Reference lines with smart label placement to avoid overlaps */}
                 {(() => {
@@ -876,14 +875,15 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                         <ReferenceLine
                           yAxisId="price"
                           y={entryPrice}
-                          stroke="#10B981"
-                          strokeWidth={2}
+                          stroke="#2D5F3F"
+                          strokeWidth={1.5}
                           strokeDasharray="8 4"
                           label={{
-                            value: `Buy $${entryPrice.toFixed(2)}`,
-                            fill: '#10B981',
-                            fontWeight: 'bold',
-                            fontSize: 12,
+                            value: `Entry $${entryPrice.toFixed(2)}`,
+                            fill: '#2D5F3F',
+                            fontWeight: 500,
+                            fontSize: 11,
+                            fontFamily: 'IBM Plex Mono',
                             position: buyPos
                           }}
                         />
@@ -894,14 +894,15 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                         <ReferenceLine
                           yAxisId="price"
                           y={sellY}
-                          stroke="#F59E0B"
-                          strokeWidth={2}
+                          stroke="#B8923D"
+                          strokeWidth={1.5}
                           strokeDasharray="8 4"
                           label={{
-                            value: `Sell $${sellY.toFixed(2)}${data?.exit_reason ? ` (${{'trailing_stop':'trailing stop','rebalance_exit':'portfolio rebalance','simulation_end':'portfolio rebalance','profit_target':'profit target','stop_loss':'stop loss'}[data.exit_reason] || data.exit_reason.replace(/_/g, ' ')})` : ''}`,
-                            fill: '#F59E0B',
-                            fontWeight: 'bold',
-                            fontSize: 12,
+                            value: `Exit $${sellY.toFixed(2)}${data?.exit_reason ? ` (${{'trailing_stop':'trailing stop','rebalance_exit':'rebalance','simulation_end':'rebalance','profit_target':'target','stop_loss':'stop loss'}[data.exit_reason] || data.exit_reason.replace(/_/g, ' ')})` : ''}`,
+                            fill: '#B8923D',
+                            fontWeight: 500,
+                            fontSize: 11,
+                            fontFamily: 'IBM Plex Mono',
                             position: sellPos
                           }}
                         />
@@ -912,13 +913,14 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                         <ReferenceLine
                           yAxisId="price"
                           y={stopY}
-                          stroke="#EF4444"
+                          stroke="#8F2D3D"
                           strokeWidth={1.5}
                           strokeDasharray="4 4"
                           label={{
-                            value: `Trailing Stop $${stopY.toFixed(2)}`,
-                            fill: '#EF4444',
+                            value: `Stop $${stopY.toFixed(2)}`,
+                            fill: '#8F2D3D',
                             fontSize: 10,
+                            fontFamily: 'IBM Plex Mono',
                             position: stopPos
                           }}
                         />
@@ -929,13 +931,14 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                         <ReferenceLine
                           yAxisId="price"
                           y={highY}
-                          stroke="#8B5CF6"
+                          stroke="#2B6B8C"
                           strokeWidth={1}
                           strokeDasharray="3 3"
                           label={{
                             value: `High $${highY.toFixed(2)}`,
-                            fill: '#8B5CF6',
+                            fill: '#2B6B8C',
                             fontSize: 10,
+                            fontFamily: 'IBM Plex Mono',
                             position: highPos
                           }}
                         />
@@ -946,13 +949,14 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                         <ReferenceLine
                           yAxisId="price"
                           y={gain20Y}
-                          stroke="#10B981"
+                          stroke="#2D5F3F"
                           strokeWidth={1}
                           strokeDasharray="6 4"
                           label={{
                             value: `+20% $${gain20Y.toFixed(2)}`,
-                            fill: '#10B981',
+                            fill: '#2D5F3F',
                             fontSize: 10,
+                            fontFamily: 'IBM Plex Mono',
                             position: gain20Pos
                           }}
                         />
@@ -1064,15 +1068,15 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   );
                 })()}
 
-                {/* Live price marker - pulsing dot at current live price */}
+                {/* Live price marker — claret dot with paper halo */}
                 {livePrice && chartDataWithLive.length > 0 && (
                   <ReferenceDot
                     yAxisId="price"
                     x={chartDataWithLive[chartDataWithLive.length - 1]?.date}
                     y={livePrice}
-                    r={8}
-                    fill="#3B82F6"
-                    stroke="#fff"
+                    r={5}
+                    fill="#7A2430"
+                    stroke="#F5F1E8"
                     strokeWidth={2}
                   />
                 )}
@@ -1106,20 +1110,20 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
               ) : (
                 <>
                   <div className="text-center">
-                    <p className="text-sm text-ink-mute">Breakout</p>
-                    <p className="text-lg font-semibold text-positive">+{data?.pct_above_dwap}%</p>
+                    <p className="font-body text-[0.72rem] font-medium tracking-[0.15em] uppercase text-ink-mute mb-1">Breakout</p>
+                    <p className="font-mono text-lg text-ink">+{data?.pct_above_dwap}%</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-ink-mute">Mom Rank</p>
-                    <p className={`text-lg font-semibold ${data?.momentum_rank <= 5 ? 'text-positive' : 'text-ink'}`}>#{data?.momentum_rank || '-'}</p>
+                    <p className="font-body text-[0.72rem] font-medium tracking-[0.15em] uppercase text-ink-mute mb-1">Mom Rank</p>
+                    <p className="font-mono text-lg text-ink">#{data?.momentum_rank || '-'}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-ink-mute">Trailing Stop</p>
-                    <p className="text-lg font-semibold text-negative">15%</p>
+                    <p className="font-body text-[0.72rem] font-medium tracking-[0.15em] uppercase text-ink-mute mb-1">Trailing Stop</p>
+                    <p className="font-mono text-lg text-ink">15%</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-ink-mute">+20% Gain</p>
-                    <p className="text-lg font-semibold text-positive">${data?.price ? (data.price * 1.20).toFixed(2) : '-'}</p>
+                    <p className="font-body text-[0.72rem] font-medium tracking-[0.15em] uppercase text-ink-mute mb-1">Target (+20%)</p>
+                    <p className="font-mono text-lg text-ink">${data?.price ? (data.price * 1.20).toFixed(2) : '-'}</p>
                   </div>
                 </>
               )
@@ -1248,7 +1252,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
               className="px-6 py-2.5 bg-positive text-white rounded font-medium hover:bg-positive flex items-center gap-2"
             >
               <DollarSign size={18} />
-              Track Position
+              Record Entry
             </button>
           )}
           {type === 'position' && (
@@ -1257,7 +1261,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
               className="px-6 py-2.5 bg-negative text-white rounded font-medium hover:bg-negative flex items-center gap-2"
             >
               <DollarSign size={18} />
-              Mark as Sold
+              Record Exit
             </button>
           )}
           {type === 'missed' && (
@@ -2436,6 +2440,18 @@ function Dashboard() {
       <header className="bg-paper-card border-b border-rule sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <svg className="w-9 h-9 sm:w-10 sm:h-10 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1024">
+              <g transform="matrix(5.266369152845155 0 0 5.266369152845155 639.7474324688749 511.4611892669334)">
+                <g>
+                  <g transform="matrix(0.447842401165958 0 0 0.447842401165958 -22.37905439059665 -28.76675371508702)"><path fill="#7A2430" transform="translate(-300.0291900499999, -285.76590730000004)" d="M 215.49 348.13 C 215.49 341.43 220.55 335.98 227.05 335.22 L 241.64 278.36 C 238.32 275.99 236.13 272.12 236.13 267.73 C 236.13 260.51 241.98 254.66 249.2 254.66 C 255.89 254.66 261.34 259.71 262.11 266.19 L 309.18 278.16 C 311.55 274.82 315.42 272.63 319.83 272.63 C 324 272.63 327.67 274.62 330.06 277.66 L 391.39 258.85 C 391.87 252.06 397.46 246.69 404.37 246.69 C 405.09 246.69 405.78 246.79 406.47 246.91 L 420.4 223.13 C 395.44 205.2 364.84 194.62 331.76 194.62 C 247.75 194.62 179.66 262.72 179.66 346.72 C 179.66 357.06 180.71 367.15 182.69 376.91 L 216.05 351.72 C 215.72 350.57 215.49 349.38 215.49 348.13 z"/></g>
+                  <g transform="matrix(0.447842401165958 0 0 0.447842401165958 -11.05489640960161 -8.986830154000359)"><path fill="#7A2430" transform="translate(-325.3152236000001, -329.93305964999996)" d="M 427.89 228.86 L 414.54 251.65 C 416.32 253.88 417.43 256.68 417.43 259.76 C 417.43 266.98 411.58 272.83 404.37 272.83 C 400.19 272.83 396.52 270.84 394.13 267.79 L 332.8 286.61 C 332.33 293.39 326.73 298.76 319.83 298.76 C 313.14 298.76 307.69 293.72 306.92 287.24 L 259.84 275.26 C 257.76 278.21 254.48 280.2 250.71 280.64 L 236.12 337.5 C 239.44 339.87 241.63 343.74 241.63 348.13 C 241.63 355.35 235.78 361.2 228.56 361.2 C 226.02 361.2 223.68 360.45 221.67 359.19 L 185.04 386.86 C 189.39 402.76 196.25 417.63 205.17 431 L 343.51 312.12 L 408.04 312.12 L 465.59 274.41 C 456.09 256.86 443.23 241.4 427.89 228.86 z"/></g>
+                  <g transform="matrix(0.447842401165958 0 0 0.447842401165958 73.82936460708436 -37.11089695025285)"><polygon fill="#7A2430" points="-45.31,-14.33 45.31,-39.44 -12.75,39.44 -17.06,3.28 "/></g>
+                  <g transform="matrix(0.447842401165958 0 0 0.447842401165958 -48.16632626991975 25.662112400608095)"><path fill="#141210" transform="translate(-242.44805925, -407.30166625000004)" d="M 297.69 513.38 C 291.85 512.18 286.13 510.68 280.53 508.91 L 280.53 405.3 L 233.16 446.01 L 233.16 485.18 C 189.93 454.31 161.67 403.77 161.67 346.72 C 161.67 321.48 167.23 297.53 177.14 275.97 L 153.41 275.97 C 144.69 297.88 139.84 321.74 139.84 346.72 C 139.84 452.54 225.93 538.63 331.76 538.63 C 336.23 538.63 340.66 538.42 345.06 538.12 L 345.06 349.85 L 297.69 390.55 L 297.69 513.38 z"/></g>
+                  <g transform="matrix(0.447842401165958 0 0 0.447842401165958 41.62493388227972 31.445543033824293)"><path fill="#141210" transform="translate(-442.94551085, -420.21565254999996)" d="M 523.16 333.38 L 501.27 333.38 C 501.62 337.79 501.85 342.23 501.85 346.72 C 501.85 381 491.63 412.92 474.11 439.65 L 474.11 304.24 L 426.75 335.28 L 426.75 487.65 C 421.24 491.37 415.52 494.78 409.58 497.85 L 409.58 341.74 L 362.22 341.74 L 362.22 536.19 C 453.61 521.55 523.67 442.17 523.67 346.72 C 523.67 342.23 523.46 337.79 523.16 333.38 z"/></g>
+                  <g transform="matrix(0.447842401165958 0 0 0.447842401165958 -11.758155759779243 -60.819370702594256)"><path fill="#141210" transform="translate(-323.7448958499999, -214.1947097)" d="M 331.75 169.32 C 390.45 169.32 442.58 197.98 474.89 242.04 L 483.06 239.78 C 449.46 192.37 394.16 161.37 331.75 161.37 C 258.06 161.37 194.28 204.6 164.43 267.02 L 173.29 267.02 C 202.53 209.12 262.58 169.32 331.75 169.32 z"/></g>
+                </g>
+              </g>
+            </svg>
             <div>
               <h1 className="font-display text-lg sm:text-xl font-semibold text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 144' }}>RigaCap<span className="text-claret">.</span></h1>
               <p className="text-[0.65rem] font-medium tracking-[0.2em] uppercase text-ink-mute hidden sm:block">Ensemble Signals</p>
@@ -2671,96 +2687,63 @@ function Dashboard() {
 
         {/* Subscription Banner */}
         {checkoutSuccess && (
-          <div className="border border-green-200 bg-positive/10 rounded-lg p-4 mb-6 flex items-center justify-between">
+          <div className="border border-rule-dark bg-paper-card p-5 mb-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Zap className="text-positive flex-shrink-0" size={24} />
-              <p className="font-medium text-positive">Welcome to RigaCap! Your subscription is now active.</p>
+              <p className="font-body text-ink font-medium">Welcome to RigaCap. Your subscription is now active.</p>
             </div>
-            <button onClick={() => setCheckoutSuccess(false)} className="p-1 text-green-400 hover:text-positive"><X size={18} /></button>
+            <button onClick={() => setCheckoutSuccess(false)} className="p-1 text-ink-light hover:text-ink"><X size={18} /></button>
           </div>
         )}
         {isAuthenticated && !checkoutSuccess && <SubscriptionBanner />}
 
-        {/* Your RigaCap Journey — compact card with sparkline background */}
+        {/* Your Journey — flat newspaper strip */}
         {journeyData && !journeyData.error && activeTab === 'signals' && (
-          <div className="mb-4 bg-paper-card rounded border border-rule-dark text-ink overflow-hidden">
-            {/* Main body — sparkline as background, metrics overlaid */}
-            <div className="relative px-5 pt-4 pb-3">
-              {/* Sparkline background */}
-              {journeyData.equity_curve && journeyData.equity_curve.length >= 3 && (
-                <div className="absolute inset-0 top-4 opacity-30 pointer-events-none">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={journeyData.equity_curve} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="journeyBg" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ffffff" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <Area type="monotone" dataKey="value" stroke="#ffffff" strokeWidth={1.5}
-                            fill="url(#journeyBg)" dot={false} />
-                      <Area type="monotone" dataKey="spy" stroke="#fbbf24" strokeWidth={1}
-                            fill="none" dot={false} strokeDasharray="4 2" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
+          <div className="mb-6 border-t-2 border-b border-ink py-5 grid grid-cols-[1.3fr_1fr_1fr_1fr_auto] gap-0 items-end">
+            {/* Label */}
+            <div className="pr-7 border-r border-rule">
+              <h2 className="font-display text-[1.2rem] font-medium tracking-tight mb-1" style={{ fontVariationSettings: '"opsz" 48' }}>Your Journey</h2>
+              <div className="font-mono text-[0.7rem] text-ink-light tracking-[0.1em] uppercase">Since {journeyData.start_date}</div>
+            </div>
+
+            {/* vs SPY */}
+            <div className="px-7 border-r border-rule">
+              <div className="font-body text-[0.68rem] font-medium tracking-[0.2em] uppercase text-ink-mute mb-1">
+                {journeyData.alpha_pct != null && journeyData.alpha_pct < 0 ? 'vs SPY' : 'vs SPY'}
+              </div>
+              <div className={`font-display text-[1.9rem] font-normal leading-none tracking-tight ${journeyData.alpha_pct != null ? ((journeyData.alpha_pct >= 0) ? 'text-positive' : 'text-negative') : 'text-ink'}`} style={{ fontVariationSettings: '"opsz" 96' }}>
+                {journeyData.alpha_pct != null
+                  ? `${journeyData.alpha_pct >= 0 ? '+' : ''}${journeyData.alpha_pct}%`
+                  : `${journeyData.total_return_pct >= 0 ? '+' : ''}${journeyData.total_return_pct}%`}
+              </div>
+              <div className="font-mono text-[0.7rem] text-ink-light mt-1">{journeyData.days_invested} days tracked</div>
+            </div>
+
+            {/* Your Return */}
+            <div className="px-7 border-r border-rule">
+              <div className="font-body text-[0.68rem] font-medium tracking-[0.2em] uppercase text-ink-mute mb-1">Your Return</div>
+              <div className={`font-display text-[1.9rem] font-normal leading-none tracking-tight ${journeyData.total_return_pct >= 0 ? 'text-positive' : 'text-negative'}`} style={{ fontVariationSettings: '"opsz" 96' }}>
+                {journeyData.total_return_pct >= 0 ? '+' : ''}{journeyData.total_return_pct}%
+              </div>
+              {journeyData.inception_return_pct != null && journeyData.inception_date && (
+                <div className="font-mono text-[0.7rem] text-ink-light mt-1">Since {journeyData.inception_date.slice(0, 4)} +{journeyData.inception_return_pct}%</div>
               )}
+            </div>
 
-              {/* Content overlaid on sparkline */}
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-display text-[1.2rem] font-medium tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>Your Journey</h3>
-                  <span className="font-mono text-[0.7rem] text-ink-light tracking-[0.1em] uppercase">Since {journeyData.start_date}</span>
-                </div>
-
-                {/* Metrics row */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="text-center">
-                    <div className="font-body text-[0.68rem] font-medium tracking-[0.2em] uppercase text-ink-light mb-1">
-                      {journeyData.alpha_pct != null && journeyData.alpha_pct < 0 ? 'vs SPY' : 'Beating SPY'}
-                    </div>
-                    <div className={`font-display text-[1.9rem] font-normal leading-none tracking-tight ${journeyData.alpha_pct != null ? ((journeyData.alpha_pct >= 0) ? 'text-positive' : 'text-negative') : 'text-ink'}`} style={{ fontVariationSettings: '"opsz" 96' }}>
-                      {journeyData.alpha_pct != null
-                        ? `${journeyData.alpha_pct >= 0 ? '+' : ''}${journeyData.alpha_pct}%`
-                        : `${journeyData.total_return_pct >= 0 ? '+' : ''}${journeyData.total_return_pct}%`}
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-body text-[0.68rem] font-medium tracking-[0.2em] uppercase text-ink-light mb-1">Your Return</div>
-                    <div className="font-display text-[1.9rem] font-normal leading-none tracking-tight text-ink" style={{ fontVariationSettings: '"opsz" 96' }}>
-                      {journeyData.total_return_pct >= 0 ? '+' : ''}{journeyData.total_return_pct}%
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-body text-[0.68rem] font-medium tracking-[0.2em] uppercase text-ink-light mb-1">$10K would be</div>
-                    <div className="font-display text-[1.9rem] font-normal leading-none tracking-tight text-ink" style={{ fontVariationSettings: '"opsz" 96' }}>
-                      ${journeyData.current_value?.toLocaleString()}
-                    </div>
-                  </div>
-                </div>
+            {/* $10K would be */}
+            <div className="px-7 border-r border-rule">
+              <div className="font-body text-[0.68rem] font-medium tracking-[0.2em] uppercase text-ink-mute mb-1">$10K would be</div>
+              <div className="font-display text-[1.9rem] font-normal leading-none tracking-tight text-ink" style={{ fontVariationSettings: '"opsz" 96' }}>
+                ${journeyData.current_value?.toLocaleString()}
+              </div>
+              <div className="font-mono text-[0.7rem] text-ink-light mt-1">
+                {journeyData.trades_since_signup > 0
+                  ? `${journeyData.wins_since_signup}W ${journeyData.trades_since_signup - journeyData.wins_since_signup}L`
+                  : '0 trades yet'}
               </div>
             </div>
 
-            {/* Footer — badges, stats, share in one row */}
-            <div className="px-5 py-2 bg-paper-deep border-t border-rule flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-2 flex-wrap text-xs">
-                {journeyData.best_trade && (
-                  <span className="inline-flex items-center px-2 py-0.5 bg-paper border border-rule rounded-full text-ink-mute">
-                    Best: {journeyData.best_trade.symbol} +{journeyData.best_trade.pnl_pct}%
-                  </span>
-                )}
-                {journeyData.inception_return_pct != null && journeyData.inception_date && (
-                  <span className="inline-flex items-center px-2 py-0.5 bg-paper border border-rule rounded-full text-ink-mute">
-                    Since {journeyData.inception_date.slice(0, 4)}: +{journeyData.inception_return_pct}%
-                  </span>
-                )}
-                <span className="text-ink-light">
-                  {journeyData.days_invested}d
-                  {journeyData.trades_since_signup > 0
-                    ? ` \u00B7 ${journeyData.wins_since_signup}W ${journeyData.trades_since_signup - journeyData.wins_since_signup}L`
-                    : journeyData.trades_since_signup === 0 ? ' \u00B7 0 trades yet' : ''}
-                </span>
-              </div>
+            {/* Share */}
+            <div className="pl-5">
               <button
                 onClick={() => {
                   let text = journeyData.alpha_pct != null
@@ -2773,9 +2756,9 @@ function Dashboard() {
                   setJourneyCopied(true);
                   setTimeout(() => setJourneyCopied(false), 2000);
                 }}
-                className="flex items-center gap-1 px-2 py-1 text-xs text-ink-mute bg-paper border border-rule hover:border-rule-dark rounded-md transition-colors shrink-0"
+                className="font-body text-[0.72rem] font-medium tracking-[0.15em] uppercase px-3 py-2 border border-rule-dark bg-paper-card text-ink-mute hover:border-ink hover:text-ink transition-colors"
               >
-                {journeyCopied ? <><Check size={11} /> Copied!</> : <><Copy size={11} /> Share</>}
+                {journeyCopied ? 'Copied' : 'Share'}
               </button>
             </div>
           </div>
@@ -2863,13 +2846,13 @@ function Dashboard() {
                   {regimeExpanded && (() => {
                     const rf = dashboardData.regime_forecast;
                     const regimeColors = {
-                      strong_bull: { bg: 'bg-paper-card', text: 'text-ink', bar: 'bg-paper-deep' },
-                      weak_bull: { bg: 'bg-paper-card', text: 'text-ink', bar: 'bg-rule' },
+                      strong_bull: { bg: 'bg-paper-card', text: 'text-ink', bar: 'bg-paper' },
+                      weak_bull: { bg: 'bg-paper-card', text: 'text-ink', bar: 'bg-paper-deep' },
                       rotating_bull: { bg: 'bg-paper-card', text: 'text-ink-mute', bar: 'bg-rule-dark' },
                       range_bound: { bg: 'bg-paper-deep', text: 'text-ink-mute', bar: 'bg-ink-light' },
                       weak_bear: { bg: 'bg-paper-deep', text: 'text-ink', bar: 'bg-ink-mute' },
                       panic_crash: { bg: 'bg-paper-deep', text: 'text-ink', bar: 'bg-ink' },
-                      recovery: { bg: 'bg-paper-card', text: 'text-ink-mute', bar: 'bg-rule-dark' },
+                      recovery: { bg: 'bg-paper-card', text: 'text-ink-mute', bar: 'bg-rule' },
                     };
                     const regimeDescriptions = {
                       strong_bull: 'Broad market rally with strong breadth',
@@ -2946,13 +2929,18 @@ function Dashboard() {
                             <div className="flex h-8 border border-ink bg-paper">
                               {sortedProbs.map(([r, pct]) => {
                                 const isCurrent = r === rf.current_regime;
+                                const regimeDensity = {
+                                  strong_bull: 'bg-paper text-ink',
+                                  weak_bull: 'bg-paper-deep text-ink',
+                                  recovery: 'bg-rule text-ink',
+                                  rotating_bull: 'bg-rule-dark text-ink',
+                                  range_bound: 'bg-ink-light text-paper',
+                                  weak_bear: 'bg-ink-mute text-paper',
+                                  panic_crash: 'bg-ink text-paper',
+                                };
                                 const densityClass = isCurrent
                                   ? 'bg-claret text-paper'
-                                  : pct > 20 ? 'bg-ink text-paper'
-                                  : pct > 15 ? 'bg-ink-mute text-paper'
-                                  : pct > 10 ? 'bg-rule-dark text-ink'
-                                  : pct > 5 ? 'bg-paper text-ink-mute'
-                                  : 'bg-paper text-ink-light';
+                                  : (regimeDensity[r] || 'bg-rule text-ink');
                                 return (
                                   <div
                                     key={r}
@@ -2967,7 +2955,7 @@ function Dashboard() {
                             </div>
                             <div className="flex justify-between font-mono text-[0.68rem] text-ink-light tracking-wide mt-1.5">
                               {sortedProbs.map(([r]) => (
-                                <span key={r}>{regimeNames[r]?.split(' ')[0]}{r === rf.current_regime ? ' ●' : ''}</span>
+                                <span key={r}>{({'strong_bull':'Str.Bull','weak_bull':'Wk.Bull','rotating_bull':'Rot.Bull','range_bound':'Range','weak_bear':'Wk.Bear','panic_crash':'Panic','recovery':'Recov.'}[r] || r)}{r === rf.current_regime ? ' ●' : ''}</span>
                               ))}
                             </div>
                           </div>
@@ -3095,45 +3083,51 @@ function Dashboard() {
                     </div>
                   </div>
 
-                  {/* Transition probabilities mini bar */}
-                  {dashboardData.regime_forecast.transition_probabilities && (
-                    <div className="mt-3 flex h-3 border border-ink overflow-hidden bg-paper">
-                      {Object.entries(dashboardData.regime_forecast.transition_probabilities)
-                        .filter(([_, pct]) => pct > 3)
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([regime, pct]) => {
-                          const colors = {
-                            strong_bull: 'bg-paper-deep',
-                            weak_bull: 'bg-rule',
+                  {/* Transition probabilities mini bar — hidden when expanded */}
+                  {!regimeExpanded && dashboardData.regime_forecast.transition_probabilities && (() => {
+                    const currentRegime = dashboardData.regime_forecast.current_regime;
+                    const probs = dashboardData.regime_forecast.transition_probabilities;
+                    const sorted = Object.entries(probs)
+                      .filter(([_, pct]) => pct > 0.5)
+                      .sort((a, b) => b[1] - a[1]);
+                    return (
+                      <div className="mt-3 flex h-4 border border-ink overflow-hidden bg-paper">
+                        {sorted.map(([regime, pct]) => {
+                          const isCurrent = regime === currentRegime;
+                          const regimeDensity = {
+                            strong_bull: 'bg-paper',
+                            weak_bull: 'bg-paper-deep',
+                            recovery: 'bg-rule',
                             rotating_bull: 'bg-rule-dark',
                             range_bound: 'bg-ink-light',
                             weak_bear: 'bg-ink-mute',
                             panic_crash: 'bg-ink',
-                            recovery: 'bg-rule-dark',
                           };
+                          const densityClass = isCurrent ? 'bg-claret' : (regimeDensity[regime] || 'bg-rule');
                           return (
                             <div
                               key={regime}
-                              className={`h-full ${colors[regime] || 'bg-rule'}`}
-                              style={{ width: `${pct}%` }}
-                              title={`${regime.replace('_', ' ')}: ${pct.toFixed(0)}%`}
+                              className={`h-full border-r border-ink last:border-r-0 ${densityClass}`}
+                              style={{ flex: Math.max(pct, 0.5) }}
+                              title={`${regime.replace(/_/g, ' ')}: ${pct.toFixed(0)}%`}
                             />
                           );
                         })}
-                    </div>
-                  )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Expanded: regime detail panel */}
                   {regimeExpanded && (() => {
                     const rf = dashboardData.regime_forecast;
                     const regimeColors = {
-                      strong_bull: { bg: 'bg-paper-card', text: 'text-ink', bar: 'bg-paper-deep' },
-                      weak_bull: { bg: 'bg-paper-card', text: 'text-ink', bar: 'bg-rule' },
+                      strong_bull: { bg: 'bg-paper-card', text: 'text-ink', bar: 'bg-paper' },
+                      weak_bull: { bg: 'bg-paper-card', text: 'text-ink', bar: 'bg-paper-deep' },
                       rotating_bull: { bg: 'bg-paper-card', text: 'text-ink-mute', bar: 'bg-rule-dark' },
                       range_bound: { bg: 'bg-paper-deep', text: 'text-ink-mute', bar: 'bg-ink-light' },
                       weak_bear: { bg: 'bg-paper-deep', text: 'text-ink', bar: 'bg-ink-mute' },
                       panic_crash: { bg: 'bg-paper-deep', text: 'text-ink', bar: 'bg-ink' },
-                      recovery: { bg: 'bg-paper-card', text: 'text-ink-mute', bar: 'bg-rule-dark' },
+                      recovery: { bg: 'bg-paper-card', text: 'text-ink-mute', bar: 'bg-rule' },
                     };
                     const regimeDescriptions = {
                       strong_bull: 'Broad market rally with strong breadth',
@@ -3166,13 +3160,18 @@ function Dashboard() {
                             <div className="flex h-8 border border-ink bg-paper">
                               {sortedProbs.map(([r, pct]) => {
                                 const isCurrent = r === rf.current_regime;
+                                const regimeDensity = {
+                                  strong_bull: 'bg-paper text-ink',
+                                  weak_bull: 'bg-paper-deep text-ink',
+                                  recovery: 'bg-rule text-ink',
+                                  rotating_bull: 'bg-rule-dark text-ink',
+                                  range_bound: 'bg-ink-light text-paper',
+                                  weak_bear: 'bg-ink-mute text-paper',
+                                  panic_crash: 'bg-ink text-paper',
+                                };
                                 const densityClass = isCurrent
                                   ? 'bg-claret text-paper'
-                                  : pct > 20 ? 'bg-ink text-paper'
-                                  : pct > 15 ? 'bg-ink-mute text-paper'
-                                  : pct > 10 ? 'bg-rule-dark text-ink'
-                                  : pct > 5 ? 'bg-paper text-ink-mute'
-                                  : 'bg-paper text-ink-light';
+                                  : (regimeDensity[r] || 'bg-rule text-ink');
                                 return (
                                   <div
                                     key={r}
@@ -3187,7 +3186,7 @@ function Dashboard() {
                             </div>
                             <div className="flex justify-between font-mono text-[0.68rem] text-ink-light tracking-wide mt-1.5">
                               {sortedProbs.map(([r]) => (
-                                <span key={r}>{regimeNames[r]?.split(' ')[0]}{r === rf.current_regime ? ' ●' : ''}</span>
+                                <span key={r}>{({'strong_bull':'Str.Bull','weak_bull':'Wk.Bull','rotating_bull':'Rot.Bull','range_bound':'Range','weak_bear':'Wk.Bear','panic_crash':'Panic','recovery':'Recov.'}[r] || r)}{r === rf.current_regime ? ' ●' : ''}</span>
                               ))}
                             </div>
                           </div>
@@ -3397,9 +3396,9 @@ function Dashboard() {
                         <Lock className="w-6 h-6 text-ink-light" />
                       </div>
                       <div>
-                        <h3 className="text-base font-semibold text-ink">Unlock Buy Signals</h3>
+                        <h3 className="font-display text-[1.15rem] font-medium text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>Unlock Signals</h3>
                         <p className="text-sm text-ink-mute mt-1">
-                          Subscribe to see real-time ensemble signals, momentum rankings, and watchlist alerts.
+                          Subscribe to see real-time ensemble signals, momentum rankings, and position guidance.
                         </p>
                       </div>
                       {dashboardData?.regime_forecast && (
@@ -3420,7 +3419,7 @@ function Dashboard() {
                                 setUpgradeLoading(true);
                                 try {
                                   const data = await api.post('/api/billing/create-checkout', { plan: 'annual' });
-                                  if (window.gtag) window.gtag('event', 'begin_checkout', { value: 349, currency: 'USD' });
+                                  if (window.gtag) window.gtag('event', 'begin_checkout', { value: 1099, currency: 'USD' });
                                   window.location.href = data.checkout_url;
                                 } catch (err) {
                                   console.error('Checkout error:', err);
@@ -3432,14 +3431,14 @@ function Dashboard() {
                               disabled={upgradeLoading}
                               className="w-full px-4 py-2.5 bg-ink text-paper font-medium rounded-[2px] hover:bg-claret transition-all disabled:opacity-50"
                             >
-                              {upgradeLoading ? 'Loading...' : 'Subscribe — $349/year (Save $119)'}
+                              {upgradeLoading ? 'Loading...' : 'Subscribe — $1,099/year (Save $449)'}
                             </button>
                             <button
                               onClick={async () => {
                                 setUpgradeLoading(true);
                                 try {
                                   const data = await api.post('/api/billing/create-checkout', { plan: 'monthly' });
-                                  if (window.gtag) window.gtag('event', 'begin_checkout', { value: 39, currency: 'USD' });
+                                  if (window.gtag) window.gtag('event', 'begin_checkout', { value: 129, currency: 'USD' });
                                   window.location.href = data.checkout_url;
                                 } catch (err) {
                                   console.error('Checkout error:', err);
@@ -3451,7 +3450,7 @@ function Dashboard() {
                               disabled={upgradeLoading}
                               className="w-full px-4 py-2 text-sm text-ink-mute hover:text-ink font-medium transition-colors"
                             >
-                              or $39/month
+                              or $129/month
                             </button>
                           </>
                         ) : (
@@ -3533,7 +3532,7 @@ function Dashboard() {
                           key={s.symbol}
                           className={`cursor-pointer transition-colors ${
                             s.is_fresh
-                              ? 'bg-positive/10 hover:bg-positive/10 border-l-4 border-l-claret'
+                              ? 'border-l-4 border-l-claret'
                               : 'hover:bg-paper-card'
                           }`}
                           onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
@@ -3596,31 +3595,28 @@ function Dashboard() {
                           {/* Buy Signals section (fresh) */}
                           {freshSignals.length > 0 ? (
                             <div>
-                              <div className="px-4 py-2.5 bg-positive/10 border-b border-green-100 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-1 h-5 bg-positive/100 rounded-full" />
-                                  <span className="text-sm font-semibold text-ink">Buy Signals ({freshSignals.length})</span>
-                                </div>
-                                <span className="text-xs text-positive">Consider adding</span>
+                              <div className="px-4 py-2.5 border-b border-rule flex items-center justify-between">
+                                <span className="font-display text-[0.95rem] font-medium tracking-tight">Buy Signals <em className="font-display italic text-ink-light font-normal">({freshSignals.length})</em></span>
+                                <span className="font-display italic text-[0.85rem] text-claret" style={{ fontVariationSettings: '"opsz" 24' }}>Consider adding</span>
                               </div>
                               {viewMode === 'simple' ? (
-                                <div className="divide-y divide-gray-100">
+                                <div className="divide-y divide-rule">
                                   {freshSignals.map(renderSimpleSignal)}
                                 </div>
                               ) : (
                                 <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                  <thead className="bg-paper-card text-ink-mute">
+                                <table className="w-full border-collapse" style={{ fontFeatureSettings: '"tnum"' }}>
+                                  <thead>
                                     <tr>
-                                      <th className="px-3 py-2 text-left font-medium">Symbol</th>
-                                      <th className="px-3 py-2 text-right font-medium">Price</th>
-                                      <th className="px-3 py-2 text-right font-medium">Breakout%</th>
-                                      <th className="px-3 py-2 text-right font-medium">Rank</th>
-                                      <th className="px-3 py-2 text-center font-medium">Strength</th>
-                                      <th className="px-3 py-2 text-center font-medium">Action</th>
+                                      <th className="px-3 py-2 text-left font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Symbol</th>
+                                      <th className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Price</th>
+                                      <th className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Breakout</th>
+                                      <th className="px-3 py-2 text-center font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Rank</th>
+                                      <th className="px-3 py-2 text-center font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Strength</th>
+                                      <th className="px-3 py-2 text-center font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink"></th>
                                     </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-gray-100">
+                                  <tbody>
                                     {freshSignals.map(renderAdvancedSignal)}
                                   </tbody>
                                 </table>
@@ -3663,15 +3659,12 @@ function Dashboard() {
                           {/* Monitoring section (non-fresh) */}
                           {monitoringSignals.length > 0 && (
                             <div>
-                              <div className="px-4 py-2.5 bg-paper-card border-b border-rule flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-1 h-5 bg-rule rounded-full" />
-                                  <span className="text-sm font-semibold text-ink">Monitoring ({monitoringSignals.length})</span>
-                                </div>
-                                <span className="text-xs text-ink-mute">Strong momentum — watching for fresh entry</span>
+                              <div className="px-4 py-2.5 border-b border-rule flex items-center justify-between">
+                                <span className="font-display text-[0.95rem] font-medium tracking-tight">Monitoring <em className="font-display italic text-ink-light font-normal">({monitoringSignals.length})</em></span>
+                                <span className="font-display italic text-[0.85rem] text-ink-mute" style={{ fontVariationSettings: '"opsz" 24' }}>Watching for entry</span>
                               </div>
                               {viewMode === 'simple' ? (
-                                <div className="divide-y divide-gray-100">
+                                <div className="divide-y divide-rule">
                                   {monitoringSignals.map(renderSimpleSignal)}
                                 </div>
                               ) : (
@@ -3686,7 +3679,7 @@ function Dashboard() {
                                       <th className="px-3 py-2 text-center font-medium">Strength</th>
                                     </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-gray-100">
+                                  <tbody className="divide-y divide-rule">
                                     {monitoringSignals.map(renderAdvancedSignal)}
                                   </tbody>
                                 </table>
@@ -3759,7 +3752,7 @@ function Dashboard() {
                                   <th className="text-right text-xs font-medium pb-1">Distance</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-gray-100">
+                              <tbody className="divide-y divide-rule">
                                 {dashboardData.watchlist.map(s => (
                                   <tr
                                     key={s.symbol}
@@ -3867,9 +3860,9 @@ function Dashboard() {
                               <div className="flex items-center gap-3">
                                 <div>
                                   <span className="font-display text-[1.05rem] font-medium tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>{p.symbol}</span>
-                                  <span className="block font-mono text-[0.72rem] text-ink-light">{p.shares?.toFixed(1)} shares</span>
+                                  <span className="block font-mono text-[0.72rem] text-ink-light">{Math.round(p.shares || 0)} shares</span>
                                 </div>
-                                <span className={`font-mono text-[0.88rem] font-medium ${pnl >= 0 ? 'text-positive' : 'text-negative'}`}>
+                                <span className={`font-mono text-[0.88rem] ${pnl >= 0 ? 'text-positive' : 'text-negative'}`}>
                                   {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%
                                 </span>
                               </div>
@@ -3907,10 +3900,10 @@ function Dashboard() {
                               >
                                 <td className="px-3 py-3">
                                   <span className="font-display text-[1.05rem] font-medium tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>{p.symbol}</span>
-                                  <div className="font-mono text-[0.72rem] text-ink-light mt-0.5">{p.shares?.toFixed(1)} shares</div>
+                                  <div className="font-mono text-[0.72rem] text-ink-light mt-0.5">{Math.round(p.shares || 0)} shares</div>
                                 </td>
                                 <td className="px-3 py-3 text-right">
-                                  <span className={`font-mono text-[0.88rem] font-medium ${pnlColor}`}>
+                                  <span className={`font-mono text-[0.88rem] ${pnlColor}`}>
                                     {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%
                                   </span>
                                   <div className="font-mono text-[0.72rem] text-ink-light mt-0.5">${p.current_price?.toFixed(2)}</div>
@@ -3941,7 +3934,7 @@ function Dashboard() {
                     <div className="text-center py-12 text-ink-mute">
                       <PieIcon className="w-12 h-12 mx-auto text-ink-light mb-3" />
                       <p>No open positions</p>
-                      <p className="text-xs mt-1">Click a fresh signal, then Track Position from the chart</p>
+                      <p className="text-xs mt-1">Click a fresh signal, then Record Entry from the chart</p>
                     </div>
                   )}
                 </div>
