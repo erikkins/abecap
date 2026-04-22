@@ -38,17 +38,17 @@ const HeroSection = ({ onGetStarted }) => (
 
         {/* Main headline */}
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
-          Hedge Fund Returns.
+          The Edge Is Knowing
           <span className="block bg-gradient-to-r from-yellow-200 via-yellow-300 to-orange-300 bg-clip-text text-transparent pb-2">
-            $39/month.
+            When NOT to Trade.
           </span>
         </h1>
 
         {/* Subheadline */}
         <p className="max-w-2xl mx-auto text-lg sm:text-xl text-blue-100 mb-3">
-          Stop trading on emotions. Start trading on math.
+          In 2022, our system went silent for 5 months while the S&P fell 20%. That discipline is the product.
         </p>
-        <p className="text-sm text-blue-200/70 mb-8">+384% over 5 years. ~37% annualized. Walk-forward validated.<br />We scan 4,000 stocks daily and only speak up when the math says go.</p>
+        <p className="text-sm text-blue-200/70 mb-8">Walk-forward validated across multiple start dates. No hindsight bias.<br />We scan 4,000 stocks daily and only speak up when the math says go.</p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col items-center gap-4 mb-12">
@@ -182,7 +182,7 @@ const HowItWorksSection = () => (
           { step: 1, title: 'Scan', desc: 'Our algorithms analyze 4,000+ stocks daily, ranking by momentum, quality, and market conditions' },
           { step: 2, title: 'Signal', desc: 'When criteria align, you get actionable alerts with entry, stop, and target levels' },
           { step: 3, title: 'Buy', desc: 'Execute through your broker with confidence — every signal includes entry, stop, and target levels' },
-          { step: 4, title: 'Profit', desc: 'Trailing stops protect gains while letting winners run' },
+          { step: 4, title: 'Manage', desc: 'Trailing stops protect gains while letting winners run. The system tells you when to exit.' },
         ].map(({ step, title, desc }) => (
           <div key={step} className="relative text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-600 text-white text-2xl font-bold mb-4">

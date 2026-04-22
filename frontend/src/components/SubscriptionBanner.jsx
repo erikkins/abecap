@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, Zap, X, CreditCard } from 'lucide-react';
+import { Clock, X, CreditCard } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDate } from '../utils/formatDate';
 
@@ -12,26 +12,25 @@ export default function SubscriptionBanner() {
 
   if (!user) return null;
 
-  // User registered but abandoned Stripe checkout (no subscription record)
   if (!user.subscription) {
     return (
-      <div className="border rounded-lg p-4 mb-6 bg-blue-50 border-blue-200">
+      <div className="border border-rule-dark rounded p-5 mb-6 bg-paper-card">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <CreditCard className="text-blue-600 flex-shrink-0" size={24} />
+            <CreditCard className="text-claret flex-shrink-0" size={20} />
             <div>
-              <p className="font-medium text-blue-800">
+              <p className="font-medium text-ink">
                 Complete your signup to start your free trial
               </p>
-              <p className="text-sm text-gray-600 mt-1">
-                7-day free trial, then $39/month or $349/year
+              <p className="text-sm text-ink-mute mt-1">
+                7-day free trial, then $129/month or $1,099/year
               </p>
             </div>
           </div>
           <button
             onClick={() => handleUpgrade('monthly')}
             disabled={loading}
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+            className="px-5 py-2.5 bg-ink text-paper font-medium rounded-[2px] hover:bg-claret transition-colors disabled:opacity-50"
           >
             {loading ? 'Loading...' : 'Start Free Trial'}
           </button>
@@ -46,29 +45,22 @@ export default function SubscriptionBanner() {
   const isTrialExpired = subStatus === 'trial' && trialDaysRemaining === 0;
   const isTrialExpiring = subStatus === 'trial' && trialDaysRemaining <= 3 && trialDaysRemaining > 0;
 
-  // Active subscribers: show nothing (manage subscription is in the user menu)
-  // Unless they have cancel_at_period_end set AND end date is within 30 days
   const cancelEndDate = user.subscription?.current_period_end ? new Date(user.subscription.current_period_end) : null;
   const daysUntilCancel = cancelEndDate ? Math.ceil((cancelEndDate - new Date()) / (1000 * 60 * 60 * 24)) : null;
   const isCanceling = isActive && user.subscription?.cancel_at_period_end && daysUntilCancel !== null && daysUntilCancel <= 30;
 
-  // Don't show banner for active (non-canceling) subscribers or dismissed
   if (dismissed || (isActive && !isCanceling)) return null;
-
-  // Only show for: trial expiring, trial expired, past_due, or canceling
   if (!isTrialExpired && !isTrialExpiring && !isPastDue && !isCanceling) return null;
 
   const handleUpgrade = async (plan = null) => {
     setLoading(true);
     try {
       const selectedPlan = plan || localStorage.getItem('rigacap_selected_plan') || 'monthly';
-
       const response = await fetchWithAuth(`${API_URL}/api/billing/create-checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: selectedPlan }),
       });
-
       if (response.ok) {
         const data = await response.json();
         window.location.href = data.checkout_url;
@@ -87,10 +79,7 @@ export default function SubscriptionBanner() {
   const handleManageSubscription = async () => {
     setLoading(true);
     try {
-      const response = await fetchWithAuth(`${API_URL}/api/billing/portal`, {
-        method: 'POST',
-      });
-
+      const response = await fetchWithAuth(`${API_URL}/api/billing/portal`, { method: 'POST' });
       if (response.ok) {
         const data = await response.json();
         window.location.href = data.portal_url;
@@ -106,45 +95,32 @@ export default function SubscriptionBanner() {
     }
   };
 
-  const getBannerStyle = () => {
-    if (isCanceling) return 'bg-orange-50 border-orange-200';
-    if (isTrialExpired || isPastDue) return 'bg-red-50 border-red-200';
-    if (isTrialExpiring) return 'bg-yellow-50 border-yellow-200';
-    return 'bg-blue-50 border-blue-200';
-  };
-
-  const getTextStyle = () => {
-    if (isCanceling) return 'text-orange-800';
-    if (isTrialExpired || isPastDue) return 'text-red-800';
-    if (isTrialExpiring) return 'text-yellow-800';
-    return 'text-blue-800';
-  };
-
   const getMessage = () => {
     if (isCanceling) {
       const endDate = user.subscription?.current_period_end;
       const formatted = endDate ? formatDate(endDate, { includeYear: true }) : 'soon';
-      return `Your subscription is set to cancel on ${formatted}. You can resubscribe anytime.`;
+      return `Your subscription is set to cancel on ${formatted}.`;
     }
     if (isPastDue) return 'Your payment failed. Please update your payment method to continue.';
-    if (isTrialExpired) return 'Your free trial has ended. Upgrade to continue using RigaCap.';
-    if (trialDaysRemaining === 1) return 'Your free trial ends tomorrow! Upgrade now to keep your access.';
-    return `Your free trial ends in ${trialDaysRemaining} days. Don't miss out on premium features.`;
+    if (isTrialExpired) return 'Your free trial has ended. Subscribe to continue using RigaCap.';
+    if (trialDaysRemaining === 1) return 'Your free trial ends tomorrow.';
+    return `Your free trial ends in ${trialDaysRemaining} days.`;
   };
 
-  // Past due: show "Update Payment" button (goes to portal)
+  const isUrgent = isTrialExpired || isPastDue;
+
   if (isPastDue) {
     return (
-      <div className={`border rounded-lg p-4 mb-6 ${getBannerStyle()}`}>
+      <div className="border border-negative/30 rounded p-5 mb-6 bg-negative/5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Zap className="text-red-600 flex-shrink-0" size={24} />
-            <p className={`font-medium ${getTextStyle()}`}>{getMessage()}</p>
+            <CreditCard className="text-negative flex-shrink-0" size={20} />
+            <p className="font-medium text-ink">{getMessage()}</p>
           </div>
           <button
             onClick={handleManageSubscription}
             disabled={loading}
-            className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-all disabled:opacity-50 flex items-center gap-2"
+            className="px-5 py-2.5 bg-negative text-paper font-medium rounded-[2px] hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
           >
             <CreditCard size={16} />
             {loading ? 'Loading...' : 'Update Payment'}
@@ -154,28 +130,24 @@ export default function SubscriptionBanner() {
     );
   }
 
-  // Canceling: show resubscribe option
   if (isCanceling) {
     return (
-      <div className={`border rounded-lg p-4 mb-6 ${getBannerStyle()}`}>
+      <div className="border border-rule-dark rounded p-5 mb-6 bg-paper-deep">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Clock className="text-orange-600 flex-shrink-0" size={24} />
-            <p className={`font-medium ${getTextStyle()}`}>{getMessage()}</p>
+            <Clock className="text-ink-mute flex-shrink-0" size={20} />
+            <p className="font-medium text-ink">{getMessage()}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handleManageSubscription}
               disabled={loading}
-              className="px-4 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-all disabled:opacity-50"
+              className="px-5 py-2.5 bg-ink text-paper font-medium rounded-[2px] hover:bg-claret transition-colors disabled:opacity-50"
             >
               {loading ? 'Loading...' : 'Resubscribe'}
             </button>
-            <button
-              onClick={() => setDismissed(true)}
-              className="p-2 text-gray-400 hover:text-gray-600"
-            >
-              <X size={20} />
+            <button onClick={() => setDismissed(true)} className="p-2 text-ink-light hover:text-ink">
+              <X size={18} />
             </button>
           </div>
         </div>
@@ -183,22 +155,15 @@ export default function SubscriptionBanner() {
     );
   }
 
-  // Trial expiring/expired: show upgrade buttons
   return (
-    <div className={`border rounded-lg p-4 mb-6 ${getBannerStyle()}`}>
+    <div className={`border rounded p-5 mb-6 ${isUrgent ? 'border-claret/30 bg-claret/5' : 'border-rule-dark bg-paper-card'}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {isTrialExpired ? (
-            <Zap className="text-red-600 flex-shrink-0" size={24} />
-          ) : (
-            <Clock className="text-yellow-600 flex-shrink-0" size={24} />
-          )}
+          <Clock className={`flex-shrink-0 ${isUrgent ? 'text-claret' : 'text-ink-mute'}`} size={20} />
           <div>
-            <p className={`font-medium ${getTextStyle()}`}>
-              {getMessage()}
-            </p>
-            <p className="text-sm text-gray-600 mt-1">
-              $39/month or $349/year (3 months free)
+            <p className="font-medium text-ink">{getMessage()}</p>
+            <p className="text-sm text-ink-mute mt-1">
+              $129/month or $1,099/year (three months free)
             </p>
           </div>
         </div>
@@ -206,23 +171,20 @@ export default function SubscriptionBanner() {
           <button
             onClick={() => handleUpgrade('monthly')}
             disabled={loading}
-            className="px-3 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50"
+            className="px-4 py-2.5 border border-rule-dark text-ink font-medium rounded-[2px] hover:border-ink transition-colors disabled:opacity-50"
           >
             Monthly
           </button>
           <button
             onClick={() => handleUpgrade('annual')}
             disabled={loading}
-            className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+            className="px-4 py-2.5 bg-ink text-paper font-medium rounded-[2px] hover:bg-claret transition-colors disabled:opacity-50"
           >
-            {loading ? 'Loading...' : 'Annual (Save $119)'}
+            {loading ? 'Loading...' : 'Annual (Save $449)'}
           </button>
           {!isTrialExpired && (
-            <button
-              onClick={() => setDismissed(true)}
-              className="p-2 text-gray-400 hover:text-gray-600"
-            >
-              <X size={20} />
+            <button onClick={() => setDismissed(true)} className="p-2 text-ink-light hover:text-ink">
+              <X size={18} />
             </button>
           )}
         </div>

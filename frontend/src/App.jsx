@@ -72,12 +72,12 @@ const CACHE_DURATION = {
 
 // VIX level → human-readable label
 const getVixLabel = (vix) => {
-  if (vix == null) return { label: 'N/A', color: 'text-gray-400' };
-  if (vix < 15) return { label: 'Calm', color: 'text-emerald-600' };
-  if (vix < 20) return { label: 'Normal', color: 'text-gray-500' };
-  if (vix < 25) return { label: 'Elevated', color: 'text-amber-600' };
+  if (vix == null) return { label: 'N/A', color: 'text-ink-light' };
+  if (vix < 15) return { label: 'Calm', color: 'text-positive' };
+  if (vix < 20) return { label: 'Normal', color: 'text-ink-mute' };
+  if (vix < 25) return { label: 'Elevated', color: 'text-claret' };
   if (vix < 35) return { label: 'High Fear', color: 'text-orange-600' };
-  return { label: 'Extreme Fear', color: 'text-red-600' };
+  return { label: 'Extreme Fear', color: 'text-negative' };
 };
 
 // Helper to get cached data
@@ -220,18 +220,18 @@ const SellMarker = ({ cx, cy, payload }) => (
 // Loading Spinner
 const LoadingSpinner = ({ message = "Loading..." }) => (
   <div className="flex flex-col items-center justify-center py-12">
-    <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-3" />
-    <p className="text-gray-500">{message}</p>
+    <Loader2 className="w-8 h-8 text-claret animate-spin mb-3" />
+    <p className="text-ink-mute">{message}</p>
   </div>
 );
 
 // Error Display
 const ErrorDisplay = ({ message, onRetry }) => (
   <div className="flex flex-col items-center justify-center py-12">
-    <AlertCircle className="w-12 h-12 text-red-400 mb-3" />
-    <p className="text-red-600 mb-4">{message}</p>
+    <AlertCircle className="w-12 h-12 text-negative mb-3" />
+    <p className="text-negative mb-4">{message}</p>
     {onRetry && (
-      <button onClick={onRetry} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+      <button onClick={onRetry} className="px-4 py-2 bg-ink text-white rounded-lg hover:bg-claret">
         Retry
       </button>
     )}
@@ -274,65 +274,65 @@ const BuyModal = ({ symbol, price, stockInfo, onClose, onBuy, viewMode = 'advanc
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-emerald-500 to-green-600">
+      <div className="bg-paper-card rounded shadow-2xl max-w-md w-full overflow-hidden">
+        <div className="px-6 py-4 border-b border-rule bg-positive">
           <h2 className="text-xl font-bold text-white">Buy {symbol}</h2>
-          {stockInfo?.name && <p className="text-emerald-100 text-sm">{stockInfo.name}</p>}
-          {timeTravelDate && <p className="text-emerald-200 text-xs mt-1">Entry date: {timeTravelDate}</p>}
+          {stockInfo?.name && <p className="text-positive text-sm">{stockInfo.name}</p>}
+          {timeTravelDate && <p className="text-positive text-xs mt-1">Entry date: {timeTravelDate}</p>}
         </div>
 
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Number of Shares</label>
+            <label className="block text-sm font-medium text-ink mb-1">Number of Shares</label>
             <input
               type="number"
               value={shares}
               onChange={(e) => setShares(Math.max(1, parseInt(e.target.value) || 0))}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="w-full px-4 py-3 border border-rule-dark rounded focus:ring-2 focus:ring-emerald-500 focus:border-claret"
               min="1"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Entry Price</label>
+            <label className="block text-sm font-medium text-ink mb-1">Entry Price</label>
             <input
               type="number"
               step="0.01"
               value={entryPrice}
               onChange={(e) => setEntryPrice(parseFloat(e.target.value) || 0)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="w-full px-4 py-3 border border-rule-dark rounded focus:ring-2 focus:ring-emerald-500 focus:border-claret"
             />
           </div>
 
-          <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+          <div className="bg-paper-card rounded p-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Total Cost</span>
+              <span className="text-ink-mute">Total Cost</span>
               <span className="font-semibold">${totalCost.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">{viewMode === 'simple' ? '15% Safety Net' : 'Trailing Stop (15%)'}</span>
-              <span className="text-red-500 font-medium">${trailingStop.toFixed(2)}</span>
+              <span className="text-ink-mute">{viewMode === 'simple' ? '15% Safety Net' : 'Trailing Stop (15%)'}</span>
+              <span className="text-negative font-medium">${trailingStop.toFixed(2)}</span>
             </div>
             {viewMode !== 'simple' && (
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Exit Strategy</span>
-                <span className="text-gray-600 font-medium">Let winners run</span>
+                <span className="text-ink-mute">Exit Strategy</span>
+                <span className="text-ink-mute font-medium">Let winners run</span>
               </div>
             )}
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+        <div className="px-6 py-4 border-t border-rule flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-xl font-medium"
+            className="flex-1 px-4 py-3 text-ink-mute hover:bg-paper-deep rounded font-medium"
           >
             Cancel
           </button>
           <button
             onClick={handleBuy}
             disabled={submitting || shares < 1 || entryPrice <= 0}
-            className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-3 bg-positive text-white rounded font-medium hover:bg-positive disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign size={18} />}
             {submitting ? 'Saving...' : 'Track Position'}
@@ -371,66 +371,66 @@ const SellModal = ({ symbol, position, currentPrice, stockInfo, onClose, onSell 
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-        <div className={`px-6 py-4 border-b border-gray-100 ${pnl >= 0 ? 'bg-gradient-to-r from-emerald-500 to-green-600' : 'bg-gradient-to-r from-red-500 to-rose-600'}`}>
+      <div className="bg-paper-card rounded shadow-2xl max-w-md w-full overflow-hidden">
+        <div className={`px-6 py-4 border-b border-rule ${pnl >= 0 ? 'bg-positive' : 'bg-negative'}`}>
           <h2 className="text-xl font-bold text-white">Sell {symbol}</h2>
           {stockInfo?.name && <p className="text-white/80 text-sm">{stockInfo.name}</p>}
         </div>
 
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Number of Shares</label>
+            <label className="block text-sm font-medium text-ink mb-1">Number of Shares</label>
             <input
               type="number"
               value={shares}
               onChange={(e) => setShares(Math.max(0, Math.min(position?.shares || 0, parseFloat(e.target.value) || 0)))}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="w-full px-4 py-3 border border-rule-dark rounded focus:ring-2 focus:ring-emerald-500 focus:border-claret"
               max={position?.shares || 0}
             />
-            <p className="text-xs text-gray-400 mt-1">Max: {position?.shares || 0} shares</p>
+            <p className="text-xs text-ink-light mt-1">Max: {position?.shares || 0} shares</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Exit Price</label>
+            <label className="block text-sm font-medium text-ink mb-1">Exit Price</label>
             <input
               type="number"
               step="0.01"
               value={exitPrice}
               onChange={(e) => setExitPrice(parseFloat(e.target.value) || 0)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="w-full px-4 py-3 border border-rule-dark rounded focus:ring-2 focus:ring-emerald-500 focus:border-claret"
             />
           </div>
 
-          <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+          <div className="bg-paper-card rounded p-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Entry Price</span>
+              <span className="text-ink-mute">Entry Price</span>
               <span className="font-medium">${entryPrice.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Total Proceeds</span>
+              <span className="text-ink-mute">Total Proceeds</span>
               <span className="font-semibold">${totalProceeds.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
             </div>
-            <div className="border-t border-gray-200 my-2"></div>
+            <div className="border-t border-rule my-2"></div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Profit/Loss</span>
-              <span className={`font-bold ${pnl >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+              <span className="text-ink-mute">Profit/Loss</span>
+              <span className={`font-bold ${pnl >= 0 ? 'text-positive' : 'text-negative'}`}>
                 {pnl >= 0 ? '+' : ''}{pnl.toLocaleString(undefined, { maximumFractionDigits: 2 })} ({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%)
               </span>
             </div>
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+        <div className="px-6 py-4 border-t border-rule flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-xl font-medium"
+            className="flex-1 px-4 py-3 text-ink-mute hover:bg-paper-deep rounded font-medium"
           >
             Cancel
           </button>
           <button
             onClick={handleSell}
             disabled={submitting || shares <= 0 || exitPrice <= 0}
-            className={`flex-1 px-4 py-3 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${pnl >= 0 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
+            className={`flex-1 px-4 py-3 text-white rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${pnl >= 0 ? 'bg-positive hover:bg-positive' : 'bg-negative hover:bg-negative'}`}
           >
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign size={18} />}
             {submitting ? 'Selling...' : 'Confirm Sale'}
@@ -566,36 +566,36 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-paper-card rounded shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100 relative flex-shrink-0">
+        <div className="px-6 py-4 border-b border-rule relative flex-shrink-0">
           {/* Close button - top right */}
-          <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg z-10">
-            <X size={24} className="text-gray-400" />
+          <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-paper-deep rounded-lg z-10">
+            <X size={24} className="text-ink-light" />
           </button>
 
           <div className="pr-12">
             <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-2xl font-bold text-gray-900">{symbol}</h2>
+              <h2 className="text-2xl font-bold text-ink">{symbol}</h2>
               {data?.is_strong && (
-                <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full flex items-center gap-1">
+                <span className="px-2 py-1 bg-positive/10 text-positive text-xs font-semibold rounded-full flex items-center gap-1">
                   <Zap size={12} /> STRONG SIGNAL
                 </span>
               )}
               {type === 'position' && (
-                <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                <span className="px-2 py-1 bg-claret/10 text-claret text-xs font-semibold rounded-full">
                   OPEN POSITION
                 </span>
               )}
               {type === 'missed' && (
-                <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full flex items-center gap-1">
+                <span className="px-2 py-1 bg-claret/10 text-claret text-xs font-semibold rounded-full flex items-center gap-1">
                   <Clock size={12} /> MISSED +{data?.would_be_return?.toFixed(0) || '?'}%
                 </span>
               )}
               {data?.signal_strength > 0 && (
                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                  data.signal_strength >= 70 ? 'bg-emerald-100 text-emerald-700' :
-                  data.signal_strength >= 50 ? 'bg-blue-100 text-blue-700' :
+                  data.signal_strength >= 70 ? 'bg-positive/10 text-positive' :
+                  data.signal_strength >= 50 ? 'bg-claret/10 text-claret' :
                   'bg-yellow-100 text-yellow-700'
                 }`}>
                   Strength: {data.signal_strength.toFixed(0)}
@@ -605,9 +605,9 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
             {/* Company Name & Sector */}
             {stockInfo?.name && (
               <div className="mt-1">
-                <p className="text-gray-600 text-sm">{stockInfo.name}</p>
+                <p className="text-ink-mute text-sm">{stockInfo.name}</p>
                 {stockInfo?.sector && (
-                  <span className="inline-block mt-1 px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
+                  <span className="inline-block mt-1 px-2 py-0.5 bg-claret/10 text-claret text-xs font-medium rounded-full">
                     {stockInfo.sector}{stockInfo?.industry ? ` - ${stockInfo.industry}` : ''}
                   </span>
                 )}
@@ -616,22 +616,22 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
             <div className="flex items-center gap-4 mt-2">
               <span className="text-2xl font-semibold">${currentPrice.toFixed(2)}</span>
               {currentLiveQuote && (
-                <span className={`flex items-center text-sm font-medium ${currentLiveQuote.change_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                <span className={`flex items-center text-sm font-medium ${currentLiveQuote.change_pct >= 0 ? 'text-positive' : 'text-negative'}`}>
                   {currentLiveQuote.change_pct >= 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
                   {currentLiveQuote.change_pct >= 0 ? '+' : ''}{currentLiveQuote.change_pct?.toFixed(2)}% today
                 </span>
               )}
-              <span className={`flex items-center text-sm font-medium ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
+              <span className={`flex items-center text-sm font-medium ${isPositive ? 'text-positive' : 'text-negative'}`}>
                 {isPositive ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
                 {isPositive ? '+' : ''}{changePct}% ({timeRange})
               </span>
               {currentLiveQuote && (
-                <span className="flex items-center gap-1 text-xs text-blue-500">
+                <span className="flex items-center gap-1 text-xs text-claret">
                   <Activity size={12} className="animate-pulse" /> Live
                 </span>
               )}
               {stockInfo?.market_cap && (
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-ink-mute">
                   Market Cap: {formatMarketCap(stockInfo.market_cap)}
                 </span>
               )}
@@ -639,7 +639,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
             {/* Company Description - scrollable */}
             {stockInfo?.description && (
               <div className="mt-2 max-h-20 overflow-y-auto">
-                <p className="text-sm text-gray-500">{stockInfo.description}</p>
+                <p className="text-sm text-ink-mute">{stockInfo.description}</p>
               </div>
             )}
           </div>
@@ -648,13 +648,13 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
         {/* Scrollable content area */}
         <div className="flex-1 overflow-y-auto">
           {/* Time Range */}
-          <div className="px-6 py-3 border-b border-gray-100 flex gap-2 items-center">
+          <div className="px-6 py-3 border-b border-rule flex gap-2 items-center">
           {type === 'missed' ? (
             <div className="flex items-center gap-2">
-              <span className="px-4 py-1.5 rounded-lg text-sm font-medium bg-amber-100 text-amber-700">
+              <span className="px-4 py-1.5 rounded-lg text-sm font-medium bg-claret/10 text-claret">
                 Transaction Window
               </span>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-ink-mute">
                 {formatDate(data?.entry_date)} → {formatDate(data?.sell_date)} (±30 days)
               </span>
             </div>
@@ -664,7 +664,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                 key={range}
                 onClick={() => setTimeRange(range)}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  timeRange === range ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  timeRange === range ? 'bg-ink text-white' : 'bg-paper-deep text-ink-mute hover:bg-rule'
                 }`}
               >
                 {range}
@@ -680,8 +680,8 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
           ) : error ? (
             <ErrorDisplay message={error} />
           ) : priceData.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <BarChart3 className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+            <div className="text-center py-12 text-ink-mute">
+              <BarChart3 className="w-12 h-12 mx-auto text-ink-light mb-3" />
               <p>No price data available</p>
             </div>
           ) : (
@@ -724,41 +724,41 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                     const isEntryDay = d?.date === data?.entry_date;
                     const isSellDay = d?.date === data?.sell_date;
                     const borderClass = isEntryDay ? 'border-emerald-400 border-2' :
-                                       isSellDay ? 'border-amber-400 border-2' : 'border-gray-200';
+                                       isSellDay ? 'border-amber-400 border-2' : 'border-rule';
                     if (viewMode === 'simple') {
                       return (
-                        <div className={`bg-white p-3 rounded-lg shadow-lg border ${borderClass} text-sm`}>
-                          <p className="font-medium text-gray-900 mb-1">{formatDate(label)}</p>
-                          <p className="text-blue-600">Price: ${d?.close?.toFixed(2)}</p>
-                          {isEntryDay && <p className="text-emerald-600 font-medium">Entry Point</p>}
-                          {isSellDay && <p className="text-amber-600 font-medium">Exit Point</p>}
-                          {d?.isLive && <p className="text-blue-500 font-medium">Live Price</p>}
+                        <div className={`bg-paper-card p-3 rounded-lg shadow-lg border ${borderClass} text-sm`}>
+                          <p className="font-medium text-ink mb-1">{formatDate(label)}</p>
+                          <p className="text-claret">Price: ${d?.close?.toFixed(2)}</p>
+                          {isEntryDay && <p className="text-positive font-medium">Entry Point</p>}
+                          {isSellDay && <p className="text-claret font-medium">Exit Point</p>}
+                          {d?.isLive && <p className="text-claret font-medium">Live Price</p>}
                         </div>
                       );
                     }
                     return (
-                      <div className={`bg-white p-3 rounded-lg shadow-lg border ${borderClass} text-sm`}>
-                        <p className="font-medium text-gray-900 mb-1">
+                      <div className={`bg-paper-card p-3 rounded-lg shadow-lg border ${borderClass} text-sm`}>
+                        <p className="font-medium text-ink mb-1">
                           {formatDate(label)}
-                          {isEntryDay && <span className="ml-2 text-emerald-600 font-bold">BUY POINT</span>}
-                          {isSellDay && <span className="ml-2 text-amber-600 font-bold">SELL POINT (+20%)</span>}
+                          {isEntryDay && <span className="ml-2 text-positive font-bold">BUY POINT</span>}
+                          {isSellDay && <span className="ml-2 text-claret font-bold">SELL POINT (+20%)</span>}
                         </p>
-                        <p className="text-blue-600">Price: ${d?.close?.toFixed(2)}</p>
+                        <p className="text-claret">Price: ${d?.close?.toFixed(2)}</p>
                         {isEntryDay && data?.entry_price && (
-                          <p className="text-emerald-600 font-medium">Entry: ${data.entry_price.toFixed(2)}</p>
+                          <p className="text-positive font-medium">Entry: ${data.entry_price.toFixed(2)}</p>
                         )}
                         {isSellDay && data?.sell_price && (
-                          <p className="text-amber-600 font-medium">Exit: ${data.sell_price.toFixed(2)}</p>
+                          <p className="text-claret font-medium">Exit: ${data.sell_price.toFixed(2)}</p>
                         )}
                         {d?.dwap && (
                           <>
-                            <p className="text-purple-600">Wtd Avg: ${d.dwap.toFixed(2)}</p>
+                            <p className="text-claret">Wtd Avg: ${d.dwap.toFixed(2)}</p>
                             <p className="text-yellow-600">Breakout (+5%): ${(d.dwap * 1.05).toFixed(2)}</p>
                           </>
                         )}
                         {d?.ma_50 && <p className="text-orange-500">MA50: ${d.ma_50.toFixed(2)}</p>}
-                        {d?.volume > 0 && <p className="text-gray-400">Vol: {(d.volume / 1000000).toFixed(1)}M</p>}
-                        {d?.isLive && <p className="text-blue-500 font-medium">Live Price</p>}
+                        {d?.volume > 0 && <p className="text-ink-light">Vol: {(d.volume / 1000000).toFixed(1)}M</p>}
+                        {d?.isLive && <p className="text-claret font-medium">Live Price</p>}
                       </div>
                     );
                   }}
@@ -1081,10 +1081,10 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
         </div>
 
         {/* Details */}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+        <div className="px-6 py-4 bg-paper-card border-t border-rule">
           {/* Recommendation banner */}
           {data?.recommendation && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+            <div className="mb-4 p-3 bg-paper-deep border border-blue-200 rounded-lg text-sm text-ink">
               <strong>Recommendation:</strong> {data.recommendation}
             </div>
           )}
@@ -1094,31 +1094,31 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
               viewMode === 'simple' ? (
                 <>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Price</p>
+                    <p className="text-sm text-ink-mute">Price</p>
                     <p className="text-lg font-semibold">${data?.price?.toFixed(2)}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Potential</p>
-                    <p className="text-lg font-semibold text-emerald-600">Strong</p>
+                    <p className="text-sm text-ink-mute">Potential</p>
+                    <p className="text-lg font-semibold text-positive">Strong</p>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Breakout</p>
-                    <p className="text-lg font-semibold text-emerald-600">+{data?.pct_above_dwap}%</p>
+                    <p className="text-sm text-ink-mute">Breakout</p>
+                    <p className="text-lg font-semibold text-positive">+{data?.pct_above_dwap}%</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Mom Rank</p>
-                    <p className={`text-lg font-semibold ${data?.momentum_rank <= 5 ? 'text-emerald-600' : 'text-gray-700'}`}>#{data?.momentum_rank || '-'}</p>
+                    <p className="text-sm text-ink-mute">Mom Rank</p>
+                    <p className={`text-lg font-semibold ${data?.momentum_rank <= 5 ? 'text-positive' : 'text-ink'}`}>#{data?.momentum_rank || '-'}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Trailing Stop</p>
-                    <p className="text-lg font-semibold text-red-500">15%</p>
+                    <p className="text-sm text-ink-mute">Trailing Stop</p>
+                    <p className="text-lg font-semibold text-negative">15%</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">+20% Gain</p>
-                    <p className="text-lg font-semibold text-emerald-600">${data?.price ? (data.price * 1.20).toFixed(2) : '-'}</p>
+                    <p className="text-sm text-ink-mute">+20% Gain</p>
+                    <p className="text-lg font-semibold text-positive">${data?.price ? (data.price * 1.20).toFixed(2) : '-'}</p>
                   </div>
                 </>
               )
@@ -1126,36 +1126,36 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
               viewMode === 'simple' ? (
                 <>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Return</p>
-                    <p className="text-lg font-semibold text-emerald-600">
+                    <p className="text-sm text-ink-mute">Return</p>
+                    <p className="text-lg font-semibold text-positive">
                       +{data?.would_be_return?.toFixed(1)}%
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Days Held</p>
+                    <p className="text-sm text-ink-mute">Days Held</p>
                     <p className="text-lg font-semibold">{data?.days_held || '-'}</p>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Buy Date</p>
+                    <p className="text-sm text-ink-mute">Buy Date</p>
                     <p className="text-lg font-semibold">{formatDate(data?.entry_date)}</p>
-                    <p className="text-xs text-emerald-600">${data?.entry_price?.toFixed(2)}</p>
+                    <p className="text-xs text-positive">${data?.entry_price?.toFixed(2)}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Sell Date</p>
+                    <p className="text-sm text-ink-mute">Sell Date</p>
                     <p className="text-lg font-semibold">{formatDate(data?.sell_date)}</p>
-                    <p className="text-xs text-emerald-600">${data?.sell_price?.toFixed(2)}</p>
+                    <p className="text-xs text-positive">${data?.sell_price?.toFixed(2)}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Return</p>
-                    <p className="text-lg font-semibold text-emerald-600">
+                    <p className="text-sm text-ink-mute">Return</p>
+                    <p className="text-lg font-semibold text-positive">
                       +{data?.would_be_return?.toFixed(1)}%
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Days Held</p>
+                    <p className="text-sm text-ink-mute">Days Held</p>
                     <p className="text-lg font-semibold">{data?.days_held || '-'}</p>
                   </div>
                 </>
@@ -1164,12 +1164,12 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
               viewMode === 'simple' ? (
                 <>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Price</p>
+                    <p className="text-sm text-ink-mute">Price</p>
                     <p className="text-lg font-semibold">${data?.current_price?.toFixed(2) || data?.entry_price?.toFixed(2)}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">P&L</p>
-                    <p className={`text-lg font-semibold ${data?.pnl_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                    <p className="text-sm text-ink-mute">P&L</p>
+                    <p className={`text-lg font-semibold ${data?.pnl_pct >= 0 ? 'text-positive' : 'text-negative'}`}>
                       {data?.pnl_pct >= 0 ? '+' : ''}{data?.pnl_pct?.toFixed(1)}%
                     </p>
                   </div>
@@ -1177,33 +1177,33 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
               ) : (
                 <>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Entry Price</p>
+                    <p className="text-sm text-ink-mute">Entry Price</p>
                     <p className="text-lg font-semibold">${data?.entry_price?.toFixed(2)}</p>
-                    <p className="text-xs text-gray-400">{formatDate(data?.entry_date)}</p>
+                    <p className="text-xs text-ink-light">{formatDate(data?.entry_date)}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Current P&L</p>
-                    <p className={`text-lg font-semibold ${data?.pnl_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                    <p className="text-sm text-ink-mute">Current P&L</p>
+                    <p className={`text-lg font-semibold ${data?.pnl_pct >= 0 ? 'text-positive' : 'text-negative'}`}>
                       {data?.pnl_pct >= 0 ? '+' : ''}{data?.pnl_pct?.toFixed(1)}%
                     </p>
-                    <p className={`text-xs ${data?.pnl_dollars >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                    <p className={`text-xs ${data?.pnl_dollars >= 0 ? 'text-positive' : 'text-negative'}`}>
                       ${data?.pnl_dollars?.toFixed(0) || ((data?.current_price - data?.entry_price) * data?.shares).toFixed(0)}
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">Trailing Stop</p>
-                    <p className="text-lg font-semibold text-red-500">
+                    <p className="text-sm text-ink-mute">Trailing Stop</p>
+                    <p className="text-lg font-semibold text-negative">
                       {data?.trailing_stop_level ? `$${data.trailing_stop_level.toFixed(2)}` : '-'}
                     </p>
                     {data?.distance_to_stop_pct != null && (
-                      <p className={`text-xs ${data.distance_to_stop_pct < 5 ? 'text-red-400' : 'text-gray-400'}`}>
+                      <p className={`text-xs ${data.distance_to_stop_pct < 5 ? 'text-negative' : 'text-ink-light'}`}>
                         {data.distance_to_stop_pct.toFixed(1)}% away
                       </p>
                     )}
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-gray-500">High Water</p>
-                    <p className="text-lg font-semibold text-purple-600">
+                    <p className="text-sm text-ink-mute">High Water</p>
+                    <p className="text-lg font-semibold text-claret">
                       {data?.high_water_mark ? `$${data.high_water_mark.toFixed(2)}` : '-'}
                     </p>
                   </div>
@@ -1214,21 +1214,21 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
 
           {/* Technical Indicators - Signal only, Advanced mode only */}
           {viewMode !== 'simple' && type === 'signal' && (data?.ma_50 || stockInfo?.ma_50) && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-200">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-rule">
               <div className="text-center">
-                <p className="text-sm text-gray-500">50-Day MA</p>
+                <p className="text-sm text-ink-mute">50-Day MA</p>
                 <p className="text-lg font-semibold">${(data?.ma_50 || stockInfo?.ma_50)?.toFixed(2)}</p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-500">200-Day MA</p>
+                <p className="text-sm text-ink-mute">200-Day MA</p>
                 <p className="text-lg font-semibold">${(data?.ma_200 || stockInfo?.ma_200)?.toFixed(2)}</p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-500">52-Week High</p>
+                <p className="text-sm text-ink-mute">52-Week High</p>
                 <p className="text-lg font-semibold">${(data?.high_52w || stockInfo?.high_52w)?.toFixed(2)}</p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-500">Weighted Avg</p>
+                <p className="text-sm text-ink-mute">Weighted Avg</p>
                 <p className="text-lg font-semibold">${data?.dwap?.toFixed(2)}</p>
               </div>
             </div>
@@ -1237,14 +1237,14 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
         </div>
 
         {/* Actions - fixed footer */}
-        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 flex-shrink-0 bg-white">
-          <button onClick={onClose} className="px-6 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl font-medium">
+        <div className="px-6 py-4 border-t border-rule flex justify-end gap-3 flex-shrink-0 bg-paper-card">
+          <button onClick={onClose} className="px-6 py-2.5 text-ink-mute hover:bg-paper-deep rounded font-medium">
             Close
           </button>
           {type === 'signal' && !data?.exit_date && (
             <button
               onClick={() => setShowBuyModal(true)}
-              className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 flex items-center gap-2"
+              className="px-6 py-2.5 bg-positive text-white rounded font-medium hover:bg-positive flex items-center gap-2"
             >
               <DollarSign size={18} />
               Track Position
@@ -1253,14 +1253,14 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
           {type === 'position' && (
             <button
               onClick={() => setShowSellModal(true)}
-              className="px-6 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 flex items-center gap-2"
+              className="px-6 py-2.5 bg-negative text-white rounded font-medium hover:bg-negative flex items-center gap-2"
             >
               <DollarSign size={18} />
               Mark as Sold
             </button>
           )}
           {type === 'missed' && (
-            <div className="px-4 py-2 bg-amber-50 text-amber-700 rounded-xl text-sm">
+            <div className="px-4 py-2 bg-paper-deep text-claret rounded text-sm">
               This opportunity has already passed
             </div>
           )}
@@ -1301,15 +1301,15 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
 
 // Metric Card
 const MetricCard = ({ title, value, subtitle, trend, icon: Icon }) => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-all">
+  <div className="bg-paper-card rounded shadow-sm border border-rule p-5 hover:shadow-md transition-all">
     <div className="flex items-start justify-between">
       <div>
-        <p className="text-sm text-gray-500 font-medium">{title}</p>
-        <p className={`text-2xl font-bold mt-1 ${trend === 'up' ? 'text-emerald-600' : trend === 'down' ? 'text-red-500' : 'text-gray-900'}`}>{value}</p>
-        {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+        <p className="text-sm text-ink-mute font-medium">{title}</p>
+        <p className={`text-2xl font-bold mt-1 ${trend === 'up' ? 'text-positive' : trend === 'down' ? 'text-negative' : 'text-ink'}`}>{value}</p>
+        {subtitle && <p className="text-xs text-ink-light mt-1">{subtitle}</p>}
       </div>
       {Icon && (
-        <div className={`p-2 rounded-lg ${trend === 'up' ? 'bg-emerald-50 text-emerald-600' : trend === 'down' ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-400'}`}>
+        <div className={`p-2 rounded-lg ${trend === 'up' ? 'bg-positive/10 text-positive' : trend === 'down' ? 'bg-negative/10 text-negative' : 'bg-paper-card text-ink-light'}`}>
           <Icon size={20} />
         </div>
       )}
@@ -1320,13 +1320,13 @@ const MetricCard = ({ title, value, subtitle, trend, icon: Icon }) => (
 // Signal Strength indicator
 const SignalStrengthBar = ({ strength }) => {
   const numStrength = typeof strength === 'string' ? parseFloat(strength) : (strength || 0);
-  const color = numStrength >= 70 ? 'bg-emerald-500' : numStrength >= 50 ? 'bg-blue-500' : numStrength >= 30 ? 'bg-yellow-500' : 'bg-gray-400';
+  const color = numStrength >= 70 ? 'bg-positive/100' : numStrength >= 50 ? 'bg-claret' : numStrength >= 30 ? 'bg-rule-dark' : 'bg-rule';
   return (
     <div className="flex items-center gap-2">
-      <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+      <div className="w-16 h-2 bg-rule rounded-full overflow-hidden">
         <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${numStrength}%` }} />
       </div>
-      <span className="text-xs font-semibold text-gray-600">{Math.round(numStrength)}</span>
+      <span className="text-xs font-semibold text-ink-mute">{Math.round(numStrength)}</span>
     </div>
   );
 };
@@ -1337,45 +1337,45 @@ const SignalCard = ({ signal, onClick }) => {
   const hasLiveData = !!signal.live_price;
 
   return (
-    <div onClick={() => onClick(signal)} className={`bg-white rounded-lg border-l-4 ${signal.is_strong ? 'border-emerald-500' : 'border-blue-500'} shadow-sm p-4 hover:shadow-md transition-all cursor-pointer group`}>
+    <div onClick={() => onClick(signal)} className={`bg-paper-card rounded-lg border-l-4 ${signal.is_strong ? 'border-claret' : 'border-rule-dark'} shadow-sm p-4 hover:shadow-md transition-all cursor-pointer group`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-gray-900">{signal.symbol}</span>
-          {signal.is_strong && <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full flex items-center gap-1"><Zap size={12} /> STRONG</span>}
+          <span className="text-lg font-bold text-ink">{signal.symbol}</span>
+          {signal.is_strong && <span className="px-2 py-0.5 bg-positive/10 text-positive text-xs font-semibold rounded-full flex items-center gap-1"><Zap size={12} /> STRONG</span>}
         </div>
         <div className="flex items-center gap-2">
           <div className="text-right">
-            <span className="text-lg font-semibold text-gray-900">${displayPrice?.toFixed(2)}</span>
+            <span className="text-lg font-semibold text-ink">${displayPrice?.toFixed(2)}</span>
             {hasLiveData && signal.live_change_pct !== undefined && (
-              <span className={`ml-2 text-sm ${signal.live_change_pct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+              <span className={`ml-2 text-sm ${signal.live_change_pct >= 0 ? 'text-positive' : 'text-negative'}`}>
                 {signal.live_change_pct >= 0 ? '+' : ''}{signal.live_change_pct?.toFixed(2)}%
               </span>
             )}
           </div>
-          <ChevronRight size={18} className="text-gray-400 group-hover:text-blue-600 transition-colors" />
+          <ChevronRight size={18} className="text-ink-light group-hover:text-claret transition-colors" />
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2 text-sm">
         <div className="flex items-center gap-1">
-          <TrendingUp size={14} className="text-emerald-500" />
-          <span className="text-gray-500">Breakout:</span>
-          <span className="font-medium text-emerald-600">+{signal.pct_above_dwap}%</span>
+          <TrendingUp size={14} className="text-positive" />
+          <span className="text-ink-mute">Breakout:</span>
+          <span className="font-medium text-positive">+{signal.pct_above_dwap}%</span>
         </div>
         <div className="flex items-center gap-1">
-          <Activity size={14} className="text-blue-500" />
-          <span className="text-gray-500">Vol:</span>
+          <Activity size={14} className="text-claret" />
+          <span className="text-ink-mute">Vol:</span>
           <span className="font-medium">{signal.volume_ratio}x</span>
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-gray-500">Str:</span>
+          <span className="text-ink-mute">Str:</span>
           <SignalStrengthBar strength={signal.signal_strength || 0} />
         </div>
       </div>
       {signal.recommendation && (
-        <div className="mt-2 text-xs text-gray-500 italic truncate">{signal.recommendation}</div>
+        <div className="mt-2 text-xs text-ink-mute italic truncate">{signal.recommendation}</div>
       )}
       {hasLiveData && (
-        <div className="mt-1 text-xs text-blue-500 flex items-center gap-1">
+        <div className="mt-1 text-xs text-claret flex items-center gap-1">
           <Activity size={10} className="animate-pulse" /> Live
         </div>
       )}
@@ -1385,10 +1385,10 @@ const SignalCard = ({ signal, onClick }) => {
 
 // Position Row
 const PositionRow = ({ position, onClick }) => {
-  const pnlColor = position.pnl_pct >= 0 ? 'text-emerald-600' : 'text-red-500';
-  const pnlBg = position.pnl_pct >= 0 ? 'bg-emerald-50' : 'bg-red-50';
+  const pnlColor = position.pnl_pct >= 0 ? 'text-positive' : 'text-negative';
+  const pnlBg = position.pnl_pct >= 0 ? 'bg-positive/10' : 'bg-negative/10';
   const hasLiveData = position.live_change !== undefined;
-  const dayChangeColor = (position.live_change_pct || 0) >= 0 ? 'text-emerald-600' : 'text-red-500';
+  const dayChangeColor = (position.live_change_pct || 0) >= 0 ? 'text-positive' : 'text-negative';
 
   // Sell signal indicator
   const sellSignal = position.sell_signal || 'hold';
@@ -1398,25 +1398,25 @@ const PositionRow = ({ position, onClick }) => {
   const getSellIndicator = () => {
     if (sellSignal === 'sell') {
       return {
-        color: 'text-red-600',
-        bg: 'bg-red-100',
-        icon: <TrendingDown size={14} className="text-red-600" />,
+        color: 'text-negative',
+        bg: 'bg-negative/10',
+        icon: <TrendingDown size={14} className="text-negative" />,
         label: 'SELL',
         sublabel: `Stop: $${trailingStopPrice?.toFixed(2)}`
       };
     } else if (sellSignal === 'warning') {
       return {
-        color: 'text-amber-600',
-        bg: 'bg-amber-100',
-        icon: <AlertCircle size={14} className="text-amber-600" />,
+        color: 'text-claret',
+        bg: 'bg-claret/10',
+        icon: <AlertCircle size={14} className="text-claret" />,
         label: `${distanceToStop?.toFixed(0)}%`,
         sublabel: `Stop: $${trailingStopPrice?.toFixed(2)}`
       };
     } else {
       return {
-        color: 'text-emerald-600',
-        bg: 'bg-emerald-50',
-        icon: <Shield size={14} className="text-emerald-500" />,
+        color: 'text-positive',
+        bg: 'bg-positive/10',
+        icon: <Shield size={14} className="text-positive" />,
         label: `${distanceToStop?.toFixed(0)}%`,
         sublabel: `Stop: $${trailingStopPrice?.toFixed(2)}`
       };
@@ -1426,19 +1426,19 @@ const PositionRow = ({ position, onClick }) => {
   const indicator = getSellIndicator();
 
   return (
-    <tr onClick={() => onClick(position)} className="hover:bg-blue-50 transition-colors cursor-pointer group">
+    <tr onClick={() => onClick(position)} className="hover:bg-paper-deep transition-colors cursor-pointer group">
       <td className="py-3 px-4">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-gray-900">{position.symbol}</span>
-          {hasLiveData && <Activity size={10} className="text-blue-500 animate-pulse" />}
-          <Eye size={14} className="text-gray-300 group-hover:text-blue-500" />
+          <span className="font-semibold text-ink">{position.symbol}</span>
+          {hasLiveData && <Activity size={10} className="text-claret animate-pulse" />}
+          <Eye size={14} className="text-ink-light group-hover:text-claret" />
         </div>
       </td>
-      <td className="py-3 px-4 text-gray-600">{position.shares?.toFixed(2)}</td>
-      <td className="py-3 px-4 text-gray-600">${position.entry_price?.toFixed(2)}</td>
+      <td className="py-3 px-4 text-ink-mute">{position.shares?.toFixed(2)}</td>
+      <td className="py-3 px-4 text-ink-mute">${position.entry_price?.toFixed(2)}</td>
       <td className="py-3 px-4">
         <div className="flex flex-col">
-          <span className="font-medium text-gray-900">${position.current_price?.toFixed(2)}</span>
+          <span className="font-medium text-ink">${position.current_price?.toFixed(2)}</span>
           {hasLiveData && (
             <span className={`text-xs ${dayChangeColor}`}>
               {position.live_change_pct >= 0 ? '+' : ''}{position.live_change_pct?.toFixed(2)}% today
@@ -1453,10 +1453,10 @@ const PositionRow = ({ position, onClick }) => {
             {indicator.icon}
             {indicator.label}
           </span>
-          <span className="text-xs text-gray-400 mt-0.5">{indicator.sublabel}</span>
+          <span className="text-xs text-ink-light mt-0.5">{indicator.sublabel}</span>
         </div>
       </td>
-      <td className="py-3 px-4 text-gray-500"><Clock size={14} className="inline mr-1" />{position.days_held}d</td>
+      <td className="py-3 px-4 text-ink-mute"><Clock size={14} className="inline mr-1" />{position.days_held}d</td>
     </tr>
   );
 };
@@ -1471,21 +1471,21 @@ const TOUR_STEPS = [
     description: 'When our Ensemble finds a high-conviction opportunity, it shows up here. BUY means it\'s active. BUY NOW means it just triggered today. These are signals — you execute trades through your own broker.',
     renderIllustration: () => (
       <div className="flex flex-col items-center gap-3">
-        <Zap size={32} className="text-blue-600" />
+        <Zap size={32} className="text-claret" />
         <div className="w-full max-w-xs space-y-2">
-          <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 shadow-sm">
+          <div className="flex items-center justify-between bg-paper-card rounded-lg px-3 py-2 shadow-sm">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm text-gray-800">NVDA</span>
-              <span className="text-xs text-gray-500">$142.50</span>
+              <span className="font-semibold text-sm text-ink">NVDA</span>
+              <span className="text-xs text-ink-mute">$142.50</span>
             </div>
-            <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">BUY NOW</span>
+            <span className="text-[10px] font-bold bg-positive/10 text-positive px-2 py-0.5 rounded-full">BUY NOW</span>
           </div>
-          <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 shadow-sm">
+          <div className="flex items-center justify-between bg-paper-card rounded-lg px-3 py-2 shadow-sm">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm text-gray-800">AVGO</span>
-              <span className="text-xs text-gray-500">$198.30</span>
+              <span className="font-semibold text-sm text-ink">AVGO</span>
+              <span className="text-xs text-ink-mute">$198.30</span>
             </div>
-            <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">BUY</span>
+            <span className="text-[10px] font-medium bg-claret/10 text-claret px-2 py-0.5 rounded-[2px] tracking-wide">ENTRY</span>
           </div>
         </div>
       </div>
@@ -1496,24 +1496,24 @@ const TOUR_STEPS = [
     description: 'After you act on a signal, track it here. See your P&L in real-time, and we\'ll tell you when our trailing stop says it\'s time to sell.',
     renderIllustration: () => (
       <div className="flex flex-col items-center gap-3">
-        <Briefcase size={32} className="text-blue-600" />
-        <div className="w-full max-w-xs bg-white rounded-lg px-3 py-2 shadow-sm">
+        <Briefcase size={32} className="text-claret" />
+        <div className="w-full max-w-xs bg-paper-card rounded-lg px-3 py-2 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <span className="font-semibold text-sm text-gray-800">AAPL</span>
-              <span className="text-xs text-gray-500 ml-2">50 shares</span>
+              <span className="font-semibold text-sm text-ink">AAPL</span>
+              <span className="text-xs text-ink-mute ml-2">50 shares</span>
             </div>
             <div className="text-right">
-              <span className="text-sm font-semibold text-green-600">+$1,240</span>
-              <span className="text-xs text-green-600 ml-1">+8.2%</span>
+              <span className="text-sm font-semibold text-positive">+$1,240</span>
+              <span className="text-xs text-positive ml-1">+8.2%</span>
             </div>
           </div>
-          <div className="mt-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-green-500 rounded-full" style={{ width: '68%' }} />
+          <div className="mt-1 h-1.5 bg-paper-deep rounded-full overflow-hidden">
+            <div className="h-full bg-positive/100 rounded-full" style={{ width: '68%' }} />
           </div>
           <div className="flex justify-between mt-1">
-            <span className="text-[10px] text-gray-400">Entry $151.20</span>
-            <span className="text-[10px] text-gray-400">Stop $140.10</span>
+            <span className="text-[10px] text-ink-light">Entry $151.20</span>
+            <span className="text-[10px] text-ink-light">Stop $140.10</span>
           </div>
         </div>
       </div>
@@ -1524,21 +1524,21 @@ const TOUR_STEPS = [
     description: 'Didn\'t catch a signal in time? This section shows profitable trades you could have taken — so you know the system is working even when you\'re away.',
     renderIllustration: () => (
       <div className="flex flex-col items-center gap-3">
-        <TrendingUp size={32} className="text-blue-600" />
+        <TrendingUp size={32} className="text-claret" />
         <div className="w-full max-w-xs space-y-2">
-          <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 shadow-sm opacity-70">
+          <div className="flex items-center justify-between bg-paper-card rounded-lg px-3 py-2 shadow-sm opacity-70">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm text-gray-800">META</span>
-              <span className="text-xs text-gray-400">Signal: Jan 28</span>
+              <span className="font-semibold text-sm text-ink">META</span>
+              <span className="text-xs text-ink-light">Signal: Jan 28</span>
             </div>
-            <span className="text-sm font-semibold text-green-600">+14.3%</span>
+            <span className="text-sm font-semibold text-positive">+14.3%</span>
           </div>
-          <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2 shadow-sm opacity-70">
+          <div className="flex items-center justify-between bg-paper-card rounded-lg px-3 py-2 shadow-sm opacity-70">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm text-gray-800">AMZN</span>
-              <span className="text-xs text-gray-400">Signal: Jan 22</span>
+              <span className="font-semibold text-sm text-ink">AMZN</span>
+              <span className="text-xs text-ink-light">Signal: Jan 22</span>
             </div>
-            <span className="text-sm font-semibold text-green-600">+9.7%</span>
+            <span className="text-sm font-semibold text-positive">+9.7%</span>
           </div>
         </div>
       </div>
@@ -1551,31 +1551,31 @@ const TOUR_STEPS = [
       <div className="flex flex-col items-center gap-3">
         <div className="flex items-center gap-4">
           <div className="flex flex-col items-center gap-1">
-            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-              <Eye size={24} className="text-blue-600" />
+            <div className="w-12 h-12 rounded bg-claret/10 flex items-center justify-center">
+              <Eye size={24} className="text-claret" />
             </div>
-            <span className="text-xs font-medium text-gray-600">Simple</span>
+            <span className="text-xs font-medium text-ink-mute">Simple</span>
           </div>
-          <ChevronRight size={20} className="text-gray-300" />
+          <ChevronRight size={20} className="text-ink-light" />
           <div className="flex flex-col items-center gap-1">
-            <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center">
-              <Settings size={24} className="text-indigo-600" />
+            <div className="w-12 h-12 rounded bg-claret/10 flex items-center justify-center">
+              <Settings size={24} className="text-claret" />
             </div>
-            <span className="text-xs font-medium text-gray-600">Advanced</span>
+            <span className="text-xs font-medium text-ink-mute">Advanced</span>
           </div>
         </div>
-        <div className="w-full max-w-xs bg-white rounded-lg px-3 py-2 shadow-sm">
+        <div className="w-full max-w-xs bg-paper-card rounded-lg px-3 py-2 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Momentum Score</span>
-            <span className="text-xs font-mono text-indigo-600">87.4</span>
+            <span className="text-xs text-ink-mute">Momentum Score</span>
+            <span className="text-xs font-mono text-claret">87.4</span>
           </div>
           <div className="flex items-center justify-between mt-1">
-            <span className="text-xs text-gray-500">Breakout</span>
-            <span className="text-xs font-mono text-indigo-600">+5.8%</span>
+            <span className="text-xs text-ink-mute">Breakout</span>
+            <span className="text-xs font-mono text-claret">+5.8%</span>
           </div>
           <div className="flex items-center justify-between mt-1">
-            <span className="text-xs text-gray-500">Sharpe Ratio</span>
-            <span className="text-xs font-mono text-indigo-600">1.42</span>
+            <span className="text-xs text-ink-mute">Sharpe Ratio</span>
+            <span className="text-xs font-mono text-claret">1.42</span>
           </div>
         </div>
       </div>
@@ -1594,7 +1594,7 @@ const TOUR_STEPS = [
           ].map((card, i) => (
             <div
               key={i}
-              className={`absolute ${card.offset} ${card.rotate} w-44 bg-white rounded-lg shadow-md overflow-hidden`}
+              className={`absolute ${card.offset} ${card.rotate} w-44 bg-paper-card rounded-lg shadow-md overflow-hidden`}
               style={{ zIndex: i }}
             >
               <div className="bg-[#0f1729] px-3 py-1.5 flex items-center gap-1.5">
@@ -1602,8 +1602,8 @@ const TOUR_STEPS = [
                 <span className="text-[9px] font-medium text-[#c9a84c]">RigaCap</span>
               </div>
               <div className="px-3 py-2">
-                <p className="text-[10px] font-medium text-gray-800 truncate">{card.subject}</p>
-                <p className="text-[9px] text-gray-400 mt-0.5">Today at 6:00 PM ET</p>
+                <p className="text-[10px] font-medium text-ink truncate">{card.subject}</p>
+                <p className="text-[9px] text-ink-light mt-0.5">Today at 6:00 PM ET</p>
               </div>
             </div>
           ))}
@@ -1654,14 +1654,14 @@ function WelcomeTour() {
   return (
     <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4" onClick={dismiss}>
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden"
+        className="bg-paper-card rounded shadow-2xl max-w-lg w-full mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Illustration area */}
-        <div className="relative h-48 bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center px-6">
+        <div className="relative h-48 bg-paper-deep flex items-center justify-center px-6">
           <button
             onClick={dismiss}
-            className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors"
+            className="absolute top-3 right-3 text-ink-light hover:text-ink-mute transition-colors"
           >
             <X size={20} />
           </button>
@@ -1673,8 +1673,8 @@ function WelcomeTour() {
         {/* Content */}
         <div className="px-6 pt-5 pb-6">
           <div key={`text-${fadeKey}`} className="animate-fade-in">
-            <h3 className="text-lg font-bold text-gray-900">{current.title}</h3>
-            <p className="mt-2 text-sm text-gray-600 leading-relaxed">{current.description}</p>
+            <h3 className="text-lg font-bold text-ink">{current.title}</h3>
+            <p className="mt-2 text-sm text-ink-mute leading-relaxed">{current.description}</p>
           </div>
 
           {/* Footer: dots + buttons */}
@@ -1684,20 +1684,20 @@ function WelcomeTour() {
                 <div
                   key={i}
                   className={`w-2 h-2 rounded-full transition-colors ${
-                    i === step ? 'bg-blue-600' : 'bg-gray-300'
+                    i === step ? 'bg-ink' : 'bg-rule'
                   }`}
                 />
               ))}
             </div>
             <div className="flex items-center gap-3">
               {!isLast && (
-                <button onClick={dismiss} className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
+                <button onClick={dismiss} className="text-sm text-ink-light hover:text-ink-mute transition-colors">
                   Skip
                 </button>
               )}
               <button
                 onClick={next}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-2 bg-ink hover:bg-claret text-white text-sm font-medium rounded-lg transition-colors"
               >
                 {isLast ? 'Get Started →' : 'Next →'}
               </button>
@@ -2387,14 +2387,14 @@ function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-paper font-body flex items-center justify-center">
         <div className="text-center">
           <div className="relative mx-auto mb-4 w-16 h-16">
-            <img src="/icon-halo.svg" alt="RigaCap" width="64" height="64" className="mx-auto" />
-            <Loader2 className="w-5 h-5 text-amber-500 animate-spin absolute -bottom-1 -right-1" />
+            <div className="text-center font-display text-3xl font-semibold text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 144' }}>RigaCap<span className="text-claret">.</span></div>
+            <Loader2 className="w-5 h-5 text-claret animate-spin absolute -bottom-1 -right-1" />
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading RigaCap</h2>
-          <p className="text-gray-500">Initializing your dashboard...</p>
+          <h2 className="text-xl font-semibold text-ink mb-2">Loading RigaCap</h2>
+          <p className="text-ink-mute">Initializing your dashboard...</p>
         </div>
       </div>
     );
@@ -2402,17 +2402,17 @@ function Dashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-paper font-body flex items-center justify-center">
         <div className="text-center max-w-md">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Connection Error</h2>
-          <p className="text-gray-500 mb-4">{error}</p>
-          <p className="text-sm text-gray-400 mb-4">
+          <AlertCircle className="w-12 h-12 text-negative mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-ink mb-2">Connection Error</h2>
+          <p className="text-ink-mute mb-4">{error}</p>
+          <p className="text-sm text-ink-light mb-4">
             Backend: {API_BASE}
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-6 py-2 bg-ink text-white rounded-lg hover:bg-claret"
           >
             Retry
           </button>
@@ -2425,41 +2425,40 @@ function Dashboard() {
   const noDataAvailable = !dashboardData && positions.length === 0 && signals.length === 0 && trades.length === 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-paper font-body">
       {/* Data Freshness Banner */}
       {dataFreshness && dataFreshness.status === 'processing' && (
-        <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 text-center text-sm text-blue-700">
+        <div className="bg-paper-deep border-b border-blue-200 px-4 py-2 text-center text-sm text-claret">
           <Clock className="inline w-4 h-4 mr-1 -mt-0.5" />
           {dataFreshness.message || 'Market data is being updated. Signals will refresh shortly.'}
         </div>
       )}
       {dataFreshness && dataFreshness.status === 'stale' && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-sm text-amber-700">
+        <div className="bg-paper-deep border-b border-amber-200 px-4 py-2 text-center text-sm text-claret">
           <AlertCircle className="inline w-4 h-4 mr-1 -mt-0.5" />
           {dataFreshness.message || "Today's market data is delayed. Signals may not reflect current prices."}
           {dataFreshness.data_date && <span className="ml-1 font-medium">(Last: {dataFreshness.data_date})</span>}
         </div>
       )}
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
+      <header className="bg-paper-card border-b border-rule sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <img src="/icon-halo.svg" alt="RigaCap" width="32" height="32" className="shrink-0 sm:w-10 sm:h-10" />
             <div>
-              <h1 className="text-base sm:text-xl font-bold text-gray-900">RigaCap</h1>
-              <p className="text-xs text-gray-500 hidden sm:block">Ensemble Trading System</p>
+              <h1 className="font-display text-lg sm:text-xl font-semibold text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 144' }}>RigaCap<span className="text-claret">.</span></h1>
+              <p className="text-[0.65rem] font-medium tracking-[0.2em] uppercase text-ink-mute hidden sm:block">Ensemble Signals</p>
             </div>
           </div>
 
-          <nav className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl min-w-0">
-            <button onClick={() => setActiveTab('signals')} className={`px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'signals' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
+          <nav className="flex items-center gap-1 bg-paper-deep p-1 rounded min-w-0">
+            <button onClick={() => setActiveTab('signals')} className={`px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'signals' ? 'bg-paper-card shadow text-ink' : 'text-ink-mute hover:text-ink'}`}>
               <Zap size={16} className="inline sm:mr-2" /><span className="hidden sm:inline">Signals</span>
             </button>
-            <button onClick={() => setActiveTab('history')} className={`px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
+            <button onClick={() => setActiveTab('history')} className={`px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-paper-card shadow text-ink' : 'text-ink-mute hover:text-ink'}`}>
               <History size={16} className="inline sm:mr-2" /><span className="hidden sm:inline">Trade History</span>
             </button>
             {isAdmin && (
-              <button onClick={() => setActiveTab('admin')} className={`px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'admin' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
+              <button onClick={() => setActiveTab('admin')} className={`px-2 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'admin' ? 'bg-paper-card shadow text-ink' : 'text-ink-mute hover:text-ink'}`}>
                 <Settings size={16} className="inline sm:mr-2" /><span className="hidden sm:inline">Admin</span>
               </button>
             )}
@@ -2470,8 +2469,8 @@ function Dashboard() {
               onClick={() => setViewMode(v => v === 'simple' ? 'advanced' : 'simple')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
                 viewMode === 'simple'
-                  ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                  : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                  ? 'bg-paper-deep text-claret border-blue-200 hover:bg-claret/10'
+                  : 'bg-paper-deep text-ink border-rule hover:bg-rule'
               }`}
               title={viewMode === 'simple' ? 'Switch to Advanced mode' : 'Switch to Simple mode'}
             >
@@ -2484,8 +2483,8 @@ function Dashboard() {
                   onClick={() => setTimeTravelOpen(o => !o)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
                     timeTravelDate
-                      ? 'bg-purple-100 text-purple-700 border-purple-300 hover:bg-purple-200'
-                      : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                      ? 'bg-claret/10 text-claret border-claret/30 hover:bg-claret/20'
+                      : 'bg-paper-deep text-ink border-rule hover:bg-rule'
                   }`}
                   title="Time Travel"
                 >
@@ -2493,21 +2492,21 @@ function Dashboard() {
                   {timeTravelDate ? formatDate(timeTravelDate, { includeYear: true }) : 'Time Travel'}
                 </button>
                 {timeTravelOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200 p-4 z-50">
+                  <div className="absolute right-0 top-full mt-2 w-72 bg-paper-card rounded shadow-xl border border-rule p-4 z-50">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold text-gray-800">Time Travel</h3>
-                      <button onClick={() => setTimeTravelOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                      <h3 className="text-sm font-semibold text-ink">Time Travel</h3>
+                      <button onClick={() => setTimeTravelOpen(false)} className="text-ink-light hover:text-ink-mute"><X size={14} /></button>
                     </div>
                     <input
                       type="date"
                       value={timeTravelDate || ''}
                       max={new Date().toISOString().split('T')[0]}
                       onChange={e => { setTimeTravelDate(e.target.value || null); setTimeTravelOpen(false); }}
-                      className="w-full mb-3 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      className="w-full mb-3 px-3 py-2 border border-rule rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-claret"
                     />
                     {timeTravelPresets.length > 0 ? (
                       <>
-                        <div className="text-xs font-medium text-gray-500 mb-2">Signal Dates</div>
+                        <div className="text-xs font-medium text-ink-mute mb-2">Signal Dates</div>
                         <div className="space-y-1.5 mb-3 max-h-48 overflow-y-auto">
                           {timeTravelPresets.map(({ date, symbols, detail, source }) => (
                             <button
@@ -2515,23 +2514,23 @@ function Dashboard() {
                               onClick={() => { setTimeTravelDate(date); setTimeTravelEmailPending(true); setTimeTravelOpen(false); }}
                               className={`w-full px-2.5 py-2 text-xs rounded-lg border transition-all text-left flex items-center justify-between gap-2 ${
                                 timeTravelDate === date
-                                  ? 'bg-purple-100 border-purple-300 text-purple-700'
-                                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                                  ? 'bg-claret/10 border-claret/30 text-claret'
+                                  : 'bg-paper-card border-rule text-ink-mute hover:bg-paper-deep'
                               }`}
                             >
                               <div className="flex flex-col">
                                 <span className="font-medium">{formatDate(date, { includeYear: true })}</span>
-                                <span className="text-gray-400 truncate max-w-[140px]">{symbols}</span>
+                                <span className="text-ink-light truncate max-w-[140px]">{symbols}</span>
                               </div>
-                              <span className={`font-semibold whitespace-nowrap ${source === 'missed' ? 'text-green-600' : 'text-purple-600'}`}>{detail}</span>
+                              <span className={`font-semibold whitespace-nowrap ${source === 'missed' ? 'text-positive' : 'text-claret'}`}>{detail}</span>
                             </button>
                           ))}
                         </div>
                       </>
                     ) : (
-                      <div className="text-xs text-gray-400 mb-3">Loading signal dates...</div>
+                      <div className="text-xs text-ink-light mb-3">Loading signal dates...</div>
                     )}
-                    <div className="text-xs font-medium text-gray-500 mb-2">Market Events</div>
+                    <div className="text-xs font-medium text-ink-mute mb-2">Market Events</div>
                     <div className="grid grid-cols-2 gap-1.5 mb-3">
                       {[
                         ['2025-08-05', 'VIX Spike (45+)'],
@@ -2546,8 +2545,8 @@ function Dashboard() {
                           onClick={() => { setTimeTravelDate(date); setTimeTravelOpen(false); }}
                           className={`px-2 py-1.5 text-xs rounded-lg border transition-all text-left ${
                             timeTravelDate === date
-                              ? 'bg-purple-100 border-purple-300 text-purple-700'
-                              : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                              ? 'bg-claret/10 border-claret/30 text-claret'
+                              : 'bg-paper-card border-rule text-ink-mute hover:bg-paper-deep'
                           }`}
                         >
                           {label}
@@ -2557,7 +2556,7 @@ function Dashboard() {
                     {timeTravelDate && (
                       <button
                         onClick={() => { setTimeTravelDate(null); setTimeTravelOpen(false); }}
-                        className="w-full px-3 py-2 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-all"
+                        className="w-full px-3 py-2 text-xs font-medium text-claret bg-claret/5 border border-claret/20 rounded-lg hover:bg-claret/10 transition-all"
                       >
                         Back to Live
                       </button>
@@ -2567,23 +2566,23 @@ function Dashboard() {
               </div>
             )}
             <div className="text-right text-sm hidden md:block">
-              <div className="text-xs text-gray-400">{dataStatus.loaded} symbols loaded</div>
+              <div className="text-xs text-ink-light">{dataStatus.loaded} symbols loaded</div>
             </div>
             {user ? (
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium hover:bg-blue-700 transition-colors"
+                  className="w-8 h-8 bg-ink rounded-full flex items-center justify-center text-white font-medium hover:bg-claret transition-colors"
                 >
                   {(user.name || user.email || 'U')[0].toUpperCase()}
                 </button>
                 {showUserMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                    <div className="absolute right-0 top-10 w-56 bg-white rounded-lg shadow-lg border z-50 py-1">
+                    <div className="absolute right-0 top-10 w-56 bg-paper-card rounded-lg shadow-lg border z-50 py-1">
                       <div className="px-4 py-2 border-b">
-                        <p className="text-sm font-medium text-gray-900 truncate">{user.name || user.email}</p>
-                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                        <p className="text-sm font-medium text-ink truncate">{user.name || user.email}</p>
+                        <p className="text-xs text-ink-mute truncate">{user.email}</p>
                       </div>
                       {(user.subscription?.has_stripe_subscription || checkoutSuccess || ['active', 'past_due'].includes(user.subscription?.status)) && (
                         <button
@@ -2597,7 +2596,7 @@ function Dashboard() {
                               alert('Failed to open billing portal.');
                             }
                           }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                          className="w-full px-4 py-2 text-left text-sm text-ink hover:bg-paper-card flex items-center gap-2"
                         >
                           <CreditCard size={14} />
                           Manage Subscription
@@ -2605,36 +2604,36 @@ function Dashboard() {
                       )}
                       <button
                         onClick={() => { setShowUserMenu(false); setShowEmailPrefsModal(true); }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        className="w-full px-4 py-2 text-left text-sm text-ink hover:bg-paper-card flex items-center gap-2"
                       >
                         <Bell size={14} />
                         Email Preferences
                       </button>
                       <button
                         onClick={() => { setShowUserMenu(false); setShowReferralModal(true); }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        className="w-full px-4 py-2 text-left text-sm text-ink hover:bg-paper-card flex items-center gap-2"
                       >
                         <Gift size={14} />
                         Refer a Friend
                         {(user.referral_count > 0) && (
-                          <span className="ml-auto bg-green-100 text-green-700 text-xs font-medium px-1.5 py-0.5 rounded-full">{user.referral_count}</span>
+                          <span className="ml-auto bg-positive/10 text-positive text-xs font-medium px-1.5 py-0.5 rounded-full">{user.referral_count}</span>
                         )}
                       </button>
                       {isAdmin && (
                         <button
                           onClick={() => { setShowUserMenu(false); setShow2FASettings(true); }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                          className="w-full px-4 py-2 text-left text-sm text-ink hover:bg-paper-card flex items-center gap-2"
                         >
                           <Shield size={14} />
                           Two-Factor Auth
                           {user?.totp_enabled && (
-                            <span className="ml-auto bg-green-100 text-green-700 text-xs font-medium px-1.5 py-0.5 rounded-full">On</span>
+                            <span className="ml-auto bg-positive/10 text-positive text-xs font-medium px-1.5 py-0.5 rounded-full">On</span>
                           )}
                         </button>
                       )}
                       <button
                         onClick={() => { setShowUserMenu(false); logout(); }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        className="w-full px-4 py-2 text-left text-sm text-ink hover:bg-paper-card flex items-center gap-2"
                       >
                         <LogOut size={14} />
                         Sign Out
@@ -2644,7 +2643,7 @@ function Dashboard() {
                 )}
               </div>
             ) : (
-              <button onClick={() => setShowLoginModal(true)} className="px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 flex items-center gap-2">
+              <button onClick={() => setShowLoginModal(true)} className="px-4 py-2 bg-ink text-white rounded-lg font-medium hover:bg-claret flex items-center gap-2">
                 <LogIn size={16} />Sign In
               </button>
             )}
@@ -2656,7 +2655,7 @@ function Dashboard() {
         <WelcomeTour />
         {/* Time Travel Banner */}
         {timeTravelDate && (
-          <div className="mb-4 p-3 bg-purple-600 text-white rounded-xl flex items-center justify-between">
+          <div className="mb-4 p-3 bg-ink text-white rounded flex items-center justify-between">
             <div className="flex items-center gap-2">
               {timeTravelLoading ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />}
               <span className="text-sm font-medium">
@@ -2665,13 +2664,13 @@ function Dashboard() {
                   : `Time Travel: Viewing dashboard as of ${formatDate(timeTravelDate, { includeYear: true })}`
                 }
               </span>
-              {timeTravelEmailStatus === 'sending' && <span className="text-xs text-purple-200 ml-2">Sending email...</span>}
-              {timeTravelEmailStatus === 'sent' && <span className="text-xs text-green-300 ml-2">Email sent</span>}
-              {timeTravelEmailStatus === 'failed' && <span className="text-xs text-red-300 ml-2">Email failed</span>}
+              {timeTravelEmailStatus === 'sending' && <span className="text-xs text-ink-light ml-2">Sending email...</span>}
+              {timeTravelEmailStatus === 'sent' && <span className="text-xs text-positive ml-2">Email sent</span>}
+              {timeTravelEmailStatus === 'failed' && <span className="text-xs text-negative ml-2">Email failed</span>}
             </div>
             <button
               onClick={() => setTimeTravelDate(null)}
-              className="text-sm font-medium text-purple-200 hover:text-white flex items-center gap-1 transition-colors"
+              className="text-sm font-medium text-ink-light hover:text-white flex items-center gap-1 transition-colors"
             >
               Back to Live <ChevronRight size={14} />
             </button>
@@ -2680,19 +2679,19 @@ function Dashboard() {
 
         {/* Subscription Banner */}
         {checkoutSuccess && (
-          <div className="border border-green-200 bg-green-50 rounded-lg p-4 mb-6 flex items-center justify-between">
+          <div className="border border-green-200 bg-positive/10 rounded-lg p-4 mb-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Zap className="text-green-600 flex-shrink-0" size={24} />
-              <p className="font-medium text-green-800">Welcome to RigaCap! Your subscription is now active.</p>
+              <Zap className="text-positive flex-shrink-0" size={24} />
+              <p className="font-medium text-positive">Welcome to RigaCap! Your subscription is now active.</p>
             </div>
-            <button onClick={() => setCheckoutSuccess(false)} className="p-1 text-green-400 hover:text-green-600"><X size={18} /></button>
+            <button onClick={() => setCheckoutSuccess(false)} className="p-1 text-green-400 hover:text-positive"><X size={18} /></button>
           </div>
         )}
         {isAuthenticated && !checkoutSuccess && <SubscriptionBanner />}
 
         {/* Your RigaCap Journey — compact card with sparkline background */}
         {journeyData && !journeyData.error && activeTab === 'signals' && (
-          <div className="mb-4 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl text-white shadow-lg overflow-hidden">
+          <div className="mb-4 bg-paper-card rounded border border-rule-dark text-ink overflow-hidden">
             {/* Main body — sparkline as background, metrics overlaid */}
             <div className="relative px-5 pt-4 pb-3">
               {/* Sparkline background */}
@@ -2719,29 +2718,29 @@ function Dashboard() {
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold text-sm">Your RigaCap Journey</h3>
-                  <span className="text-xs text-indigo-200">Since {journeyData.start_date}</span>
+                  <span className="text-xs text-ink-light">Since {journeyData.start_date}</span>
                 </div>
 
                 {/* Metrics row */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="text-center">
-                    <p className="text-[10px] text-indigo-200 uppercase tracking-wide">
+                    <p className="text-[10px] text-ink-light uppercase tracking-wide">
                       {journeyData.alpha_pct != null && journeyData.alpha_pct < 0 ? 'vs SPY' : 'Beating SPY'}
                     </p>
-                    <p className={`text-xl font-bold ${journeyData.alpha_pct != null ? ((journeyData.alpha_pct >= 0) ? 'text-green-300' : 'text-red-300') : ''}`}>
+                    <p className={`text-xl font-bold ${journeyData.alpha_pct != null ? ((journeyData.alpha_pct >= 0) ? 'text-positive' : 'text-negative') : ''}`}>
                       {journeyData.alpha_pct != null
                         ? `${journeyData.alpha_pct >= 0 ? '+' : ''}${journeyData.alpha_pct}%`
                         : `${journeyData.total_return_pct >= 0 ? '+' : ''}${journeyData.total_return_pct}%`}
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-[10px] text-indigo-200 uppercase tracking-wide">Your Return</p>
+                    <p className="text-[10px] text-ink-light uppercase tracking-wide">Your Return</p>
                     <p className="text-lg font-semibold">
                       {journeyData.total_return_pct >= 0 ? '+' : ''}{journeyData.total_return_pct}%
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-[10px] text-indigo-200 uppercase tracking-wide">$10K would be</p>
+                    <p className="text-[10px] text-ink-light uppercase tracking-wide">$10K would be</p>
                     <p className="text-lg font-semibold">${journeyData.current_value?.toLocaleString()}</p>
                   </div>
                 </div>
@@ -2749,19 +2748,19 @@ function Dashboard() {
             </div>
 
             {/* Footer — badges, stats, share in one row */}
-            <div className="px-5 py-2 bg-black/10 flex items-center justify-between gap-2 flex-wrap">
+            <div className="px-5 py-2 bg-paper-deep border-t border-rule flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap text-xs">
                 {journeyData.best_trade && (
-                  <span className="inline-flex items-center px-2 py-0.5 bg-white/15 rounded-full">
+                  <span className="inline-flex items-center px-2 py-0.5 bg-paper border border-rule rounded-full text-ink-mute">
                     Best: {journeyData.best_trade.symbol} +{journeyData.best_trade.pnl_pct}%
                   </span>
                 )}
                 {journeyData.inception_return_pct != null && journeyData.inception_date && (
-                  <span className="inline-flex items-center px-2 py-0.5 bg-white/15 rounded-full">
+                  <span className="inline-flex items-center px-2 py-0.5 bg-paper border border-rule rounded-full text-ink-mute">
                     Since {journeyData.inception_date.slice(0, 4)}: +{journeyData.inception_return_pct}%
                   </span>
                 )}
-                <span className="text-indigo-200">
+                <span className="text-ink-light">
                   {journeyData.days_invested}d
                   {journeyData.trades_since_signup > 0
                     ? ` \u00B7 ${journeyData.wins_since_signup}W ${journeyData.trades_since_signup - journeyData.wins_since_signup}L`
@@ -2780,7 +2779,7 @@ function Dashboard() {
                   setJourneyCopied(true);
                   setTimeout(() => setJourneyCopied(false), 2000);
                 }}
-                className="flex items-center gap-1 px-2 py-1 text-xs bg-white/20 hover:bg-white/30 rounded-md transition-colors shrink-0"
+                className="flex items-center gap-1 px-2 py-1 text-xs text-ink-mute bg-paper border border-rule hover:border-rule-dark rounded-md transition-colors shrink-0"
               >
                 {journeyCopied ? <><Check size={11} /> Copied!</> : <><Copy size={11} /> Share</>}
               </button>
@@ -2795,11 +2794,11 @@ function Dashboard() {
 
         {/* No data warning banner */}
         {noDataAvailable && (
-          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
-            <AlertCircle className="text-amber-500 flex-shrink-0" size={24} />
+          <div className="mb-4 bg-paper-deep border border-amber-200 rounded p-4 flex items-center gap-3">
+            <AlertCircle className="text-claret flex-shrink-0" size={24} />
             <div>
-              <h3 className="font-semibold text-amber-800">Market Data Loading</h3>
-              <p className="text-sm text-amber-700">
+              <h3 className="font-semibold text-ink">Market Data Loading</h3>
+              <p className="text-sm text-claret">
                 Historical data is being fetched. This may take a moment.
                 Data refreshes automatically — check back in a few minutes.
               </p>
@@ -2811,11 +2810,11 @@ function Dashboard() {
           <>
             {/* Go to Cash Banner */}
             {dashboardData?.regime_forecast?.recommended_action === 'go_to_cash' && (
-              <div className="mb-4 p-4 bg-red-600 text-white rounded-xl flex items-center gap-3">
+              <div className="mb-4 p-4 bg-negative text-white rounded flex items-center gap-3">
                 <Shield className="w-6 h-6 flex-shrink-0" />
                 <div>
                   <h3 className="font-bold text-lg">Market Conditions Deteriorating — Consider Closing Positions</h3>
-                  <p className="text-red-100 text-sm">{dashboardData.regime_forecast.outlook_detail}</p>
+                  <p className="text-ink-mute text-sm">{dashboardData.regime_forecast.outlook_detail}</p>
                 </div>
               </div>
             )}
@@ -2826,15 +2825,15 @@ function Dashboard() {
                 /* Simple mode: traffic light + one sentence, click to expand */
                 <div className="mb-4">
                   <div
-                    className="p-3 rounded-xl border border-gray-200 bg-white flex items-center gap-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="p-3 rounded border border-rule bg-paper-card flex items-center gap-3 cursor-pointer hover:bg-paper-card transition-colors"
                     onClick={() => setRegimeExpanded(prev => !prev)}
                   >
                     <div className={`w-4 h-4 rounded-full flex-shrink-0 ${
-                      ['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-emerald-500' :
-                      ['rotating_bull', 'range_bound'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-amber-400' :
-                      'bg-red-500'
+                      ['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-rule-dark' :
+                      ['rotating_bull', 'range_bound'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-ink-light' :
+                      'bg-negative/100'
                     }`} />
-                    <span className="text-sm text-gray-700 flex-1">
+                    <span className="text-sm text-ink flex-1">
                       {['strong_bull', 'weak_bull'].includes(dashboardData.regime_forecast.current_regime)
                         ? 'Market looks good. Stay invested.'
                         : dashboardData.regime_forecast.current_regime === 'recovery'
@@ -2848,35 +2847,35 @@ function Dashboard() {
                         : 'Market under stress. Protect your positions.'}
                     </span>
                     {dashboardData.market_stats?.spy_price && (
-                      <span className="text-sm font-medium text-gray-900 flex-shrink-0">
+                      <span className="text-sm font-medium text-ink flex-shrink-0">
                         SPY {dashboardData.market_stats.spy_price.toFixed(2)}
                         {dashboardData.market_stats.spy_change_pct != null && (
-                          <span className={`ml-1 ${dashboardData.market_stats.spy_change_pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                          <span className={`ml-1 ${dashboardData.market_stats.spy_change_pct >= 0 ? 'text-positive' : 'text-negative'}`}>
                             ({dashboardData.market_stats.spy_change_pct >= 0 ? '+' : ''}{dashboardData.market_stats.spy_change_pct.toFixed(2)}%)
                           </span>
                         )}
                         {dashboardData.market_stats.live && (
-                          <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 uppercase tracking-wide">Live</span>
+                          <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-positive/10 text-positive uppercase tracking-wide">Live</span>
                         )}
                       </span>
                     )}
                     {dashboardData.data_date && (
-                      <span className="text-xs text-gray-400 flex-shrink-0">as of {dashboardData.data_date}</span>
+                      <span className="text-xs text-ink-light flex-shrink-0">as of {dashboardData.data_date}</span>
                     )}
-                    <svg className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${regimeExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className={`w-4 h-4 text-ink-light transition-transform flex-shrink-0 ${regimeExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
                   {regimeExpanded && (() => {
                     const rf = dashboardData.regime_forecast;
                     const regimeColors = {
-                      strong_bull: { bg: 'bg-emerald-100', text: 'text-emerald-700', bar: 'bg-emerald-500' },
-                      weak_bull: { bg: 'bg-green-100', text: 'text-green-700', bar: 'bg-green-400' },
-                      rotating_bull: { bg: 'bg-violet-100', text: 'text-violet-700', bar: 'bg-violet-400' },
-                      range_bound: { bg: 'bg-amber-100', text: 'text-amber-700', bar: 'bg-amber-400' },
-                      weak_bear: { bg: 'bg-orange-100', text: 'text-orange-700', bar: 'bg-orange-400' },
-                      panic_crash: { bg: 'bg-red-100', text: 'text-red-700', bar: 'bg-red-500' },
-                      recovery: { bg: 'bg-cyan-100', text: 'text-cyan-700', bar: 'bg-cyan-400' },
+                      strong_bull: { bg: 'bg-paper-card', text: 'text-ink', bar: 'bg-paper-deep' },
+                      weak_bull: { bg: 'bg-paper-card', text: 'text-ink', bar: 'bg-rule' },
+                      rotating_bull: { bg: 'bg-paper-card', text: 'text-ink-mute', bar: 'bg-rule-dark' },
+                      range_bound: { bg: 'bg-paper-deep', text: 'text-ink-mute', bar: 'bg-ink-light' },
+                      weak_bear: { bg: 'bg-paper-deep', text: 'text-ink', bar: 'bg-ink-mute' },
+                      panic_crash: { bg: 'bg-paper-deep', text: 'text-ink', bar: 'bg-ink' },
+                      recovery: { bg: 'bg-paper-card', text: 'text-ink-mute', bar: 'bg-rule-dark' },
                     };
                     const regimeDescriptions = {
                       strong_bull: 'Broad market rally with strong breadth',
@@ -2896,76 +2895,76 @@ function Dashboard() {
                     const allRegimes = ['strong_bull', 'weak_bull', 'rotating_bull', 'range_bound', 'weak_bear', 'panic_crash', 'recovery'];
 
                     return (
-                      <div className="mt-1 p-4 rounded-xl border border-gray-200 bg-white space-y-4">
+                      <div className="mt-1 p-4 rounded border border-rule bg-paper-card space-y-4">
                         {/* Regime name + pills */}
                         <div className="flex items-center justify-between flex-wrap gap-2">
-                          <span className="font-semibold text-gray-900">{rf.current_regime_name || regimeNames[rf.current_regime]} Market</span>
+                          <span className="font-semibold text-ink">{rf.current_regime_name || regimeNames[rf.current_regime]} Market</span>
                           <div className="flex gap-2 flex-wrap">
                             <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                              rf.outlook === 'stable' ? 'bg-green-100 text-green-700' :
-                              rf.outlook === 'improving' ? 'bg-emerald-100 text-emerald-700' :
+                              rf.outlook === 'stable' ? 'bg-positive/10 text-positive' :
+                              rf.outlook === 'improving' ? 'bg-positive/10 text-positive' :
                               'bg-orange-100 text-orange-700'
                             }`}>Outlook: {rf.outlook}</span>
                             <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                              rf.risk_change === 'decreasing' ? 'bg-green-100 text-green-700' :
-                              rf.risk_change === 'stable' ? 'bg-gray-100 text-gray-600' :
-                              'bg-red-100 text-red-700'
+                              rf.risk_change === 'decreasing' ? 'bg-positive/10 text-positive' :
+                              rf.risk_change === 'stable' ? 'bg-paper-deep text-ink-mute' :
+                              'bg-negative/10 text-negative'
                             }`}>Risk: {rf.risk_change}</span>
                             <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                              rf.recommended_action === 'stay_invested' ? 'bg-green-100 text-green-700' :
+                              rf.recommended_action === 'stay_invested' ? 'bg-positive/10 text-positive' :
                               rf.recommended_action === 'tighten_stops' ? 'bg-yellow-100 text-yellow-700' :
                               rf.recommended_action === 'reduce_exposure' ? 'bg-orange-100 text-orange-700' :
-                              'bg-red-100 text-red-700'
+                              'bg-negative/10 text-negative'
                             }`}>{(rf.recommended_action || '').replace(/_/g, ' ')}</span>
                           </div>
                         </div>
 
                         {/* Outlook detail */}
                         {rf.outlook_detail && (
-                          <p className="text-sm text-gray-600 leading-relaxed">{rf.outlook_detail}</p>
+                          <p className="text-sm text-ink-mute leading-relaxed">{rf.outlook_detail}</p>
                         )}
 
                         {/* SPY + VIX */}
                         {dashboardData.market_stats && (
                           <div className="flex gap-6 text-sm">
                             <div>
-                              <span className="text-gray-500">S&P 500</span>
-                              <span className="ml-2 font-semibold text-gray-900">${dashboardData.market_stats.spy_price?.toFixed(0)}</span>
+                              <span className="text-ink-mute">S&P 500</span>
+                              <span className="ml-2 font-semibold text-ink">${dashboardData.market_stats.spy_price?.toFixed(0)}</span>
                               {dashboardData.market_stats.spy_change_pct != null && (
-                                <span className={`ml-1 text-xs font-medium ${dashboardData.market_stats.spy_change_pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                <span className={`ml-1 text-xs font-medium ${dashboardData.market_stats.spy_change_pct >= 0 ? 'text-positive' : 'text-negative'}`}>
                                   {dashboardData.market_stats.spy_change_pct >= 0 ? '+' : ''}{dashboardData.market_stats.spy_change_pct.toFixed(2)}%
                                 </span>
                               )}
                             </div>
                             <div>
-                              <span className="text-gray-500">Market Fear</span>
+                              <span className="text-ink-mute">Market Fear</span>
                               <span className={`ml-2 font-semibold ${getVixLabel(dashboardData.market_stats.vix_level).color}`}>{getVixLabel(dashboardData.market_stats.vix_level).label}</span>
-                              <span className="ml-1 text-xs text-gray-400">(VIX: {dashboardData.market_stats.vix_level?.toFixed(1)})</span>
+                              <span className="ml-1 text-xs text-ink-light">(VIX: {dashboardData.market_stats.vix_level?.toFixed(1)})</span>
                             </div>
                           </div>
                         )}
 
                         {/* Market Context — AI summary of signal changes */}
                         {dashboardData.market_context && (
-                          <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-lg px-3 py-2">
-                            <p className="text-sm text-blue-800 leading-relaxed">{dashboardData.market_context}</p>
+                          <div className="bg-paper-deep border-l-4 border-rule-dark rounded-r-lg px-3 py-2">
+                            <p className="text-sm text-ink leading-relaxed">{dashboardData.market_context}</p>
                           </div>
                         )}
 
                         {/* Transition probability bar */}
                         {sortedProbs.length > 0 && (
                           <div>
-                            <p className="text-xs text-gray-500 font-medium mb-1">Transition Probabilities</p>
-                            <div className="flex h-2 rounded-full overflow-hidden bg-gray-100">
+                            <p className="text-xs text-ink-mute font-medium mb-1">Transition Probabilities</p>
+                            <div className="flex h-2 rounded-full overflow-hidden bg-paper-deep">
                               {sortedProbs.map(([r, pct]) => (
-                                <div key={r} className={`h-full ${regimeColors[r]?.bar || 'bg-gray-300'}`} style={{ width: `${pct}%` }} title={`${regimeNames[r]}: ${pct.toFixed(0)}%`} />
+                                <div key={r} className={`h-full ${regimeColors[r]?.bar || 'bg-rule'}`} style={{ width: `${pct}%` }} title={`${regimeNames[r]}: ${pct.toFixed(0)}%`} />
                               ))}
                             </div>
                             <div className="flex flex-wrap gap-3 mt-1">
                               {sortedProbs.map(([r, pct]) => (
                                 <div key={r} className="flex items-center gap-1">
-                                  <div className={`w-2 h-2 rounded-full ${regimeColors[r]?.bar || 'bg-gray-300'}`} />
-                                  <span className="text-xs text-gray-500">{regimeNames[r]} {pct.toFixed(0)}%</span>
+                                  <div className={`w-2 h-2 rounded-full ${regimeColors[r]?.bar || 'bg-rule'}`} />
+                                  <span className="text-xs text-ink-mute">{regimeNames[r]} {pct.toFixed(0)}%</span>
                                 </div>
                               ))}
                             </div>
@@ -2973,24 +2972,24 @@ function Dashboard() {
                         )}
 
                         {/* All 7 regimes */}
-                        <div className="border-t border-gray-100 pt-3 space-y-1">
+                        <div className="border-t border-rule pt-3 space-y-1">
                           {allRegimes.map(r => {
                             const isCurrent = r === rf.current_regime;
-                            const c = regimeColors[r] || { bg: 'bg-gray-100', text: 'text-gray-600', bar: 'bg-gray-300' };
+                            const c = regimeColors[r] || { bg: 'bg-paper-deep', text: 'text-ink-mute', bar: 'bg-rule' };
                             const prob = probs[r];
                             return (
                               <div key={r} className={`flex items-center justify-between px-2 py-1.5 rounded-lg ${isCurrent ? c.bg : ''}`}>
                                 <div className="flex items-center gap-2">
                                   <div className={`w-2.5 h-2.5 rounded-full ${c.bar}`} />
                                   <div>
-                                    <span className={`text-sm font-medium ${isCurrent ? c.text : 'text-gray-700'}`}>
+                                    <span className={`text-sm font-medium ${isCurrent ? c.text : 'text-ink'}`}>
                                       {regimeNames[r]}{isCurrent ? ' \u25CF' : ''}
                                     </span>
-                                    <span className="text-xs text-gray-400 ml-2">{regimeDescriptions[r]}</span>
+                                    <span className="text-xs text-ink-light ml-2">{regimeDescriptions[r]}</span>
                                   </div>
                                 </div>
                                 {prob != null && (
-                                  <span className={`text-sm font-semibold ${isCurrent ? c.text : 'text-gray-500'}`}>{prob.toFixed(0)}%</span>
+                                  <span className={`text-sm font-semibold ${isCurrent ? c.text : 'text-ink-mute'}`}>{prob.toFixed(0)}%</span>
                                 )}
                               </div>
                             );
@@ -3002,44 +3001,44 @@ function Dashboard() {
                 </div>
               ) : (
                 /* Advanced mode: full regime bar */
-                <div onClick={() => setRegimeExpanded(v => !v)} className={`mb-4 p-4 rounded-xl border cursor-pointer ${
-                  dashboardData.regime_forecast.current_regime === 'strong_bull' ? 'bg-emerald-50 border-emerald-200' :
-                  dashboardData.regime_forecast.current_regime === 'weak_bull' ? 'bg-green-50 border-green-200' :
-                  dashboardData.regime_forecast.current_regime === 'rotating_bull' ? 'bg-violet-50 border-violet-200' :
-                  dashboardData.regime_forecast.current_regime === 'range_bound' ? 'bg-amber-50 border-amber-200' :
-                  dashboardData.regime_forecast.current_regime === 'recovery' ? 'bg-cyan-50 border-cyan-200' :
-                  dashboardData.regime_forecast.current_regime === 'weak_bear' ? 'bg-orange-50 border-orange-200' :
-                  dashboardData.regime_forecast.current_regime === 'panic_crash' ? 'bg-red-50 border-red-200' :
-                  'bg-gray-50 border-gray-200'
+                <div onClick={() => setRegimeExpanded(v => !v)} className={`mb-4 p-4 rounded border cursor-pointer ${
+                  dashboardData.regime_forecast.current_regime === 'strong_bull' ? 'bg-paper-card border-rule' :
+                  dashboardData.regime_forecast.current_regime === 'weak_bull' ? 'bg-paper-card border-rule' :
+                  dashboardData.regime_forecast.current_regime === 'rotating_bull' ? 'bg-paper-card border-rule-dark' :
+                  dashboardData.regime_forecast.current_regime === 'range_bound' ? 'bg-paper-deep border-rule-dark' :
+                  dashboardData.regime_forecast.current_regime === 'recovery' ? 'bg-paper-card border-rule' :
+                  dashboardData.regime_forecast.current_regime === 'weak_bear' ? 'bg-paper-deep border-rule-dark' :
+                  dashboardData.regime_forecast.current_regime === 'panic_crash' ? 'bg-paper-deep border-ink-light' :
+                  'bg-paper-card border-rule'
                 }`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-full ${
-                        dashboardData.regime_forecast.current_regime === 'strong_bull' ? 'bg-emerald-100' :
-                        dashboardData.regime_forecast.current_regime === 'weak_bull' ? 'bg-green-100' :
-                        dashboardData.regime_forecast.current_regime === 'rotating_bull' ? 'bg-violet-100' :
-                        dashboardData.regime_forecast.current_regime === 'range_bound' ? 'bg-amber-100' :
-                        dashboardData.regime_forecast.current_regime === 'recovery' ? 'bg-cyan-100' :
-                        dashboardData.regime_forecast.current_regime === 'weak_bear' ? 'bg-orange-100' :
-                        'bg-red-100'
+                        dashboardData.regime_forecast.current_regime === 'strong_bull' ? 'bg-paper-card' :
+                        dashboardData.regime_forecast.current_regime === 'weak_bull' ? 'bg-paper-card' :
+                        dashboardData.regime_forecast.current_regime === 'rotating_bull' ? 'bg-paper-card' :
+                        dashboardData.regime_forecast.current_regime === 'range_bound' ? 'bg-paper-deep' :
+                        dashboardData.regime_forecast.current_regime === 'recovery' ? 'bg-paper-card' :
+                        dashboardData.regime_forecast.current_regime === 'weak_bear' ? 'bg-paper-deep' :
+                        'bg-negative/10'
                       }`}>
-                        {['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? <TrendingUp className="w-5 h-5 text-emerald-600" /> :
+                        {['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? <TrendingUp className="w-5 h-5 text-positive" /> :
                          dashboardData.regime_forecast.current_regime === 'rotating_bull' ? <RefreshCw className="w-5 h-5 text-violet-600" /> :
-                         dashboardData.regime_forecast.current_regime === 'range_bound' ? <Activity className="w-5 h-5 text-amber-600" /> :
-                         <TrendingDown className="w-5 h-5 text-red-600" />}
+                         dashboardData.regime_forecast.current_regime === 'range_bound' ? <Activity className="w-5 h-5 text-claret" /> :
+                         <TrendingDown className="w-5 h-5 text-negative" />}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-gray-900">
+                          <span className="font-semibold text-ink">
                             {dashboardData.regime_forecast.current_regime_name} Market
                           </span>
                           {dashboardData.market_stats?.spy_price && (
                             <>
-                              <span className="text-gray-400">|</span>
-                              <span className="text-gray-600 text-sm">
+                              <span className="text-ink-light">|</span>
+                              <span className="text-ink-mute text-sm">
                                 SPY ${dashboardData.market_stats.spy_price.toFixed(2)}
                                 {dashboardData.market_stats.spy_change_pct != null && (
-                                  <span className={`ml-1 font-medium ${dashboardData.market_stats.spy_change_pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                  <span className={`ml-1 font-medium ${dashboardData.market_stats.spy_change_pct >= 0 ? 'text-positive' : 'text-negative'}`}>
                                     ({dashboardData.market_stats.spy_change_pct >= 0 ? '+' : ''}{dashboardData.market_stats.spy_change_pct.toFixed(2)}%)
                                   </span>
                                 )}
@@ -3048,36 +3047,36 @@ function Dashboard() {
                           )}
                           {dashboardData.market_stats?.vix_level && (
                             <>
-                              <span className="text-gray-400">|</span>
-                              <span className="text-gray-600 text-sm">Market Fear: <span className={`font-medium ${getVixLabel(dashboardData.market_stats.vix_level).color}`}>{getVixLabel(dashboardData.market_stats.vix_level).label}</span></span>
+                              <span className="text-ink-light">|</span>
+                              <span className="text-ink-mute text-sm">Market Fear: <span className={`font-medium ${getVixLabel(dashboardData.market_stats.vix_level).color}`}>{getVixLabel(dashboardData.market_stats.vix_level).label}</span></span>
                             </>
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                            dashboardData.regime_forecast.outlook === 'stable' ? 'bg-green-100 text-green-700' :
-                            dashboardData.regime_forecast.outlook === 'improving' ? 'bg-emerald-100 text-emerald-700' :
+                            dashboardData.regime_forecast.outlook === 'stable' ? 'bg-positive/10 text-positive' :
+                            dashboardData.regime_forecast.outlook === 'improving' ? 'bg-positive/10 text-positive' :
                             'bg-orange-100 text-orange-700'
                           }`}>
                             Outlook: {dashboardData.regime_forecast.outlook}
                           </span>
                           <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                            dashboardData.regime_forecast.risk_change === 'decreasing' ? 'bg-green-100 text-green-700' :
-                            dashboardData.regime_forecast.risk_change === 'stable' ? 'bg-gray-100 text-gray-600' :
-                            'bg-red-100 text-red-700'
+                            dashboardData.regime_forecast.risk_change === 'decreasing' ? 'bg-positive/10 text-positive' :
+                            dashboardData.regime_forecast.risk_change === 'stable' ? 'bg-paper-deep text-ink-mute' :
+                            'bg-negative/10 text-negative'
                           }`}>
                             Risk: {dashboardData.regime_forecast.risk_change}
                           </span>
                           <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                            dashboardData.regime_forecast.recommended_action === 'stay_invested' ? 'bg-green-100 text-green-700' :
+                            dashboardData.regime_forecast.recommended_action === 'stay_invested' ? 'bg-positive/10 text-positive' :
                             dashboardData.regime_forecast.recommended_action === 'tighten_stops' ? 'bg-yellow-100 text-yellow-700' :
                             dashboardData.regime_forecast.recommended_action === 'reduce_exposure' ? 'bg-orange-100 text-orange-700' :
-                            'bg-red-100 text-red-700'
+                            'bg-negative/10 text-negative'
                           }`}>
                             {dashboardData.regime_forecast.recommended_action.replace(/_/g, ' ')}
                           </span>
                           {dashboardData.regime_adjustments?.changes?.length > 0 && (
-                            <span className="text-xs px-2 py-0.5 rounded font-medium bg-blue-100 text-blue-700">
+                            <span className="text-xs px-2 py-0.5 rounded font-medium bg-claret/10 text-claret">
                               {dashboardData.regime_adjustments.changes.length} param{dashboardData.regime_adjustments.changes.length > 1 ? 's' : ''} adjusted
                             </span>
                           )}
@@ -3085,10 +3084,10 @@ function Dashboard() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="text-sm text-gray-600 max-w-sm text-right leading-tight">
+                      <div className="text-sm text-ink-mute max-w-sm text-right leading-tight">
                         {dashboardData.regime_forecast.outlook_detail}
                       </div>
-                      <svg className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${regimeExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className={`w-4 h-4 text-ink-light transition-transform flex-shrink-0 ${regimeExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
@@ -3096,24 +3095,24 @@ function Dashboard() {
 
                   {/* Transition probabilities mini bar */}
                   {dashboardData.regime_forecast.transition_probabilities && (
-                    <div className="mt-3 flex items-center gap-1 h-3 rounded-full overflow-hidden bg-gray-100">
+                    <div className="mt-3 flex items-center gap-1 h-3 rounded-full overflow-hidden bg-paper-deep">
                       {Object.entries(dashboardData.regime_forecast.transition_probabilities)
                         .filter(([_, pct]) => pct > 3)
                         .sort((a, b) => b[1] - a[1])
                         .map(([regime, pct]) => {
                           const colors = {
-                            strong_bull: 'bg-emerald-500',
-                            weak_bull: 'bg-green-400',
-                            rotating_bull: 'bg-violet-400',
-                            range_bound: 'bg-amber-400',
-                            weak_bear: 'bg-orange-400',
-                            panic_crash: 'bg-red-500',
-                            recovery: 'bg-cyan-400',
+                            strong_bull: 'bg-paper-deep',
+                            weak_bull: 'bg-rule',
+                            rotating_bull: 'bg-rule-dark',
+                            range_bound: 'bg-ink-light',
+                            weak_bear: 'bg-ink-mute',
+                            panic_crash: 'bg-ink',
+                            recovery: 'bg-rule-dark',
                           };
                           return (
                             <div
                               key={regime}
-                              className={`h-full ${colors[regime] || 'bg-gray-300'}`}
+                              className={`h-full ${colors[regime] || 'bg-rule'}`}
                               style={{ width: `${pct}%` }}
                               title={`${regime.replace('_', ' ')}: ${pct.toFixed(0)}%`}
                             />
@@ -3126,13 +3125,13 @@ function Dashboard() {
                   {regimeExpanded && (() => {
                     const rf = dashboardData.regime_forecast;
                     const regimeColors = {
-                      strong_bull: { bg: 'bg-emerald-100', text: 'text-emerald-700', bar: 'bg-emerald-500' },
-                      weak_bull: { bg: 'bg-green-100', text: 'text-green-700', bar: 'bg-green-400' },
-                      rotating_bull: { bg: 'bg-violet-100', text: 'text-violet-700', bar: 'bg-violet-400' },
-                      range_bound: { bg: 'bg-amber-100', text: 'text-amber-700', bar: 'bg-amber-400' },
-                      weak_bear: { bg: 'bg-orange-100', text: 'text-orange-700', bar: 'bg-orange-400' },
-                      panic_crash: { bg: 'bg-red-100', text: 'text-red-700', bar: 'bg-red-500' },
-                      recovery: { bg: 'bg-cyan-100', text: 'text-cyan-700', bar: 'bg-cyan-400' },
+                      strong_bull: { bg: 'bg-paper-card', text: 'text-ink', bar: 'bg-paper-deep' },
+                      weak_bull: { bg: 'bg-paper-card', text: 'text-ink', bar: 'bg-rule' },
+                      rotating_bull: { bg: 'bg-paper-card', text: 'text-ink-mute', bar: 'bg-rule-dark' },
+                      range_bound: { bg: 'bg-paper-deep', text: 'text-ink-mute', bar: 'bg-ink-light' },
+                      weak_bear: { bg: 'bg-paper-deep', text: 'text-ink', bar: 'bg-ink-mute' },
+                      panic_crash: { bg: 'bg-paper-deep', text: 'text-ink', bar: 'bg-ink' },
+                      recovery: { bg: 'bg-paper-card', text: 'text-ink-mute', bar: 'bg-rule-dark' },
                     };
                     const regimeDescriptions = {
                       strong_bull: 'Broad market rally with strong breadth',
@@ -3152,21 +3151,21 @@ function Dashboard() {
                     const allRegimes = ['strong_bull', 'weak_bull', 'rotating_bull', 'range_bound', 'weak_bear', 'panic_crash', 'recovery'];
 
                     return (
-                      <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
+                      <div className="mt-3 pt-3 border-t border-rule space-y-3">
                         {/* Probability bar with labels */}
                         {sortedProbs.length > 0 && (
                           <div>
-                            <p className="text-xs text-gray-500 font-medium mb-1">Transition Probabilities</p>
-                            <div className="flex h-2 rounded-full overflow-hidden bg-gray-100">
+                            <p className="text-xs text-ink-mute font-medium mb-1">Transition Probabilities</p>
+                            <div className="flex h-2 rounded-full overflow-hidden bg-paper-deep">
                               {sortedProbs.map(([r, pct]) => (
-                                <div key={r} className={`h-full ${regimeColors[r]?.bar || 'bg-gray-300'}`} style={{ width: `${pct}%` }} />
+                                <div key={r} className={`h-full ${regimeColors[r]?.bar || 'bg-rule'}`} style={{ width: `${pct}%` }} />
                               ))}
                             </div>
                             <div className="flex flex-wrap gap-3 mt-1">
                               {sortedProbs.map(([r, pct]) => (
                                 <div key={r} className="flex items-center gap-1">
-                                  <div className={`w-2 h-2 rounded-full ${regimeColors[r]?.bar || 'bg-gray-300'}`} />
-                                  <span className="text-xs text-gray-500">{regimeNames[r]} {pct.toFixed(0)}%</span>
+                                  <div className={`w-2 h-2 rounded-full ${regimeColors[r]?.bar || 'bg-rule'}`} />
+                                  <span className="text-xs text-ink-mute">{regimeNames[r]} {pct.toFixed(0)}%</span>
                                 </div>
                               ))}
                             </div>
@@ -3177,21 +3176,21 @@ function Dashboard() {
                         <div className="space-y-1">
                           {allRegimes.map(r => {
                             const isCurrent = r === rf.current_regime;
-                            const c = regimeColors[r] || { bg: 'bg-gray-100', text: 'text-gray-600', bar: 'bg-gray-300' };
+                            const c = regimeColors[r] || { bg: 'bg-paper-deep', text: 'text-ink-mute', bar: 'bg-rule' };
                             const prob = probs[r];
                             return (
                               <div key={r} className={`flex items-center justify-between px-2 py-1.5 rounded-lg ${isCurrent ? c.bg : ''}`}>
                                 <div className="flex items-center gap-2">
                                   <div className={`w-2.5 h-2.5 rounded-full ${c.bar}`} />
                                   <div>
-                                    <span className={`text-sm font-medium ${isCurrent ? c.text : 'text-gray-700'}`}>
+                                    <span className={`text-sm font-medium ${isCurrent ? c.text : 'text-ink'}`}>
                                       {regimeNames[r]}{isCurrent ? ' \u25CF' : ''}
                                     </span>
-                                    <span className="text-xs text-gray-400 ml-2">{regimeDescriptions[r]}</span>
+                                    <span className="text-xs text-ink-light ml-2">{regimeDescriptions[r]}</span>
                                   </div>
                                 </div>
                                 {prob != null && (
-                                  <span className={`text-sm font-semibold ${isCurrent ? c.text : 'text-gray-500'}`}>{prob.toFixed(0)}%</span>
+                                  <span className={`text-sm font-semibold ${isCurrent ? c.text : 'text-ink-mute'}`}>{prob.toFixed(0)}%</span>
                                 )}
                               </div>
                             );
@@ -3200,13 +3199,13 @@ function Dashboard() {
 
                         {/* Regime-adaptive parameter adjustments */}
                         {dashboardData.regime_adjustments?.changes?.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-gray-200">
-                            <p className="text-xs text-gray-500 font-medium mb-2">Active Parameter Adjustments</p>
+                          <div className="mt-3 pt-3 border-t border-rule">
+                            <p className="text-xs text-ink-mute font-medium mb-2">Active Parameter Adjustments</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                               {dashboardData.regime_adjustments.changes.map(change => (
                                 <div key={change.param} className="flex items-center gap-2 text-xs">
-                                  <div className={`w-1.5 h-1.5 rounded-full ${change.offset > 0 ? 'bg-amber-400' : 'bg-emerald-400'}`} />
-                                  <span className="text-gray-700">{change.description}</span>
+                                  <div className={`w-1.5 h-1.5 rounded-full ${change.offset > 0 ? 'bg-ink-light' : 'bg-rule'}`} />
+                                  <span className="text-ink">{change.description}</span>
                                 </div>
                               ))}
                             </div>
@@ -3238,7 +3237,7 @@ function Dashboard() {
 
             {/* Last updated timestamp */}
             {dashboardData?.generated_at && (
-              <p className="text-xs text-gray-400 text-right mb-2 -mt-2">
+              <p className="text-xs text-ink-light text-right mb-2 -mt-2">
                 Last updated: {(() => {
                   const raw = dashboardData.generated_at;
                   const d = new Date(raw.endsWith('Z') ? raw : raw + 'Z');
@@ -3257,29 +3256,29 @@ function Dashboard() {
             {/* Two column layout: Buy Signals | Open Positions */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* LEFT: Buy Signals */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="bg-paper-card rounded shadow-sm border border-rule overflow-hidden">
+                <div className="px-5 py-4 border-b border-rule flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Zap className="w-5 h-5 text-yellow-500" />
-                    <h2 className="text-lg font-semibold text-gray-900">Buy Signals</h2>
-                    <span className="text-[10px] text-gray-400 ml-1">Signals only — execute via your broker</span>
+                    <h2 className="text-lg font-semibold text-ink">Buy Signals</h2>
+                    <span className="text-[10px] text-ink-light ml-1">Signals only — execute via your broker</span>
                     {dashboardData?.buy_signals?.filter(s => s.is_fresh).length > 0 && (
-                      <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-medium">
+                      <span className="bg-positive/10 text-positive text-xs px-2 py-0.5 rounded-full font-medium">
                         {dashboardData.buy_signals.filter(s => s.is_fresh).length} fresh
                       </span>
                     )}
                     <button
                       onClick={() => setSectorFilterOpen(prev => !prev)}
-                      className="ml-1 p-1 rounded hover:bg-gray-100 transition-colors relative"
+                      className="ml-1 p-1 rounded hover:bg-paper-deep transition-colors relative"
                       title="Filter by sector"
                     >
-                      <Filter size={14} className="text-gray-400" />
+                      <Filter size={14} className="text-ink-light" />
                       {excludedSectors.length > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full" />
+                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-claret rounded-full" />
                       )}
                     </button>
                   </div>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-ink-mute">
                     {(() => {
                       // Find the most recent ensemble entry date
                       // Priority: unfiltered fresh dates (includes held positions) > current signals > persisted DB date
@@ -3325,8 +3324,8 @@ function Dashboard() {
                   const activeSectors = Object.keys(sectorCounts).sort();
                   if (activeSectors.length <= 1) return null;
                   return (
-                    <div className="px-4 py-2 border-b border-gray-100 flex flex-wrap items-center gap-1.5 bg-gray-50/50">
-                      <span className="text-[10px] text-gray-400 mr-1 uppercase tracking-wider">Sectors</span>
+                    <div className="px-4 py-2 border-b border-rule flex flex-wrap items-center gap-1.5 bg-paper-card/50">
+                      <span className="text-[10px] text-ink-light mr-1 uppercase tracking-wider">Sectors</span>
                       {activeSectors.map(sector => {
                         const isExcluded = excludedSectors.includes(sector);
                         const count = sectorCounts[sector] || 0;
@@ -3338,13 +3337,13 @@ function Dashboard() {
                             )}
                             className={`text-[11px] px-2 py-0.5 rounded-full border transition-all ${
                               isExcluded
-                                ? 'border-gray-200 text-gray-400 bg-white'
-                                : 'border-blue-200 text-blue-700 bg-blue-50'
+                                ? 'border-rule text-ink-light bg-paper-card'
+                                : 'border-blue-200 text-claret bg-paper-deep'
                             }`}
                           >
                             {sector}
                             {isExcluded && count > 0 && (
-                              <span className="ml-1 text-[10px] text-gray-400">({count})</span>
+                              <span className="ml-1 text-[10px] text-ink-light">({count})</span>
                             )}
                           </button>
                         );
@@ -3352,14 +3351,14 @@ function Dashboard() {
                       {excludedSectors.length > 0 && (
                         <button
                           onClick={() => setExcludedSectors([])}
-                          className="text-[10px] text-blue-500 hover:text-blue-700 ml-1"
+                          className="text-[10px] text-claret hover:text-claret ml-1"
                         >
                           Reset
                         </button>
                       )}
                       <div className="ml-auto group relative">
-                        <Info size={12} className="text-gray-300 cursor-help" />
-                        <div className="absolute right-0 bottom-full mb-1 w-52 p-2 bg-gray-900 text-white text-[10px] rounded-lg shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20">
+                        <Info size={12} className="text-ink-light cursor-help" />
+                        <div className="absolute right-0 bottom-full mb-1 w-52 p-2 bg-ink text-white text-[10px] rounded-lg shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20">
                           Display filter only — the system scans the full universe every day regardless of this setting.
                         </div>
                       </div>
@@ -3369,31 +3368,31 @@ function Dashboard() {
 
                 <div className="max-h-[500px] overflow-y-auto relative">
                   {timeTravelLoading && (
-                    <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-paper-card/80 z-10 flex items-center justify-center">
                       <div className="flex flex-col items-center gap-2">
-                        <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
-                        <span className="text-xs text-purple-600 font-medium">Loading signals...</span>
+                        <Loader2 className="w-6 h-6 text-claret animate-spin" />
+                        <span className="text-xs text-claret font-medium">Loading signals...</span>
                       </div>
                     </div>
                   )}
                   {dashboardData?.subscription_required ? (
                     /* Upgrade prompt for users without valid subscription */
                     <div className="p-6 text-center space-y-4">
-                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                        <Lock className="w-6 h-6 text-gray-400" />
+                      <div className="w-12 h-12 bg-paper-deep rounded-full flex items-center justify-center mx-auto">
+                        <Lock className="w-6 h-6 text-ink-light" />
                       </div>
                       <div>
-                        <h3 className="text-base font-semibold text-gray-900">Unlock Buy Signals</h3>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <h3 className="text-base font-semibold text-ink">Unlock Buy Signals</h3>
+                        <p className="text-sm text-ink-mute mt-1">
                           Subscribe to see real-time ensemble signals, momentum rankings, and watchlist alerts.
                         </p>
                       </div>
                       {dashboardData?.regime_forecast && (
-                        <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                        <div className="flex items-center justify-center gap-2 text-sm text-ink-mute">
                           <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                            ['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-emerald-500' :
-                            ['rotating_bull', 'range_bound'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-amber-400' :
-                            'bg-red-500'
+                            ['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-positive/100' :
+                            ['rotating_bull', 'range_bound'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-ink-light' :
+                            'bg-negative/100'
                           }`} />
                           <span>Current regime: <strong>{dashboardData.regime_forecast.current_regime_name}</strong></span>
                         </div>
@@ -3416,7 +3415,7 @@ function Dashboard() {
                                 }
                               }}
                               disabled={upgradeLoading}
-                              className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+                              className="w-full px-4 py-2.5 bg-ink text-paper font-medium rounded-[2px] hover:bg-claret transition-all disabled:opacity-50"
                             >
                               {upgradeLoading ? 'Loading...' : 'Subscribe — $349/year (Save $119)'}
                             </button>
@@ -3435,7 +3434,7 @@ function Dashboard() {
                                 }
                               }}
                               disabled={upgradeLoading}
-                              className="w-full px-4 py-2 text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                              className="w-full px-4 py-2 text-sm text-ink-mute hover:text-ink font-medium transition-colors"
                             >
                               or $39/month
                             </button>
@@ -3443,7 +3442,7 @@ function Dashboard() {
                         ) : (
                           <button
                             onClick={() => setShowLoginModal(true)}
-                            className="w-full px-4 py-2.5 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
+                            className="w-full px-4 py-2.5 bg-ink text-white font-medium rounded-lg hover:bg-claret transition-all flex items-center justify-center gap-2"
                           >
                             <LogIn className="w-4 h-4" />
                             Sign in to get started
@@ -3483,35 +3482,35 @@ function Dashboard() {
                           if (score >= 61) return 'Moderate';
                           return 'Weak';
                         })();
-                        const labelColor = label === 'Very Strong' ? 'bg-emerald-600 text-white' :
-                                          label === 'Strong' ? 'bg-emerald-100 text-emerald-800' :
-                                          label === 'Moderate' ? 'bg-amber-100 text-amber-800' :
-                                          'bg-gray-100 text-gray-600';
+                        const labelColor = label === 'Very Strong' ? 'bg-positive text-white' :
+                                          label === 'Strong' ? 'bg-positive/10 text-positive' :
+                                          label === 'Moderate' ? 'bg-claret/10 text-ink' :
+                                          'bg-paper-deep text-ink-mute';
                         return (
                           <div
                             key={s.symbol}
                             className={`px-4 py-3 flex items-center justify-between cursor-pointer transition-colors ${
-                              s.is_fresh ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500' : 'hover:bg-gray-50'
+                              s.is_fresh ? 'bg-positive/10 hover:bg-positive/10 border-l-4 border-l-claret' : 'hover:bg-paper-card'
                             }`}
                             onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
                           >
                             <div className="flex items-center gap-3">
-                              <span className={`font-semibold text-base ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>{s.symbol}</span>
+                              <span className={`font-semibold text-base ${s.is_fresh ? 'text-ink' : 'text-ink'}`}>{s.symbol}</span>
                               {s.is_intraday && (
-                                <span className="inline-flex items-center gap-0.5 text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full font-semibold animate-pulse">
+                                <span className="inline-flex items-center gap-0.5 text-[10px] bg-paper-deep0 text-white px-1.5 py-0.5 rounded-full font-semibold animate-pulse">
                                   <Clock className="w-3 h-3" />
                                   LIVE
                                 </span>
                               )}
-                              <span className="text-gray-500 text-sm">${s.price?.toFixed(2)}</span>
+                              <span className="text-ink-mute text-sm">${s.price?.toFixed(2)}</span>
                               <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${labelColor}`}>{label}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               {s.is_fresh && (
-                                <span className={`text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium ${((s.days_since_entry ?? s.days_since_crossover) === 0) ? 'animate-pulse' : ''}`}>BUY</span>
+                                <span className={`text-xs bg-ink text-paper px-2.5 py-1 rounded-[2px] font-medium tracking-wide`}>ENTRY</span>
                               )}
                               {s.is_fresh && (s.days_since_entry ?? s.days_since_crossover) === 0 && (
-                                <span className="text-xs text-green-700 font-semibold">New!</span>
+                                <span className="text-xs text-positive font-semibold">New!</span>
                               )}
                             </div>
                           </div>
@@ -3523,36 +3522,36 @@ function Dashboard() {
                           key={s.symbol}
                           className={`cursor-pointer transition-colors ${
                             s.is_fresh
-                              ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500'
-                              : 'hover:bg-gray-50'
+                              ? 'bg-positive/10 hover:bg-positive/10 border-l-4 border-l-claret'
+                              : 'hover:bg-paper-card'
                           }`}
                           onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
                         >
                           <td className="px-3 py-2.5">
                             <div className="flex items-center gap-1.5">
-                              <span className={`font-semibold ${s.is_fresh ? 'text-green-900' : 'text-gray-900'}`}>
+                              <span className={`font-semibold ${s.is_fresh ? 'text-ink' : 'text-ink'}`}>
                                 {s.symbol}
                               </span>
-                              {s.is_strong && <ArrowUpRight className="w-3 h-3 text-green-500" />}
+                              {s.is_strong && <ArrowUpRight className="w-3 h-3 text-positive" />}
                               {s.is_intraday && (
-                                <span className="inline-flex items-center gap-0.5 text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full font-semibold animate-pulse">
+                                <span className="inline-flex items-center gap-0.5 text-[10px] bg-paper-deep0 text-white px-1.5 py-0.5 rounded-full font-semibold animate-pulse">
                                   <Clock className="w-3 h-3" />
                                   LIVE
                                 </span>
                               )}
                             </div>
                             {s.is_fresh ? (
-                              <span className={`text-xs ${(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'text-green-700 font-semibold' : 'text-green-600'}`}>
+                              <span className={`text-xs ${(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'text-positive font-semibold' : 'text-positive'}`}>
                                 {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'New today!' : `${Math.min(s.days_since_entry ?? 999, s.days_since_crossover ?? 999)}d ago`}
                               </span>
                             ) : (
-                              <span className="text-xs text-gray-400">Crossed {s.days_since_crossover}d ago</span>
+                              <span className="text-xs text-ink-light">Crossed {s.days_since_crossover}d ago</span>
                             )}
                           </td>
                           <td className="px-3 py-2.5 text-right">${s.price?.toFixed(2)}</td>
-                          <td className="px-3 py-2.5 text-right text-green-600 font-medium">+{s.pct_above_dwap?.toFixed(1)}%</td>
+                          <td className="px-3 py-2.5 text-right text-positive font-medium">+{s.pct_above_dwap?.toFixed(1)}%</td>
                           <td className="px-3 py-2.5 text-right">
-                            <span className={`font-medium ${s.momentum_rank <= 5 ? 'text-green-600' : 'text-gray-600'}`}>
+                            <span className={`font-medium ${s.momentum_rank <= 5 ? 'text-positive' : 'text-ink-mute'}`}>
                               #{s.momentum_rank}
                             </span>
                           </td>
@@ -3565,10 +3564,10 @@ function Dashboard() {
                                 if (score >= 61) return 'Moderate';
                                 return 'Weak';
                               })();
-                              const labelColor = label === 'Very Strong' ? 'bg-emerald-600 text-white' :
-                                                label === 'Strong' ? 'bg-emerald-100 text-emerald-800' :
-                                                label === 'Moderate' ? 'bg-amber-100 text-amber-800' :
-                                                'bg-gray-100 text-gray-600';
+                              const labelColor = label === 'Very Strong' ? 'bg-positive text-white' :
+                                                label === 'Strong' ? 'bg-positive/10 text-positive' :
+                                                label === 'Moderate' ? 'bg-claret/10 text-ink' :
+                                                'bg-paper-deep text-ink-mute';
                               return <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${labelColor}`}>{label}</span>;
                             })()}
                           </td>
@@ -3579,7 +3578,7 @@ function Dashboard() {
                                   e.stopPropagation();
                                   setChartModal({ type: 'signal', data: s, symbol: s.symbol });
                                 }}
-                                className={`text-xs bg-green-600 text-white px-2.5 py-1 rounded font-medium hover:bg-green-700 ${s.days_since_crossover === 0 ? 'animate-pulse' : ''}`}
+                                className={`text-xs bg-positive text-white px-2.5 py-1 rounded font-medium hover:bg-green-700 ${s.days_since_crossover === 0 ? 'animate-pulse' : ''}`}
                               >
                                 {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'BUY NOW' : 'BUY'}
                               </button>
@@ -3592,20 +3591,20 @@ function Dashboard() {
                         <div>
                           {/* AI Market Briefing — shown whenever it exists, not just empty state */}
                           {dashboardData?.market_context && (
-                            <div className="px-4 py-3 mx-4 mt-4 mb-2 bg-blue-50/50 border border-blue-100 rounded-lg">
-                              <p className="text-sm text-gray-700 italic leading-relaxed">{dashboardData.market_context}</p>
+                            <div className="px-4 py-3 mx-4 mt-4 mb-2 bg-paper-deep/50 border border-blue-100 rounded-lg">
+                              <p className="text-sm text-ink italic leading-relaxed">{dashboardData.market_context}</p>
                             </div>
                           )}
 
                           {/* Buy Signals section (fresh) */}
                           {freshSignals.length > 0 ? (
                             <div>
-                              <div className="px-4 py-2.5 bg-green-50 border-b border-green-100 flex items-center justify-between">
+                              <div className="px-4 py-2.5 bg-positive/10 border-b border-green-100 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <div className="w-1 h-5 bg-green-500 rounded-full" />
-                                  <span className="text-sm font-semibold text-green-900">Buy Signals ({freshSignals.length})</span>
+                                  <div className="w-1 h-5 bg-positive/100 rounded-full" />
+                                  <span className="text-sm font-semibold text-ink">Buy Signals ({freshSignals.length})</span>
                                 </div>
-                                <span className="text-xs text-green-700">Consider adding</span>
+                                <span className="text-xs text-positive">Consider adding</span>
                               </div>
                               {viewMode === 'simple' ? (
                                 <div className="divide-y divide-gray-100">
@@ -3614,7 +3613,7 @@ function Dashboard() {
                               ) : (
                                 <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
-                                  <thead className="bg-gray-50 text-gray-600">
+                                  <thead className="bg-paper-card text-ink-mute">
                                     <tr>
                                       <th className="px-3 py-2 text-left font-medium">Symbol</th>
                                       <th className="px-3 py-2 text-right font-medium">Price</th>
@@ -3632,9 +3631,9 @@ function Dashboard() {
                               )}
                             </div>
                           ) : (
-                            <div className="px-4 py-4 text-sm bg-gray-50 border-b border-gray-100">
+                            <div className="px-4 py-4 text-sm bg-paper-card border-b border-rule">
                               {heldFreshCount > 0 ? (
-                                <p className="text-center text-gray-500">{`Today's ${heldFreshCount} fresh signal${heldFreshCount > 1 ? 's are' : ' is'} already in your positions`}</p>
+                                <p className="text-center text-ink-mute">{`Today's ${heldFreshCount} fresh signal${heldFreshCount > 1 ? 's are' : ' is'} already in your positions`}</p>
                               ) : (
                                 <>
                                   {(() => {
@@ -3642,18 +3641,18 @@ function Dashboard() {
                                     const isWeekend = day === 0 || day === 6;
                                     const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][day];
                                     if (isWeekend) {
-                                      return <p className="text-center text-gray-500">Have a nice {dayName}! Markets reopen {day === 6 ? 'Monday' : 'tomorrow'}.</p>;
+                                      return <p className="text-center text-ink-mute">Have a nice {dayName}! Markets reopen {day === 6 ? 'Monday' : 'tomorrow'}.</p>;
                                     }
                                     return dashboardData?.market_context ? (
                                       <div>
-                                        <p className="text-gray-600 italic leading-relaxed">{dashboardData.market_context}</p>
+                                        <p className="text-ink-mute italic leading-relaxed">{dashboardData.market_context}</p>
                                       </div>
                                     ) : (
-                                      <p className="text-center text-gray-500">No fresh buy signals today</p>
+                                      <p className="text-center text-ink-mute">No fresh buy signals today</p>
                                     );
                                   })()}
                                   {heldFreshCount === 0 && daysSinceLastSignal > 14 && !dashboardData?.market_context && (
-                                    <p className="text-xs text-gray-400 mt-1.5 max-w-xs mx-auto text-center">
+                                    <p className="text-xs text-ink-light mt-1.5 max-w-xs mx-auto text-center">
                                       {daysSinceLastSignal <= 21
                                         ? "Two weeks of patience. Sitting out when setups aren't clean is how the ensemble protects you."
                                         : "Extended quiet stretch. The ensemble won't chase trades — when conditions are right, you'll be the first to know."}
@@ -3667,12 +3666,12 @@ function Dashboard() {
                           {/* Monitoring section (non-fresh) */}
                           {monitoringSignals.length > 0 && (
                             <div>
-                              <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                              <div className="px-4 py-2.5 bg-paper-card border-b border-rule flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <div className="w-1 h-5 bg-gray-400 rounded-full" />
-                                  <span className="text-sm font-semibold text-gray-700">Monitoring ({monitoringSignals.length})</span>
+                                  <div className="w-1 h-5 bg-rule rounded-full" />
+                                  <span className="text-sm font-semibold text-ink">Monitoring ({monitoringSignals.length})</span>
                                 </div>
-                                <span className="text-xs text-gray-500">Strong momentum — watching for fresh entry</span>
+                                <span className="text-xs text-ink-mute">Strong momentum — watching for fresh entry</span>
                               </div>
                               {viewMode === 'simple' ? (
                                 <div className="divide-y divide-gray-100">
@@ -3681,7 +3680,7 @@ function Dashboard() {
                               ) : (
                                 <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
-                                  <thead className="bg-gray-50 text-gray-600">
+                                  <thead className="bg-paper-card text-ink-mute">
                                     <tr>
                                       <th className="px-3 py-2 text-left font-medium">Symbol</th>
                                       <th className="px-3 py-2 text-right font-medium">Price</th>
@@ -3706,11 +3705,11 @@ function Dashboard() {
                     <div className="p-5 space-y-4">
                       {/* A. Market context message */}
                       {dashboardData?.regime_forecast && (
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2 text-sm text-ink-mute">
                           <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                            ['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-emerald-500' :
-                            ['rotating_bull', 'range_bound'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-amber-400' :
-                            'bg-red-500'
+                            ['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-positive/100' :
+                            ['rotating_bull', 'range_bound'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-ink-light' :
+                            'bg-negative/100'
                           }`} />
                           <span>
                             <strong>{dashboardData.regime_forecast.current_regime_name}</strong> market
@@ -3728,25 +3727,25 @@ function Dashboard() {
 
                       {/* AI Market Briefing */}
                       {dashboardData?.market_context && (
-                        <div className="px-4 py-3 bg-blue-50/50 border border-blue-100 rounded-lg mb-3">
-                          <p className="text-sm text-gray-600 italic leading-relaxed">{dashboardData.market_context}</p>
+                        <div className="px-4 py-3 bg-paper-deep/50 border border-blue-100 rounded-lg mb-3">
+                          <p className="text-sm text-ink-mute italic leading-relaxed">{dashboardData.market_context}</p>
                         </div>
                       )}
 
                       {/* B. Promoted watchlist */}
                       {(dashboardData?.watchlist || []).length > 0 && (
                         <div>
-                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Approaching Buy Trigger</p>
+                          <p className="text-xs font-medium text-ink-mute uppercase tracking-wide mb-2">Approaching Buy Trigger</p>
                           {viewMode === 'simple' ? (
                             <div className="space-y-1.5">
                               {dashboardData.watchlist.map(s => (
                                 <div
                                   key={s.symbol}
-                                  className="flex items-center justify-between px-3 py-2 bg-amber-50 rounded-lg cursor-pointer hover:bg-amber-100 transition-colors"
+                                  className="flex items-center justify-between px-3 py-2 bg-paper-deep rounded-lg cursor-pointer hover:bg-claret/10 transition-colors"
                                   onClick={() => setChartModal({ type: 'signal', data: { symbol: s.symbol }, symbol: s.symbol })}
                                 >
-                                  <span className="font-semibold text-gray-900">{s.symbol}</span>
-                                  <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                                  <span className="font-semibold text-ink">{s.symbol}</span>
+                                  <span className="text-xs font-medium text-claret bg-claret/10 px-2 py-0.5 rounded-full">
                                     {s.distance_to_trigger?.toFixed(1)}% to go
                                   </span>
                                 </div>
@@ -3755,7 +3754,7 @@ function Dashboard() {
                           ) : (
                             <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                              <thead className="text-gray-500">
+                              <thead className="text-ink-mute">
                                 <tr>
                                   <th className="text-left text-xs font-medium pb-1">Symbol</th>
                                   <th className="text-right text-xs font-medium pb-1">Price</th>
@@ -3767,13 +3766,13 @@ function Dashboard() {
                                 {dashboardData.watchlist.map(s => (
                                   <tr
                                     key={s.symbol}
-                                    className="cursor-pointer hover:bg-amber-50 transition-colors"
+                                    className="cursor-pointer hover:bg-paper-deep transition-colors"
                                     onClick={() => setChartModal({ type: 'signal', data: { symbol: s.symbol }, symbol: s.symbol })}
                                   >
-                                    <td className="py-1.5 font-semibold text-gray-900">{s.symbol}</td>
-                                    <td className="py-1.5 text-right text-gray-600">${s.price?.toFixed(2)}</td>
-                                    <td className="py-1.5 text-right text-green-600">+{s.pct_above_dwap?.toFixed(1)}%</td>
-                                    <td className="py-1.5 text-right font-medium text-amber-700">+{s.distance_to_trigger?.toFixed(1)}%</td>
+                                    <td className="py-1.5 font-semibold text-ink">{s.symbol}</td>
+                                    <td className="py-1.5 text-right text-ink-mute">${s.price?.toFixed(2)}</td>
+                                    <td className="py-1.5 text-right text-positive">+{s.pct_above_dwap?.toFixed(1)}%</td>
+                                    <td className="py-1.5 text-right font-medium text-claret">+{s.distance_to_trigger?.toFixed(1)}%</td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -3786,7 +3785,7 @@ function Dashboard() {
                       {/* C. Recent signals with outcomes */}
                       {(dashboardData?.recent_signals || []).length > 0 && (
                         <div>
-                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Recent Signals</p>
+                          <p className="text-xs font-medium text-ink-mute uppercase tracking-wide mb-2">Recent Signals</p>
                           <div className="flex flex-wrap gap-2">
                             {dashboardData.recent_signals.map(rs => {
                               const quote = liveQuotes[rs.symbol];
@@ -3795,11 +3794,11 @@ function Dashboard() {
                                 ? Math.round((livePrice / rs.signal_price - 1) * 1000) / 10
                                 : rs.performance_pct;
                               return (
-                              <div key={`${rs.symbol}-${rs.signal_date}`} className="flex items-center gap-1.5 text-xs bg-gray-100 px-2.5 py-1.5 rounded-lg">
-                                <span className="font-semibold text-gray-800">{rs.symbol}</span>
-                                <span className="text-gray-500">{formatDate(rs.signal_date)}</span>
+                              <div key={`${rs.symbol}-${rs.signal_date}`} className="flex items-center gap-1.5 text-xs bg-paper-deep px-2.5 py-1.5 rounded-lg">
+                                <span className="font-semibold text-ink">{rs.symbol}</span>
+                                <span className="text-ink-mute">{formatDate(rs.signal_date)}</span>
                                 {perfPct != null && (
-                                  <span className={`font-medium ${perfPct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                  <span className={`font-medium ${perfPct >= 0 ? 'text-positive' : 'text-negative'}`}>
                                     {perfPct >= 0 ? '+' : ''}{perfPct}%
                                   </span>
                                 )}
@@ -3812,8 +3811,8 @@ function Dashboard() {
 
                       {/* Fallback if nothing else rendered */}
                       {(dashboardData?.watchlist || []).length === 0 && (dashboardData?.recent_signals || []).length === 0 && !dashboardData?.regime_forecast && (
-                        <div className="text-center py-6 text-gray-500">
-                          <Activity className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                        <div className="text-center py-6 text-ink-mute">
+                          <Activity className="w-12 h-12 mx-auto text-ink-light mb-3" />
                           <p>No buy signals right now</p>
                           <p className="text-xs mt-1">We're scanning the market — check back soon</p>
                         </div>
@@ -3831,17 +3830,17 @@ function Dashboard() {
                 const activePositions = filteredGuidance.length > 0 ? filteredGuidance : filteredPositions;
                 const hasUnfilteredPositions = guidanceWithLiveQuotes.length > 0 || positionsWithLiveQuotes.length > 0;
                 return (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">Open Positions</h2>
-                  <span className="text-xs text-gray-500">Click row for chart</span>
+              <div className="bg-paper-card rounded shadow-sm border border-rule overflow-hidden">
+                <div className="px-5 py-4 border-b border-rule flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-ink">Open Positions</h2>
+                  <span className="text-xs text-ink-mute">Click row for chart</span>
                 </div>
 
                 <div className="max-h-[500px] overflow-y-auto">
                   {!quotesReady && hasUnfilteredPositions ? (
-                    <div className="px-5 py-8 text-center text-sm text-gray-400">
+                    <div className="px-5 py-8 text-center text-sm text-ink-light">
                       <div className="animate-pulse space-y-3">
-                        {[1,2,3].map(i => <div key={i} className="h-10 bg-gray-100 rounded" />)}
+                        {[1,2,3].map(i => <div key={i} className="h-10 bg-paper-deep rounded" />)}
                       </div>
                       <p className="mt-3">Loading live prices...</p>
                     </div>
@@ -3855,23 +3854,23 @@ function Dashboard() {
                           const friendlyStatus = action === 'sell' ? 'Consider selling'
                             : action === 'warning' ? 'Watch closely'
                             : 'Looking good';
-                          const statusColor = action === 'sell' ? 'text-red-600'
-                            : action === 'warning' ? 'text-amber-600'
-                            : 'text-emerald-600';
+                          const statusColor = action === 'sell' ? 'text-negative'
+                            : action === 'warning' ? 'text-claret'
+                            : 'text-positive';
 
                           return (
                             <div
                               key={p.id || p.symbol}
                               className={`px-4 py-3 flex items-center justify-between cursor-pointer transition-colors ${
-                                action === 'sell' ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500' :
-                                action === 'warning' ? 'bg-amber-50 hover:bg-amber-100 border-l-4 border-l-amber-500' :
-                                'hover:bg-gray-50'
+                                action === 'sell' ? 'bg-negative/10 hover:bg-negative/10 border-l-4 border-l-red-500' :
+                                action === 'warning' ? 'bg-paper-deep hover:bg-claret/10 border-l-4 border-l-amber-500' :
+                                'hover:bg-paper-card'
                               }`}
                               onClick={() => setChartModal({ type: 'position', data: p, symbol: p.symbol })}
                             >
                               <div>
-                                <span className="font-semibold text-gray-900">{p.symbol}</span>
-                                <span className={`ml-2 font-semibold ${pnl >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                <span className="font-semibold text-ink">{p.symbol}</span>
+                                <span className={`ml-2 font-semibold ${pnl >= 0 ? 'text-positive' : 'text-negative'}`}>
                                   {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%
                                 </span>
                               </div>
@@ -3884,7 +3883,7 @@ function Dashboard() {
                       /* Advanced mode: full table */
                       <div className="overflow-x-auto">
                       <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-600 sticky top-0">
+                        <thead className="bg-paper-card text-ink-mute sticky top-0">
                           <tr>
                             <th className="px-3 py-2 text-left font-medium">Symbol</th>
                             <th className="px-3 py-2 text-right font-medium">P&L</th>
@@ -3896,46 +3895,46 @@ function Dashboard() {
                           {activePositions.map((p) => {
                             const action = p.action || 'hold';
                             const pnl = p.pnl_pct || ((p.current_price - p.entry_price) / p.entry_price * 100) || 0;
-                            const pnlColor = pnl >= 0 ? 'text-emerald-600' : 'text-red-500';
+                            const pnlColor = pnl >= 0 ? 'text-positive' : 'text-negative';
 
                             return (
                               <tr
                                 key={p.id || p.symbol}
                                 className={`cursor-pointer transition-colors ${
-                                  action === 'sell' ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-500' :
-                                  action === 'warning' ? 'bg-amber-50 hover:bg-amber-100 border-l-4 border-l-amber-500' :
-                                  'hover:bg-gray-50'
+                                  action === 'sell' ? 'bg-negative/10 hover:bg-negative/10 border-l-4 border-l-red-500' :
+                                  action === 'warning' ? 'bg-paper-deep hover:bg-claret/10 border-l-4 border-l-amber-500' :
+                                  'hover:bg-paper-card'
                                 }`}
                                 onClick={() => setChartModal({ type: 'position', data: p, symbol: p.symbol })}
                               >
                                 <td className="px-3 py-2.5">
-                                  <span className="font-semibold text-gray-900">{p.symbol}</span>
-                                  <div className="text-xs text-gray-400">{p.shares?.toFixed(1)} shares</div>
+                                  <span className="font-semibold text-ink">{p.symbol}</span>
+                                  <div className="text-xs text-ink-light">{p.shares?.toFixed(1)} shares</div>
                                 </td>
                                 <td className="px-3 py-2.5 text-right">
                                   <span className={`font-semibold ${pnlColor}`}>
                                     {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%
                                   </span>
-                                  <div className="text-xs text-gray-400">${p.current_price?.toFixed(2)}</div>
+                                  <div className="text-xs text-ink-light">${p.current_price?.toFixed(2)}</div>
                                 </td>
                                 <td className="px-3 py-2.5 text-center">
                                   {action === 'sell' ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-negative/10 text-negative">
                                       <TrendingDown size={12} /> SELL
                                     </span>
                                   ) : action === 'warning' ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-700">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-claret/10 text-claret">
                                       <AlertCircle size={12} /> WARN
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-600">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-positive/10 text-positive">
                                       <Shield size={12} /> HOLD
                                     </span>
                                   )}
                                 </td>
                                 <td className="px-3 py-2.5 text-right">
-                                  <span className="text-xs text-gray-600">${p.trailing_stop_level?.toFixed(2) || '--'}</span>
-                                  <div className="text-xs text-gray-400">
+                                  <span className="text-xs text-ink-mute">${p.trailing_stop_level?.toFixed(2) || '--'}</span>
+                                  <div className="text-xs text-ink-light">
                                     {p.distance_to_stop_pct != null ? `${p.distance_to_stop_pct.toFixed(0)}% away` : ''}
                                   </div>
                                 </td>
@@ -3947,8 +3946,8 @@ function Dashboard() {
                       </div>
                     )
                   ) : (
-                    <div className="text-center py-12 text-gray-500">
-                      <PieIcon className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                    <div className="text-center py-12 text-ink-mute">
+                      <PieIcon className="w-12 h-12 mx-auto text-ink-light mb-3" />
                       <p>No open positions</p>
                       <p className="text-xs mt-1">Click a fresh signal, then Track Position from the chart</p>
                     </div>
@@ -3957,10 +3956,10 @@ function Dashboard() {
 
                 {/* Action reasons for positions needing attention (wait for live prices) */}
                 {quotesReady && viewMode !== 'simple' && activePositions.filter(p => p.action !== 'hold').length > 0 && (
-                  <div className="border-t border-gray-100 px-4 py-3 space-y-1">
+                  <div className="border-t border-rule px-4 py-3 space-y-1">
                     {activePositions.filter(p => p.action !== 'hold').map(p => (
                       <div key={p.symbol} className={`text-xs px-2 py-1 rounded ${
-                        p.action === 'sell' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                        p.action === 'sell' ? 'bg-negative/10 text-negative' : 'bg-paper-deep text-claret'
                       }`}>
                         <strong>{p.symbol}:</strong> {p.action_reason}
                       </div>
@@ -3975,28 +3974,28 @@ function Dashboard() {
             {/* Watchlist — Approaching Trigger (hidden when promoted into empty buy signals) */}
             {(dashboardData?.watchlist || []).length > 0 && (dashboardData?.buy_signals || []).length > 0 && (
               viewMode === 'simple' ? (
-                <div className="mt-6 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-                  <Eye className="w-4 h-4 text-amber-600 inline mr-1.5" />
+                <div className="mt-6 p-3 bg-paper-deep border border-amber-200 rounded text-sm text-ink">
+                  <Eye className="w-4 h-4 text-claret inline mr-1.5" />
                   {dashboardData.watchlist.length} stock{dashboardData.watchlist.length > 1 ? 's are' : ' is'} close to triggering a buy signal: {dashboardData.watchlist.map(s => s.symbol).join(', ')}
                 </div>
               ) : (
-                <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
+                <div className="mt-6 bg-paper-deep border border-amber-200 rounded overflow-hidden">
                   <div className="px-5 py-3 border-b border-amber-200 flex items-center gap-2">
-                    <Eye className="w-4 h-4 text-amber-600" />
-                    <h3 className="font-medium text-amber-800">Watchlist — Approaching Trigger</h3>
-                    <span className="text-xs text-amber-600 ml-2">Momentum stocks approaching breakout trigger</span>
+                    <Eye className="w-4 h-4 text-claret" />
+                    <h3 className="font-medium text-ink">Watchlist — Approaching Trigger</h3>
+                    <span className="text-xs text-claret ml-2">Momentum stocks approaching breakout trigger</span>
                   </div>
                   <div className="flex flex-wrap gap-3 px-5 py-3">
                     {dashboardData.watchlist.map((s) => (
                       <div
                         key={s.symbol}
-                        className="flex items-center gap-2 px-3 py-2 bg-white border border-amber-200 rounded-lg hover:bg-amber-100 cursor-pointer transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 bg-paper-card border border-amber-200 rounded-lg hover:bg-claret/10 cursor-pointer transition-colors"
                         onClick={() => setChartModal({ type: 'signal', data: { symbol: s.symbol }, symbol: s.symbol })}
                       >
-                        <span className="font-semibold text-gray-900">{s.symbol}</span>
-                        <span className="text-xs text-amber-600">#{s.momentum_rank}</span>
-                        <span className="text-xs text-gray-500">+{s.pct_above_dwap?.toFixed(1)}%</span>
-                        <span className="text-xs font-medium text-amber-700">+{s.distance_to_trigger?.toFixed(1)}% to go</span>
+                        <span className="font-semibold text-ink">{s.symbol}</span>
+                        <span className="text-xs text-claret">#{s.momentum_rank}</span>
+                        <span className="text-xs text-ink-mute">+{s.pct_above_dwap?.toFixed(1)}%</span>
+                        <span className="text-xs font-medium text-claret">+{s.distance_to_trigger?.toFixed(1)}% to go</span>
                       </div>
                     ))}
                   </div>
@@ -4008,10 +4007,10 @@ function Dashboard() {
             {missedOpportunities.length > 0 && (
               viewMode === 'simple' ? (
                 /* Simple mode: summary + top 3 cards */
-                <div className="mt-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
-                  <p className="text-sm text-amber-800 mb-3">
+                <div className="mt-6 bg-paper-deep border border-rule-dark rounded p-4">
+                  <p className="text-sm text-ink mb-3">
                     You could have made{' '}
-                    <strong className="text-amber-900">
+                    <strong className="text-ink">
                       +${missedOpportunities.reduce((sum, m) => sum + (m.would_be_pnl || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </strong>
                     {' '}last month following our signals.
@@ -4020,11 +4019,11 @@ function Dashboard() {
                     {missedOpportunities.slice(0, 3).map(m => (
                       <div
                         key={m.symbol}
-                        className="flex-1 bg-white border border-amber-200 rounded-lg px-3 py-2 text-center cursor-pointer hover:bg-amber-50 transition-colors"
+                        className="flex-1 bg-paper-card border border-amber-200 rounded-lg px-3 py-2 text-center cursor-pointer hover:bg-paper-deep transition-colors"
                         onClick={() => setChartModal({ type: 'missed', data: m, symbol: m.symbol })}
                       >
-                        <span className="font-semibold text-gray-900">{m.symbol}</span>
-                        <div className="text-emerald-600 font-bold text-sm">
+                        <span className="font-semibold text-ink">{m.symbol}</span>
+                        <div className="text-positive font-bold text-sm">
                           +{m.would_be_return?.toFixed(0)}%
                         </div>
                       </div>
@@ -4033,15 +4032,15 @@ function Dashboard() {
                 </div>
               ) : (
                 /* Advanced mode: full table */
-                <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-amber-500" />
-                    <h2 className="text-lg font-semibold text-gray-900">Missed Opportunities</h2>
-                    <span className="text-xs text-gray-500 ml-2">Profitable trades using trailing stop exits</span>
+                <div className="mt-6 bg-paper-card rounded shadow-sm border border-rule overflow-hidden">
+                  <div className="px-5 py-4 border-b border-rule flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-claret" />
+                    <h2 className="text-lg font-semibold text-ink">Missed Opportunities</h2>
+                    <span className="text-xs text-ink-mute ml-2">Profitable trades using trailing stop exits</span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50 text-gray-600">
+                      <thead className="bg-paper-card text-ink-mute">
                         <tr>
                           <th className="px-3 py-2 text-left font-medium">Symbol</th>
                           <th className="px-3 py-2 text-left font-medium hidden sm:table-cell">Buy Date</th>
@@ -4049,7 +4048,7 @@ function Dashboard() {
                           <th className="px-3 py-2 text-left font-medium hidden sm:table-cell">Sell Date</th>
                           <th className="px-3 py-2 text-right font-medium hidden md:table-cell">Sell $</th>
                           <th
-                            className="px-3 py-2 text-right font-medium cursor-pointer select-none hover:text-amber-600 transition-colors"
+                            className="px-3 py-2 text-right font-medium cursor-pointer select-none hover:text-claret transition-colors"
                             onClick={() => setMissedSortBy(prev => prev === 'return' ? 'date' : 'return')}
                           >
                             Return {missedSortBy === 'return' ? '↓' : ''}
@@ -4066,21 +4065,21 @@ function Dashboard() {
                         ).map((m) => (
                           <tr
                             key={`${m.symbol}-${m.entry_date}`}
-                            className="hover:bg-amber-50 cursor-pointer transition-colors"
+                            className="hover:bg-paper-deep cursor-pointer transition-colors"
                             onClick={() => setChartModal({ type: 'missed', data: m, symbol: m.symbol })}
                           >
-                            <td className="px-3 py-2.5 font-semibold text-gray-900">{m.symbol}</td>
-                            <td className="px-3 py-2.5 text-gray-500 hidden sm:table-cell">{formatDate(m.entry_date)}</td>
+                            <td className="px-3 py-2.5 font-semibold text-ink">{m.symbol}</td>
+                            <td className="px-3 py-2.5 text-ink-mute hidden sm:table-cell">{formatDate(m.entry_date)}</td>
                             <td className="px-3 py-2.5 text-right hidden md:table-cell">${m.entry_price?.toFixed(2)}</td>
-                            <td className="px-3 py-2.5 text-gray-500 hidden sm:table-cell">{formatDate(m.sell_date)}</td>
+                            <td className="px-3 py-2.5 text-ink-mute hidden sm:table-cell">{formatDate(m.sell_date)}</td>
                             <td className="px-3 py-2.5 text-right hidden md:table-cell">${m.sell_price?.toFixed(2)}</td>
                             <td className="px-3 py-2.5 text-right">
-                              <span className="text-emerald-600 font-semibold">+{m.would_be_return?.toFixed(1)}%</span>
+                              <span className="text-positive font-semibold">+{m.would_be_return?.toFixed(1)}%</span>
                             </td>
-                            <td className="px-3 py-2.5 text-right text-emerald-600 font-medium">
+                            <td className="px-3 py-2.5 text-right text-positive font-medium">
                               +${m.would_be_pnl?.toFixed(0)}
                             </td>
-                            <td className="px-3 py-2.5 text-right text-gray-500 hidden sm:table-cell">{m.days_held}d</td>
+                            <td className="px-3 py-2.5 text-right text-ink-mute hidden sm:table-cell">{m.days_held}d</td>
                           </tr>
                         ))}
                       </tbody>
@@ -4092,13 +4091,13 @@ function Dashboard() {
 
             {/* Backtest/Walk-Forward summary */}
             {backtest && (
-              <div className={`mt-6 bg-gradient-to-r ${backtest.is_walk_forward ? 'from-purple-50 to-indigo-50 border-purple-200' : 'from-blue-50 to-indigo-50 border-blue-200'} border rounded-xl p-4`}>
+              <div className={`mt-6 bg-gradient-to-r ${backtest.is_walk_forward ? 'from-paper-deep to-paper-card border-rule-dark' : 'from-paper-deep to-paper-card border-rule'} border rounded p-4`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold text-gray-900">
+                    <h3 className="font-semibold text-ink">
                       Simulated Portfolio {backtest.is_walk_forward ? '(Walk-Forward)' : '(Backtest)'}
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-ink-mute">
                       {backtest.is_walk_forward
                         ? `Ensemble strategy${backtest.num_strategy_switches > 0 ? ` with ${backtest.num_strategy_switches} switches` : ''}`
                         : `Based on ${backtest.strategy === 'momentum' ? 'Momentum' : 'Breakout'} strategy`
@@ -4108,18 +4107,18 @@ function Dashboard() {
                   </div>
                   <div className="flex gap-6 text-sm">
                     <div className="text-center">
-                      <p className="text-gray-500">Return</p>
-                      <p className={`font-bold ${parseFloat(backtest.total_return_pct) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                      <p className="text-ink-mute">Return</p>
+                      <p className={`font-bold ${parseFloat(backtest.total_return_pct) >= 0 ? 'text-positive' : 'text-negative'}`}>
                         {parseFloat(backtest.total_return_pct) >= 0 ? '+' : ''}{backtest.total_return_pct}%
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-gray-500">Sharpe</p>
-                      <p className="font-bold text-gray-900">{backtest.sharpe_ratio}</p>
+                      <p className="text-ink-mute">Sharpe</p>
+                      <p className="font-bold text-ink">{backtest.sharpe_ratio}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-gray-500">Max DD</p>
-                      <p className="font-bold text-amber-500">{backtest.max_drawdown_pct}%</p>
+                      <p className="text-ink-mute">Max DD</p>
+                      <p className="font-bold text-claret">{backtest.max_drawdown_pct}%</p>
                     </div>
                   </div>
                 </div>
@@ -4135,33 +4134,33 @@ function Dashboard() {
               <MetricCard title="Avg Return" value={`${trades.length ? (trades.reduce((s,t) => s + (t.pnl_pct || 0), 0) / trades.length).toFixed(1) : 0}%`} icon={BarChart3} />
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100"><h2 className="text-lg font-semibold text-gray-900">Trade History (1 Year Backtest)</h2></div>
+            <div className="bg-paper-card rounded shadow-sm border border-rule overflow-hidden">
+              <div className="px-5 py-4 border-b border-rule"><h2 className="text-lg font-semibold text-ink">Trade History (1 Year Backtest)</h2></div>
               <div className="overflow-x-auto max-h-[600px]">
                 {trades.length > 0 ? (
                   <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-100 sticky top-0">
-                      <tr>{['Symbol', 'Entry', 'Exit', 'Entry $', 'Exit $', 'Return', 'P&L', 'Reason', 'Days'].map(h => <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr>
+                    <thead className="bg-paper-card border-b border-rule sticky top-0">
+                      <tr>{['Symbol', 'Entry', 'Exit', 'Entry $', 'Exit $', 'Return', 'P&L', 'Reason', 'Days'].map(h => <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-ink-mute uppercase">{h}</th>)}</tr>
                     </thead>
                     <tbody>
                       {trades.map(t => (
-                        <tr key={t.id} className="hover:bg-gray-50 border-b border-gray-50">
+                        <tr key={t.id} className="hover:bg-paper-card border-b border-gray-50">
                           <td className="py-3 px-4 font-medium">{t.symbol}</td>
-                          <td className="py-3 px-4 text-gray-500 text-sm">{formatDate(t.entry_date)}</td>
-                          <td className="py-3 px-4 text-gray-500 text-sm">{formatDate(t.exit_date)}</td>
+                          <td className="py-3 px-4 text-ink-mute text-sm">{formatDate(t.entry_date)}</td>
+                          <td className="py-3 px-4 text-ink-mute text-sm">{formatDate(t.exit_date)}</td>
                           <td className="py-3 px-4">${t.entry_price?.toFixed(2)}</td>
                           <td className="py-3 px-4">${t.exit_price?.toFixed(2)}</td>
-                          <td className="py-3 px-4"><span className={`px-2 py-1 rounded text-sm font-semibold ${t.pnl_pct >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>{t.pnl_pct >= 0 ? '+' : ''}{t.pnl_pct?.toFixed(1)}%</span></td>
-                          <td className={`py-3 px-4 font-medium ${t.pnl >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>${t.pnl?.toFixed(0)}</td>
-                          <td className="py-3 px-4"><span className={`px-2 py-1 rounded text-xs font-medium ${t.exit_reason === 'profit_target' ? 'bg-emerald-100 text-emerald-700' : t.exit_reason === 'stop_loss' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{({'trailing_stop':'TRAILING STOP','rebalance_exit':'REBALANCE','simulation_end':'REBALANCE','profit_target':'PROFIT TARGET','stop_loss':'STOP LOSS'}[t.exit_reason] || t.exit_reason?.toUpperCase())}</span></td>
-                          <td className="py-3 px-4 text-gray-500">{t.days_held}d</td>
+                          <td className="py-3 px-4"><span className={`px-2 py-1 rounded text-sm font-semibold ${t.pnl_pct >= 0 ? 'bg-positive/10 text-positive' : 'bg-negative/10 text-negative'}`}>{t.pnl_pct >= 0 ? '+' : ''}{t.pnl_pct?.toFixed(1)}%</span></td>
+                          <td className={`py-3 px-4 font-medium ${t.pnl >= 0 ? 'text-positive' : 'text-negative'}`}>${t.pnl?.toFixed(0)}</td>
+                          <td className="py-3 px-4"><span className={`px-2 py-1 rounded text-xs font-medium ${t.exit_reason === 'profit_target' ? 'bg-positive/10 text-positive' : t.exit_reason === 'stop_loss' ? 'bg-negative/10 text-negative' : 'bg-paper-deep text-ink-mute'}`}>{({'trailing_stop':'TRAILING STOP','rebalance_exit':'REBALANCE','simulation_end':'REBALANCE','profit_target':'PROFIT TARGET','stop_loss':'STOP LOSS'}[t.exit_reason] || t.exit_reason?.toUpperCase())}</span></td>
+                          <td className="py-3 px-4 text-ink-mute">{t.days_held}d</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 ) : (
-                  <div className="text-center py-12 text-gray-500">
-                    <History className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                  <div className="text-center py-12 text-ink-mute">
+                    <History className="w-12 h-12 mx-auto text-ink-light mb-3" />
                     <p>No trades in backtest period</p>
                   </div>
                 )}
@@ -4212,10 +4211,10 @@ function Dashboard() {
       {/* Email Preferences Modal */}
       {showEmailPrefsModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowEmailPrefsModal(false)}>
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+          <div className="bg-paper-card rounded shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><Bell size={18} /> Email Preferences</h3>
-              <button onClick={() => setShowEmailPrefsModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+              <h3 className="text-lg font-semibold text-ink flex items-center gap-2"><Bell size={18} /> Email Preferences</h3>
+              <button onClick={() => setShowEmailPrefsModal(false)} className="text-ink-light hover:text-ink-mute"><X size={20} /></button>
             </div>
             <div className="p-5 space-y-4">
               {[
@@ -4226,23 +4225,23 @@ function Dashboard() {
               ].map(({ key, label, desc }) => (
                 <label key={key} className="flex items-center justify-between cursor-pointer group">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{label}</p>
-                    <p className="text-xs text-gray-500">{desc}</p>
+                    <p className="text-sm font-medium text-ink">{label}</p>
+                    <p className="text-xs text-ink-mute">{desc}</p>
                   </div>
                   <button
                     type="button"
                     role="switch"
                     aria-checked={emailPrefs[key]}
                     onClick={() => setEmailPrefs(prev => ({ ...prev, [key]: !prev[key] }))}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${emailPrefs[key] ? 'bg-blue-600' : 'bg-gray-200'}`}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${emailPrefs[key] ? 'bg-ink' : 'bg-rule'}`}
                   >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${emailPrefs[key] ? 'translate-x-6' : 'translate-x-1'}`} />
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-paper-card transition-transform ${emailPrefs[key] ? 'translate-x-6' : 'translate-x-1'}`} />
                   </button>
                 </label>
               ))}
             </div>
             <div className="flex items-center justify-end gap-3 p-5 border-t">
-              <button onClick={() => setShowEmailPrefsModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+              <button onClick={() => setShowEmailPrefsModal(false)} className="px-4 py-2 text-sm text-ink-mute hover:text-ink">Cancel</button>
               <button
                 disabled={emailPrefsSaving}
                 onClick={async () => {
@@ -4259,7 +4258,7 @@ function Dashboard() {
                     setEmailPrefsSaving(false);
                   }
                 }}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-white bg-ink rounded-lg hover:bg-claret disabled:opacity-50"
               >
                 {emailPrefsSaving ? 'Saving...' : 'Save Preferences'}
               </button>
@@ -4271,10 +4270,10 @@ function Dashboard() {
       {/* Cancel Survey Modal */}
       {showCancelSurvey && !cancelSurveySubmitted && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+          <div className="bg-paper-card rounded shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">We're sorry to see you go</h3>
-              <p className="text-sm text-gray-500 mb-5">Your feedback helps us improve. 30 seconds, 3 questions.</p>
+              <h3 className="text-lg font-semibold text-ink mb-1">We're sorry to see you go</h3>
+              <p className="text-sm text-ink-mute mb-5">Your feedback helps us improve. 30 seconds, 3 questions.</p>
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 const form = e.target;
@@ -4287,8 +4286,8 @@ function Dashboard() {
                 setCancelSurveySubmitted(true);
                 setTimeout(() => setShowCancelSurvey(false), 3000);
               }}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">What's the main reason you're leaving?</label>
-                <select name="reason" required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <label className="block text-sm font-medium text-ink mb-2">What's the main reason you're leaving?</label>
+                <select name="reason" required className="w-full border border-rule-dark rounded-lg px-3 py-2 text-sm mb-4 focus:ring-2 focus:ring-blue-500 focus:border-rule-dark">
                   <option value="">Select a reason...</option>
                   <option value="not_enough_signals">Not enough signals / too quiet</option>
                   <option value="too_expensive">Too expensive for the value</option>
@@ -4298,16 +4297,16 @@ function Dashboard() {
                   <option value="not_trading">Stopped trading / investing</option>
                   <option value="other">Other</option>
                 </select>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Anything else you'd like us to know?</label>
-                <textarea name="detail" rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4 resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Optional — but we read every response" />
-                <label className="block text-sm font-medium text-gray-700 mb-2">Would you come back if we improved?</label>
+                <label className="block text-sm font-medium text-ink mb-2">Anything else you'd like us to know?</label>
+                <textarea name="detail" rows={2} className="w-full border border-rule-dark rounded-lg px-3 py-2 text-sm mb-4 resize-none focus:ring-2 focus:ring-blue-500 focus:border-rule-dark" placeholder="Optional — but we read every response" />
+                <label className="block text-sm font-medium text-ink mb-2">Would you come back if we improved?</label>
                 <div className="flex gap-4 mb-5">
-                  <label className="flex items-center gap-2 text-sm"><input type="radio" name="would_return" value="yes" defaultChecked className="text-blue-600" /> Yes, definitely</label>
-                  <label className="flex items-center gap-2 text-sm"><input type="radio" name="would_return" value="no" className="text-blue-600" /> Probably not</label>
+                  <label className="flex items-center gap-2 text-sm"><input type="radio" name="would_return" value="yes" defaultChecked className="text-claret" /> Yes, definitely</label>
+                  <label className="flex items-center gap-2 text-sm"><input type="radio" name="would_return" value="no" className="text-claret" /> Probably not</label>
                 </div>
                 <div className="flex justify-end gap-3">
-                  <button type="button" onClick={() => setShowCancelSurvey(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Skip</button>
-                  <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-lg hover:bg-blue-800">Submit Feedback</button>
+                  <button type="button" onClick={() => setShowCancelSurvey(false)} className="px-4 py-2 text-sm text-ink-mute hover:text-ink">Skip</button>
+                  <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-ink rounded-lg hover:bg-claret">Submit Feedback</button>
                 </div>
               </form>
             </div>
@@ -4316,9 +4315,9 @@ function Dashboard() {
       )}
       {showCancelSurvey && cancelSurveySubmitted && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 text-center">
-            <p className="text-lg font-semibold text-gray-900 mb-2">Thank you for your feedback</p>
-            <p className="text-sm text-gray-500">We'll use it to make RigaCap better. You're welcome back anytime.</p>
+          <div className="bg-paper-card rounded shadow-xl max-w-sm w-full p-6 text-center">
+            <p className="text-lg font-semibold text-ink mb-2">Thank you for your feedback</p>
+            <p className="text-sm text-ink-mute">We'll use it to make RigaCap better. You're welcome back anytime.</p>
           </div>
         </div>
       )}
@@ -4326,14 +4325,14 @@ function Dashboard() {
       {/* Referral Modal */}
       {showReferralModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowReferralModal(false)}>
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
+          <div className="bg-paper-card rounded shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><Gift size={18} /> Refer a Friend</h3>
-              <button onClick={() => setShowReferralModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+              <h3 className="text-lg font-semibold text-ink flex items-center gap-2"><Gift size={18} /> Refer a Friend</h3>
+              <button onClick={() => setShowReferralModal(false)} className="text-ink-light hover:text-ink-mute"><X size={20} /></button>
             </div>
             <div className="p-5">
-              <div className="bg-gradient-to-br from-blue-950 to-blue-900 rounded-xl p-6 text-center mb-5">
-                <p className="text-amber-400 font-bold text-lg mb-1">Give a Month, Get a Month</p>
+              <div className="bg-ink rounded p-6 text-center mb-5">
+                <p className="text-claret font-bold text-lg mb-1">Give a Month, Get a Month</p>
                 <p className="text-white/80 text-sm leading-relaxed">
                   Share your link with a friend. They get their first month free,
                   and when they subscribe, you get a free month too!
@@ -4341,12 +4340,12 @@ function Dashboard() {
               </div>
               {user?.referral_code && (
                 <div className="space-y-3">
-                  <label className="text-sm font-medium text-gray-700">Your referral link</label>
+                  <label className="text-sm font-medium text-ink">Your referral link</label>
                   <div className="flex gap-2">
                     <input
                       readOnly
                       value={`rigacap.com/?ref=${user.referral_code}`}
-                      className="flex-1 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg font-mono text-gray-700"
+                      className="flex-1 px-3 py-2 text-sm bg-paper-card border border-rule rounded-lg font-mono text-ink"
                     />
                     <button
                       onClick={() => {
@@ -4356,8 +4355,8 @@ function Dashboard() {
                       }}
                       className={`px-3 py-2 text-sm font-medium rounded-lg flex items-center gap-1.5 transition-colors ${
                         referralCopied
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                          ? 'bg-positive/10 text-positive'
+                          : 'bg-ink text-white hover:bg-claret'
                       }`}
                     >
                       {referralCopied ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy</>}
@@ -4366,9 +4365,9 @@ function Dashboard() {
                 </div>
               )}
               {(user?.referral_count > 0) && (
-                <div className="mt-5 bg-green-50 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-green-700">{user.referral_count}</p>
-                  <p className="text-sm text-green-600">friend{user.referral_count !== 1 ? 's' : ''} referred</p>
+                <div className="mt-5 bg-positive/10 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold text-positive">{user.referral_count}</p>
+                  <p className="text-sm text-positive">friend{user.referral_count !== 1 ? 's' : ''} referred</p>
                 </div>
               )}
             </div>
@@ -4382,7 +4381,7 @@ function Dashboard() {
       {/* Email Preferences Toast */}
       {emailPrefsToast && (
         <div className="fixed bottom-6 right-6 z-50 animate-fade-in">
-          <div className={`px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white ${emailPrefsToast === 'unsubscribed' ? 'bg-orange-500' : 'bg-green-600'}`}>
+          <div className={`px-5 py-3 rounded shadow-lg text-sm font-medium text-white ${emailPrefsToast === 'unsubscribed' ? 'bg-orange-500' : 'bg-positive'}`}>
             {emailPrefsToast === 'unsubscribed' ? 'You have been unsubscribed from all emails.' : 'Email preferences saved.'}
           </div>
         </div>
@@ -4397,8 +4396,8 @@ function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+      <div className="min-h-screen bg-paper font-body flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-claret animate-spin" />
       </div>
     );
   }
@@ -4414,10 +4413,10 @@ function NotFoundPage() {
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
       <div className="text-center">
-        <p className="text-6xl font-bold text-amber-400 mb-4">404</p>
+        <p className="text-6xl font-bold text-claret mb-4">404</p>
         <h1 className="text-2xl font-semibold text-white mb-2">Page not found</h1>
-        <p className="text-gray-400 mb-8">The page you're looking for doesn't exist or has been moved.</p>
-        <a href="/" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-gray-900 font-semibold rounded-xl hover:shadow-lg transition-all">
+        <p className="text-ink-light mb-8">The page you're looking for doesn't exist or has been moved.</p>
+        <a href="/" className="inline-flex items-center gap-2 px-6 py-3 bg-paper-card text-ink font-semibold rounded hover:shadow-lg transition-all">
           Back to RigaCap
         </a>
       </div>
