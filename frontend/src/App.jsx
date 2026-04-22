@@ -12,6 +12,10 @@ import {
   Briefcase, Mail, Gift, Copy, Check, Filter, Info
 } from 'lucide-react';
 import LandingPage from './LandingPage';
+import LandingPageV2 from './LandingPageV2';
+import MethodologyPageV2 from './MethodologyPageV2';
+import TrackRecordPageV2 from './TrackRecordPageV2';
+import AboutPage from './AboutPage';
 import TrackRecordPage from './TrackRecordPage';
 import TrackRecord10YPage from './TrackRecord10YPage';
 import MethodologyPage from './MethodologyPage';
@@ -4437,13 +4441,17 @@ export default function App() {
     <AuthProvider>
       <ScrollToTop />
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<LandingPageV2 />} />
+        <Route path="/v1" element={<LandingPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/contact" element={<ContactPage />} />
-        <Route path="/track-record" element={<TrackRecordPage />} />
+        <Route path="/track-record" element={<TrackRecordPageV2 />} />
+        <Route path="/track-record-v1" element={<TrackRecordPage />} />
         <Route path="/track-record-10y" element={<TrackRecord10YPage />} />
-        <Route path="/methodology" element={<MethodologyPage />} />
+        <Route path="/methodology" element={<MethodologyPageV2 />} />
+        <Route path="/methodology-v1" element={<MethodologyPage />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/market-regime" element={<MarketRegimePage />} />
         <Route path="/blog" element={<BlogIndexPage />} />
         <Route path="/blog/2022-story" element={<Blog2022StoryPage />} />
