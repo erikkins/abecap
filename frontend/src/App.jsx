@@ -192,28 +192,16 @@ const normalizeSignal = (signal) => ({
 
 // Custom triangle markers for buy/sell points on charts
 const BuyMarker = ({ cx, cy, payload }) => (
-  <svg x={cx - 10} y={cy - 20} width={20} height={20} viewBox="0 0 20 20" style={{ cursor: 'pointer' }}>
-    <title>ENTRY: {payload?.date} @ ${payload?.close?.toFixed(2)}</title>
-    <polygon
-      points="10,2 18,18 2,18"
-      fill="#7A2430"
-      stroke="#F5F1E8"
-      strokeWidth="1.5"
-    />
-    <text x="10" y="14" textAnchor="middle" fontSize="7" fill="#F5F1E8" fontWeight="500" fontFamily="IBM Plex Mono">E</text>
+  <svg x={cx - 8} y={cy - 18} width={16} height={16} viewBox="0 0 16 16" style={{ cursor: 'pointer' }}>
+    <title>Entry: {payload?.date} @ ${payload?.close?.toFixed(2)}</title>
+    <polygon points="8,1 15,15 1,15" fill="#7A2430" stroke="#F5F1E8" strokeWidth="2" />
   </svg>
 );
 
 const SellMarker = ({ cx, cy, payload }) => (
-  <svg x={cx - 10} y={cy} width={20} height={20} viewBox="0 0 20 20" style={{ cursor: 'pointer' }}>
-    <title>EXIT: {payload?.date} @ ${payload?.close?.toFixed(2)}</title>
-    <polygon
-      points="10,18 18,2 2,2"
-      fill="#141210"
-      stroke="#F5F1E8"
-      strokeWidth="1.5"
-    />
-    <text x="10" y="12" textAnchor="middle" fontSize="7" fill="#F5F1E8" fontWeight="500" fontFamily="IBM Plex Mono">X</text>
+  <svg x={cx - 8} y={cy + 2} width={16} height={16} viewBox="0 0 16 16" style={{ cursor: 'pointer' }}>
+    <title>Exit: {payload?.date} @ ${payload?.close?.toFixed(2)}</title>
+    <polygon points="8,15 15,1 1,1" fill="#141210" stroke="#F5F1E8" strokeWidth="2" />
   </svg>
 );
 
@@ -590,16 +578,12 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                 </span>
               )}
               {type === 'missed' && (
-                <span className="px-2 py-1 bg-claret/10 text-claret text-xs font-semibold rounded-full flex items-center gap-1">
-                  <Clock size={12} /> MISSED +{data?.would_be_return?.toFixed(0) || '?'}%
+                <span className="px-2 py-1 bg-claret text-paper text-xs font-medium tracking-wide flex items-center gap-1">
+                  MISSED +{data?.would_be_return?.toFixed(0) || '?'}%
                 </span>
               )}
               {data?.signal_strength > 0 && (
-                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                  data.signal_strength >= 70 ? 'bg-positive/10 text-positive' :
-                  data.signal_strength >= 50 ? 'bg-claret/10 text-claret' :
-                  'bg-yellow-100 text-yellow-700'
-                }`}>
+                <span className="px-2 py-1 text-xs font-mono tracking-wide text-ink-mute border border-rule-dark">
                   Strength: {data.signal_strength.toFixed(0)}
                 </span>
               )}
@@ -653,7 +637,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
           <div className="px-6 py-3 border-b border-rule flex gap-2 items-center">
           {type === 'missed' ? (
             <div className="flex items-center gap-2">
-              <span className="px-4 py-1.5 rounded-lg text-sm font-medium bg-claret/10 text-claret">
+              <span className="px-3 py-1 text-[0.72rem] font-medium tracking-wide bg-claret text-paper">
                 Transaction Window
               </span>
               <span className="text-sm text-ink-mute">
@@ -820,8 +804,8 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
 
                   // For each line, check if its default label position would be
                   // intersected by another line OR the price line. If so, flip.
-                  // "Close" = within 3% of the line's price (label height zone).
-                  const closenessThreshold = 0.03;
+                  // "Close" = within 4% of the line's price (label height zone).
+                  const closenessThreshold = 0.04;
 
                   const hasConflict = (myY, myId, side) => {
                     // side: 'above' or 'below' — check if another line sits in that zone
@@ -834,13 +818,18 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                     });
                   };
 
-                  // Also check if the price line crosses through the label zone
-                  // (price is within threshold on either side of the reference line)
+                  // Check if the price line crosses through the label zone
+                  // Checks last close AND scans recent chart data for crossings
                   const priceCrosses = (myY, myId) => {
-                    if (!myY || !lastClose) return false;
+                    if (!myY) return false;
                     if (myId === '_price') return false;
-                    const diff = Math.abs(lastClose - myY) / myY;
-                    return diff < closenessThreshold;
+                    // Check last N data points for any crossing near the reference line
+                    const recentData = chartDataWithLive.slice(-Math.min(chartDataWithLive.length, 20));
+                    return recentData.some(d => {
+                      if (!d?.close) return false;
+                      const diff = Math.abs(d.close - myY) / myY;
+                      return diff < closenessThreshold;
+                    });
                   };
 
                   // Default positions and their flip logic
@@ -863,10 +852,19 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   const gain20ConflictAbove = hasConflict(gain20Y, 'gain20', 'above') || priceCrosses(gain20Y, 'gain20');
                   const gain20Pos = !gain20ConflictAbove ? 'insideTopRight' : 'insideBottomRight';
 
-                  // Sell (missed): label above right, flip if crowded or price crosses
+                  // Sell (missed): scan chart for where the label has most clearance
                   const sellY = data?.sell_price;
-                  const sellConflictAbove = hasConflict(sellY, 'sell', 'above') || priceCrosses(sellY, 'sell');
-                  const sellPos = !sellConflictAbove ? 'insideTopRight' : 'insideBottomRight';
+                  const sellPos = (() => {
+                    if (!sellY) return 'insideTopLeft';
+                    // Check if price ends above or below the exit line
+                    const endPrice = chartDataWithLive.length > 0 ? chartDataWithLive[chartDataWithLive.length - 1]?.close : null;
+                    if (endPrice && endPrice > sellY * 1.05) return 'insideBottomLeft';
+                    if (endPrice && endPrice < sellY * 0.95) return 'insideTopLeft';
+                    // Price near exit level — put label on left where early data is likely far away
+                    const startPrice = chartDataWithLive.length > 5 ? chartDataWithLive[5]?.close : null;
+                    if (startPrice && startPrice < sellY) return 'insideTopLeft';
+                    return 'insideBottomLeft';
+                  })();
 
                   return (
                     <>
@@ -875,12 +873,12 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                         <ReferenceLine
                           yAxisId="price"
                           y={entryPrice}
-                          stroke="#2D5F3F"
+                          stroke="#7A2430"
                           strokeWidth={1.5}
-                          strokeDasharray="8 4"
+                          strokeDasharray="5 3"
                           label={{
                             value: `Entry $${entryPrice.toFixed(2)}`,
-                            fill: '#2D5F3F',
+                            fill: '#7A2430',
                             fontWeight: 500,
                             fontSize: 11,
                             fontFamily: 'IBM Plex Mono',
@@ -894,15 +892,16 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                         <ReferenceLine
                           yAxisId="price"
                           y={sellY}
-                          stroke="#B8923D"
+                          stroke="#141210"
                           strokeWidth={1.5}
-                          strokeDasharray="8 4"
+                          strokeDasharray="5 3"
                           label={{
                             value: `Exit $${sellY.toFixed(2)}${data?.exit_reason ? ` (${{'trailing_stop':'trailing stop','rebalance_exit':'rebalance','simulation_end':'rebalance','profit_target':'target','stop_loss':'stop loss'}[data.exit_reason] || data.exit_reason.replace(/_/g, ' ')})` : ''}`,
-                            fill: '#B8923D',
+                            fill: '#141210',
                             fontWeight: 500,
                             fontSize: 11,
                             fontFamily: 'IBM Plex Mono',
+                            fontStyle: 'italic',
                             position: sellPos
                           }}
                         />
@@ -1265,8 +1264,8 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
             </button>
           )}
           {type === 'missed' && (
-            <div className="px-4 py-2 bg-paper-deep text-claret rounded text-sm">
-              This opportunity has already passed
+            <div className="px-4 py-2 bg-paper-deep text-ink-mute text-sm font-display italic" style={{ fontVariationSettings: '"opsz" 24' }}>
+              This window has closed.
             </div>
           )}
         </div>
