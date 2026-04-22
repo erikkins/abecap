@@ -1300,20 +1300,11 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
 };
 
 // Metric Card
-const MetricCard = ({ title, value, subtitle, trend, icon: Icon }) => (
-  <div className="bg-paper-card rounded shadow-sm border border-rule p-5 hover:shadow-md transition-all">
-    <div className="flex items-start justify-between">
-      <div>
-        <p className="text-sm text-ink-mute font-medium">{title}</p>
-        <p className={`text-2xl font-bold mt-1 ${trend === 'up' ? 'text-positive' : trend === 'down' ? 'text-negative' : 'text-ink'}`}>{value}</p>
-        {subtitle && <p className="text-xs text-ink-light mt-1">{subtitle}</p>}
-      </div>
-      {Icon && (
-        <div className={`p-2 rounded-lg ${trend === 'up' ? 'bg-positive/10 text-positive' : trend === 'down' ? 'bg-negative/10 text-negative' : 'bg-paper-card text-ink-light'}`}>
-          <Icon size={20} />
-        </div>
-      )}
-    </div>
+const MetricCard = ({ title, value, subtitle, trend }) => (
+  <div className="px-4 first:pl-0 border-r border-rule last:border-r-0">
+    <div className="font-body text-[0.64rem] font-medium tracking-[0.22em] uppercase text-ink-mute mb-1">{title}</div>
+    <div className={`font-display text-[1.7rem] font-normal leading-none tracking-tight ${trend === 'up' ? 'text-positive' : trend === 'down' ? 'text-negative' : 'text-ink'}`} style={{ fontVariationSettings: '"opsz" 72' }}>{value}</div>
+    {subtitle && <div className="font-mono text-[0.7rem] text-ink-light mt-1 tracking-wide">{subtitle}</div>}
   </div>
 );
 
@@ -2717,31 +2708,33 @@ function Dashboard() {
               {/* Content overlaid on sparkline */}
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-sm">Your RigaCap Journey</h3>
-                  <span className="text-xs text-ink-light">Since {journeyData.start_date}</span>
+                  <h3 className="font-display text-[1.2rem] font-medium tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>Your Journey</h3>
+                  <span className="font-mono text-[0.7rem] text-ink-light tracking-[0.1em] uppercase">Since {journeyData.start_date}</span>
                 </div>
 
                 {/* Metrics row */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="text-center">
-                    <p className="text-[10px] text-ink-light uppercase tracking-wide">
+                    <div className="font-body text-[0.68rem] font-medium tracking-[0.2em] uppercase text-ink-light mb-1">
                       {journeyData.alpha_pct != null && journeyData.alpha_pct < 0 ? 'vs SPY' : 'Beating SPY'}
-                    </p>
-                    <p className={`text-xl font-bold ${journeyData.alpha_pct != null ? ((journeyData.alpha_pct >= 0) ? 'text-positive' : 'text-negative') : ''}`}>
+                    </div>
+                    <div className={`font-display text-[1.9rem] font-normal leading-none tracking-tight ${journeyData.alpha_pct != null ? ((journeyData.alpha_pct >= 0) ? 'text-positive' : 'text-negative') : 'text-ink'}`} style={{ fontVariationSettings: '"opsz" 96' }}>
                       {journeyData.alpha_pct != null
                         ? `${journeyData.alpha_pct >= 0 ? '+' : ''}${journeyData.alpha_pct}%`
                         : `${journeyData.total_return_pct >= 0 ? '+' : ''}${journeyData.total_return_pct}%`}
-                    </p>
+                    </div>
                   </div>
                   <div className="text-center">
-                    <p className="text-[10px] text-ink-light uppercase tracking-wide">Your Return</p>
-                    <p className="text-lg font-semibold">
+                    <div className="font-body text-[0.68rem] font-medium tracking-[0.2em] uppercase text-ink-light mb-1">Your Return</div>
+                    <div className="font-display text-[1.9rem] font-normal leading-none tracking-tight text-ink" style={{ fontVariationSettings: '"opsz" 96' }}>
                       {journeyData.total_return_pct >= 0 ? '+' : ''}{journeyData.total_return_pct}%
-                    </p>
+                    </div>
                   </div>
                   <div className="text-center">
-                    <p className="text-[10px] text-ink-light uppercase tracking-wide">$10K would be</p>
-                    <p className="text-lg font-semibold">${journeyData.current_value?.toLocaleString()}</p>
+                    <div className="font-body text-[0.68rem] font-medium tracking-[0.2em] uppercase text-ink-light mb-1">$10K would be</div>
+                    <div className="font-display text-[1.9rem] font-normal leading-none tracking-tight text-ink" style={{ fontVariationSettings: '"opsz" 96' }}>
+                      ${journeyData.current_value?.toLocaleString()}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2899,23 +2892,12 @@ function Dashboard() {
                         {/* Regime name + pills */}
                         <div className="flex items-center justify-between flex-wrap gap-2">
                           <span className="font-semibold text-ink">{rf.current_regime_name || regimeNames[rf.current_regime]} Market</span>
-                          <div className="flex gap-2 flex-wrap">
-                            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                              rf.outlook === 'stable' ? 'bg-positive/10 text-positive' :
-                              rf.outlook === 'improving' ? 'bg-positive/10 text-positive' :
-                              'bg-orange-100 text-orange-700'
-                            }`}>Outlook: {rf.outlook}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                              rf.risk_change === 'decreasing' ? 'bg-positive/10 text-positive' :
-                              rf.risk_change === 'stable' ? 'bg-paper-deep text-ink-mute' :
-                              'bg-negative/10 text-negative'
-                            }`}>Risk: {rf.risk_change}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                              rf.recommended_action === 'stay_invested' ? 'bg-positive/10 text-positive' :
-                              rf.recommended_action === 'tighten_stops' ? 'bg-yellow-100 text-yellow-700' :
-                              rf.recommended_action === 'reduce_exposure' ? 'bg-orange-100 text-orange-700' :
-                              'bg-negative/10 text-negative'
-                            }`}>{(rf.recommended_action || '').replace(/_/g, ' ')}</span>
+                          <div className="flex items-center gap-4">
+                            <span className="font-mono text-[0.7rem] tracking-[0.1em] uppercase text-ink-mute">Outlook: <strong className="text-ink font-medium">{rf.outlook}</strong></span>
+                            <span className="w-px h-4 bg-rule" />
+                            <span className="font-mono text-[0.7rem] tracking-[0.1em] uppercase text-ink-mute">Risk: <strong className="text-ink font-medium">{rf.risk_change}</strong></span>
+                            <span className="w-px h-4 bg-rule" />
+                            <span className="font-mono text-[0.7rem] tracking-[0.1em] uppercase text-ink-mute"><strong className="text-ink font-medium">{(rf.recommended_action || '').replace(/_/g, ' ')}</strong></span>
                           </div>
                         </div>
 
@@ -2951,46 +2933,65 @@ function Dashboard() {
                           </div>
                         )}
 
-                        {/* Transition probability bar */}
+                        {/* Transition probability bar — editorial density visualization */}
                         {sortedProbs.length > 0 && (
                           <div>
-                            <p className="text-xs text-ink-mute font-medium mb-1">Transition Probabilities</p>
-                            <div className="flex h-2 rounded-full overflow-hidden bg-paper-deep">
-                              {sortedProbs.map(([r, pct]) => (
-                                <div key={r} className={`h-full ${regimeColors[r]?.bar || 'bg-rule'}`} style={{ width: `${pct}%` }} title={`${regimeNames[r]}: ${pct.toFixed(0)}%`} />
-                              ))}
+                            <div className="flex justify-between items-baseline mb-2">
+                              <p className="font-body text-[0.66rem] font-medium tracking-[0.22em] uppercase text-ink-mute">Transition Probabilities · Next Period</p>
+                              <span className="font-mono text-[0.72rem] text-ink-light tracking-wide">
+                                {rf.outlook_detail ? rf.outlook_detail.split('.')[0] : `${(probs[rf.current_regime] || 0).toFixed(0)}% chance regime holds`}
+                              </span>
                             </div>
-                            <div className="flex flex-wrap gap-3 mt-1">
-                              {sortedProbs.map(([r, pct]) => (
-                                <div key={r} className="flex items-center gap-1">
-                                  <div className={`w-2 h-2 rounded-full ${regimeColors[r]?.bar || 'bg-rule'}`} />
-                                  <span className="text-xs text-ink-mute">{regimeNames[r]} {pct.toFixed(0)}%</span>
-                                </div>
+                            <div className="flex h-8 border border-ink bg-paper">
+                              {sortedProbs.map(([r, pct]) => {
+                                const isCurrent = r === rf.current_regime;
+                                const densityClass = isCurrent
+                                  ? 'bg-claret text-paper'
+                                  : pct > 20 ? 'bg-ink text-paper'
+                                  : pct > 15 ? 'bg-ink-mute text-paper'
+                                  : pct > 10 ? 'bg-rule-dark text-ink'
+                                  : pct > 5 ? 'bg-paper text-ink-mute'
+                                  : 'bg-paper text-ink-light';
+                                return (
+                                  <div
+                                    key={r}
+                                    className={`flex items-center justify-center border-r border-ink last:border-r-0 ${densityClass} ${isCurrent ? 'shadow-[inset_0_-3px_0_#141210]' : ''}`}
+                                    style={{ flex: Math.max(pct, 0.5) }}
+                                    title={`${regimeNames[r]}: ${pct.toFixed(0)}%`}
+                                  >
+                                    {pct >= 8 && <span className="font-mono text-[0.78rem] font-medium">{pct.toFixed(0)}%</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="flex justify-between font-mono text-[0.68rem] text-ink-light tracking-wide mt-1.5">
+                              {sortedProbs.map(([r]) => (
+                                <span key={r}>{regimeNames[r]?.split(' ')[0]}{r === rf.current_regime ? ' ●' : ''}</span>
                               ))}
                             </div>
                           </div>
                         )}
 
                         {/* All 7 regimes */}
-                        <div className="border-t border-rule pt-3 space-y-1">
+                        <div className="border-t border-rule pt-3 space-y-0">
                           {allRegimes.map(r => {
                             const isCurrent = r === rf.current_regime;
                             const c = regimeColors[r] || { bg: 'bg-paper-deep', text: 'text-ink-mute', bar: 'bg-rule' };
                             const prob = probs[r];
                             return (
-                              <div key={r} className={`flex items-center justify-between px-2 py-1.5 rounded-lg ${isCurrent ? c.bg : ''}`}>
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-2.5 h-2.5 rounded-full ${c.bar}`} />
+                              <div key={r} className={`flex items-center justify-between px-2 py-2 border-b border-rule last:border-b-0 ${isCurrent ? 'bg-claret/5' : ''}`}>
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-2.5 h-2.5 ${isCurrent ? 'bg-claret' : c.bar}`} />
                                   <div>
-                                    <span className={`text-sm font-medium ${isCurrent ? c.text : 'text-ink'}`}>
-                                      {regimeNames[r]}{isCurrent ? ' \u25CF' : ''}
+                                    <span className={`text-sm font-medium ${isCurrent ? 'text-ink' : 'text-ink-mute'}`}>
+                                      {regimeNames[r]}
                                     </span>
                                     <span className="text-xs text-ink-light ml-2">{regimeDescriptions[r]}</span>
                                   </div>
                                 </div>
-                                {prob != null && (
-                                  <span className={`text-sm font-semibold ${isCurrent ? c.text : 'text-ink-mute'}`}>{prob.toFixed(0)}%</span>
-                                )}
+                                <span className={`font-mono text-sm ${isCurrent ? 'text-claret font-medium' : 'text-ink-light'}`}>
+                                  {prob != null ? `${prob.toFixed(0)}%` : '—'}
+                                </span>
                               </div>
                             );
                           })}
@@ -3023,7 +3024,7 @@ function Dashboard() {
                         'bg-negative/10'
                       }`}>
                         {['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? <TrendingUp className="w-5 h-5 text-positive" /> :
-                         dashboardData.regime_forecast.current_regime === 'rotating_bull' ? <RefreshCw className="w-5 h-5 text-violet-600" /> :
+                         dashboardData.regime_forecast.current_regime === 'rotating_bull' ? <RefreshCw className="w-5 h-5 text-ink-mute" /> :
                          dashboardData.regime_forecast.current_regime === 'range_bound' ? <Activity className="w-5 h-5 text-claret" /> :
                          <TrendingDown className="w-5 h-5 text-negative" />}
                       </div>
@@ -3095,7 +3096,7 @@ function Dashboard() {
 
                   {/* Transition probabilities mini bar */}
                   {dashboardData.regime_forecast.transition_probabilities && (
-                    <div className="mt-3 flex items-center gap-1 h-3 rounded-full overflow-hidden bg-paper-deep">
+                    <div className="mt-3 flex h-3 border border-ink overflow-hidden bg-paper">
                       {Object.entries(dashboardData.regime_forecast.transition_probabilities)
                         .filter(([_, pct]) => pct > 3)
                         .sort((a, b) => b[1] - a[1])
@@ -3151,47 +3152,66 @@ function Dashboard() {
                     const allRegimes = ['strong_bull', 'weak_bull', 'rotating_bull', 'range_bound', 'weak_bear', 'panic_crash', 'recovery'];
 
                     return (
-                      <div className="mt-3 pt-3 border-t border-rule space-y-3">
-                        {/* Probability bar with labels */}
+                      <div className="mt-3 pt-3 border-t border-rule space-y-4">
+                        {/* Transition probability bar — editorial density */}
                         {sortedProbs.length > 0 && (
                           <div>
-                            <p className="text-xs text-ink-mute font-medium mb-1">Transition Probabilities</p>
-                            <div className="flex h-2 rounded-full overflow-hidden bg-paper-deep">
-                              {sortedProbs.map(([r, pct]) => (
-                                <div key={r} className={`h-full ${regimeColors[r]?.bar || 'bg-rule'}`} style={{ width: `${pct}%` }} />
-                              ))}
+                            <div className="flex justify-between items-baseline mb-2">
+                              <p className="font-body text-[0.66rem] font-medium tracking-[0.22em] uppercase text-ink-mute">Transition Probabilities · Next Period</p>
+                              <span className="font-mono text-[0.72rem] text-ink-light tracking-wide">
+                                {(probs[rf.current_regime] || 0).toFixed(0)}% chance regime holds
+                              </span>
                             </div>
-                            <div className="flex flex-wrap gap-3 mt-1">
-                              {sortedProbs.map(([r, pct]) => (
-                                <div key={r} className="flex items-center gap-1">
-                                  <div className={`w-2 h-2 rounded-full ${regimeColors[r]?.bar || 'bg-rule'}`} />
-                                  <span className="text-xs text-ink-mute">{regimeNames[r]} {pct.toFixed(0)}%</span>
-                                </div>
+                            <div className="flex h-8 border border-ink bg-paper">
+                              {sortedProbs.map(([r, pct]) => {
+                                const isCurrent = r === rf.current_regime;
+                                const densityClass = isCurrent
+                                  ? 'bg-claret text-paper'
+                                  : pct > 20 ? 'bg-ink text-paper'
+                                  : pct > 15 ? 'bg-ink-mute text-paper'
+                                  : pct > 10 ? 'bg-rule-dark text-ink'
+                                  : pct > 5 ? 'bg-paper text-ink-mute'
+                                  : 'bg-paper text-ink-light';
+                                return (
+                                  <div
+                                    key={r}
+                                    className={`flex items-center justify-center border-r border-ink last:border-r-0 ${densityClass} ${isCurrent ? 'shadow-[inset_0_-3px_0_#141210]' : ''}`}
+                                    style={{ flex: Math.max(pct, 0.5) }}
+                                    title={`${regimeNames[r]}: ${pct.toFixed(0)}%`}
+                                  >
+                                    {pct >= 8 && <span className="font-mono text-[0.78rem] font-medium">{pct.toFixed(0)}%</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="flex justify-between font-mono text-[0.68rem] text-ink-light tracking-wide mt-1.5">
+                              {sortedProbs.map(([r]) => (
+                                <span key={r}>{regimeNames[r]?.split(' ')[0]}{r === rf.current_regime ? ' ●' : ''}</span>
                               ))}
                             </div>
                           </div>
                         )}
 
                         {/* All 7 regimes */}
-                        <div className="space-y-1">
+                        <div className="border-t border-rule pt-3 space-y-0">
                           {allRegimes.map(r => {
                             const isCurrent = r === rf.current_regime;
                             const c = regimeColors[r] || { bg: 'bg-paper-deep', text: 'text-ink-mute', bar: 'bg-rule' };
                             const prob = probs[r];
                             return (
-                              <div key={r} className={`flex items-center justify-between px-2 py-1.5 rounded-lg ${isCurrent ? c.bg : ''}`}>
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-2.5 h-2.5 rounded-full ${c.bar}`} />
+                              <div key={r} className={`flex items-center justify-between px-2 py-2 border-b border-rule last:border-b-0 ${isCurrent ? 'bg-claret/5' : ''}`}>
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-2.5 h-2.5 ${isCurrent ? 'bg-claret' : c.bar}`} />
                                   <div>
-                                    <span className={`text-sm font-medium ${isCurrent ? c.text : 'text-ink'}`}>
-                                      {regimeNames[r]}{isCurrent ? ' \u25CF' : ''}
+                                    <span className={`text-sm font-medium ${isCurrent ? 'text-ink' : 'text-ink-mute'}`}>
+                                      {regimeNames[r]}
                                     </span>
                                     <span className="text-xs text-ink-light ml-2">{regimeDescriptions[r]}</span>
                                   </div>
                                 </div>
-                                {prob != null && (
-                                  <span className={`text-sm font-semibold ${isCurrent ? c.text : 'text-ink-mute'}`}>{prob.toFixed(0)}%</span>
-                                )}
+                                <span className={`font-mono text-sm ${isCurrent ? 'text-claret font-medium' : 'text-ink-light'}`}>
+                                  {prob != null ? `${prob.toFixed(0)}%` : '—'}
+                                </span>
                               </div>
                             );
                           })}
@@ -3219,25 +3239,20 @@ function Dashboard() {
             )}
 
             {/* Metric Cards */}
-            {viewMode === 'simple' ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-                <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={Wallet} trend="up" />
-                <MetricCard title="P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} icon={totalPnlPct >= 0 ? TrendingUp : TrendingDown} trend={totalPnlPct >= 0 ? 'up' : 'down'} />
-                <MetricCard title="Buy Signals" value={dashboardData?.market_stats?.signal_count || signalsWithLiveQuotes.length} subtitle={`${dashboardData?.market_stats?.fresh_count || 0} fresh`} icon={Zap} />
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-                <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={Wallet} trend="up" />
-                <MetricCard title="Open P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} icon={totalPnlPct >= 0 ? TrendingUp : TrendingDown} trend={totalPnlPct >= 0 ? 'up' : 'down'} />
-                <MetricCard title="Positions" value={`${positions.length}/6`} icon={PieIcon} />
-                <MetricCard title="Buy Signals" value={dashboardData?.market_stats?.signal_count || signalsWithLiveQuotes.length} subtitle={`${dashboardData?.market_stats?.fresh_count || 0} fresh`} icon={Zap} />
-                <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${trades.length} trades`} icon={Target} />
+            {/* Stats strip — always show all 5 */}
+            {(
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 border-t border-b border-ink py-4 mb-6">
+                <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} subtitle={`Cost basis $${totalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}`} />
+                <MetricCard title="Open P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} trend={totalPnlPct >= 0 ? 'up' : 'down'} subtitle={`${totalPnlPct >= 0 ? '+' : ''}$${Math.abs(totalValue - totalCost).toLocaleString(undefined, {maximumFractionDigits: 0})} unrealized`} />
+                <MetricCard title="Positions" value={<>{positions.length}<span className="text-[0.95rem] text-ink-light">&thinsp;/&thinsp;6</span></>} subtitle={positions.length >= 6 ? 'Max filled' : `${6 - positions.length} open slots`} />
+                <MetricCard title="Buy Signals" value={dashboardData?.market_stats?.signal_count || signalsWithLiveQuotes.length} subtitle={`${dashboardData?.market_stats?.fresh_count || 0} fresh`} />
+                <MetricCard title="Win Rate" value={trades.length > 0 ? `${winRate.toFixed(0)}%` : '—'} subtitle={trades.length > 0 ? `${trades.length} trades` : '0 closed trades'} />
               </div>
             )}
 
             {/* Last updated timestamp */}
             {dashboardData?.generated_at && (
-              <p className="text-xs text-ink-light text-right mb-2 -mt-2">
+              <p className="font-mono text-[0.72rem] text-ink-light text-right mb-4 -mt-2 tracking-wide">
                 Last updated: {(() => {
                   const raw = dashboardData.generated_at;
                   const d = new Date(raw.endsWith('Z') ? raw : raw + 'Z');
@@ -3256,15 +3271,14 @@ function Dashboard() {
             {/* Two column layout: Buy Signals | Open Positions */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* LEFT: Buy Signals */}
-              <div className="bg-paper-card rounded shadow-sm border border-rule overflow-hidden">
-                <div className="px-5 py-4 border-b border-rule flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-yellow-500" />
-                    <h2 className="text-lg font-semibold text-ink">Buy Signals</h2>
-                    <span className="text-[10px] text-ink-light ml-1">Signals only — execute via your broker</span>
+              <div className="overflow-hidden">
+                <div className="flex items-baseline justify-between pb-3 border-b-2 border-ink mb-5">
+                  <div className="flex items-baseline gap-2">
+                    <h2 className="font-display text-[1.25rem] font-medium text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>Buy Signals</h2>
+                    <em className="font-display italic text-ink-mute text-[0.85rem]" style={{ fontVariationSettings: '"opsz" 24' }}>Signals only — execute via your broker</em>
                     {dashboardData?.buy_signals?.filter(s => s.is_fresh).length > 0 && (
-                      <span className="bg-positive/10 text-positive text-xs px-2 py-0.5 rounded-full font-medium">
-                        {dashboardData.buy_signals.filter(s => s.is_fresh).length} fresh
+                      <span className="font-body text-[0.65rem] font-medium tracking-[0.15em] uppercase text-claret ml-1">
+                        {dashboardData.buy_signals.filter(s => s.is_fresh).length} Fresh
                       </span>
                     )}
                     <button
@@ -3278,7 +3292,7 @@ function Dashboard() {
                       )}
                     </button>
                   </div>
-                  <span className="text-xs text-ink-mute">
+                  <span className="font-mono text-[0.72rem] text-ink-light tracking-wide">
                     {(() => {
                       // Find the most recent ensemble entry date
                       // Priority: unfiltered fresh dates (includes held positions) > current signals > persisted DB date
@@ -3489,28 +3503,24 @@ function Dashboard() {
                         return (
                           <div
                             key={s.symbol}
-                            className={`px-4 py-3 flex items-center justify-between cursor-pointer transition-colors ${
-                              s.is_fresh ? 'bg-positive/10 hover:bg-positive/10 border-l-4 border-l-claret' : 'hover:bg-paper-card'
+                            className={`px-4 py-3 flex items-center justify-between cursor-pointer transition-colors border-b border-rule ${
+                              s.is_fresh ? 'border-l-4 border-l-claret' : 'hover:bg-paper-card'
                             }`}
                             onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
                           >
                             <div className="flex items-center gap-3">
-                              <span className={`font-semibold text-base ${s.is_fresh ? 'text-ink' : 'text-ink'}`}>{s.symbol}</span>
-                              {s.is_intraday && (
-                                <span className="inline-flex items-center gap-0.5 text-[10px] bg-paper-deep0 text-white px-1.5 py-0.5 rounded-full font-semibold animate-pulse">
-                                  <Clock className="w-3 h-3" />
-                                  LIVE
+                              <div>
+                                <span className="font-display text-[1.1rem] font-medium tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>{s.symbol}</span>
+                                <span className="block font-mono text-[0.68rem] text-ink-light tracking-wide">
+                                  {s.is_fresh ? `${Math.min(s.days_since_entry ?? 999, s.days_since_crossover ?? 999)}d ago` : `${s.days_since_crossover}d`}
                                 </span>
-                              )}
-                              <span className="text-ink-mute text-sm">${s.price?.toFixed(2)}</span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${labelColor}`}>{label}</span>
+                              </div>
+                              <span className="font-mono text-[0.88rem] text-ink-mute">${s.price?.toFixed(2)}</span>
+                              <span className="font-mono text-[0.7rem] tracking-[0.12em] uppercase text-claret">{label}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               {s.is_fresh && (
-                                <span className={`text-xs bg-ink text-paper px-2.5 py-1 rounded-[2px] font-medium tracking-wide`}>ENTRY</span>
-                              )}
-                              {s.is_fresh && (s.days_since_entry ?? s.days_since_crossover) === 0 && (
-                                <span className="text-xs text-positive font-semibold">New!</span>
+                                <span className="font-body text-[0.72rem] font-medium tracking-[0.15em] uppercase px-3 py-1.5 bg-ink text-paper border border-ink hover:bg-claret hover:border-claret transition-colors">RECORD ENTRY</span>
                               )}
                             </div>
                           </div>
@@ -3527,33 +3537,20 @@ function Dashboard() {
                           }`}
                           onClick={() => setChartModal({ type: 'signal', data: s, symbol: s.symbol })}
                         >
-                          <td className="px-3 py-2.5">
-                            <div className="flex items-center gap-1.5">
-                              <span className={`font-semibold ${s.is_fresh ? 'text-ink' : 'text-ink'}`}>
-                                {s.symbol}
-                              </span>
-                              {s.is_strong && <ArrowUpRight className="w-3 h-3 text-positive" />}
-                              {s.is_intraday && (
-                                <span className="inline-flex items-center gap-0.5 text-[10px] bg-paper-deep0 text-white px-1.5 py-0.5 rounded-full font-semibold animate-pulse">
-                                  <Clock className="w-3 h-3" />
-                                  LIVE
-                                </span>
-                              )}
-                            </div>
-                            {s.is_fresh ? (
-                              <span className={`text-xs ${(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'text-positive font-semibold' : 'text-positive'}`}>
-                                {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'New today!' : `${Math.min(s.days_since_entry ?? 999, s.days_since_crossover ?? 999)}d ago`}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-ink-light">Crossed {s.days_since_crossover}d ago</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2.5 text-right">${s.price?.toFixed(2)}</td>
-                          <td className="px-3 py-2.5 text-right text-positive font-medium">+{s.pct_above_dwap?.toFixed(1)}%</td>
-                          <td className="px-3 py-2.5 text-right">
-                            <span className={`font-medium ${s.momentum_rank <= 5 ? 'text-positive' : 'text-ink-mute'}`}>
-                              #{s.momentum_rank}
+                          <td className="px-3 py-3">
+                            <span className="font-display text-[1.05rem] font-medium tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>
+                              {s.symbol}
                             </span>
+                            <span className="block font-mono text-[0.68rem] text-ink-light tracking-wide mt-0.5">
+                              {s.is_fresh
+                                ? ((s.days_since_entry ?? s.days_since_crossover) === 0 ? 'TODAY' : `${Math.min(s.days_since_entry ?? 999, s.days_since_crossover ?? 999)}D AGO`)
+                                : `${s.days_since_crossover}D AGO`}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 text-right font-mono text-[0.88rem]">${s.price?.toFixed(2)}</td>
+                          <td className="px-3 py-3 text-right font-mono text-[0.88rem] text-positive">+{s.pct_above_dwap?.toFixed(1)}%</td>
+                          <td className="px-3 py-3 text-center font-mono text-[0.85rem] text-ink-mute">
+                            #{s.momentum_rank}
                           </td>
                           <td className="px-3 py-2.5 text-center">
                             {(() => {
@@ -3564,23 +3561,19 @@ function Dashboard() {
                                 if (score >= 61) return 'Moderate';
                                 return 'Weak';
                               })();
-                              const labelColor = label === 'Very Strong' ? 'bg-positive text-white' :
-                                                label === 'Strong' ? 'bg-positive/10 text-positive' :
-                                                label === 'Moderate' ? 'bg-claret/10 text-ink' :
-                                                'bg-paper-deep text-ink-mute';
-                              return <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${labelColor}`}>{label}</span>;
+                              return <span className="font-mono text-[0.7rem] tracking-[0.12em] uppercase text-claret">{label}</span>;
                             })()}
                           </td>
                           {s.is_fresh && (
-                            <td className="px-3 py-2.5 text-center">
+                            <td className="px-3 py-3 text-center">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setChartModal({ type: 'signal', data: s, symbol: s.symbol });
                                 }}
-                                className={`text-xs bg-positive text-white px-2.5 py-1 rounded font-medium hover:bg-green-700 ${s.days_since_crossover === 0 ? 'animate-pulse' : ''}`}
+                                className="font-body text-[0.72rem] font-medium tracking-[0.15em] uppercase px-3 py-1.5 bg-ink text-paper border border-ink hover:bg-claret hover:border-claret transition-colors"
                               >
-                                {(s.days_since_entry ?? s.days_since_crossover) === 0 ? 'BUY NOW' : 'BUY'}
+                                RECORD ENTRY
                               </button>
                             </td>
                           )}
@@ -3591,8 +3584,11 @@ function Dashboard() {
                         <div>
                           {/* AI Market Briefing — shown whenever it exists, not just empty state */}
                           {dashboardData?.market_context && (
-                            <div className="px-4 py-3 mx-4 mt-4 mb-2 bg-paper-deep/50 border border-blue-100 rounded-lg">
-                              <p className="text-sm text-ink italic leading-relaxed">{dashboardData.market_context}</p>
+                            <div className="mx-4 mt-4 mb-4 py-4 px-5 bg-paper-card border-l-2 border-claret" style={{ fontVariationSettings: '"opsz" 24' }}>
+                              <span className="block font-body text-[0.64rem] font-medium tracking-[0.22em] uppercase text-ink-mute mb-2 not-italic">
+                                {new Date().toLocaleDateString('en-US', { weekday: 'long' })} · {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                              </span>
+                              <p className="font-display italic text-[1rem] text-ink leading-[1.6]">{dashboardData.market_context}</p>
                             </div>
                           )}
 
@@ -3830,10 +3826,10 @@ function Dashboard() {
                 const activePositions = filteredGuidance.length > 0 ? filteredGuidance : filteredPositions;
                 const hasUnfilteredPositions = guidanceWithLiveQuotes.length > 0 || positionsWithLiveQuotes.length > 0;
                 return (
-              <div className="bg-paper-card rounded shadow-sm border border-rule overflow-hidden">
-                <div className="px-5 py-4 border-b border-rule flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-ink">Open Positions</h2>
-                  <span className="text-xs text-ink-mute">Click row for chart</span>
+              <div className="overflow-hidden">
+                <div className="flex items-baseline justify-between pb-3 border-b-2 border-ink mb-5">
+                  <h2 className="font-display text-[1.25rem] font-medium text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>Open Positions</h2>
+                  <span className="font-mono text-[0.72rem] text-ink-light tracking-wide">Click row for chart</span>
                 </div>
 
                 <div className="max-h-[500px] overflow-y-auto">
@@ -3847,34 +3843,36 @@ function Dashboard() {
                   ) : activePositions.length > 0 ? (
                     viewMode === 'simple' ? (
                       /* Simple mode: list items with friendly status */
-                      <div className="divide-y divide-gray-100">
+                      <div className="divide-y divide-rule">
                         {activePositions.map((p) => {
                           const action = p.action || 'hold';
                           const pnl = p.pnl_pct || ((p.current_price - p.entry_price) / p.entry_price * 100) || 0;
-                          const friendlyStatus = action === 'sell' ? 'Consider selling'
-                            : action === 'warning' ? 'Watch closely'
-                            : 'Looking good';
+                          const statusLabel = action === 'sell' ? 'SELL'
+                            : action === 'warning' ? 'WATCH'
+                            : 'HOLD';
                           const statusColor = action === 'sell' ? 'text-negative'
                             : action === 'warning' ? 'text-claret'
-                            : 'text-positive';
+                            : 'text-ink-mute';
 
                           return (
                             <div
                               key={p.id || p.symbol}
-                              className={`px-4 py-3 flex items-center justify-between cursor-pointer transition-colors ${
-                                action === 'sell' ? 'bg-negative/10 hover:bg-negative/10 border-l-4 border-l-red-500' :
-                                action === 'warning' ? 'bg-paper-deep hover:bg-claret/10 border-l-4 border-l-amber-500' :
-                                'hover:bg-paper-card'
+                              className={`px-4 py-3 flex items-center justify-between cursor-pointer transition-colors hover:bg-paper-card ${
+                                action === 'sell' ? 'border-l-4 border-l-negative' :
+                                action === 'warning' ? 'border-l-4 border-l-claret' : ''
                               }`}
                               onClick={() => setChartModal({ type: 'position', data: p, symbol: p.symbol })}
                             >
-                              <div>
-                                <span className="font-semibold text-ink">{p.symbol}</span>
-                                <span className={`ml-2 font-semibold ${pnl >= 0 ? 'text-positive' : 'text-negative'}`}>
+                              <div className="flex items-center gap-3">
+                                <div>
+                                  <span className="font-display text-[1.05rem] font-medium tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>{p.symbol}</span>
+                                  <span className="block font-mono text-[0.72rem] text-ink-light">{p.shares?.toFixed(1)} shares</span>
+                                </div>
+                                <span className={`font-mono text-[0.88rem] font-medium ${pnl >= 0 ? 'text-positive' : 'text-negative'}`}>
                                   {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%
                                 </span>
                               </div>
-                              <span className={`text-xs font-medium ${statusColor}`}>{friendlyStatus}</span>
+                              <span className={`font-mono text-[0.68rem] tracking-[0.2em] uppercase ${statusColor} px-2 py-1 border border-rule-dark`}>{statusLabel}</span>
                             </div>
                           );
                         })}
@@ -3882,16 +3880,16 @@ function Dashboard() {
                     ) : (
                       /* Advanced mode: full table */
                       <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-paper-card text-ink-mute sticky top-0">
+                      <table className="w-full border-collapse" style={{ fontFeatureSettings: '"tnum"' }}>
+                        <thead>
                           <tr>
-                            <th className="px-3 py-2 text-left font-medium">Symbol</th>
-                            <th className="px-3 py-2 text-right font-medium">P&L</th>
-                            <th className="px-3 py-2 text-center font-medium">Status</th>
-                            <th className="px-3 py-2 text-right font-medium">Stop</th>
+                            <th className="px-3 py-2 text-left font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Symbol</th>
+                            <th className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">P&L</th>
+                            <th className="px-3 py-2 text-center font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Status</th>
+                            <th className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Stop</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody>
                           {activePositions.map((p) => {
                             const action = p.action || 'hold';
                             const pnl = p.pnl_pct || ((p.current_price - p.entry_price) / p.entry_price * 100) || 0;
@@ -3900,41 +3898,34 @@ function Dashboard() {
                             return (
                               <tr
                                 key={p.id || p.symbol}
-                                className={`cursor-pointer transition-colors ${
-                                  action === 'sell' ? 'bg-negative/10 hover:bg-negative/10 border-l-4 border-l-red-500' :
-                                  action === 'warning' ? 'bg-paper-deep hover:bg-claret/10 border-l-4 border-l-amber-500' :
-                                  'hover:bg-paper-card'
+                                className={`cursor-pointer transition-colors border-b border-rule hover:bg-paper-card ${
+                                  action === 'sell' ? 'border-l-4 border-l-negative' :
+                                  action === 'warning' ? 'border-l-4 border-l-claret' : ''
                                 }`}
                                 onClick={() => setChartModal({ type: 'position', data: p, symbol: p.symbol })}
                               >
-                                <td className="px-3 py-2.5">
-                                  <span className="font-semibold text-ink">{p.symbol}</span>
-                                  <div className="text-xs text-ink-light">{p.shares?.toFixed(1)} shares</div>
+                                <td className="px-3 py-3">
+                                  <span className="font-display text-[1.05rem] font-medium tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>{p.symbol}</span>
+                                  <div className="font-mono text-[0.72rem] text-ink-light mt-0.5">{p.shares?.toFixed(1)} shares</div>
                                 </td>
-                                <td className="px-3 py-2.5 text-right">
-                                  <span className={`font-semibold ${pnlColor}`}>
+                                <td className="px-3 py-3 text-right">
+                                  <span className={`font-mono text-[0.88rem] font-medium ${pnlColor}`}>
                                     {pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%
                                   </span>
-                                  <div className="text-xs text-ink-light">${p.current_price?.toFixed(2)}</div>
+                                  <div className="font-mono text-[0.72rem] text-ink-light mt-0.5">${p.current_price?.toFixed(2)}</div>
                                 </td>
-                                <td className="px-3 py-2.5 text-center">
-                                  {action === 'sell' ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-negative/10 text-negative">
-                                      <TrendingDown size={12} /> SELL
-                                    </span>
-                                  ) : action === 'warning' ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-claret/10 text-claret">
-                                      <AlertCircle size={12} /> WARN
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-positive/10 text-positive">
-                                      <Shield size={12} /> HOLD
-                                    </span>
-                                  )}
+                                <td className="px-3 py-3 text-center">
+                                  <span className={`font-mono text-[0.68rem] tracking-[0.2em] uppercase px-2 py-1 border ${
+                                    action === 'sell' ? 'text-negative border-negative/30' :
+                                    action === 'warning' ? 'text-claret border-claret/30' :
+                                    'text-ink-mute border-rule-dark'
+                                  }`}>
+                                    {action === 'sell' ? 'SELL' : action === 'warning' ? 'WATCH' : 'HOLD'}
+                                  </span>
                                 </td>
-                                <td className="px-3 py-2.5 text-right">
-                                  <span className="text-xs text-ink-mute">${p.trailing_stop_level?.toFixed(2) || '--'}</span>
-                                  <div className="text-xs text-ink-light">
+                                <td className="px-3 py-3 text-right">
+                                  <span className="font-mono text-[0.88rem] text-ink-mute">${p.trailing_stop_level?.toFixed(2) || '--'}</span>
+                                  <div className="font-mono text-[0.72rem] text-ink-light mt-0.5">
                                     {p.distance_to_stop_pct != null ? `${p.distance_to_stop_pct.toFixed(0)}% away` : ''}
                                   </div>
                                 </td>
@@ -4032,32 +4023,31 @@ function Dashboard() {
                 </div>
               ) : (
                 /* Advanced mode: full table */
-                <div className="mt-6 bg-paper-card rounded shadow-sm border border-rule overflow-hidden">
-                  <div className="px-5 py-4 border-b border-rule flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-claret" />
-                    <h2 className="text-lg font-semibold text-ink">Missed Opportunities</h2>
-                    <span className="text-xs text-ink-mute ml-2">Profitable trades using trailing stop exits</span>
+                <div className="mt-6 overflow-hidden">
+                  <div className="flex items-baseline justify-between pb-3 border-b-2 border-ink mb-5">
+                    <h2 className="font-display text-[1.25rem] font-medium text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>Missed Opportunities</h2>
+                    <span className="font-mono text-[0.72rem] text-ink-light tracking-wide">Trailing stop exits</span>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-paper-card text-ink-mute">
+                    <table className="w-full border-collapse" style={{ fontFeatureSettings: '"tnum"' }}>
+                      <thead>
                         <tr>
-                          <th className="px-3 py-2 text-left font-medium">Symbol</th>
-                          <th className="px-3 py-2 text-left font-medium hidden sm:table-cell">Buy Date</th>
-                          <th className="px-3 py-2 text-right font-medium hidden md:table-cell">Buy $</th>
-                          <th className="px-3 py-2 text-left font-medium hidden sm:table-cell">Sell Date</th>
-                          <th className="px-3 py-2 text-right font-medium hidden md:table-cell">Sell $</th>
+                          <th className="px-3 py-2 text-left font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Symbol</th>
+                          <th className="px-3 py-2 text-left font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink hidden sm:table-cell">Buy</th>
+                          <th className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink hidden md:table-cell">Buy $</th>
+                          <th className="px-3 py-2 text-left font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink hidden sm:table-cell">Sell</th>
+                          <th className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink hidden md:table-cell">Sell $</th>
                           <th
-                            className="px-3 py-2 text-right font-medium cursor-pointer select-none hover:text-claret transition-colors"
+                            className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink cursor-pointer hover:text-claret transition-colors"
                             onClick={() => setMissedSortBy(prev => prev === 'return' ? 'date' : 'return')}
                           >
                             Return {missedSortBy === 'return' ? '↓' : ''}
                           </th>
-                          <th className="px-3 py-2 text-right font-medium">P&L</th>
-                          <th className="px-3 py-2 text-right font-medium hidden sm:table-cell">Days</th>
+                          <th className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">P&L</th>
+                          <th className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink hidden sm:table-cell">Days</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody>
                         {[...missedOpportunities].sort((a, b) =>
                           missedSortBy === 'return'
                             ? (b.would_be_return || 0) - (a.would_be_return || 0)
@@ -4065,21 +4055,17 @@ function Dashboard() {
                         ).map((m) => (
                           <tr
                             key={`${m.symbol}-${m.entry_date}`}
-                            className="hover:bg-paper-deep cursor-pointer transition-colors"
+                            className="hover:bg-paper-card cursor-pointer transition-colors border-b border-rule"
                             onClick={() => setChartModal({ type: 'missed', data: m, symbol: m.symbol })}
                           >
-                            <td className="px-3 py-2.5 font-semibold text-ink">{m.symbol}</td>
-                            <td className="px-3 py-2.5 text-ink-mute hidden sm:table-cell">{formatDate(m.entry_date)}</td>
-                            <td className="px-3 py-2.5 text-right hidden md:table-cell">${m.entry_price?.toFixed(2)}</td>
-                            <td className="px-3 py-2.5 text-ink-mute hidden sm:table-cell">{formatDate(m.sell_date)}</td>
-                            <td className="px-3 py-2.5 text-right hidden md:table-cell">${m.sell_price?.toFixed(2)}</td>
-                            <td className="px-3 py-2.5 text-right">
-                              <span className="text-positive font-semibold">+{m.would_be_return?.toFixed(1)}%</span>
-                            </td>
-                            <td className="px-3 py-2.5 text-right text-positive font-medium">
-                              +${m.would_be_pnl?.toFixed(0)}
-                            </td>
-                            <td className="px-3 py-2.5 text-right text-ink-mute hidden sm:table-cell">{m.days_held}d</td>
+                            <td className="px-3 py-3"><span className="font-display text-[1.05rem] font-medium" style={{ fontVariationSettings: '"opsz" 48' }}>{m.symbol}</span></td>
+                            <td className="px-3 py-3 font-mono text-[0.85rem] text-ink-mute hidden sm:table-cell">{formatDate(m.entry_date)}</td>
+                            <td className="px-3 py-3 text-right font-mono text-[0.88rem] hidden md:table-cell">${m.entry_price?.toFixed(2)}</td>
+                            <td className="px-3 py-3 font-mono text-[0.85rem] text-ink-mute hidden sm:table-cell">{formatDate(m.sell_date)}</td>
+                            <td className="px-3 py-3 text-right font-mono text-[0.88rem] hidden md:table-cell">${m.sell_price?.toFixed(2)}</td>
+                            <td className="px-3 py-3 text-right font-mono text-[0.88rem] text-positive font-medium">+{m.would_be_return?.toFixed(1)}%</td>
+                            <td className="px-3 py-3 text-right font-mono text-[0.88rem] text-positive">+${m.would_be_pnl?.toFixed(0)}</td>
+                            <td className="px-3 py-3 text-right font-mono text-[0.85rem] text-ink-mute hidden sm:table-cell">{m.days_held}d</td>
                           </tr>
                         ))}
                       </tbody>
@@ -4094,7 +4080,7 @@ function Dashboard() {
               <div className={`mt-6 bg-gradient-to-r ${backtest.is_walk_forward ? 'from-paper-deep to-paper-card border-rule-dark' : 'from-paper-deep to-paper-card border-rule'} border rounded p-4`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold text-ink">
+                    <h3 className="font-display text-[1.1rem] font-medium text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>
                       Simulated Portfolio {backtest.is_walk_forward ? '(Walk-Forward)' : '(Backtest)'}
                     </h3>
                     <p className="text-sm text-ink-mute">
