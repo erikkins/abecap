@@ -276,8 +276,8 @@ class EmailService:
             <td style="padding: 24px 24px 0;">
                 <table cellpadding="0" cellspacing="0" style="width: 100%; border-bottom: 2px solid #141210; padding-bottom: 16px;">
                     <tr>
-                        <td style="font-family: Georgia, 'Times New Roman', serif; font-size: 24px; font-weight: 600; color: #141210; letter-spacing: -0.5px;">
-                            RigaCap<span style="color: #7A2430;">.</span>
+                        <td>
+                            <img src="https://rigacap.com/email-header.png" alt="RigaCap." width="150" height="36" style="display: block;" />
                         </td>
                         <td align="right" style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; letter-spacing: 1px; text-transform: uppercase;">
                             Daily Digest
@@ -1859,8 +1859,8 @@ Unsubscribe: https://rigacap.com/unsubscribe
             <td style="padding: 32px 32px 0;">
                 <table cellpadding="0" cellspacing="0" style="width: 100%; border-bottom: 2px solid #141210; padding-bottom: 20px;">
                     <tr>
-                        <td style="font-family: Georgia, 'Times New Roman', serif; font-size: 24px; font-weight: 600; color: #141210; letter-spacing: -0.5px;">
-                            RigaCap<span style="color: #7A2430;">.</span>
+                        <td>
+                            <img src="https://rigacap.com/email-header.png" alt="RigaCap." width="150" height="36" style="display: block;" />
                         </td>
                         <td align="right" style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; letter-spacing: 1px; text-transform: uppercase;">
                             {header_title}
