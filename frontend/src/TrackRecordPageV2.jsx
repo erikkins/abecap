@@ -145,7 +145,7 @@ export default function TrackRecordPageV2() {
             {[
               ['Flat in 2022', 'S&P fell 20%', 'Capital preservation when it matters. Regime detection moved to cash before the worst of the drawdown.'],
               ['333 trades', '48.6% win rate', '1.77x win/loss ratio. Less than half the trades win, but winners are substantially larger than losers.'],
-              ['7 emergency pauses', 'Cascade Guard', 'System froze entries when multiple stops hit the same day &mdash; preventing re-entry during cascade selloffs.'],
+              ['7 emergency pauses', 'Cascade Guard', 'System froze entries when multiple stops hit the same day \u2014 preventing re-entry during cascade selloffs.'],
             ].map(([title, subtitle, desc]) => (
               <div key={title} className="bg-paper-card p-8">
                 <div className="font-display text-2xl text-ink mb-1" style={{ fontVariationSettings: '"opsz" 96' }}>{title}</div>
