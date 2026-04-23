@@ -203,8 +203,13 @@ class SocialPostingService:
             if not container_id:
                 return {"error": "No container ID returned"}
 
-            # Step 2: Poll until container is ready (up to 30s)
-            for _ in range(6):
+            # Step 2: Poll until container is ready (up to 60s).
+            # Instagram requires the container to reach FINISHED before publishing.
+            # Always wait at least 5s before first poll — the container is never
+            # ready immediately after creation.
+            container_ready = False
+            for attempt in range(12):
+                await _async_sleep(5)
                 status_resp = await client.get(
                     f"{self.INSTAGRAM_API_BASE}/{container_id}",
                     params={
@@ -213,11 +218,18 @@ class SocialPostingService:
                     },
                 )
                 status_code = status_resp.json().get("status_code")
+                logger.info(
+                    "IG container %s status (attempt %d/12): %s",
+                    container_id, attempt + 1, status_code,
+                )
                 if status_code == "FINISHED":
+                    container_ready = True
                     break
                 if status_code == "ERROR":
-                    return {"error": "Instagram container processing failed"}
-                await _async_sleep(5)
+                    return {"error": "Instagram container processing failed (status=ERROR)"}
+
+            if not container_ready:
+                return {"error": f"Instagram container not ready after 60s (last status: {status_code})"}
 
             # Step 3: Publish
             publish_resp = await client.post(
