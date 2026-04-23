@@ -314,51 +314,20 @@ class EmailService:
             </td>
         </tr>''' if market_context else ''}
 
-        <!-- Signals -->
-        <tr>
-            <td style="padding: 0 24px 24px;">
-                <table cellpadding="0" cellspacing="0" style="width: 100%;">
-                    <tr>
-                        <td style="padding: 0 0 10px; border-bottom: 1px solid #141210;">
-                            <div style="font-size: 12px; text-transform: uppercase; color: #6b7280; font-weight: 600; margin-bottom: 8px;">
-                                Market Regime
-                            </div>
-                            <div style="font-family: Georgia, serif; font-size: 22px; font-weight: 500; color: #141210;">
-                                {regime_label}
-                            </div>
-                            <div style="margin-top: 8px; font-family: 'Courier New', monospace; font-size: 12px; color: #5A544E;">
-                                SPY ${market_regime.get('spy_price', 'N/A') if market_regime else 'N/A'} &nbsp;&middot;&nbsp;
-                                VIX: {market_regime.get('vix_level', 'N/A') if market_regime else 'N/A'}
-                            </div>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-
-        {f'''<!-- Market Context -->
-        <tr>
-            <td style="padding: 0 24px 16px;">
-                <div style="background-color: #f0f9ff; border-left: 3px solid #3b82f6; border-radius: 6px; padding: 12px 16px;">
-                    <div style="font-size: 13px; color: #1e40af; line-height: 1.5;">
-                        {market_context}
-                    </div>
-                </div>
-            </td>
-        </tr>''' if market_context else ''}
-
         <!-- Buy Signals Section (fresh only) -->
         <tr>
             <td style="padding: 0 24px 24px;">
-                <h2 style="margin: 0 0 4px 0; font-size: 18px; color: #111827; border-left: 4px solid #059669; padding-left: 12px;">
-                    Ensemble Buy Signals{f' ({len(fresh_signals)})' if fresh_signals else ''}
-                </h2>
-                <p style="margin: 0 0 16px 16px; font-size: 13px; color: #6b7280;">
-                    Recent breakout + top momentum — consider adding
-                </p>
+                <div style="padding-bottom: 8px; border-bottom: 1px solid #DDD5C7; margin-bottom: 12px;">
+                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                        <tr>
+                            <td style="font-family: Georgia, serif; font-size: 16px; font-weight: 500; color: #141210;">Buy Signals <span style="font-style: italic; color: #8A8279; font-weight: 400;">({len(fresh_signals)})</span></td>
+                            <td align="right" style="font-family: Georgia, serif; font-style: italic; font-size: 13px; color: #7A2430;">Consider adding</td>
+                        </tr>
+                    </table>
+                </div>
                 {"".join(self._signal_row(s) for s in fresh_signals[:8]) if fresh_signals else f'''
-                <div style="background-color: #f9fafb; border-radius: 8px; padding: 24px; text-align: center; color: #6b7280;">
-                    No fresh buy signals today{f" — {len(watchlist)} stock{'s' if len(watchlist) != 1 else ''} approaching trigger" if watchlist else ". Check back tomorrow!"}
+                <div style="padding: 24px; text-align: center; font-family: Georgia, serif; font-style: italic; color: #5A544E;">
+                    No fresh signals today.{f" {len(watchlist)} approaching trigger." if watchlist else ""}
                 </div>
                 '''}
             </td>
@@ -460,7 +429,9 @@ class EmailService:
             <tr>
                 <td style="padding: 10px 0; border-bottom: 1px solid #DDD5C7;">
                     <a href="https://rigacap.com/app?chart={symbol}" style="font-family: Georgia, serif; font-size: 16px; font-weight: 500; color: #141210; text-decoration: none;">{symbol}</a>
-                    <span style="font-family: 'Courier New', monospace; font-size: 12px; color: #8A8279;"> ${price:.2f}</span>
+                </td>
+                <td style="padding: 10px 0; text-align: right; border-bottom: 1px solid #DDD5C7; font-family: 'Courier New', monospace; font-size: 13px; color: #141210;">
+                    ${price:.2f}
                 </td>
                 <td style="padding: 10px 0; text-align: right; border-bottom: 1px solid #DDD5C7; font-family: 'Courier New', monospace; font-size: 11px; color: #5A544E;">
                     +{distance:.1f}% to trigger
