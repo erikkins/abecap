@@ -93,7 +93,7 @@ const HeroSection = ({ onGetStarted }) => (
         </a>
       </div>
 
-      <div className="flex flex-wrap gap-12 mt-14 pt-8 border-t border-rule">
+      <div className="flex flex-wrap gap-12 mt-20 pt-8 border-t border-rule">
         {[
           ['~21.5%', 'Annualized, friction-adjusted'],
           ['Multi-date', 'Robustness tested'],

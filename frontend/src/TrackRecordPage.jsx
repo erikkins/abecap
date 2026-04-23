@@ -70,7 +70,7 @@ export default function TrackRecordPage() {
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 sm:p-6">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Activity className="w-5 h-5 text-blue-400" />
-            5-Year Equity Curve — 8 Start Dates vs S&P 500
+            5-Year Equity Curve — Multiple Start Dates vs S&P 500
           </h2>
           <TrackRecordChart />
           <p className="text-xs text-gray-600 mt-3 text-center">
