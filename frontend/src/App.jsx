@@ -3630,13 +3630,7 @@ function Dashboard() {
                                     if (isWeekend) {
                                       return <p className="text-center text-ink-mute">Have a nice {dayName}! Markets reopen {day === 6 ? 'Monday' : 'tomorrow'}.</p>;
                                     }
-                                    return dashboardData?.market_context ? (
-                                      <div>
-                                        <p className="text-ink-mute italic leading-relaxed">{dashboardData.market_context}</p>
-                                      </div>
-                                    ) : (
-                                      <p className="text-center text-ink-mute">No fresh buy signals today</p>
-                                    );
+                                    return <p className="text-center text-ink-mute font-display italic" style={{ fontVariationSettings: '"opsz" 24' }}>No fresh signals today. The system is watching.</p>;
                                   })()}
                                   {heldFreshCount === 0 && daysSinceLastSignal > 14 && !dashboardData?.market_context && (
                                     <p className="text-xs text-ink-light mt-1.5 max-w-xs mx-auto text-center">
