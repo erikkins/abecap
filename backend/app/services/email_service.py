@@ -351,7 +351,7 @@ class EmailService:
         </tr>
 
         <!-- Monitoring Section (non-fresh signals) -->
-        {self._monitoring_section([s for s in signals if not s.get('is_fresh')][:6]) if [s for s in signals if not s.get('is_fresh')] else ''}
+        {self._monitoring_section([s for s in signals if not s.get('is_fresh')]) if [s for s in signals if not s.get('is_fresh')] else ''}
 
         <!-- Watchlist Section -->
         {self._watchlist_section(watchlist) if watchlist else ''}
@@ -413,22 +413,31 @@ class EmailService:
         </div>
         """
 
-    def _monitoring_section(self, monitoring_signals: List[Dict]) -> str:
+    def _monitoring_section(self, monitoring_signals: List[Dict], max_rows: int = 6) -> str:
         """Generate HTML for monitoring section (non-fresh signals above breakout trigger + top momentum)"""
         if not monitoring_signals:
             return ''
 
-        rows = "".join(self._signal_row(s) for s in monitoring_signals)
+        total = len(monitoring_signals)
+        shown = monitoring_signals[:max_rows]
+        rows = "".join(self._signal_row(s) for s in shown)
+        remaining = total - len(shown)
+        more_note = f"""
+                <tr>
+                    <td colspan="4" style="padding: 8px 0; text-align: center; font-family: Georgia, serif; font-style: italic; font-size: 13px; color: #8A8279;">
+                        and {remaining} more on your <a href="https://rigacap.com/app" style="color: #7A2430; text-decoration: none;">dashboard</a>
+                    </td>
+                </tr>""" if remaining > 0 else ""
         return f"""
         <tr>
             <td style="padding: 0 24px 24px;">
                 <table cellpadding="0" cellspacing="0" style="width: 100%; padding-bottom: 8px; border-bottom: 1px solid #DDD5C7; margin-bottom: 8px;">
                     <tr>
-                        <td style="font-family: Georgia, serif; font-size: 16px; font-weight: 500; color: #141210;">Monitoring <span style="font-style: italic; color: #8A8279; font-weight: 400;">({len(monitoring_signals)})</span></td>
+                        <td style="font-family: Georgia, serif; font-size: 16px; font-weight: 500; color: #141210;">Monitoring <span style="font-style: italic; color: #8A8279; font-weight: 400;">({total})</span></td>
                         <td align="right" style="font-family: Georgia, serif; font-style: italic; font-size: 13px; color: #5A544E;">Watching for entry</td>
                     </tr>
                 </table>
-                {rows}
+                {rows}{more_note}
             </td>
         </tr>
         """
