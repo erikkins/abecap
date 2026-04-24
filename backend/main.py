@@ -2518,12 +2518,70 @@ def handler(event, context):
                 if alerts_sent > 0:
                     _save_alert_dedup(sched._alerted_sell_positions)
 
+                # --- VWAP Slippage Tracker: record post-publication prices ---
+                slippage_recorded = 0
+                try:
+                    import boto3, os as _os
+                    bucket = _os.environ.get("PRICE_DATA_BUCKET")
+                    if bucket and dashboard_data:
+                        generated_at_str = dashboard_data.get('generated_at', '')
+                        if generated_at_str:
+                            from dateutil import parser as dt_parser
+                            pub_time = dt_parser.parse(generated_at_str).replace(tzinfo=None)
+                            now = datetime.utcnow()
+                            minutes_since_pub = (now - pub_time).total_seconds() / 60
+
+                            # Only track for first 60 minutes after publication
+                            if 0 < minutes_since_pub <= 60:
+                                fresh_signals = [s for s in dashboard_data.get('buy_signals', []) if s.get('is_fresh')]
+                                if fresh_signals:
+                                    s3 = boto3.client("s3")
+                                    snapshot_time = now.strftime('%H-%M-%S')
+                                    pub_date = pub_time.strftime('%Y-%m-%d')
+
+                                    snapshots = []
+                                    for sig in fresh_signals:
+                                        sym = sig.get('symbol', '')
+                                        pub_price = sig.get('price', 0)
+                                        live_price = live_prices.get(sym)
+                                        if not live_price or not pub_price:
+                                            continue
+                                        slippage_bps = round((live_price - pub_price) / pub_price * 10000, 1)
+                                        snapshots.append({
+                                            'symbol': sym,
+                                            'published_price': pub_price,
+                                            'live_price': live_price,
+                                            'slippage_bps': slippage_bps,
+                                            'minutes_since_publication': round(minutes_since_pub, 1),
+                                        })
+
+                                    if snapshots:
+                                        payload = {
+                                            'published_at': generated_at_str,
+                                            'snapshot_at': now.isoformat(),
+                                            'minutes_since_publication': round(minutes_since_pub, 1),
+                                            'signals': snapshots,
+                                        }
+                                        s3_key = f"signals/slippage/{pub_date}/{snapshot_time}.json"
+                                        s3.put_object(
+                                            Bucket=bucket,
+                                            Key=s3_key,
+                                            Body=json.dumps(payload),
+                                            ContentType='application/json',
+                                        )
+                                        slippage_recorded = len(snapshots)
+                                        avg_slip = sum(s['slippage_bps'] for s in snapshots) / len(snapshots)
+                                        print(f"📊 Slippage tracker: {slippage_recorded} signals, avg {avg_slip:+.1f} bps, {minutes_since_pub:.0f} min post-pub")
+                except Exception as e:
+                    print(f"⚠️ Slippage tracker failed (non-fatal): {e}")
+
                 return {
                     "status": "success",
                     "positions_checked": len(rows),
                     "symbols_priced": len(live_prices),
                     "alerts_sent": alerts_sent,
                     "model_closed": len(model_closed),
+                    "slippage_tracked": slippage_recorded,
                     "regime": regime_forecast.get("recommended_action") if regime_forecast else None,
                     "details": details,
                 }
