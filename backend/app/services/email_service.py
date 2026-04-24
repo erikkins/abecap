@@ -1062,16 +1062,13 @@ Market, Measured. is a weekly reading from RigaCap.
         referral_text = ""
         if referral_code:
             referral_html = f'''
-                <div style="background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); border-radius: 12px; padding: 24px; margin: 24px 0; text-align: center;">
-                    <p style="margin: 0 0 8px 0; font-size: 18px; color: #c9a84c; font-weight: 700;">
-                        Give a Month, Get a Month
+                <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 28px 0; text-align: center;">
+                    <p style="margin: 0 0 8px; font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Give a Month, Get a Month</p>
+                    <p style="margin: 0 0 12px; font-size: 14px; color: #141210; line-height: 1.5;">
+                        Share your link with a friend. They get their first month free, you get a free month when they subscribe.
                     </p>
-                    <p style="margin: 0 0 16px 0; font-size: 14px; color: rgba(255,255,255,0.9); line-height: 1.5;">
-                        Share your referral link with a friend. They get their first month free,
-                        and when they subscribe, you get a free month too!
-                    </p>
-                    <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; margin: 0 auto; max-width: 400px;">
-                        <p style="margin: 0; font-size: 14px; color: #ffffff; font-family: monospace; word-break: break-all;">
+                    <div style="background: #FAF7F0; border: 1px solid #DDD5C7; padding: 10px; margin: 0 auto; max-width: 400px;">
+                        <p style="margin: 0; font-family: 'Courier New', monospace; font-size: 13px; color: #141210; word-break: break-all;">
                             rigacap.com/?ref={referral_code}
                         </p>
                     </div>
@@ -1090,106 +1087,75 @@ Your friend gets their first month free, and you get a free month when they subs
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
-    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+<body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #F5F1E8; -webkit-font-smoothing: antialiased;">
+    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto;">
         <!-- Header -->
         <tr>
-            <td style="background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); padding: 48px 24px; text-align: center;">
-                <img src="https://rigacap.com/email-logo-v2.png" alt="RigaCap" width="64" height="64" style="display: block; margin: 0 auto 16px auto;" />
-                <h1 style="margin: 0; color: #ffffff; font-size: 32px; font-weight: 700;">
-                    Welcome to RigaCap!
-                </h1>
-                <p style="margin: 12px 0 0 0; color: rgba(255,255,255,0.9); font-size: 18px;">
-                    Your journey to smarter trading starts now
-                </p>
+            <td style="padding: 32px 32px 0;">
+                <table cellpadding="0" cellspacing="0" style="width: 100%; border-bottom: 2px solid #141210; padding-bottom: 20px;">
+                    <tr>
+                        <td><img src="https://rigacap.com/email-header.png" alt="RigaCap." width="150" height="36" style="display: block;" /></td>
+                        <td align="right" style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; letter-spacing: 1px; text-transform: uppercase;">Welcome</td>
+                    </tr>
+                </table>
             </td>
         </tr>
 
         <!-- Welcome Message -->
         <tr>
-            <td style="padding: 40px 32px;">
-                <p style="font-size: 18px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
-                    Hey {first_name}!
+            <td style="padding: 32px;">
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px; line-height: 1.65;">
+                    {first_name},
                 </p>
-                <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
-                    Thank you for joining RigaCap! We're thrilled to have you on board.
-                    You've just unlocked access to our <strong>Ensemble signals</strong> —
-                    a disciplined momentum strategy combining timing, momentum quality, and adaptive risk management.
-                    Walk-forward validated across multiple start dates.
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px; line-height: 1.65;">
+                    Welcome to RigaCap. I built this because I got tired of overriding my own rules — the system doesn't have that problem.
+                </p>
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px; line-height: 1.65;">
+                    You now have access to the Ensemble strategy — a disciplined momentum system combining breakout timing, momentum quality ranking, and adaptive risk management. Walk-forward validated across multiple start dates with no hindsight bias.
                 </p>
 
-                <!-- What You Get Box -->
-                <div style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
-                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #059669; border-left: 4px solid #172554; padding-left: 12px;">
-                        Here's what you get:
-                    </h2>
-                    <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
-                        <li><strong>Ensemble signals</strong> — 3-4 high-conviction picks per month, delivered before market open</li>
-                        <li><strong>Simple & Advanced views</strong> — See clear buy/sell actions or dive into technical details</li>
-                        <li><strong>Smart watchlist</strong> — Get alerted when stocks approach buy triggers</li>
-                        <li><strong>Trailing stop protection</strong> — Adaptive risk management</li>
-                        <li><strong>Market regime analysis</strong> — 7-regime detection across bull, bear, and recovery</li>
-                        <li><strong>Daily email digest</strong> — Signals delivered to your inbox</li>
-                        <li><strong>Portfolio tracking</strong> — See your P&L in real-time</li>
-                        <li><strong>Works with any broker</strong> — Schwab, Fidelity, IBKR — you execute, we signal</li>
-                    </ul>
+                <!-- What You Get -->
+                <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 28px 0;">
+                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                        <tr><td style="padding: 6px 0; font-size: 15px; color: #141210;">— Ensemble buy signals (3-4 per month)</td></tr>
+                        <tr><td style="padding: 6px 0; font-size: 15px; color: #141210;">— Daily email digest at 6 PM ET</td></tr>
+                        <tr><td style="padding: 6px 0; font-size: 15px; color: #141210;">— 7-regime market detection</td></tr>
+                        <tr><td style="padding: 6px 0; font-size: 15px; color: #141210;">— Trailing stop alerts (intraday)</td></tr>
+                        <tr><td style="padding: 6px 0; font-size: 15px; color: #141210;">— Portfolio tracking</td></tr>
+                        <tr><td style="padding: 6px 0; font-size: 15px; color: #141210;">— Works with any broker</td></tr>
+                    </table>
                 </div>
 
-                <p style="font-size: 16px; color: #374151; margin: 24px 0; line-height: 1.6;">
-                    Your <strong>7-day free trial</strong> starts now. Explore the dashboard,
-                    check out today's signals, and see the Ensemble algorithm in action!
+                <p style="font-size: 17px; color: #141210; margin: 24px 0; line-height: 1.65;">
+                    Your <strong>7-day free trial</strong> starts now. Tomorrow you'll receive your first daily digest.
                 </p>
 
-                <!-- CTA Button -->
+                <!-- CTA -->
                 <div style="text-align: center; margin: 32px 0;">
                     <a href="https://rigacap.com/app"
-                       style="display: inline-block; background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); color: #ffffff; font-size: 16px; font-weight: 600; padding: 16px 40px; border-radius: 12px; text-decoration: none;">
-                        View Today's Signals →
+                       style="display: inline-block; background: #141210; color: #F5F1E8; font-size: 13px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; padding: 14px 36px; text-decoration: none;">
+                        View Today's Signals
                     </a>
                 </div>
 
                 <!-- Track Record -->
-                <div style="background-color: #eff6ff; border-radius: 12px; padding: 20px; margin: 24px 0; border-left: 4px solid #172554;">
-                    <p style="margin: 0; font-size: 14px; color: #1e3a5f;">
-                        <strong>Our Track Record:</strong> +240% over 5 years, walk-forward validated with no hindsight bias.
-                        <a href="https://rigacap.com/track-record" style="color: #1e40af; text-decoration: underline;">See the full year-by-year results →</a>
-                    </p>
-                </div>
-
-                <!-- Pro Tip -->
-                <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px; margin: 24px 0;">
-                    <p style="margin: 0; font-size: 14px; color: #92400e;">
-                        <strong>Pro Tip:</strong> Look for signals with the green BUY badge —
-                        these are fresh breakouts with the highest conviction. Toggle Advanced mode
-                        in the dashboard for full technical details.
+                <div style="border-left: 2px solid #7A2430; padding: 14px 18px; background: #FAF7F0; margin: 24px 0;">
+                    <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 15px; color: #141210; line-height: 1.6;">
+                        Friction-adjusted ~21.5% annualized over 5 years, walk-forward validated.
+                        <a href="https://rigacap.com/track-record" style="color: #7A2430; text-decoration: underline;">See the full track record.</a>
                     </p>
                 </div>
 
                 {referral_html}
 
-                <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
-                    If you have any questions, just reply to this email — we're always here to help.
-                </p>
-
-                <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
-                    Happy trading,<br>
-                    <strong>Erik</strong><br>
-                    <span style="font-size: 13px; color: #6b7280;">Founder, RigaCap</span>
+                <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0; line-height: 1.5;">
+                    Reply to this email anytime — it comes straight to me. — Erik
                 </p>
             </td>
         </tr>
 
         <!-- Footer -->
-        <tr>
-            <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
-                <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                    Trading involves risk. Past performance does not guarantee future results.
-                </p>
-                <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
-                    &copy; {datetime.now().year} RigaCap, LLC. All rights reserved.
-                </p>
-            </td>
-        </tr>
+        {self._email_footer_html(user_id)}
     </table>
 </body>
 </html>
