@@ -1738,215 +1738,71 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
 
         approaching = approaching or []
 
-        # Build signal rows HTML
+        # Build signal rows
         signal_rows = ""
-        for s in new_signals[:10]:  # Max 10 signals
-            symbol = s.get('symbol', 'N/A')
+        for s in new_signals[:10]:
+            sym = s.get('symbol', 'N/A')
             price = s.get('price', 0)
             pct_above = s.get('pct_above_dwap', 0)
             mom_rank = s.get('momentum_rank', 0)
-            short_mom = s.get('short_momentum', 0)
-            crossover_date = s.get('dwap_crossover_date', 'Today')
-
             days_since = s.get('days_since_crossover')
-            new_badge = '<span style="display: inline-block; background-color: #059669; color: #ffffff; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 99px; margin-left: 8px; vertical-align: middle;">NEW TODAY</span>' if days_since is not None and days_since == 0 else ''
+            age = 'TODAY' if days_since == 0 else (f'{days_since}D AGO' if days_since else '')
 
             signal_rows += f"""
-            <tr>
-                <td style="padding: 12px; border-bottom: 1px solid #d1fae5;">
-                    <div style="font-size: 18px; font-weight: 700; color: #059669;">
-                        {symbol}{new_badge}
-                    </div>
-                    <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">
-                        Signal triggered on {crossover_date}
-                    </div>
-                </td>
-                <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: right;">
-                    <div style="font-size: 16px; font-weight: 600;">${price:.2f}</div>
-                    <div style="font-size: 12px; color: #059669;">Breakout +{pct_above:.1f}%</div>
-                </td>
-                <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: center;">
-                    <div style="background-color: #fef3c7; color: #92400e; font-size: 14px; font-weight: 600; padding: 4px 12px; border-radius: 99px; display: inline-block;">
-                        #{mom_rank}
-                    </div>
-                </td>
-                <td style="padding: 12px; border-bottom: 1px solid #d1fae5; text-align: right; color: {'#059669' if short_mom > 0 else '#dc2626'};">
-                    {'+' if short_mom > 0 else ''}{short_mom:.1f}%
-                </td>
-            </tr>
-            """
-
-        # Build approaching watchlist HTML
-        watchlist_html = ""
-        if approaching:
-            watchlist_rows = ""
-            for a in approaching[:5]:  # Max 5 approaching
-                symbol = a.get('symbol', 'N/A')
-                price = a.get('price', 0)
-                pct_above = a.get('pct_above_dwap', 0)
-                distance = a.get('distance_to_trigger', 0)
-
-                watchlist_rows += f"""
                 <tr>
-                    <td style="padding: 8px 12px; border-bottom: 1px solid #fef3c7; font-weight: 600;">{symbol}</td>
-                    <td style="padding: 8px 12px; border-bottom: 1px solid #fef3c7; text-align: right;">${price:.2f}</td>
-                    <td style="padding: 8px 12px; border-bottom: 1px solid #fef3c7; text-align: right; color: #92400e;">+{pct_above:.1f}%</td>
-                    <td style="padding: 8px 12px; border-bottom: 1px solid #fef3c7; text-align: right; color: #b45309;">+{distance:.1f}% to go</td>
-                </tr>
-                """
+                    <td style="width:40%; padding:12px 0; border-bottom:1px solid #DDD5C7;">
+                        <span style="font-family:Georgia,serif; font-size:18px; font-weight:500; color:#141210;">{sym}</span>
+                        <span style="display:block; font-family:'Courier New',monospace; font-size:10px; color:#8A8279; margin-top:2px;">{age}</span>
+                    </td>
+                    <td style="width:25%; padding:12px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:'Courier New',monospace; font-size:13px; color:#141210;">${price:.2f}</td>
+                    <td style="width:20%; padding:12px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:'Courier New',monospace; font-size:13px; color:#2D5F3F;">+{pct_above:.1f}%</td>
+                    <td style="width:15%; padding:12px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:'Courier New',monospace; font-size:11px; color:#7A2430;">#{mom_rank}</td>
+                </tr>"""
 
-            watchlist_html = f"""
-            <tr>
-                <td style="padding: 0 24px 24px;">
-                    <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px;">
-                        <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e; border-left: 4px solid #172554; padding-left: 12px;">
-                            Approaching Trigger ({len(approaching)} stocks)
-                        </h3>
-                        <p style="margin: 0 0 12px 0; font-size: 13px; color: #92400e;">
-                            These momentum stocks are approaching the signal trigger:
-                        </p>
-                        <table cellpadding="0" cellspacing="0" style="width: 100%;">
-                            <tr style="background-color: rgba(0,0,0,0.05);">
-                                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; color: #92400e;">Symbol</th>
-                                <th style="padding: 8px 12px; text-align: right; font-size: 11px; text-transform: uppercase; color: #92400e;">Price</th>
-                                <th style="padding: 8px 12px; text-align: right; font-size: 11px; text-transform: uppercase; color: #92400e;">Signal%</th>
-                                <th style="padding: 8px 12px; text-align: right; font-size: 11px; text-transform: uppercase; color: #92400e;">Distance</th>
-                            </tr>
-                            {watchlist_rows}
-                        </table>
-                    </div>
-                </td>
-            </tr>
-            """
-
-        html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
-    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-        <!-- Header -->
-        <tr>
-            <td style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 32px 24px; text-align: center;">
-                <img src="https://rigacap.com/email-logo-v2.png" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto;" />
-                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
-                    New Breakout Signal{'s' if len(new_signals) > 1 else ''}!
-                </h1>
-                <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
-                    {len(new_signals)} momentum stock{'s' if len(new_signals) > 1 else ''} just hit the signal trigger
-                </p>
-            </td>
-        </tr>
-
-        <!-- Regime Context -->
-        {f'''<tr>
-            <td style="padding: 24px 24px 0;">
-                <div style="text-align: center; font-size: 13px; color: #6b7280;">
-                    Market: <strong>{market_regime.get("regime", "").replace("_", " ").title()}</strong>
-                    &nbsp;•&nbsp; S&amp;P 500 ${market_regime.get("spy_price", "N/A")}
-                </div>
-            </td>
-        </tr>''' if market_regime else ''}
-
-        <!-- Explanation -->
-        <tr>
-            <td style="padding: 24px;">
-                <div style="background-color: #ecfdf5; border-radius: 12px; padding: 16px; border-left: 4px solid #059669;">
-                    <p style="margin: 0; font-size: 14px; color: #065f46;">
-                        <strong>Breakout Signals</strong> are stocks that pass ALL three Ensemble filters:
-                        top momentum ranking, price breakout confirmation, and favorable risk profile.
-                        These high-conviction signals have shown <strong>2.5x higher returns</strong> than single-factor signals.
-                        View the signal in your dashboard — toggle Advanced mode for full technical details.
-                    </p>
-                </div>
-            </td>
-        </tr>
-
-        <!-- New Signals Table -->
-        <tr>
-            <td style="padding: 0 24px 24px;">
-                <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #111827; border-left: 4px solid #172554; padding-left: 12px;">
-                    New Breakout Signals
-                </h2>
-                <table cellpadding="0" cellspacing="0" style="width: 100%; border: 1px solid #d1fae5; border-radius: 8px; overflow: hidden;">
-                    <tr style="background-color: #ecfdf5;">
-                        <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #065f46;">Symbol</th>
-                        <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; color: #065f46;">Price</th>
-                        <th style="padding: 12px; text-align: center; font-size: 12px; text-transform: uppercase; color: #065f46;">Mom#</th>
-                        <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; color: #065f46;">10d</th>
-                    </tr>
-                    {signal_rows}
-                </table>
-            </td>
-        </tr>
-
-        <!-- Approaching Watchlist -->
-        {watchlist_html}
-
-        <!-- CTA -->
-        <tr>
-            <td style="padding: 0 24px 24px; text-align: center;">
-                <a href="https://rigacap.com/app"
-                   style="display: inline-block; background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); color: #ffffff; font-size: 16px; font-weight: 600; padding: 16px 40px; border-radius: 12px; text-decoration: none;">
-                    View Full Dashboard →
-                </a>
-            </td>
-        </tr>
-
-        <!-- Disclaimer -->
-        <tr>
-            <td style="padding: 0 24px 24px;">
-                <p style="margin: 0; font-size: 12px; color: #6b7280; text-align: center;">
-                    This is not financial advice. Always do your own research before trading.
-                    <br>Past performance does not guarantee future results.
-                </p>
-            </td>
-        </tr>
-
-        <!-- Footer -->
-        {self._email_footer_html(user_id)}
-    </table>
-</body>
-</html>
-"""
-
-        # Plain text version
-        text_lines = [
-            "NEW BREAKOUT SIGNAL ALERT",
-            "=" * 40,
-            f"{len(new_signals)} momentum stock(s) just hit the signal trigger",
-        ]
-        if market_regime:
-            text_lines.append(f"Market: {market_regime.get('regime', '').replace('_', ' ').title()} | S&P 500 ${market_regime.get('spy_price', 'N/A')}")
-        text_lines.extend(["", "NEW SIGNALS:"])
-        for s in new_signals[:10]:
-            fresh_tag = " [NEW TODAY]" if s.get('days_since_crossover') == 0 else ""
-            text_lines.append(
-                f"  • {s.get('symbol')}: ${s.get('price', 0):.2f} (Breakout +{s.get('pct_above_dwap', 0):.1f}%) - Mom #{s.get('momentum_rank', 0)}{fresh_tag}"
-            )
-
+        # Approaching watchlist
+        watch_rows = ""
         if approaching:
-            text_lines.extend(["", "APPROACHING TRIGGER:"])
             for a in approaching[:5]:
-                text_lines.append(
-                    f"  • {a.get('symbol')}: ${a.get('price', 0):.2f} (Breakout +{a.get('pct_above_dwap', 0):.1f}%) - {a.get('distance_to_trigger', 0):.1f}% to go"
-                )
+                watch_rows += f"""<tr>
+                    <td style="width:40%; padding:8px 0; border-bottom:1px solid #DDD5C7; font-family:Georgia,serif; font-size:15px; color:#141210;">{a.get('symbol','')}</td>
+                    <td style="width:25%; padding:8px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:'Courier New',monospace; font-size:12px; color:#141210;">${a.get('price',0):.2f}</td>
+                    <td style="width:35%; padding:8px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:'Courier New',monospace; font-size:11px; color:#5A544E;">+{a.get('distance_to_trigger',0):.1f}% to trigger</td>
+                </tr>"""
 
-        text_lines.extend([
-            "",
-            "View full dashboard: https://rigacap.com/app",
-            "",
-            "---",
-            "This is not financial advice. Always do your own research before trading.",
-            "Past performance does not guarantee future results.",
-        ])
+        regime_line = f"""<p style="font-family:'Courier New',monospace; font-size:12px; color:#5A544E; margin:0 0 20px;">
+            Market: {market_regime.get('regime','').replace('_',' ').title()} &middot; SPY ${market_regime.get('spy_price','N/A')}</p>""" if market_regime else ""
+
+        watchlist_section = f"""
+                <div style="padding-bottom:8px; border-bottom:1px solid #DDD5C7; margin:24px 0 12px;">
+                    <span style="font-family:Georgia,serif; font-size:14px; font-weight:500; color:#141210;">Approaching Trigger</span>
+                    <span style="font-family:Georgia,serif; font-style:italic; font-size:12px; color:#5A544E;"> ({len(approaching)})</span>
+                </div>
+                <table cellpadding="0" cellspacing="0" style="width:100%;">{watch_rows}</table>""" if approaching else ""
+
+        content = f"""
+                {regime_line}
+                <div style="padding-bottom:8px; border-bottom:2px solid #141210; margin-bottom:12px;">
+                    <table cellpadding="0" cellspacing="0" style="width:100%;">
+                        <tr>
+                            <td style="font-family:Georgia,serif; font-size:16px; font-weight:500; color:#141210;">New Signals <span style="font-style:italic; color:#8A8279; font-weight:400;">({len(new_signals)})</span></td>
+                            <td align="right" style="font-family:Georgia,serif; font-style:italic; font-size:13px; color:#7A2430;">Consider adding</td>
+                        </tr>
+                    </table>
+                </div>
+                <table cellpadding="0" cellspacing="0" style="width:100%;">{signal_rows}</table>
+                {watchlist_section}
+                <div style="text-align:center; margin:28px 0;">
+                    <a href="https://rigacap.com/app" style="display:inline-block; background:#141210; color:#F5F1E8; font-size:13px; font-weight:500; letter-spacing:2px; text-transform:uppercase; padding:14px 36px; text-decoration:none;">View Dashboard</a>
+                </div>"""
+
+        html = self._email_wrapper("New Signals", content, user_id)
+
+        symbols_text = ", ".join(s.get('symbol','') for s in new_signals[:5])
+        text = f"New breakout signals: {symbols_text}. View at rigacap.com/app"
 
         return await self.send_email(
             to_email=to_email,
-            subject=f"⚡ {len(new_signals)} New Breakout Signal{'s' if len(new_signals) > 1 else ''} - Momentum + Breakout Signal",
+            subject=f"RigaCap — {len(new_signals)} new signal{'s' if len(new_signals) > 1 else ''}",
             html_content=html,
             text_content="\n".join(text_lines),
             user_id=user_id
@@ -1970,137 +1826,43 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
 
         Distinct amber/orange styling to differentiate from daily buy/sell emails.
         """
-        mom_html = f"""
-                <tr>
-                    <td style="padding: 8px 16px; color: #6b7280; font-size: 14px;">Momentum Rank</td>
-                    <td style="padding: 8px 16px; text-align: right; font-weight: 600;">
-                        <span style="background-color: #fef3c7; color: #92400e; font-size: 14px; font-weight: 600; padding: 4px 12px; border-radius: 99px; display: inline-block;">
-                            #{momentum_rank}
-                        </span>
-                    </td>
-                </tr>""" if momentum_rank else ""
+        first_name = user_name.split()[0] if user_name else "there"
+        mom_row = f'<tr><td style="padding:10px 0; border-bottom:1px solid #DDD5C7; font-size:14px; color:#5A544E;">Momentum Rank</td><td style="padding:10px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:\'Courier New\',monospace; font-size:14px; color:#141210;">#{momentum_rank}</td></tr>' if momentum_rank else ""
+        sector_row = f'<tr><td style="padding:10px 0; border-bottom:1px solid #DDD5C7; font-size:14px; color:#5A544E;">Sector</td><td style="padding:10px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-size:14px; color:#141210;">{sector}</td></tr>' if sector else ""
 
-        sector_html = f"""
-                <tr>
-                    <td style="padding: 8px 16px; color: #6b7280; font-size: 14px;">Sector</td>
-                    <td style="padding: 8px 16px; text-align: right; font-weight: 600; color: #374151;">{sector}</td>
-                </tr>""" if sector else ""
-
-        greeting = f"Hi {user_name}," if user_name else "Hi,"
-
-        html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
-    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-        <!-- Header -->
-        <tr>
-            <td style="background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); padding: 32px 24px; text-align: center;">
-                <img src="https://rigacap.com/email-logo-v2.png" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto;" />
-                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
-                    LIVE: {symbol} Breakout +{pct_above_dwap:.1f}%
-                </h1>
-                <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
-                    Intraday breakout detected during market hours
+        content = f"""
+                <p style="font-size: 17px; color: #141210; margin: 0 0 20px; line-height: 1.65;">{first_name},</p>
+                <p style="font-size: 17px; color: #141210; margin: 0 0 20px; line-height: 1.65;">
+                    <strong>{symbol}</strong> just crossed the breakout threshold during market hours. This was on your watchlist.
                 </p>
-            </td>
-        </tr>
 
-        <!-- Greeting -->
-        <tr>
-            <td style="padding: 24px 24px 8px;">
-                <p style="margin: 0; font-size: 15px; color: #374151;">{greeting}</p>
-                <p style="margin: 8px 0 0 0; font-size: 14px; color: #6b7280;">
-                    <strong>{symbol}</strong> just crossed the breakout threshold during market hours.
-                    This stock was on your watchlist and has now triggered a buy signal.
-                </p>
-            </td>
-        </tr>
-
-        <!-- Signal Details -->
-        <tr>
-            <td style="padding: 16px 24px 24px;">
-                <table cellpadding="0" cellspacing="0" style="width: 100%; border: 1px solid #fde68a; border-radius: 8px; overflow: hidden;">
-                    <tr style="background-color: #fffbeb;">
-                        <th colspan="2" style="padding: 12px 16px; text-align: left; font-size: 14px; color: #92400e; font-weight: 600;">
-                            {symbol} — Live Signal
-                        </th>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px 16px; color: #6b7280; font-size: 14px;">Live Price</td>
-                        <td style="padding: 8px 16px; text-align: right; font-size: 18px; font-weight: 700; color: #059669;">${live_price:.2f}</td>
-                    </tr>
-                    <tr style="background-color: #fefce8;">
-                        <td style="padding: 8px 16px; color: #6b7280; font-size: 14px;">Weighted Avg (200d)</td>
-                        <td style="padding: 8px 16px; text-align: right; font-weight: 600; color: #374151;">${dwap:.2f}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px 16px; color: #6b7280; font-size: 14px;">% Above Trigger</td>
-                        <td style="padding: 8px 16px; text-align: right; font-weight: 700; color: #d97706;">+{pct_above_dwap:.1f}%</td>
-                    </tr>{mom_html}{sector_html}
+                <table cellpadding="0" cellspacing="0" style="width:100%; margin:24px 0;">
+                    <tr><td style="padding:10px 0; border-bottom:1px solid #DDD5C7; font-size:14px; color:#5A544E;">Symbol</td>
+                        <td style="padding:10px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:Georgia,serif; font-size:18px; font-weight:500; color:#141210;">{symbol}</td></tr>
+                    <tr><td style="padding:10px 0; border-bottom:1px solid #DDD5C7; font-size:14px; color:#5A544E;">Live Price</td>
+                        <td style="padding:10px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:'Courier New',monospace; font-size:14px; color:#141210;">${live_price:.2f}</td></tr>
+                    <tr><td style="padding:10px 0; border-bottom:1px solid #DDD5C7; font-size:14px; color:#5A544E;">Wtd Avg (200d)</td>
+                        <td style="padding:10px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:'Courier New',monospace; font-size:14px; color:#8A8279;">${dwap:.2f}</td></tr>
+                    <tr><td style="padding:10px 0; border-bottom:1px solid #DDD5C7; font-size:14px; color:#5A544E;">Breakout</td>
+                        <td style="padding:10px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:'Courier New',monospace; font-size:14px; color:#2D5F3F;">+{pct_above_dwap:.1f}%</td></tr>
+                    {mom_row}{sector_row}
                 </table>
-            </td>
-        </tr>
 
-        <!-- Explanation -->
-        <tr>
-            <td style="padding: 0 24px 24px;">
-                <div style="background-color: #fffbeb; border-radius: 12px; padding: 16px; border-left: 4px solid #d97706;">
-                    <p style="margin: 0; font-size: 14px; color: #92400e;">
-                        <strong>Intraday Signal</strong> — This crossover was detected during market hours,
-                        before the end-of-day scan. The signal will be confirmed in tonight's full analysis.
-                        Check your dashboard for the latest details.
+                <div style="border-left: 2px solid #7A2430; padding: 12px 16px; background: #FAF7F0; margin: 20px 0;">
+                    <p style="margin: 0; font-size: 14px; color: #141210;">
+                        <strong>Intraday signal</strong> — detected during market hours. Will be confirmed in tonight's full scan.
                     </p>
                 </div>
-            </td>
-        </tr>
 
-        <!-- CTA -->
-        <tr>
-            <td style="padding: 0 24px 24px; text-align: center;">
-                <a href="https://rigacap.com/app"
-                   style="display: inline-block; background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); color: #ffffff; font-size: 16px; font-weight: 600; padding: 16px 40px; border-radius: 12px; text-decoration: none;">
-                    View in Dashboard →
-                </a>
-            </td>
-        </tr>
+                <div style="text-align: center; margin: 28px 0;">
+                    <a href="https://rigacap.com/app" style="display: inline-block; background: #141210; color: #F5F1E8; font-size: 13px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; padding: 14px 36px; text-decoration: none;">View Dashboard</a>
+                </div>"""
 
-        <!-- Disclaimer -->
-        <tr>
-            <td style="padding: 0 24px 24px;">
-                <p style="margin: 0; font-size: 12px; color: #6b7280; text-align: center;">
-                    This is not financial advice. Always do your own research before trading.
-                    <br>Past performance does not guarantee future results.
-                </p>
-            </td>
-        </tr>
+        html = self._email_wrapper("Live Signal", content, user_id)
 
-        <!-- Footer -->
-        {self._email_footer_html(user_id)}
-    </table>
-</body>
-</html>
-"""
-
-        # Plain text version
-        text_lines = [
-            f"LIVE SIGNAL: {symbol} breakout +{pct_above_dwap:.1f}%",
-            "=" * 40,
-            "",
-            greeting,
-            "",
-            f"{symbol} just crossed the breakout trigger during market hours.",
-            "",
-            f"  Live Price: ${live_price:.2f}",
-            f"  Weighted Avg: ${dwap:.2f}",
-            f"  % Above Trigger: +{pct_above_dwap:.1f}%",
-        ]
+        text_lines = [f"LIVE: {symbol} breakout +{pct_above_dwap:.1f}%", f"Price: ${live_price:.2f}, Wtd Avg: ${dwap:.2f}"]
         if momentum_rank:
-            text_lines.append(f"  Momentum Rank: #{momentum_rank}")
+            text_lines.append(f"Rank: #{momentum_rank}")
         if sector:
             text_lines.append(f"  Sector: {sector}")
         text_lines.extend([
@@ -2127,82 +1889,32 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
         first_name = name.split()[0] if name else "there"
         friend_first = friend_name.split()[0] if friend_name else "Your friend"
 
-        html = f"""<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0; padding:0; background-color:#f3f4f6; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-    <table cellpadding="0" cellspacing="0" style="width:100%; max-width:600px; margin:0 auto; background-color:#ffffff;">
-        <tr>
-            <td style="background:linear-gradient(135deg, #172554 0%, #1e3a5f 100%); padding:48px 24px; text-align:center;">
-                <div style="font-size:48px; margin-bottom:16px;">🎉</div>
-                <h1 style="margin:0; color:#c9a84c; font-size:28px; font-weight:700;">
-                    You Earned a Free Month!
-                </h1>
-                <p style="margin:12px 0 0 0; color:rgba(255,255,255,0.9); font-size:16px;">
-                    Your referral just paid off
-                </p>
-            </td>
-        </tr>
-        <tr>
-            <td style="padding:40px 32px;">
-                <p style="font-size:18px; color:#374151; margin:0 0 24px 0; line-height:1.6;">
-                    Hey {first_name}!
-                </p>
-                <p style="font-size:16px; color:#374151; margin:0 0 24px 0; line-height:1.6;">
-                    Great news — <strong>{friend_first}</strong> just became a paying subscriber,
-                    and that means your next invoice is <strong>$0</strong>. One full month of
-                    RigaCap signals, on us.
+        content = f"""
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px; line-height: 1.65;">{first_name},</p>
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px; line-height: 1.65;">
+                    <strong>{friend_first}</strong> just became a paying subscriber. Your next invoice is <strong>$0</strong> — one full month on us.
                 </p>
 
-                <div style="background:linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius:16px; padding:24px; margin:24px 0; text-align:center;">
-                    <p style="margin:0 0 8px 0; font-size:14px; color:#059669; font-weight:600;">YOUR REWARD</p>
-                    <p style="margin:0; font-size:32px; color:#172554; font-weight:700;">1 Month Free</p>
-                    <p style="margin:8px 0 0 0; font-size:14px; color:#6b7280;">Applied to your next invoice automatically</p>
+                <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0; text-align: center;">
+                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E; margin: 0 0 8px;">Your Reward</p>
+                    <p style="font-family: Georgia, serif; font-size: 28px; color: #141210; margin: 0;">1 Month Free</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 4px 0 0;">Applied to your next invoice</p>
                 </div>
 
-                <p style="font-size:16px; color:#374151; margin:24px 0; line-height:1.6;">
-                    Keep sharing! Every friend who subscribes earns you another free month.
+                <p style="font-size: 15px; color: #5A544E; margin: 24px 0; line-height: 1.6;">
+                    Keep sharing — every friend who subscribes earns you another free month.
                 </p>
 
-                <div style="text-align:center; margin:32px 0;">
-                    <a href="https://rigacap.com/app"
-                       style="display:inline-block; background:linear-gradient(135deg, #172554 0%, #1e3a5f 100%); color:#ffffff; font-size:16px; font-weight:600; padding:16px 40px; border-radius:12px; text-decoration:none;">
-                        View Dashboard →
-                    </a>
-                </div>
-            </td>
-        </tr>
-        <tr>
-            <td style="background-color:#f9fafb; padding:24px; text-align:center; border-top:1px solid #e5e7eb;">
-                <p style="margin:0; font-size:12px; color:#9ca3af;">
-                    Trading involves risk. Past performance does not guarantee future results.
-                </p>
-                <p style="margin:8px 0 0 0; font-size:12px; color:#9ca3af;">
-                    &copy; {datetime.now().year} RigaCap, LLC. All rights reserved.
-                </p>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>"""
+                <div style="text-align: center; margin: 28px 0;">
+                    <a href="https://rigacap.com/app" style="display: inline-block; background: #141210; color: #F5F1E8; font-size: 13px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; padding: 14px 36px; text-decoration: none;">View Dashboard</a>
+                </div>"""
 
-        text = f"""Hey {first_name}!
-
-Great news — {friend_first} just became a paying subscriber, and your next invoice is $0!
-
-YOUR REWARD: 1 Month Free (applied to your next invoice automatically)
-
-Keep sharing! Every friend who subscribes earns you another free month.
-
-View dashboard: https://rigacap.com/app
-
----
-Trading involves risk. Past performance does not guarantee future results.
-"""
+        html = self._email_wrapper("Referral Reward", content, user_id)
+        text = f"{first_name}, {friend_first} subscribed! Your next month is free. Keep sharing at rigacap.com/app"
 
         return await self.send_email(
             to_email=to_email,
-            subject="🎉 You Earned a Free Month! Your Referral Paid Off",
+            subject=f"RigaCap — You earned a free month",
             html_content=html,
             text_content=text,
             user_id=user_id
@@ -2474,90 +2186,36 @@ Trading involves risk. Past performance does not guarantee future results.
         Different from the D8 trial drip — this targets paying customers who churned.
         """
         first_name = user_name.split()[0] if user_name else "there"
-
-        subject = "We're sorry to see you go — here's 20% off if you change your mind"
+        import secrets
+        promo_code = f"RETURN-{secrets.token_hex(3).upper()}"
 
         content = f"""
-                <p style="font-size: 18px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
-                    Hey {first_name},
-                </p>
-                <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
-                    We noticed your RigaCap subscription was cancelled. We're sorry to see you go.
-                </p>
-                <p style="font-size: 16px; color: #374151; margin: 0 0 24px 0; line-height: 1.6;">
-                    If something wasn't working for you, we'd genuinely love to hear about it —
-                    just reply to this email. We're a small team and we read every response.
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px; line-height: 1.65;">{first_name},</p>
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px; line-height: 1.65;">
+                    Your subscription was cancelled. If something wasn't working, reply and tell me — I read every response.
                 </p>
 
-                <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 16px; padding: 24px; margin: 24px 0;">
-                    <h2 style="margin: 0 0 16px 0; font-size: 18px; color: #92400e; border-left: 4px solid #172554; padding-left: 12px;">
-                        What You'll Be Missing
-                    </h2>
-                    <ul style="margin: 0; padding: 0 0 0 20px; color: #374151; line-height: 2;">
-                        <li><strong>3-4 high-conviction signals</strong> per month (not 15 low-quality picks)</li>
-                        <li><strong>+6% in 2022</strong> while the S&amp;P fell 20% — our system knows when to sit out</li>
-                        <li><strong>7-regime market intelligence</strong> — know when conditions favor trading vs cash</li>
-                        <li>Trailing stops, breakout filters, and ensemble scoring — <strong>all automated</strong></li>
-                    </ul>
-                </div>
-
-                <div style="background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); border-radius: 16px; padding: 24px; margin: 24px 0; text-align: center;">
-                    <p style="margin: 0 0 8px 0; font-size: 14px; color: rgba(255,255,255,0.9); text-transform: uppercase; font-weight: 600;">
-                        Come Back Offer
-                    </p>
-                    <p style="margin: 0 0 16px 0; font-size: 24px; font-weight: 700; color: #ffffff;">
-                        Get 20% Off Your Next Month
-                    </p>
-                    <a href="https://rigacap.com/app?promo=COMEBACK20"
-                       style="display: inline-block; background-color: #ffffff; color: #172554; font-size: 16px; font-weight: 600; padding: 14px 32px; border-radius: 10px; text-decoration: none;">
-                        Reactivate Now &rarr;
-                    </a>
-                </div>
-
-                <div style="background-color: #eff6ff; border-radius: 12px; padding: 20px; margin: 24px 0; border-left: 4px solid #172554;">
-                    <p style="margin: 0; font-size: 14px; color: #1e3a5f;">
-                        <strong>See what you'd be getting:</strong>
-                        Our full walk-forward track record — 5 years, zero losing years, no hindsight bias.
-                        <a href="https://rigacap.com/track-record" style="color: #1e40af; text-decoration: underline;">View Track Record &rarr;</a>
+                <div style="border-left: 2px solid #7A2430; padding: 14px 18px; background: #FAF7F0; margin: 24px 0;">
+                    <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 15px; color: #141210; line-height: 1.6;">
+                        The system is still finding 3-4 signals per month, still going to cash when conditions deteriorate, still cutting losers at the trailing stop. That discipline doesn't stop when you leave.
                     </p>
                 </div>
 
-                <p style="font-size: 14px; color: #6b7280; margin: 24px 0 0 0;">
-                    This offer is valid for 30 days. No pressure — but we'd love to have you back.
-                </p>
-        """
+                <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0; text-align: center;">
+                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E; margin: 0 0 8px;">Come Back</p>
+                    <p style="font-family: Georgia, serif; font-size: 24px; color: #141210; margin: 0 0 4px;">20% off your next month</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 0;">Code: {promo_code} · Valid 30 days</p>
+                </div>
 
-        html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
-    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-        <tr>
-            <td style="background: linear-gradient(135deg, #1f2937 0%, #374151 100%); padding: 48px 24px; text-align: center;">
-                <img src="https://rigacap.com/email-logo-v2.png" alt="RigaCap" width="48" height="48" style="display: block; margin: 0 auto 16px auto;" />
-                <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
-                    We'll Miss You
-                </h1>
-            </td>
-        </tr>
-        <tr>
-            <td style="padding: 40px 32px;">
-                {content}
-                <p style="font-size: 16px; color: #374151; margin: 24px 0 0 0; line-height: 1.6;">
-                    Happy trading, wherever it takes you.<br>
-                    <strong>The RigaCap Team</strong>
-                </p>
-            </td>
-        </tr>
-        {self._email_footer_html(user_id)}
-    </table>
-</body>
-</html>"""
+                <div style="text-align: center; margin: 28px 0;">
+                    <a href="https://rigacap.com/#pricing" style="display: inline-block; background: #141210; color: #F5F1E8; font-size: 13px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; padding: 14px 36px; text-decoration: none;">Reactivate</a>
+                </div>
 
-        return await self.send_email(to_email, subject, html, user_id=user_id)
+                <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0; line-height: 1.5;">— Erik</p>"""
+
+        html = self._email_wrapper("We'll be here", content, user_id)
+
+        return await self.send_email(to_email, f"RigaCap — the system is still running", html, user_id=user_id)
 
 
 # Singleton instance
