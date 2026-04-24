@@ -4,31 +4,82 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RigaCap Brand Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+  :root {
+    --paper: #F5F1E8;
+    --paper-card: #FAF8F3;
+    --paper-deep: #ECE6D9;
+    --ink: #141210;
+    --ink-mute: #5A544E;
+    --ink-light: #8A8279;
+    --claret: #7A2430;
+    --rule: #DDD5C7;
+    --rule-dark: #C4BAA9;
+    --positive: #2D5F3F;
+    --negative: #8F2D3D;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #f8fafc;
-    color: #0f172a;
+    font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
 
   /* Hero */
   .hero {
-    background: linear-gradient(135deg, #172554, #1e3a5f);
-    color: white;
+    background: var(--ink);
+    color: var(--paper);
     padding: 80px 40px;
     text-align: center;
   }
-  .hero h1 { font-size: 36px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
-  .hero p { color: #94a3b8; font-size: 16px; }
+  .hero h1 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 36px;
+    font-weight: 400;
+    font-variation-settings: "opsz" 144;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+  .hero h1 .dot { color: var(--claret); }
+  .hero p { color: var(--ink-light); font-size: 15px; }
 
   /* Sections */
   .section { max-width: 1000px; margin: 0 auto; padding: 60px 40px; }
-  .section + .section { border-top: 1px solid #e2e8f0; }
-  .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #64748b; font-weight: 600; margin-bottom: 8px; }
-  .section h2 { font-size: 24px; font-weight: 700; margin-bottom: 24px; }
-  .section p.desc { color: #64748b; font-size: 14px; margin-bottom: 24px; max-width: 600px; }
+  .section + .section { border-top: 1px solid var(--rule); }
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .section-label::before {
+    content: '';
+    display: inline-block;
+    width: 20px;
+    height: 1px;
+    background: var(--claret);
+  }
+  .section-label span {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--ink-mute);
+    font-weight: 500;
+  }
+  .section h2 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 24px;
+    font-weight: 400;
+    font-variation-settings: "opsz" 48;
+    margin-bottom: 12px;
+  }
+  .section p.desc { color: var(--ink-mute); font-size: 14px; margin-bottom: 24px; max-width: 600px; }
 
   /* Grid helpers */
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
@@ -37,21 +88,19 @@
 
   /* Cards */
   .card {
-    background: white;
-    border-radius: 12px;
+    background: var(--paper-card);
     padding: 24px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--rule);
   }
   .card-dark {
-    background: #0f172a;
-    border-radius: 12px;
+    background: var(--ink);
     padding: 24px;
-    border: 1px solid #1e293b;
+    border: 1px solid #2A2622;
   }
-  .card h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
-  .card-dark h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #e2e8f0; }
-  .card .sub { font-size: 11px; color: #94a3b8; margin-bottom: 16px; }
-  .card-dark .sub { font-size: 11px; color: #64748b; margin-bottom: 16px; }
+  .card h3 { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .card-dark h3 { font-size: 14px; font-weight: 500; margin-bottom: 4px; color: var(--paper); }
+  .card .sub { font-size: 11px; color: var(--ink-light); margin-bottom: 16px; font-family: 'IBM Plex Mono', monospace; }
+  .card-dark .sub { font-size: 11px; color: var(--ink-light); margin-bottom: 16px; font-family: 'IBM Plex Mono', monospace; }
 
   /* Logo display areas */
   .logo-area {
@@ -59,21 +108,11 @@
     align-items: center;
     justify-content: center;
     padding: 32px;
-    border-radius: 8px;
     margin-bottom: 12px;
   }
-  .logo-area-light { background: #f8fafc; border: 1px solid #e2e8f0; }
-  .logo-area-dark { background: #0f172a; }
-  .logo-area-checkerboard {
-    background-image:
-      linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
-      linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
-      linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
-    background-size: 16px 16px;
-    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
-    border: 1px solid #e2e8f0;
-  }
+  .logo-area-light { background: var(--paper-card); border: 1px solid var(--rule); }
+  .logo-area-dark { background: var(--ink); }
+  .logo-area-paper { background: var(--paper-deep); border: 1px solid var(--rule); }
 
   /* Wordmark areas */
   .wordmark-area {
@@ -81,95 +120,118 @@
     align-items: center;
     gap: 12px;
     padding: 20px 24px;
-    border-radius: 8px;
   }
-  .wm-text { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+  .wm-text {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 24px;
+    font-weight: 600;
+    font-variation-settings: "opsz" 144;
+    letter-spacing: -0.5px;
+  }
 
   /* Size strip */
   .size-strip {
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    gap: 20px;
+    gap: 28px;
     padding: 24px;
-    background: #f8fafc;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
+    background: var(--paper-deep);
+    border: 1px solid var(--rule);
   }
   .size-item { text-align: center; }
-  .size-label { font-size: 10px; color: #94a3b8; margin-top: 4px; }
+  .size-label { font-size: 10px; color: var(--ink-light); margin-top: 6px; font-family: 'IBM Plex Mono', monospace; }
 
   /* Color swatches */
   .swatch {
-    border-radius: 10px;
     overflow: hidden;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--rule);
   }
-  .swatch-color {
-    height: 80px;
+  .swatch-color { height: 80px; }
+  .swatch-info { padding: 12px; background: var(--paper-card); }
+  .swatch-name { font-size: 13px; font-weight: 500; }
+  .swatch-hex { font-size: 11px; color: var(--ink-light); font-family: 'IBM Plex Mono', monospace; }
+
+  /* Typography samples */
+  .type-sample {
+    border: 1px solid var(--rule);
+    padding: 24px;
+    background: var(--paper-card);
   }
-  .swatch-info {
-    padding: 12px;
-    background: white;
+  .type-sample h4 { font-size: 12px; font-weight: 500; color: var(--ink-light); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .type-sample .display {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 32px;
+    font-weight: 400;
+    font-variation-settings: "opsz" 144;
+    line-height: 1.1;
+    margin-bottom: 8px;
   }
-  .swatch-name { font-size: 13px; font-weight: 600; }
-  .swatch-hex { font-size: 11px; color: #64748b; font-family: 'SF Mono', 'Fira Code', monospace; }
+  .type-sample .body-text {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    color: var(--ink-mute);
+  }
+  .type-sample .mono-text {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    color: var(--ink-mute);
+  }
 
   /* Do/Don't */
   .do-dont { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
   .do-card, .dont-card {
-    border-radius: 12px;
     overflow: hidden;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--rule);
   }
   .do-card .label {
     padding: 8px 16px;
     font-size: 12px;
-    font-weight: 600;
-    color: #166534;
-    background: #dcfce7;
+    font-weight: 500;
+    color: var(--positive);
+    background: #E8F0EB;
+    letter-spacing: 1px;
   }
   .dont-card .label {
     padding: 8px 16px;
     font-size: 12px;
-    font-weight: 600;
-    color: #991b1b;
-    background: #fee2e2;
+    font-weight: 500;
+    color: var(--negative);
+    background: #F0E8E8;
+    letter-spacing: 1px;
   }
   .do-card .example, .dont-card .example {
     padding: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: white;
+    background: var(--paper-card);
     min-height: 100px;
   }
   .do-card .note, .dont-card .note {
     padding: 8px 16px;
     font-size: 11px;
-    color: #64748b;
-    background: #f8fafc;
-    border-top: 1px solid #e2e8f0;
+    color: var(--ink-mute);
+    background: var(--paper-deep);
+    border-top: 1px solid var(--rule);
   }
 
   /* File list */
-  .file-list {
-    list-style: none;
-    padding: 0;
-  }
+  .file-list { list-style: none; padding: 0; }
   .file-list li {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 10px 16px;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--rule);
     font-size: 13px;
   }
   .file-list li:last-child { border-bottom: none; }
-  .file-name { font-family: 'SF Mono', 'Fira Code', monospace; font-weight: 500; color: #0f172a; }
-  .file-desc { color: #64748b; }
+  .file-name { font-family: 'IBM Plex Mono', monospace; font-weight: 500; color: var(--ink); }
+  .file-desc { color: var(--ink-mute); }
 
-  /* Spacing */
+  /* Helpers */
   .mt-16 { margin-top: 16px; }
   .mt-24 { margin-top: 24px; }
   .mb-8 { margin-bottom: 8px; }
@@ -181,229 +243,256 @@
 
 <!-- ==================== HERO ==================== -->
 <div class="hero">
-  <svg width="80" height="80" viewBox="0 0 100 100" style="margin-bottom: 24px;">
-    <defs><linearGradient id="hero-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs>
-    <circle cx="50" cy="50" r="50" fill="url(#hero-bg)"/>
-    <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#ffffff"/>
-    <circle cx="50" cy="15" r="3" fill="#f59e0b"/>
+  <svg width="64" height="52" viewBox="0 0 1280 1024" style="margin-bottom: 24px;">
+    <g transform="matrix(5.27 0 0 5.27 640 511)"><g>
+    <g transform="matrix(0.448 0 0 0.448 -22.4 -28.8)"><path fill="#7A2430" transform="translate(-300,-286)" d="M215.49 348.13C215.49 341.43 220.55 335.98 227.05 335.22L241.64 278.36C238.32 275.99 236.13 272.12 236.13 267.73C236.13 260.51 241.98 254.66 249.2 254.66C255.89 254.66 261.34 259.71 262.11 266.19L309.18 278.16C311.55 274.82 315.42 272.63 319.83 272.63C324 272.63 327.67 274.62 330.06 277.66L391.39 258.85C391.87 252.06 397.46 246.69 404.37 246.69C405.09 246.69 405.78 246.79 406.47 246.91L420.4 223.13C395.44 205.2 364.84 194.62 331.76 194.62C247.75 194.62 179.66 262.72 179.66 346.72C179.66 357.06 180.71 367.15 182.69 376.91L216.05 351.72C215.72 350.57 215.49 349.38 215.49 348.13z"/></g>
+    <g transform="matrix(0.448 0 0 0.448 -11.1 -9)"><path fill="#7A2430" transform="translate(-325,-330)" d="M427.89 228.86L414.54 251.65C416.32 253.88 417.43 256.68 417.43 259.76C417.43 266.98 411.58 272.83 404.37 272.83C400.19 272.83 396.52 270.84 394.13 267.79L332.8 286.61C332.33 293.39 326.73 298.76 319.83 298.76C313.14 298.76 307.69 293.72 306.92 287.24L259.84 275.26C257.76 278.21 254.48 280.2 250.71 280.64L236.12 337.5C239.44 339.87 241.63 343.74 241.63 348.13C241.63 355.35 235.78 361.2 228.56 361.2C226.02 361.2 223.68 360.45 221.67 359.19L185.04 386.86C189.39 402.76 196.25 417.63 205.17 431L343.51 312.12L408.04 312.12L465.59 274.41C456.09 256.86 443.23 241.4 427.89 228.86z"/></g>
+    <g transform="matrix(0.448 0 0 0.448 73.8 -37.1)"><polygon fill="#7A2430" points="-45.31,-14.33 45.31,-39.44 -12.75,39.44 -17.06,3.28"/></g>
+    <g transform="matrix(0.448 0 0 0.448 -48.2 25.7)"><path fill="#F5F1E8" transform="translate(-242,-407)" d="M297.69 513.38C291.85 512.18 286.13 510.68 280.53 508.91L280.53 405.3L233.16 446.01L233.16 485.18C189.93 454.31 161.67 403.77 161.67 346.72C161.67 321.48 167.23 297.53 177.14 275.97L153.41 275.97C144.69 297.88 139.84 321.74 139.84 346.72C139.84 452.54 225.93 538.63 331.76 538.63C336.23 538.63 340.66 538.42 345.06 538.12L345.06 349.85L297.69 390.55L297.69 513.38z"/></g>
+    <g transform="matrix(0.448 0 0 0.448 41.6 31.4)"><path fill="#F5F1E8" transform="translate(-443,-420)" d="M523.16 333.38L501.27 333.38C501.62 337.79 501.85 342.23 501.85 346.72C501.85 381 491.63 412.92 474.11 439.65L474.11 304.24L426.75 335.28L426.75 487.65C421.24 491.37 415.52 494.78 409.58 497.85L409.58 341.74L362.22 341.74L362.22 536.19C453.61 521.55 523.67 442.17 523.67 346.72C523.67 342.23 523.46 337.79 523.16 333.38z"/></g>
+    <g transform="matrix(0.448 0 0 0.448 -11.8 -60.8)"><path fill="#F5F1E8" transform="translate(-324,-214)" d="M331.75 169.32C390.45 169.32 442.58 197.98 474.89 242.04L483.06 239.78C449.46 192.37 394.16 161.37 331.75 161.37C258.06 161.37 194.28 204.6 164.43 267.02L173.29 267.02C202.53 209.12 262.58 169.32 331.75 169.32z"/></g>
+    </g></g>
   </svg>
-  <h1>RigaCap Brand Kit</h1>
-  <p>Logo, colors, and usage guidelines</p>
+  <h1>RigaCap<span class="dot">.</span> Brand Kit</h1>
+  <p>Mark, palette, typography, and usage guidelines</p>
 </div>
 
 <!-- ==================== PRIMARY MARK ==================== -->
 <div class="section">
-  <p class="section-label">Primary Logo</p>
-  <h2>Navy + Gold Mark</h2>
-  <p class="desc">The primary logo is a stylized spire inspired by St. Peter's Church in Riga, Latvia, enclosed in a navy circle with a gold beacon dot at the peak. The stepped silhouette evokes both architectural heritage and upward market momentum.</p>
+  <div class="section-label"><span>Primary Mark</span></div>
+  <h2>Bitone Spire</h2>
+  <p class="desc">The primary mark is a bitone spire — claret for the upper lattice and compass arrow, ink for the lower cathedral body. Inspired by St. Peter's Church in Riga. No background circle, no container. The mark lives directly on paper or ink backgrounds.</p>
 
   <div class="grid-2">
     <div>
-      <div class="logo-area logo-area-light">
-        <svg width="120" height="120" viewBox="0 0 100 100">
-          <defs><linearGradient id="p-bg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs>
-          <circle cx="50" cy="50" r="50" fill="url(#p-bg1)"/>
-          <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#ffffff"/>
-          <circle cx="50" cy="15" r="3" fill="#f59e0b"/>
+      <div class="logo-area logo-area-paper" style="height: 200px;">
+        <svg width="100" height="80" viewBox="0 0 1280 1024">
+          <g transform="matrix(5.27 0 0 5.27 640 511)"><g>
+          <g transform="matrix(0.448 0 0 0.448 -22.4 -28.8)"><path fill="#7A2430" transform="translate(-300,-286)" d="M215.49 348.13C215.49 341.43 220.55 335.98 227.05 335.22L241.64 278.36C238.32 275.99 236.13 272.12 236.13 267.73C236.13 260.51 241.98 254.66 249.2 254.66C255.89 254.66 261.34 259.71 262.11 266.19L309.18 278.16C311.55 274.82 315.42 272.63 319.83 272.63C324 272.63 327.67 274.62 330.06 277.66L391.39 258.85C391.87 252.06 397.46 246.69 404.37 246.69C405.09 246.69 405.78 246.79 406.47 246.91L420.4 223.13C395.44 205.2 364.84 194.62 331.76 194.62C247.75 194.62 179.66 262.72 179.66 346.72C179.66 357.06 180.71 367.15 182.69 376.91L216.05 351.72C215.72 350.57 215.49 349.38 215.49 348.13z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.1 -9)"><path fill="#7A2430" transform="translate(-325,-330)" d="M427.89 228.86L414.54 251.65C416.32 253.88 417.43 256.68 417.43 259.76C417.43 266.98 411.58 272.83 404.37 272.83C400.19 272.83 396.52 270.84 394.13 267.79L332.8 286.61C332.33 293.39 326.73 298.76 319.83 298.76C313.14 298.76 307.69 293.72 306.92 287.24L259.84 275.26C257.76 278.21 254.48 280.2 250.71 280.64L236.12 337.5C239.44 339.87 241.63 343.74 241.63 348.13C241.63 355.35 235.78 361.2 228.56 361.2C226.02 361.2 223.68 360.45 221.67 359.19L185.04 386.86C189.39 402.76 196.25 417.63 205.17 431L343.51 312.12L408.04 312.12L465.59 274.41C456.09 256.86 443.23 241.4 427.89 228.86z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 73.8 -37.1)"><polygon fill="#7A2430" points="-45.31,-14.33 45.31,-39.44 -12.75,39.44 -17.06,3.28"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -48.2 25.7)"><path fill="#141210" transform="translate(-242,-407)" d="M297.69 513.38C291.85 512.18 286.13 510.68 280.53 508.91L280.53 405.3L233.16 446.01L233.16 485.18C189.93 454.31 161.67 403.77 161.67 346.72C161.67 321.48 167.23 297.53 177.14 275.97L153.41 275.97C144.69 297.88 139.84 321.74 139.84 346.72C139.84 452.54 225.93 538.63 331.76 538.63C336.23 538.63 340.66 538.42 345.06 538.12L345.06 349.85L297.69 390.55L297.69 513.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 41.6 31.4)"><path fill="#141210" transform="translate(-443,-420)" d="M523.16 333.38L501.27 333.38C501.62 337.79 501.85 342.23 501.85 346.72C501.85 381 491.63 412.92 474.11 439.65L474.11 304.24L426.75 335.28L426.75 487.65C421.24 491.37 415.52 494.78 409.58 497.85L409.58 341.74L362.22 341.74L362.22 536.19C453.61 521.55 523.67 442.17 523.67 346.72C523.67 342.23 523.46 337.79 523.16 333.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.8 -60.8)"><path fill="#141210" transform="translate(-324,-214)" d="M331.75 169.32C390.45 169.32 442.58 197.98 474.89 242.04L483.06 239.78C449.46 192.37 394.16 161.37 331.75 161.37C258.06 161.37 194.28 204.6 164.43 267.02L173.29 267.02C202.53 209.12 262.58 169.32 331.75 169.32z"/></g>
+          </g></g>
         </svg>
       </div>
-      <p style="font-size:11px;color:#94a3b8;text-align:center;">On light backgrounds</p>
+      <p style="font-size:11px;color:var(--ink-light);text-align:center;">On paper backgrounds</p>
     </div>
     <div>
-      <div class="logo-area logo-area-dark">
-        <svg width="120" height="120" viewBox="0 0 100 100">
-          <defs><linearGradient id="p-bg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs>
-          <circle cx="50" cy="50" r="50" fill="url(#p-bg2)"/>
-          <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#ffffff"/>
-          <circle cx="50" cy="15" r="3" fill="#fbbf24"/>
+      <div class="logo-area logo-area-dark" style="height: 200px;">
+        <svg width="100" height="80" viewBox="0 0 1280 1024">
+          <g transform="matrix(5.27 0 0 5.27 640 511)"><g>
+          <g transform="matrix(0.448 0 0 0.448 -22.4 -28.8)"><path fill="#7A2430" transform="translate(-300,-286)" d="M215.49 348.13C215.49 341.43 220.55 335.98 227.05 335.22L241.64 278.36C238.32 275.99 236.13 272.12 236.13 267.73C236.13 260.51 241.98 254.66 249.2 254.66C255.89 254.66 261.34 259.71 262.11 266.19L309.18 278.16C311.55 274.82 315.42 272.63 319.83 272.63C324 272.63 327.67 274.62 330.06 277.66L391.39 258.85C391.87 252.06 397.46 246.69 404.37 246.69C405.09 246.69 405.78 246.79 406.47 246.91L420.4 223.13C395.44 205.2 364.84 194.62 331.76 194.62C247.75 194.62 179.66 262.72 179.66 346.72C179.66 357.06 180.71 367.15 182.69 376.91L216.05 351.72C215.72 350.57 215.49 349.38 215.49 348.13z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.1 -9)"><path fill="#7A2430" transform="translate(-325,-330)" d="M427.89 228.86L414.54 251.65C416.32 253.88 417.43 256.68 417.43 259.76C417.43 266.98 411.58 272.83 404.37 272.83C400.19 272.83 396.52 270.84 394.13 267.79L332.8 286.61C332.33 293.39 326.73 298.76 319.83 298.76C313.14 298.76 307.69 293.72 306.92 287.24L259.84 275.26C257.76 278.21 254.48 280.2 250.71 280.64L236.12 337.5C239.44 339.87 241.63 343.74 241.63 348.13C241.63 355.35 235.78 361.2 228.56 361.2C226.02 361.2 223.68 360.45 221.67 359.19L185.04 386.86C189.39 402.76 196.25 417.63 205.17 431L343.51 312.12L408.04 312.12L465.59 274.41C456.09 256.86 443.23 241.4 427.89 228.86z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 73.8 -37.1)"><polygon fill="#7A2430" points="-45.31,-14.33 45.31,-39.44 -12.75,39.44 -17.06,3.28"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -48.2 25.7)"><path fill="#F5F1E8" transform="translate(-242,-407)" d="M297.69 513.38C291.85 512.18 286.13 510.68 280.53 508.91L280.53 405.3L233.16 446.01L233.16 485.18C189.93 454.31 161.67 403.77 161.67 346.72C161.67 321.48 167.23 297.53 177.14 275.97L153.41 275.97C144.69 297.88 139.84 321.74 139.84 346.72C139.84 452.54 225.93 538.63 331.76 538.63C336.23 538.63 340.66 538.42 345.06 538.12L345.06 349.85L297.69 390.55L297.69 513.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 41.6 31.4)"><path fill="#F5F1E8" transform="translate(-443,-420)" d="M523.16 333.38L501.27 333.38C501.62 337.79 501.85 342.23 501.85 346.72C501.85 381 491.63 412.92 474.11 439.65L474.11 304.24L426.75 335.28L426.75 487.65C421.24 491.37 415.52 494.78 409.58 497.85L409.58 341.74L362.22 341.74L362.22 536.19C453.61 521.55 523.67 442.17 523.67 346.72C523.67 342.23 523.46 337.79 523.16 333.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.8 -60.8)"><path fill="#F5F1E8" transform="translate(-324,-214)" d="M331.75 169.32C390.45 169.32 442.58 197.98 474.89 242.04L483.06 239.78C449.46 192.37 394.16 161.37 331.75 161.37C258.06 161.37 194.28 204.6 164.43 267.02L173.29 267.02C202.53 209.12 262.58 169.32 331.75 169.32z"/></g>
+          </g></g>
         </svg>
       </div>
-      <p style="font-size:11px;color:#94a3b8;text-align:center;">On dark backgrounds</p>
+      <p style="font-size:11px;color:var(--ink-light);text-align:center;">On ink backgrounds (cathedral body flips to paper)</p>
     </div>
   </div>
 
-  <h3 class="mt-24 mb-8" style="font-size:15px;">Size Reference</h3>
-  <div class="size-strip">
-    <div class="size-item">
-      <svg width="80" height="80" viewBox="0 0 100 100"><defs><linearGradient id="s1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#s1)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
-      <div class="size-label">80px</div>
-    </div>
-    <div class="size-item">
-      <svg width="48" height="48" viewBox="0 0 100 100"><defs><linearGradient id="s2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#s2)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3.5" fill="#f59e0b"/></svg>
-      <div class="size-label">48px</div>
-    </div>
-    <div class="size-item">
-      <svg width="32" height="32" viewBox="0 0 100 100"><defs><linearGradient id="s3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#s3)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="4" fill="#f59e0b"/></svg>
-      <div class="size-label">32px</div>
-    </div>
-    <div class="size-item">
-      <svg width="20" height="20" viewBox="0 0 100 100"><defs><linearGradient id="s4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#s4)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="5" fill="#f59e0b"/></svg>
-      <div class="size-label">20px</div>
-    </div>
-    <div class="size-item">
-      <svg width="16" height="16" viewBox="0 0 100 100"><defs><linearGradient id="s5" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#s5)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/></svg>
-      <div class="size-label">16px</div>
-    </div>
-  </div>
+  <p class="desc mt-24" style="font-style: italic;">The compass arrow at upper-right is intentional — it breaks the symmetry and creates directional energy. For circular social crops, offset the mark ~8% left to optically center it.</p>
 </div>
 
 <!-- ==================== WORDMARK ==================== -->
 <div class="section">
-  <p class="section-label">Wordmark</p>
-  <h2>Logo + Text Lockup</h2>
-  <p class="desc">Use the wordmark when space permits. Always keep the icon and text as a single unit — never separate or rearrange them.</p>
+  <div class="section-label"><span>Wordmark</span></div>
+  <h2>Logo + Type Lockup</h2>
+  <p class="desc">The wordmark pairs the bitone spire with "RigaCap." set in Fraunces. The period is always claret. Never separate the mark from the text or rearrange them.</p>
 
   <div class="grid-2">
     <div>
-      <div class="wordmark-area" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
-        <svg width="40" height="40" viewBox="0 0 100 100"><defs><linearGradient id="wm1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#wm1)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
-        <span class="wm-text" style="color:#0f172a;">RigaCap</span>
-      </div>
-      <p style="font-size:11px;color:#94a3b8;text-align:center;margin-top:8px;">Light background</p>
-    </div>
-    <div>
-      <div class="wordmark-area" style="background:#0f172a;border-radius:8px;">
-        <svg width="40" height="40" viewBox="0 0 100 100"><defs><linearGradient id="wm2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#wm2)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#fbbf24"/></svg>
-        <span class="wm-text" style="color:#ffffff;">RigaCap</span>
-      </div>
-      <p style="font-size:11px;color:#94a3b8;text-align:center;margin-top:8px;">Dark background</p>
-    </div>
-  </div>
-</div>
-
-<!-- ==================== MONOCHROME ==================== -->
-<div class="section">
-  <p class="section-label">Monochrome Variants</p>
-  <h2>Single-Color Usage</h2>
-  <p class="desc">For contexts where color isn't available: single-ink print, embossing, fax, watermarks. Use the dark variant on light backgrounds and the light variant on dark backgrounds.</p>
-
-  <div class="grid-3">
-    <div>
-      <div class="logo-area logo-area-light">
-        <svg width="100" height="100" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="50" fill="#0f172a"/>
-          <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#ffffff"/>
+      <div class="wordmark-area" style="background:var(--paper-deep);border:1px solid var(--rule);">
+        <svg width="36" height="28" viewBox="0 0 1280 1024">
+          <g transform="matrix(5.27 0 0 5.27 640 511)"><g>
+          <g transform="matrix(0.448 0 0 0.448 -22.4 -28.8)"><path fill="#7A2430" transform="translate(-300,-286)" d="M215.49 348.13C215.49 341.43 220.55 335.98 227.05 335.22L241.64 278.36C238.32 275.99 236.13 272.12 236.13 267.73C236.13 260.51 241.98 254.66 249.2 254.66C255.89 254.66 261.34 259.71 262.11 266.19L309.18 278.16C311.55 274.82 315.42 272.63 319.83 272.63C324 272.63 327.67 274.62 330.06 277.66L391.39 258.85C391.87 252.06 397.46 246.69 404.37 246.69C405.09 246.69 405.78 246.79 406.47 246.91L420.4 223.13C395.44 205.2 364.84 194.62 331.76 194.62C247.75 194.62 179.66 262.72 179.66 346.72C179.66 357.06 180.71 367.15 182.69 376.91L216.05 351.72C215.72 350.57 215.49 349.38 215.49 348.13z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.1 -9)"><path fill="#7A2430" transform="translate(-325,-330)" d="M427.89 228.86L414.54 251.65C416.32 253.88 417.43 256.68 417.43 259.76C417.43 266.98 411.58 272.83 404.37 272.83C400.19 272.83 396.52 270.84 394.13 267.79L332.8 286.61C332.33 293.39 326.73 298.76 319.83 298.76C313.14 298.76 307.69 293.72 306.92 287.24L259.84 275.26C257.76 278.21 254.48 280.2 250.71 280.64L236.12 337.5C239.44 339.87 241.63 343.74 241.63 348.13C241.63 355.35 235.78 361.2 228.56 361.2C226.02 361.2 223.68 360.45 221.67 359.19L185.04 386.86C189.39 402.76 196.25 417.63 205.17 431L343.51 312.12L408.04 312.12L465.59 274.41C456.09 256.86 443.23 241.4 427.89 228.86z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 73.8 -37.1)"><polygon fill="#7A2430" points="-45.31,-14.33 45.31,-39.44 -12.75,39.44 -17.06,3.28"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -48.2 25.7)"><path fill="#141210" transform="translate(-242,-407)" d="M297.69 513.38C291.85 512.18 286.13 510.68 280.53 508.91L280.53 405.3L233.16 446.01L233.16 485.18C189.93 454.31 161.67 403.77 161.67 346.72C161.67 321.48 167.23 297.53 177.14 275.97L153.41 275.97C144.69 297.88 139.84 321.74 139.84 346.72C139.84 452.54 225.93 538.63 331.76 538.63C336.23 538.63 340.66 538.42 345.06 538.12L345.06 349.85L297.69 390.55L297.69 513.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 41.6 31.4)"><path fill="#141210" transform="translate(-443,-420)" d="M523.16 333.38L501.27 333.38C501.62 337.79 501.85 342.23 501.85 346.72C501.85 381 491.63 412.92 474.11 439.65L474.11 304.24L426.75 335.28L426.75 487.65C421.24 491.37 415.52 494.78 409.58 497.85L409.58 341.74L362.22 341.74L362.22 536.19C453.61 521.55 523.67 442.17 523.67 346.72C523.67 342.23 523.46 337.79 523.16 333.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.8 -60.8)"><path fill="#141210" transform="translate(-324,-214)" d="M331.75 169.32C390.45 169.32 442.58 197.98 474.89 242.04L483.06 239.78C449.46 192.37 394.16 161.37 331.75 161.37C258.06 161.37 194.28 204.6 164.43 267.02L173.29 267.02C202.53 209.12 262.58 169.32 331.75 169.32z"/></g>
+          </g></g>
         </svg>
+        <span class="wm-text" style="color:var(--ink);">RigaCap<span style="color:var(--claret);">.</span></span>
       </div>
-      <p style="font-size:11px;color:#94a3b8;text-align:center;">Dark on light</p>
+      <p style="font-size:11px;color:var(--ink-light);text-align:center;margin-top:8px;">On paper</p>
     </div>
     <div>
-      <div class="logo-area logo-area-dark">
-        <svg width="100" height="100" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="50" fill="#ffffff"/>
-          <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#0f172a"/>
+      <div class="wordmark-area" style="background:var(--ink);">
+        <svg width="36" height="28" viewBox="0 0 1280 1024">
+          <g transform="matrix(5.27 0 0 5.27 640 511)"><g>
+          <g transform="matrix(0.448 0 0 0.448 -22.4 -28.8)"><path fill="#7A2430" transform="translate(-300,-286)" d="M215.49 348.13C215.49 341.43 220.55 335.98 227.05 335.22L241.64 278.36C238.32 275.99 236.13 272.12 236.13 267.73C236.13 260.51 241.98 254.66 249.2 254.66C255.89 254.66 261.34 259.71 262.11 266.19L309.18 278.16C311.55 274.82 315.42 272.63 319.83 272.63C324 272.63 327.67 274.62 330.06 277.66L391.39 258.85C391.87 252.06 397.46 246.69 404.37 246.69C405.09 246.69 405.78 246.79 406.47 246.91L420.4 223.13C395.44 205.2 364.84 194.62 331.76 194.62C247.75 194.62 179.66 262.72 179.66 346.72C179.66 357.06 180.71 367.15 182.69 376.91L216.05 351.72C215.72 350.57 215.49 349.38 215.49 348.13z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.1 -9)"><path fill="#7A2430" transform="translate(-325,-330)" d="M427.89 228.86L414.54 251.65C416.32 253.88 417.43 256.68 417.43 259.76C417.43 266.98 411.58 272.83 404.37 272.83C400.19 272.83 396.52 270.84 394.13 267.79L332.8 286.61C332.33 293.39 326.73 298.76 319.83 298.76C313.14 298.76 307.69 293.72 306.92 287.24L259.84 275.26C257.76 278.21 254.48 280.2 250.71 280.64L236.12 337.5C239.44 339.87 241.63 343.74 241.63 348.13C241.63 355.35 235.78 361.2 228.56 361.2C226.02 361.2 223.68 360.45 221.67 359.19L185.04 386.86C189.39 402.76 196.25 417.63 205.17 431L343.51 312.12L408.04 312.12L465.59 274.41C456.09 256.86 443.23 241.4 427.89 228.86z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 73.8 -37.1)"><polygon fill="#7A2430" points="-45.31,-14.33 45.31,-39.44 -12.75,39.44 -17.06,3.28"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -48.2 25.7)"><path fill="#F5F1E8" transform="translate(-242,-407)" d="M297.69 513.38C291.85 512.18 286.13 510.68 280.53 508.91L280.53 405.3L233.16 446.01L233.16 485.18C189.93 454.31 161.67 403.77 161.67 346.72C161.67 321.48 167.23 297.53 177.14 275.97L153.41 275.97C144.69 297.88 139.84 321.74 139.84 346.72C139.84 452.54 225.93 538.63 331.76 538.63C336.23 538.63 340.66 538.42 345.06 538.12L345.06 349.85L297.69 390.55L297.69 513.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 41.6 31.4)"><path fill="#F5F1E8" transform="translate(-443,-420)" d="M523.16 333.38L501.27 333.38C501.62 337.79 501.85 342.23 501.85 346.72C501.85 381 491.63 412.92 474.11 439.65L474.11 304.24L426.75 335.28L426.75 487.65C421.24 491.37 415.52 494.78 409.58 497.85L409.58 341.74L362.22 341.74L362.22 536.19C453.61 521.55 523.67 442.17 523.67 346.72C523.67 342.23 523.46 337.79 523.16 333.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.8 -60.8)"><path fill="#F5F1E8" transform="translate(-324,-214)" d="M331.75 169.32C390.45 169.32 442.58 197.98 474.89 242.04L483.06 239.78C449.46 192.37 394.16 161.37 331.75 161.37C258.06 161.37 194.28 204.6 164.43 267.02L173.29 267.02C202.53 209.12 262.58 169.32 331.75 169.32z"/></g>
+          </g></g>
         </svg>
+        <span class="wm-text" style="color:var(--paper);">RigaCap<span style="color:var(--claret);">.</span></span>
       </div>
-      <p style="font-size:11px;color:#94a3b8;text-align:center;">Light on dark</p>
-    </div>
-    <div>
-      <div class="logo-area logo-area-checkerboard">
-        <svg width="100" height="100" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="50" fill="#0f172a"/>
-          <path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#ffffff"/>
-        </svg>
-      </div>
-      <p style="font-size:11px;color:#94a3b8;text-align:center;">On transparency</p>
+      <p style="font-size:11px;color:var(--ink-light);text-align:center;margin-top:8px;">On ink</p>
     </div>
   </div>
 </div>
 
 <!-- ==================== COLORS ==================== -->
 <div class="section">
-  <p class="section-label">Brand Colors</p>
-  <h2>Color Palette</h2>
-  <p class="desc">The primary palette is navy + gold. Use the supporting colors sparingly for UI elements and status indicators.</p>
+  <div class="section-label"><span>Color Palette</span></div>
+  <h2>Editorial Palette</h2>
+  <p class="desc">Paper, ink, and claret form the core triad. Green and deep red are reserved for financial positive/negative states. No gradients, no neon, no blue.</p>
 
   <div class="grid-4">
     <div class="swatch">
-      <div class="swatch-color" style="background:linear-gradient(135deg,#172554,#1e3a5f);"></div>
+      <div class="swatch-color" style="background: var(--paper);"></div>
       <div class="swatch-info">
-        <div class="swatch-name">Navy (Primary)</div>
-        <div class="swatch-hex">#172554 &rarr; #1e3a5f</div>
+        <div class="swatch-name">Paper</div>
+        <div class="swatch-hex">#F5F1E8</div>
       </div>
     </div>
     <div class="swatch">
-      <div class="swatch-color" style="background:#f59e0b;"></div>
+      <div class="swatch-color" style="background: var(--ink);"></div>
       <div class="swatch-info">
-        <div class="swatch-name">Gold (Accent)</div>
-        <div class="swatch-hex">#f59e0b</div>
+        <div class="swatch-name">Ink</div>
+        <div class="swatch-hex">#141210</div>
       </div>
     </div>
     <div class="swatch">
-      <div class="swatch-color" style="background:#0f172a;"></div>
+      <div class="swatch-color" style="background: var(--claret);"></div>
       <div class="swatch-info">
-        <div class="swatch-name">Slate 900</div>
-        <div class="swatch-hex">#0f172a</div>
+        <div class="swatch-name">Claret</div>
+        <div class="swatch-hex">#7A2430</div>
       </div>
     </div>
     <div class="swatch">
-      <div class="swatch-color" style="background:#ffffff;border-bottom:1px solid #e2e8f0;"></div>
+      <div class="swatch-color" style="background: var(--rule);"></div>
       <div class="swatch-info">
-        <div class="swatch-name">White</div>
-        <div class="swatch-hex">#ffffff</div>
+        <div class="swatch-name">Rule</div>
+        <div class="swatch-hex">#DDD5C7</div>
       </div>
     </div>
   </div>
 
-  <h3 class="mt-24 mb-8" style="font-size:15px;">Supporting Colors</h3>
+  <h3 class="mt-24 mb-8" style="font-size:15px; font-family: 'IBM Plex Sans', sans-serif;">Supporting Colors</h3>
   <div class="grid-4">
     <div class="swatch">
-      <div class="swatch-color" style="background:#22c55e;"></div>
+      <div class="swatch-color" style="background: var(--positive);"></div>
       <div class="swatch-info">
-        <div class="swatch-name">Buy / Positive</div>
-        <div class="swatch-hex">#22c55e</div>
+        <div class="swatch-name">Positive</div>
+        <div class="swatch-hex">#2D5F3F</div>
       </div>
     </div>
     <div class="swatch">
-      <div class="swatch-color" style="background:#ef4444;"></div>
+      <div class="swatch-color" style="background: var(--negative);"></div>
       <div class="swatch-info">
-        <div class="swatch-name">Sell / Negative</div>
-        <div class="swatch-hex">#ef4444</div>
+        <div class="swatch-name">Negative</div>
+        <div class="swatch-hex">#8F2D3D</div>
       </div>
     </div>
     <div class="swatch">
-      <div class="swatch-color" style="background:#fbbf24;"></div>
+      <div class="swatch-color" style="background: var(--paper-deep);"></div>
       <div class="swatch-info">
-        <div class="swatch-name">Gold (Dark BG)</div>
-        <div class="swatch-hex">#fbbf24</div>
+        <div class="swatch-name">Paper Deep</div>
+        <div class="swatch-hex">#ECE6D9</div>
       </div>
     </div>
     <div class="swatch">
-      <div class="swatch-color" style="background:#64748b;"></div>
+      <div class="swatch-color" style="background: var(--ink-mute);"></div>
       <div class="swatch-info">
-        <div class="swatch-name">Muted Text</div>
-        <div class="swatch-hex">#64748b</div>
+        <div class="swatch-name">Ink Mute</div>
+        <div class="swatch-hex">#5A544E</div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TYPOGRAPHY ==================== -->
+<div class="section">
+  <div class="section-label"><span>Typography</span></div>
+  <h2>Type System</h2>
+  <p class="desc">Three faces, three roles. Fraunces for headlines and symbols, IBM Plex Sans for body, IBM Plex Mono for data and prices.</p>
+
+  <div class="grid-3">
+    <div class="type-sample">
+      <h4>Display &mdash; Fraunces</h4>
+      <div class="display">The market, measured.</div>
+      <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-light); margin-top: 8px;">Variable: opsz 9&ndash;144<br>Weights: 300&ndash;600<br>Use: Headlines, section titles, stock symbols</p>
+    </div>
+    <div class="type-sample">
+      <h4>Body &mdash; IBM Plex Sans</h4>
+      <div class="body-text">Three-to-four signals a month, sometimes zero. We trade when the math is clear &mdash; not when the news is loud.</div>
+      <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-light); margin-top: 8px;">Weights: 300&ndash;600<br>Use: Body copy, descriptions, UI labels</p>
+    </div>
+    <div class="type-sample">
+      <h4>Data &mdash; IBM Plex Mono</h4>
+      <div class="mono-text">
+        NVDA &nbsp; $142.50 &nbsp; +8.2%<br>
+        AVGO &nbsp; $198.30 &nbsp; -2.1%<br>
+        META &nbsp; $521.40 &nbsp; +14.3%
+      </div>
+      <p style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-light); margin-top: 8px;">Weights: 400&ndash;500<br>Use: Prices, percentages, dates, code</p>
     </div>
   </div>
 </div>
 
 <!-- ==================== SOCIAL ==================== -->
 <div class="section">
-  <p class="section-label">Social Media</p>
+  <div class="section-label"><span>Social Media</span></div>
   <h2>Profile Avatars</h2>
-  <p class="desc">Use the icon-only mark for social avatars (X, LinkedIn, Discord). The circle shape works natively in circular crops. The dark background behind the circle provides safe padding.</p>
+  <p class="desc">Use the bitone mark on an ink background for all social profiles. Offset the mark ~8% left to compensate for the compass arrow pulling the visual center right. The icon-bitone.png file is pre-rendered at 128px; scale up to 400px for Twitter/Instagram.</p>
 
   <div class="grid-3">
     <div class="card text-center">
       <h3>X / Twitter</h3>
-      <p class="sub">400x400 circular crop</p>
-      <div class="logo-area logo-area-dark" style="border-radius:50%;width:120px;height:120px;margin:0 auto;">
-        <svg width="80" height="80" viewBox="0 0 100 100"><defs><linearGradient id="tw" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#tw)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
+      <p class="sub">400&times;400, circular crop</p>
+      <div style="width:120px;height:120px;margin:0 auto;background:var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center;padding-right:8px;">
+        <svg width="72" height="58" viewBox="0 0 1280 1024">
+          <g transform="matrix(5.27 0 0 5.27 640 511)"><g>
+          <g transform="matrix(0.448 0 0 0.448 -22.4 -28.8)"><path fill="#7A2430" transform="translate(-300,-286)" d="M215.49 348.13C215.49 341.43 220.55 335.98 227.05 335.22L241.64 278.36C238.32 275.99 236.13 272.12 236.13 267.73C236.13 260.51 241.98 254.66 249.2 254.66C255.89 254.66 261.34 259.71 262.11 266.19L309.18 278.16C311.55 274.82 315.42 272.63 319.83 272.63C324 272.63 327.67 274.62 330.06 277.66L391.39 258.85C391.87 252.06 397.46 246.69 404.37 246.69C405.09 246.69 405.78 246.79 406.47 246.91L420.4 223.13C395.44 205.2 364.84 194.62 331.76 194.62C247.75 194.62 179.66 262.72 179.66 346.72C179.66 357.06 180.71 367.15 182.69 376.91L216.05 351.72C215.72 350.57 215.49 349.38 215.49 348.13z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.1 -9)"><path fill="#7A2430" transform="translate(-325,-330)" d="M427.89 228.86L414.54 251.65C416.32 253.88 417.43 256.68 417.43 259.76C417.43 266.98 411.58 272.83 404.37 272.83C400.19 272.83 396.52 270.84 394.13 267.79L332.8 286.61C332.33 293.39 326.73 298.76 319.83 298.76C313.14 298.76 307.69 293.72 306.92 287.24L259.84 275.26C257.76 278.21 254.48 280.2 250.71 280.64L236.12 337.5C239.44 339.87 241.63 343.74 241.63 348.13C241.63 355.35 235.78 361.2 228.56 361.2C226.02 361.2 223.68 360.45 221.67 359.19L185.04 386.86C189.39 402.76 196.25 417.63 205.17 431L343.51 312.12L408.04 312.12L465.59 274.41C456.09 256.86 443.23 241.4 427.89 228.86z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 73.8 -37.1)"><polygon fill="#7A2430" points="-45.31,-14.33 45.31,-39.44 -12.75,39.44 -17.06,3.28"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -48.2 25.7)"><path fill="#F5F1E8" transform="translate(-242,-407)" d="M297.69 513.38C291.85 512.18 286.13 510.68 280.53 508.91L280.53 405.3L233.16 446.01L233.16 485.18C189.93 454.31 161.67 403.77 161.67 346.72C161.67 321.48 167.23 297.53 177.14 275.97L153.41 275.97C144.69 297.88 139.84 321.74 139.84 346.72C139.84 452.54 225.93 538.63 331.76 538.63C336.23 538.63 340.66 538.42 345.06 538.12L345.06 349.85L297.69 390.55L297.69 513.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 41.6 31.4)"><path fill="#F5F1E8" transform="translate(-443,-420)" d="M523.16 333.38L501.27 333.38C501.62 337.79 501.85 342.23 501.85 346.72C501.85 381 491.63 412.92 474.11 439.65L474.11 304.24L426.75 335.28L426.75 487.65C421.24 491.37 415.52 494.78 409.58 497.85L409.58 341.74L362.22 341.74L362.22 536.19C453.61 521.55 523.67 442.17 523.67 346.72C523.67 342.23 523.46 337.79 523.16 333.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.8 -60.8)"><path fill="#F5F1E8" transform="translate(-324,-214)" d="M331.75 169.32C390.45 169.32 442.58 197.98 474.89 242.04L483.06 239.78C449.46 192.37 394.16 161.37 331.75 161.37C258.06 161.37 194.28 204.6 164.43 267.02L173.29 267.02C202.53 209.12 262.58 169.32 331.75 169.32z"/></g>
+          </g></g>
+        </svg>
       </div>
     </div>
     <div class="card text-center">
-      <h3>LinkedIn</h3>
-      <p class="sub">300x300 square</p>
-      <div class="logo-area logo-area-dark" style="width:120px;height:120px;margin:0 auto;border-radius:8px;">
-        <svg width="80" height="80" viewBox="0 0 100 100"><defs><linearGradient id="li" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#li)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
+      <h3>Instagram / Threads</h3>
+      <p class="sub">320&times;320, circular crop</p>
+      <div style="width:120px;height:120px;margin:0 auto;background:var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center;padding-right:8px;">
+        <svg width="72" height="58" viewBox="0 0 1280 1024">
+          <g transform="matrix(5.27 0 0 5.27 640 511)"><g>
+          <g transform="matrix(0.448 0 0 0.448 -22.4 -28.8)"><path fill="#7A2430" transform="translate(-300,-286)" d="M215.49 348.13C215.49 341.43 220.55 335.98 227.05 335.22L241.64 278.36C238.32 275.99 236.13 272.12 236.13 267.73C236.13 260.51 241.98 254.66 249.2 254.66C255.89 254.66 261.34 259.71 262.11 266.19L309.18 278.16C311.55 274.82 315.42 272.63 319.83 272.63C324 272.63 327.67 274.62 330.06 277.66L391.39 258.85C391.87 252.06 397.46 246.69 404.37 246.69C405.09 246.69 405.78 246.79 406.47 246.91L420.4 223.13C395.44 205.2 364.84 194.62 331.76 194.62C247.75 194.62 179.66 262.72 179.66 346.72C179.66 357.06 180.71 367.15 182.69 376.91L216.05 351.72C215.72 350.57 215.49 349.38 215.49 348.13z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.1 -9)"><path fill="#7A2430" transform="translate(-325,-330)" d="M427.89 228.86L414.54 251.65C416.32 253.88 417.43 256.68 417.43 259.76C417.43 266.98 411.58 272.83 404.37 272.83C400.19 272.83 396.52 270.84 394.13 267.79L332.8 286.61C332.33 293.39 326.73 298.76 319.83 298.76C313.14 298.76 307.69 293.72 306.92 287.24L259.84 275.26C257.76 278.21 254.48 280.2 250.71 280.64L236.12 337.5C239.44 339.87 241.63 343.74 241.63 348.13C241.63 355.35 235.78 361.2 228.56 361.2C226.02 361.2 223.68 360.45 221.67 359.19L185.04 386.86C189.39 402.76 196.25 417.63 205.17 431L343.51 312.12L408.04 312.12L465.59 274.41C456.09 256.86 443.23 241.4 427.89 228.86z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 73.8 -37.1)"><polygon fill="#7A2430" points="-45.31,-14.33 45.31,-39.44 -12.75,39.44 -17.06,3.28"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -48.2 25.7)"><path fill="#F5F1E8" transform="translate(-242,-407)" d="M297.69 513.38C291.85 512.18 286.13 510.68 280.53 508.91L280.53 405.3L233.16 446.01L233.16 485.18C189.93 454.31 161.67 403.77 161.67 346.72C161.67 321.48 167.23 297.53 177.14 275.97L153.41 275.97C144.69 297.88 139.84 321.74 139.84 346.72C139.84 452.54 225.93 538.63 331.76 538.63C336.23 538.63 340.66 538.42 345.06 538.12L345.06 349.85L297.69 390.55L297.69 513.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 41.6 31.4)"><path fill="#F5F1E8" transform="translate(-443,-420)" d="M523.16 333.38L501.27 333.38C501.62 337.79 501.85 342.23 501.85 346.72C501.85 381 491.63 412.92 474.11 439.65L474.11 304.24L426.75 335.28L426.75 487.65C421.24 491.37 415.52 494.78 409.58 497.85L409.58 341.74L362.22 341.74L362.22 536.19C453.61 521.55 523.67 442.17 523.67 346.72C523.67 342.23 523.46 337.79 523.16 333.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.8 -60.8)"><path fill="#F5F1E8" transform="translate(-324,-214)" d="M331.75 169.32C390.45 169.32 442.58 197.98 474.89 242.04L483.06 239.78C449.46 192.37 394.16 161.37 331.75 161.37C258.06 161.37 194.28 204.6 164.43 267.02L173.29 267.02C202.53 209.12 262.58 169.32 331.75 169.32z"/></g>
+          </g></g>
+        </svg>
       </div>
     </div>
     <div class="card text-center">
       <h3>Favicon</h3>
       <p class="sub">SVG, scales to any tab</p>
-      <div class="logo-area logo-area-light" style="width:120px;height:120px;margin:0 auto;">
-        <svg width="32" height="32" viewBox="0 0 100 100"><defs><linearGradient id="fav" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#fav)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="4" fill="#f59e0b"/></svg>
+      <div style="width:120px;height:120px;margin:0 auto;background:var(--paper-deep);border:1px solid var(--rule);display:flex;align-items:center;justify-content:center;">
+        <svg width="32" height="26" viewBox="0 0 1280 1024">
+          <g transform="matrix(5.27 0 0 5.27 640 511)"><g>
+          <g transform="matrix(0.448 0 0 0.448 -22.4 -28.8)"><path fill="#7A2430" transform="translate(-300,-286)" d="M215.49 348.13C215.49 341.43 220.55 335.98 227.05 335.22L241.64 278.36C238.32 275.99 236.13 272.12 236.13 267.73C236.13 260.51 241.98 254.66 249.2 254.66C255.89 254.66 261.34 259.71 262.11 266.19L309.18 278.16C311.55 274.82 315.42 272.63 319.83 272.63C324 272.63 327.67 274.62 330.06 277.66L391.39 258.85C391.87 252.06 397.46 246.69 404.37 246.69C405.09 246.69 405.78 246.79 406.47 246.91L420.4 223.13C395.44 205.2 364.84 194.62 331.76 194.62C247.75 194.62 179.66 262.72 179.66 346.72C179.66 357.06 180.71 367.15 182.69 376.91L216.05 351.72C215.72 350.57 215.49 349.38 215.49 348.13z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.1 -9)"><path fill="#7A2430" transform="translate(-325,-330)" d="M427.89 228.86L414.54 251.65C416.32 253.88 417.43 256.68 417.43 259.76C417.43 266.98 411.58 272.83 404.37 272.83C400.19 272.83 396.52 270.84 394.13 267.79L332.8 286.61C332.33 293.39 326.73 298.76 319.83 298.76C313.14 298.76 307.69 293.72 306.92 287.24L259.84 275.26C257.76 278.21 254.48 280.2 250.71 280.64L236.12 337.5C239.44 339.87 241.63 343.74 241.63 348.13C241.63 355.35 235.78 361.2 228.56 361.2C226.02 361.2 223.68 360.45 221.67 359.19L185.04 386.86C189.39 402.76 196.25 417.63 205.17 431L343.51 312.12L408.04 312.12L465.59 274.41C456.09 256.86 443.23 241.4 427.89 228.86z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 73.8 -37.1)"><polygon fill="#7A2430" points="-45.31,-14.33 45.31,-39.44 -12.75,39.44 -17.06,3.28"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -48.2 25.7)"><path fill="#141210" transform="translate(-242,-407)" d="M297.69 513.38C291.85 512.18 286.13 510.68 280.53 508.91L280.53 405.3L233.16 446.01L233.16 485.18C189.93 454.31 161.67 403.77 161.67 346.72C161.67 321.48 167.23 297.53 177.14 275.97L153.41 275.97C144.69 297.88 139.84 321.74 139.84 346.72C139.84 452.54 225.93 538.63 331.76 538.63C336.23 538.63 340.66 538.42 345.06 538.12L345.06 349.85L297.69 390.55L297.69 513.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 41.6 31.4)"><path fill="#141210" transform="translate(-443,-420)" d="M523.16 333.38L501.27 333.38C501.62 337.79 501.85 342.23 501.85 346.72C501.85 381 491.63 412.92 474.11 439.65L474.11 304.24L426.75 335.28L426.75 487.65C421.24 491.37 415.52 494.78 409.58 497.85L409.58 341.74L362.22 341.74L362.22 536.19C453.61 521.55 523.67 442.17 523.67 346.72C523.67 342.23 523.46 337.79 523.16 333.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.8 -60.8)"><path fill="#141210" transform="translate(-324,-214)" d="M331.75 169.32C390.45 169.32 442.58 197.98 474.89 242.04L483.06 239.78C449.46 192.37 394.16 161.37 331.75 161.37C258.06 161.37 194.28 204.6 164.43 267.02L173.29 267.02C202.53 209.12 262.58 169.32 331.75 169.32z"/></g>
+          </g></g>
+        </svg>
       </div>
     </div>
   </div>
@@ -411,40 +500,58 @@
 
 <!-- ==================== DO / DON'T ==================== -->
 <div class="section">
-  <p class="section-label">Usage Guidelines</p>
+  <div class="section-label"><span>Usage Guidelines</span></div>
   <h2>Do's and Don'ts</h2>
 
   <div class="do-dont">
     <div class="do-card">
       <div class="label">DO</div>
       <div class="example">
-        <svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="do1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#do1)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
+        <span class="wm-text" style="color:var(--ink);">RigaCap<span style="color:var(--claret);">.</span></span>
       </div>
-      <div class="note">Use the logo at its original proportions with adequate clear space.</div>
+      <div class="note">Always include the claret period. Mixed case: "RigaCap." never "RIGACAP" or "rigacap".</div>
     </div>
     <div class="dont-card">
       <div class="label">DON'T</div>
       <div class="example">
-        <svg width="80" height="40" viewBox="0 0 100 100" preserveAspectRatio="none"><defs><linearGradient id="dont1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#dont1)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
+        <span style="font-family: Arial, sans-serif; font-size: 24px; font-weight: 800; color: var(--ink); text-transform: uppercase; letter-spacing: 3px;">RIGACAP</span>
       </div>
-      <div class="note">Don't stretch, squish, or distort the proportions.</div>
+      <div class="note">Don't use a different typeface, all-caps, or drop the period.</div>
     </div>
   </div>
 
   <div class="do-dont mt-16">
     <div class="do-card">
       <div class="label">DO</div>
-      <div class="example" style="background:#0f172a;">
-        <svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="do2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#do2)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#fbbf24"/></svg>
+      <div class="example" style="background:var(--ink);">
+        <svg width="60" height="48" viewBox="0 0 1280 1024">
+          <g transform="matrix(5.27 0 0 5.27 640 511)"><g>
+          <g transform="matrix(0.448 0 0 0.448 -22.4 -28.8)"><path fill="#7A2430" transform="translate(-300,-286)" d="M215.49 348.13C215.49 341.43 220.55 335.98 227.05 335.22L241.64 278.36C238.32 275.99 236.13 272.12 236.13 267.73C236.13 260.51 241.98 254.66 249.2 254.66C255.89 254.66 261.34 259.71 262.11 266.19L309.18 278.16C311.55 274.82 315.42 272.63 319.83 272.63C324 272.63 327.67 274.62 330.06 277.66L391.39 258.85C391.87 252.06 397.46 246.69 404.37 246.69C405.09 246.69 405.78 246.79 406.47 246.91L420.4 223.13C395.44 205.2 364.84 194.62 331.76 194.62C247.75 194.62 179.66 262.72 179.66 346.72C179.66 357.06 180.71 367.15 182.69 376.91L216.05 351.72C215.72 350.57 215.49 349.38 215.49 348.13z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.1 -9)"><path fill="#7A2430" transform="translate(-325,-330)" d="M427.89 228.86L414.54 251.65C416.32 253.88 417.43 256.68 417.43 259.76C417.43 266.98 411.58 272.83 404.37 272.83C400.19 272.83 396.52 270.84 394.13 267.79L332.8 286.61C332.33 293.39 326.73 298.76 319.83 298.76C313.14 298.76 307.69 293.72 306.92 287.24L259.84 275.26C257.76 278.21 254.48 280.2 250.71 280.64L236.12 337.5C239.44 339.87 241.63 343.74 241.63 348.13C241.63 355.35 235.78 361.2 228.56 361.2C226.02 361.2 223.68 360.45 221.67 359.19L185.04 386.86C189.39 402.76 196.25 417.63 205.17 431L343.51 312.12L408.04 312.12L465.59 274.41C456.09 256.86 443.23 241.4 427.89 228.86z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 73.8 -37.1)"><polygon fill="#7A2430" points="-45.31,-14.33 45.31,-39.44 -12.75,39.44 -17.06,3.28"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -48.2 25.7)"><path fill="#F5F1E8" transform="translate(-242,-407)" d="M297.69 513.38C291.85 512.18 286.13 510.68 280.53 508.91L280.53 405.3L233.16 446.01L233.16 485.18C189.93 454.31 161.67 403.77 161.67 346.72C161.67 321.48 167.23 297.53 177.14 275.97L153.41 275.97C144.69 297.88 139.84 321.74 139.84 346.72C139.84 452.54 225.93 538.63 331.76 538.63C336.23 538.63 340.66 538.42 345.06 538.12L345.06 349.85L297.69 390.55L297.69 513.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 41.6 31.4)"><path fill="#F5F1E8" transform="translate(-443,-420)" d="M523.16 333.38L501.27 333.38C501.62 337.79 501.85 342.23 501.85 346.72C501.85 381 491.63 412.92 474.11 439.65L474.11 304.24L426.75 335.28L426.75 487.65C421.24 491.37 415.52 494.78 409.58 497.85L409.58 341.74L362.22 341.74L362.22 536.19C453.61 521.55 523.67 442.17 523.67 346.72C523.67 342.23 523.46 337.79 523.16 333.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.8 -60.8)"><path fill="#F5F1E8" transform="translate(-324,-214)" d="M331.75 169.32C390.45 169.32 442.58 197.98 474.89 242.04L483.06 239.78C449.46 192.37 394.16 161.37 331.75 161.37C258.06 161.37 194.28 204.6 164.43 267.02L173.29 267.02C202.53 209.12 262.58 169.32 331.75 169.32z"/></g>
+          </g></g>
+        </svg>
       </div>
-      <div class="note">Use brighter gold (#fbbf24) on very dark backgrounds for contrast.</div>
+      <div class="note">On dark backgrounds, cathedral body switches to paper (#F5F1E8). Claret stays claret.</div>
     </div>
     <div class="dont-card">
       <div class="label">DON'T</div>
-      <div class="example" style="background:#f59e0b;">
-        <svg width="60" height="60" viewBox="0 0 100 100"><defs><linearGradient id="dont2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#dont2)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
+      <div class="example" style="background: #3B82F6;">
+        <svg width="60" height="48" viewBox="0 0 1280 1024" style="opacity:0.5;">
+          <g transform="matrix(5.27 0 0 5.27 640 511)"><g>
+          <g transform="matrix(0.448 0 0 0.448 -22.4 -28.8)"><path fill="#fff" transform="translate(-300,-286)" d="M215.49 348.13C215.49 341.43 220.55 335.98 227.05 335.22L241.64 278.36C238.32 275.99 236.13 272.12 236.13 267.73C236.13 260.51 241.98 254.66 249.2 254.66C255.89 254.66 261.34 259.71 262.11 266.19L309.18 278.16C311.55 274.82 315.42 272.63 319.83 272.63C324 272.63 327.67 274.62 330.06 277.66L391.39 258.85C391.87 252.06 397.46 246.69 404.37 246.69C405.09 246.69 405.78 246.79 406.47 246.91L420.4 223.13C395.44 205.2 364.84 194.62 331.76 194.62C247.75 194.62 179.66 262.72 179.66 346.72C179.66 357.06 180.71 367.15 182.69 376.91L216.05 351.72C215.72 350.57 215.49 349.38 215.49 348.13z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.1 -9)"><path fill="#fff" transform="translate(-325,-330)" d="M427.89 228.86L414.54 251.65C416.32 253.88 417.43 256.68 417.43 259.76C417.43 266.98 411.58 272.83 404.37 272.83C400.19 272.83 396.52 270.84 394.13 267.79L332.8 286.61C332.33 293.39 326.73 298.76 319.83 298.76C313.14 298.76 307.69 293.72 306.92 287.24L259.84 275.26C257.76 278.21 254.48 280.2 250.71 280.64L236.12 337.5C239.44 339.87 241.63 343.74 241.63 348.13C241.63 355.35 235.78 361.2 228.56 361.2C226.02 361.2 223.68 360.45 221.67 359.19L185.04 386.86C189.39 402.76 196.25 417.63 205.17 431L343.51 312.12L408.04 312.12L465.59 274.41C456.09 256.86 443.23 241.4 427.89 228.86z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 73.8 -37.1)"><polygon fill="#fff" points="-45.31,-14.33 45.31,-39.44 -12.75,39.44 -17.06,3.28"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -48.2 25.7)"><path fill="#fff" transform="translate(-242,-407)" d="M297.69 513.38C291.85 512.18 286.13 510.68 280.53 508.91L280.53 405.3L233.16 446.01L233.16 485.18C189.93 454.31 161.67 403.77 161.67 346.72C161.67 321.48 167.23 297.53 177.14 275.97L153.41 275.97C144.69 297.88 139.84 321.74 139.84 346.72C139.84 452.54 225.93 538.63 331.76 538.63C336.23 538.63 340.66 538.42 345.06 538.12L345.06 349.85L297.69 390.55L297.69 513.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 41.6 31.4)"><path fill="#fff" transform="translate(-443,-420)" d="M523.16 333.38L501.27 333.38C501.62 337.79 501.85 342.23 501.85 346.72C501.85 381 491.63 412.92 474.11 439.65L474.11 304.24L426.75 335.28L426.75 487.65C421.24 491.37 415.52 494.78 409.58 497.85L409.58 341.74L362.22 341.74L362.22 536.19C453.61 521.55 523.67 442.17 523.67 346.72C523.67 342.23 523.46 337.79 523.16 333.38z"/></g>
+          <g transform="matrix(0.448 0 0 0.448 -11.8 -60.8)"><path fill="#fff" transform="translate(-324,-214)" d="M331.75 169.32C390.45 169.32 442.58 197.98 474.89 242.04L483.06 239.78C449.46 192.37 394.16 161.37 331.75 161.37C258.06 161.37 194.28 204.6 164.43 267.02L173.29 267.02C202.53 209.12 262.58 169.32 331.75 169.32z"/></g>
+          </g></g>
+        </svg>
       </div>
-      <div class="note">Don't place on backgrounds that clash with the gold beacon.</div>
+      <div class="note">Don't place on colored backgrounds. Only paper (#F5F1E8) or ink (#141210).</div>
     </div>
   </div>
 
@@ -452,60 +559,80 @@
     <div class="do-card">
       <div class="label">DO</div>
       <div class="example" style="gap:24px;">
-        <svg width="40" height="40" viewBox="0 0 100 100"><defs><linearGradient id="do3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#do3)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
-        <span style="font-size:20px;font-weight:700;color:#0f172a;">RigaCap</span>
+        <span style="font-family: 'Fraunces', Georgia, serif; font-size: 24px; font-variation-settings: 'opsz' 48; font-weight: 400; color: var(--ink);">Market, Measured<span style="color:var(--claret);">.</span></span>
       </div>
-      <div class="note">Keep consistent spacing between icon and text.</div>
+      <div class="note">Use Fraunces for all editorial headlines and branded phrases.</div>
     </div>
     <div class="dont-card">
       <div class="label">DON'T</div>
       <div class="example" style="gap:24px;">
-        <svg width="40" height="40" viewBox="0 0 100 100"><defs><linearGradient id="dont3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#172554"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#dont3)"/><path d="M 50 15 L 46.5 38 Q 46.5 40, 44 40 L 41 40 Q 39 40, 39 42 L 39 44 Q 39 46, 41 46 L 44 46 Q 46.5 46, 46.5 48 L 43 69 Q 43 71, 40 71 L 36 71 Q 34 71, 34 73 L 34 76 Q 34 78, 36 78 L 40 78 Q 42 78, 42 80 L 42 92 L 58 92 L 58 80 Q 58 78, 60 78 L 64 78 Q 66 78, 66 76 L 66 73 Q 66 71, 64 71 L 60 71 Q 57 71, 57 69 L 53.5 48 Q 53.5 46, 56 46 L 59 46 Q 61 46, 61 44 L 61 42 Q 61 40, 59 40 L 56 40 Q 53.5 40, 53.5 38 Z" fill="#fff"/><circle cx="50" cy="15" r="3" fill="#f59e0b"/></svg>
-        <span style="font-size:20px;font-weight:700;color:#0f172a;font-style:italic;text-decoration:underline;">RIGACAP</span>
+        <span style="font-family: Arial, sans-serif; font-size: 24px; font-weight: 700; color: #3B82F6;">Market, Measured.</span>
       </div>
-      <div class="note">Don't alter the text styling, capitalization, or typeface.</div>
+      <div class="note">Don't use non-brand typefaces or non-brand colors (no blue, no bright green, no neon).</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== VOICE ==================== -->
+<div class="section">
+  <div class="section-label"><span>Voice</span></div>
+  <h2>Brand Voice</h2>
+  <p class="desc">RigaCap speaks like a thoughtful colleague at dinner. Earnest, direct, grounded. Never like a fintech CEO on stage.</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3 style="color: var(--positive); margin-bottom: 12px;">We sound like</h3>
+      <ul style="list-style: none; padding: 0; font-size: 14px; color: var(--ink-mute); line-height: 1.8;">
+        <li>&ldquo;The system saw 3 names clear every gate this week.&rdquo;</li>
+        <li>&ldquo;Quiet weeks are normal. The math wasn't there.&rdquo;</li>
+        <li>&ldquo;We trade when the data is clear &mdash; not when the news is loud.&rdquo;</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="color: var(--negative); margin-bottom: 12px;">We never sound like</h3>
+      <ul style="list-style: none; padding: 0; font-size: 14px; color: var(--ink-mute); line-height: 1.8;">
+        <li>&ldquo;Our AI-powered algorithm detected a breakout signal!&rdquo;</li>
+        <li>&ldquo;Don't miss this incredible opportunity!&rdquo;</li>
+        <li>&ldquo;The tape is printing bullish price action on this name.&rdquo;</li>
+      </ul>
     </div>
   </div>
 </div>
 
 <!-- ==================== FILES ==================== -->
 <div class="section">
-  <p class="section-label">Assets</p>
+  <div class="section-label"><span>Assets</span></div>
   <h2>File Reference</h2>
-  <p class="desc">All SVG files are in <code>design/brand/</code>. SVGs are resolution-independent and work at any size.</p>
+  <p class="desc">Source files are in the codebase. SVGs are resolution-independent.</p>
 
   <div class="card">
     <ul class="file-list">
       <li>
-        <span class="file-name">rigacap-icon-navy-gold.svg</span>
-        <span class="file-desc">Primary icon mark (Navy + Gold)</span>
+        <span class="file-name">favicon.svg</span>
+        <span class="file-desc">Bitone spire mark, claret + ink (favicon)</span>
       </li>
       <li>
-        <span class="file-name">rigacap-icon-monochrome-dark.svg</span>
-        <span class="file-desc">Dark circle, white spire (for light backgrounds)</span>
+        <span class="file-name">icon-bitone.png</span>
+        <span class="file-desc">128&times;128 rasterized mark for small contexts</span>
       </li>
       <li>
-        <span class="file-name">rigacap-icon-monochrome-light.svg</span>
-        <span class="file-desc">White circle, dark spire (for dark backgrounds)</span>
+        <span class="file-name">og-card.png</span>
+        <span class="file-desc">1200&times;630 Open Graph card for link previews</span>
       </li>
       <li>
-        <span class="file-name">rigacap-wordmark-light-bg.svg</span>
-        <span class="file-desc">Icon + "RigaCap" text for light backgrounds</span>
+        <span class="file-name">email-header.png</span>
+        <span class="file-desc">Fraunces &ldquo;RigaCap.&rdquo; rendered as PNG for email clients</span>
       </li>
       <li>
-        <span class="file-name">rigacap-wordmark-dark-bg.svg</span>
-        <span class="file-desc">Icon + "RigaCap" text for dark backgrounds</span>
-      </li>
-      <li>
-        <span class="file-name">rigacap-social-avatar.svg</span>
-        <span class="file-desc">400x400 icon with dark bleed padding for social profiles</span>
+        <span class="file-name">launch-cards/launch-1&ndash;5.png</span>
+        <span class="file-desc">1080&times;1350 editorial launch cards for Instagram/social</span>
       </li>
     </ul>
   </div>
 </div>
 
-<div style="padding:40px;text-align:center;color:#94a3b8;font-size:12px;">
-  RigaCap Brand Kit &middot; February 2026
+<div style="padding:40px;text-align:center;color:var(--ink-light);font-size:12px;font-family:'IBM Plex Mono',monospace;">
+  RigaCap Brand Kit &middot; April 2026
 </div>
 
 </body>
