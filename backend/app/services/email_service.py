@@ -1660,150 +1660,56 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
         """
         first_name = user_name.split()[0] if user_name else "there"
         pnl_pct = ((current_price - entry_price) / entry_price) * 100 if entry_price > 0 else 0
-        pnl_color = "#059669" if pnl_pct >= 0 else "#dc2626"
+        pnl_color = "#2D5F3F" if pnl_pct >= 0 else "#8F2D3D"
         pnl_sign = "+" if pnl_pct >= 0 else ""
-
         is_sell = action.lower() == "sell"
-        subject_prefix = "SELL ALERT" if is_sell else "WARNING"
-        header_gradient = "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)" if is_sell else "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
-        action_label = "SELL" if is_sell else "WATCH"
+        action_label = "Record Exit" if is_sell else "Watch"
 
-        stop_row = ""
-        if stop_price is not None:
-            stop_row = f"""
-                        <tr>
-                            <td style="padding: 8px 0; color: #6b7280;">Trailing Stop</td>
-                            <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #dc2626;">${stop_price:.2f}</td>
-                        </tr>"""
+        stop_html = f"""<tr><td style="padding:10px 0; border-bottom:1px solid #DDD5C7; font-size:14px; color:#5A544E;">Trailing Stop</td>
+                            <td style="padding:10px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:'Courier New',monospace; font-size:14px; color:#141210;">${stop_price:.2f}</td></tr>""" if stop_price else ""
 
-        subject = f"[RigaCap] {subject_prefix}: {symbol} — {reason}"
-
-        html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
-    <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-        <!-- Header -->
-        <tr>
-            <td style="background: {header_gradient}; padding: 32px 24px; text-align: center;">
-                <img src="https://rigacap.com/email-logo-v2.png" alt="RigaCap" width="40" height="40" style="display: block; margin: 0 auto 12px auto;" />
-                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">
-                    {subject_prefix}: {symbol}
-                </h1>
-                <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
-                    {reason}
+        content = f"""
+                <p style="font-size: 17px; color: #141210; margin: 0 0 20px; line-height: 1.65;">{first_name.split()[0] if first_name else 'there'},</p>
+                <p style="font-size: 17px; color: #141210; margin: 0 0 20px; line-height: 1.65;">
+                    Your position in <strong>{symbol}</strong> {'has hit its trailing stop' if is_sell else 'needs attention'}. {reason}.
                 </p>
-            </td>
-        </tr>
 
-        <!-- Greeting -->
-        <tr>
-            <td style="padding: 24px 24px 0;">
-                <p style="margin: 0; font-size: 16px; color: #374151;">
-                    Hey {first_name}, your position in <strong>{symbol}</strong> needs attention.
-                </p>
-            </td>
-        </tr>
+                <table cellpadding="0" cellspacing="0" style="width:100%; margin:24px 0;">
+                    <tr><td style="padding:10px 0; border-bottom:1px solid #DDD5C7; font-size:14px; color:#5A544E;">Symbol</td>
+                        <td style="padding:10px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:Georgia,serif; font-size:18px; font-weight:500; color:#141210;">{symbol}</td></tr>
+                    <tr><td style="padding:10px 0; border-bottom:1px solid #DDD5C7; font-size:14px; color:#5A544E;">Current Price</td>
+                        <td style="padding:10px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:'Courier New',monospace; font-size:14px; color:#141210;">${current_price:.2f}</td></tr>
+                    <tr><td style="padding:10px 0; border-bottom:1px solid #DDD5C7; font-size:14px; color:#5A544E;">Entry Price</td>
+                        <td style="padding:10px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:'Courier New',monospace; font-size:14px; color:#8A8279;">${entry_price:.2f}</td></tr>
+                    <tr><td style="padding:10px 0; border-bottom:1px solid #DDD5C7; font-size:14px; color:#5A544E;">P&L</td>
+                        <td style="padding:10px 0; border-bottom:1px solid #DDD5C7; text-align:right; font-family:'Courier New',monospace; font-size:14px; color:{pnl_color};">{pnl_sign}{pnl_pct:.1f}%</td></tr>
+                    {stop_html}
+                </table>
 
-        <!-- Position Details -->
-        <tr>
-            <td style="padding: 24px;">
-                <div style="background-color: #f9fafb; border-radius: 12px; padding: 20px;">
-                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
-                        <tr>
-                            <td style="padding: 8px 0; color: #6b7280;">Symbol</td>
-                            <td style="padding: 8px 0; text-align: right; font-weight: 700; font-size: 18px; color: #111827;">{symbol}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; color: #6b7280;">Current Price</td>
-                            <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: #111827;">${current_price:.2f}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; color: #6b7280;">Entry Price</td>
-                            <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; text-align: right; color: #6b7280;">${entry_price:.2f}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; color: #6b7280;">P&L</td>
-                            <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: {pnl_color};">{pnl_sign}{pnl_pct:.1f}%</td>
-                        </tr>{stop_row}
-                    </table>
+                <div style="border-left: 2px solid #7A2430; padding: 12px 16px; background: #FAF7F0; margin: 20px 0;">
+                    <p style="margin: 0; font-size: 14px; color: #141210;">
+                        <strong>{'Record Exit' if is_sell else 'Monitor'}:</strong> {reason}
+                    </p>
                 </div>
-            </td>
-        </tr>
 
-        <!-- Action Box -->
-        <tr>
-            <td style="padding: 0 24px 24px;">
-                <div style="background-color: {'#fef2f2' if is_sell else '#fef3c7'}; border-radius: 12px; padding: 20px; border-left: 4px solid {'#dc2626' if is_sell else '#f59e0b'};">
-                    <div style="font-weight: 700; color: {'#dc2626' if is_sell else '#92400e'}; font-size: 16px; margin-bottom: 8px;">
-                        {'Recommended: Sell this position' if is_sell else 'Monitor closely'}
-                    </div>
-                    <div style="color: #374151; font-size: 14px;">
-                        {reason}
-                    </div>
-                </div>
-            </td>
-        </tr>
+                <div style="text-align: center; margin: 28px 0;">
+                    <a href="https://rigacap.com/app"
+                       style="display: inline-block; background: #141210; color: #F5F1E8; font-size: 13px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; padding: 14px 36px; text-decoration: none;">
+                        View Dashboard
+                    </a>
+                </div>"""
 
-        <!-- CTA -->
-        <tr>
-            <td style="padding: 0 24px 24px; text-align: center;">
-                <a href="https://rigacap.com/app"
-                   style="display: inline-block; background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); color: #ffffff; font-size: 16px; font-weight: 600; padding: 16px 40px; border-radius: 12px; text-decoration: none;">
-                    View Dashboard →
-                </a>
-            </td>
-        </tr>
+        label = "Sell Alert" if is_sell else "Position Alert"
+        html = self._email_wrapper(label, content, user_id)
+        subject = f"RigaCap — {symbol}: {reason}"
 
-        <!-- Disclaimer -->
-        <tr>
-            <td style="padding: 0 24px 24px;">
-                <p style="margin: 0; font-size: 12px; color: #6b7280; text-align: center;">
-                    This is not financial advice. Always do your own research before trading.
-                    <br>Past performance does not guarantee future results.
-                </p>
-            </td>
-        </tr>
-
-        <!-- Footer -->
-        {self._email_footer_html(user_id)}
-    </table>
-</body>
-</html>
-"""
-
-        text_lines = [
-            f"{subject_prefix}: {symbol}",
-            "=" * 40,
-            f"Reason: {reason}",
-            "",
-            f"Symbol: {symbol}",
-            f"Current Price: ${current_price:.2f}",
-            f"Entry Price: ${entry_price:.2f}",
-            f"P&L: {pnl_sign}{pnl_pct:.1f}%",
-        ]
-        if stop_price is not None:
-            text_lines.append(f"Trailing Stop: ${stop_price:.2f}")
-        text_lines.extend([
-            "",
-            f"Action: {'SELL this position' if is_sell else 'Monitor closely'}",
-            "",
-            "View dashboard: https://rigacap.com/app",
-            "",
-            "---",
-            "This is not financial advice. Always do your own research before trading.",
-            "Past performance does not guarantee future results.",
-        ])
+        text = f"{symbol}: {reason}. Price ${current_price:.2f}, entry ${entry_price:.2f}, P/L {pnl_sign}{pnl_pct:.1f}%. View: rigacap.com/app"
 
         return await self.send_email(
             to_email=to_email,
             subject=subject,
             html_content=html,
-            text_content="\n".join(text_lines),
+            text_content=text,
             user_id=user_id
         )
 
