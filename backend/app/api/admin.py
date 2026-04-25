@@ -3641,7 +3641,6 @@ async def send_newsletter_test(
     if not draft:
         raise HTTPException(status_code=404, detail="No draft found")
 
-    logger.warning(f"Newsletter test send: date={date}, status={draft.get('status')}, sections={len(draft.get('sections', []))}")
     ok = await email_service.send_newsletter_from_draft(
         to_email=admin.email,
         draft=draft,
