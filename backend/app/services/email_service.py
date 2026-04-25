@@ -2051,13 +2051,13 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
         import json
 
         regime_colors = {
-            'strong_bull': ('#10B981', '#d1fae5', 'Strong Bull'),
-            'weak_bull': ('#84CC16', '#ecfdf5', 'Weak Bull'),
-            'rotating_bull': ('#8B5CF6', '#ede9fe', 'Rotating Bull'),
-            'range_bound': ('#F59E0B', '#fef3c7', 'Range-Bound'),
-            'weak_bear': ('#F97316', '#fff7ed', 'Weak Bear'),
-            'panic_crash': ('#EF4444', '#fee2e2', 'Panic/Crash'),
-            'recovery': ('#06B6D4', '#cffafe', 'Recovery'),
+            'strong_bull': ('#2D5F3F', '#E8F0EB', 'Strong Bull'),
+            'weak_bull': ('#5A7F5F', '#EDF2EE', 'Weak Bull'),
+            'rotating_bull': ('#7A6F3F', '#F0EDE4', 'Rotating Bull'),
+            'range_bound': ('#8A8279', '#EDEBE7', 'Range-Bound'),
+            'weak_bear': ('#8F6D3D', '#F0ECE4', 'Weak Bear'),
+            'panic_crash': ('#8F2D3D', '#F0E8E8', 'Panic/Crash'),
+            'recovery': ('#3D6F8F', '#E4ECF0', 'Recovery'),
         }
 
         now = _now_et()
@@ -2093,12 +2093,12 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
         if spy_close and prev_spy and prev_spy > 0:
             pct = (spy_close / prev_spy - 1) * 100
             arrow = "↑" if pct >= 0 else "↓"
-            spy_delta = f' <span style="color:{"#10B981" if pct >= 0 else "#EF4444"}">{arrow}{abs(pct):.1f}%</span>'
+            spy_delta = f' <span style="color:{"#2D5F3F" if pct >= 0 else "#8F2D3D"}">{arrow}{abs(pct):.1f}%</span>'
         vix_delta = ""
         if vix_close and prev_vix and prev_vix > 0:
             pct = (vix_close / prev_vix - 1) * 100
             arrow = "↑" if pct >= 0 else "↓"
-            vix_delta = f' <span style="color:{"#EF4444" if pct >= 0 else "#10B981"}">{arrow}{abs(pct):.1f}%</span>'
+            vix_delta = f' <span style="color:{"#8F2D3D" if pct >= 0 else "#2D5F3F"}">{arrow}{abs(pct):.1f}%</span>'
 
         # Pre-format values for HTML template (avoid nested f-string issues on Lambda)
         spy_display = f"${spy_close:.2f}" if spy_close else "N/A"
@@ -2118,13 +2118,13 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
             bar_width = min(pct, 100)
             trans_rows += f'''
             <tr>
-              <td style="padding:6px 12px;font-size:14px;color:#374151;width:140px;">{r_name}</td>
+              <td style="padding:6px 12px;font-size:14px;color:#5A544E;width:140px;">{r_name}</td>
               <td style="padding:6px 12px;">
-                <div style="background:#f3f4f6;border-radius:4px;overflow:hidden;height:20px;">
-                  <div style="background:{r_color};width:{bar_width}%;height:100%;border-radius:4px;"></div>
+                <div style="background:#ECE6D9;overflow:hidden;height:18px;">
+                  <div style="background:{r_color};width:{bar_width}%;height:100%;"></div>
                 </div>
               </td>
-              <td style="padding:6px 12px;font-size:14px;color:#374151;text-align:right;width:60px;">{pct}%</td>
+              <td style="padding:6px 12px;font-size:14px;color:#141210;text-align:right;width:60px;font-weight:500;">{pct}%</td>
             </tr>'''
 
         # 30-day regime timeline (compact)
@@ -2143,14 +2143,14 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
             token = self._generate_regime_unsubscribe_token(subscriber_id)
             unsub_url = f"https://api.rigacap.com/api/public/unsubscribe?token={token}"
             footer = f'''<tr>
-                <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
-                    <p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">
+                <td style="background-color: #ECE6D9; padding: 24px; text-align: center; border-top: 1px solid #DDD5C7;">
+                    <p style="margin: 0 0 8px 0; font-size: 12px; color: #8A8279;">
                         You're receiving this because you subscribed at rigacap.com.
                     </p>
-                    <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                        <a href="{unsub_url}" style="color: #6b7280; text-decoration: none;">Unsubscribe</a>
+                    <p style="margin: 0; font-size: 12px; color: #8A8279;">
+                        <a href="{unsub_url}" style="color: #5A544E; text-decoration: underline;">Unsubscribe</a>
                     </p>
-                    <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
+                    <p style="margin: 8px 0 0 0; font-size: 12px; color: #8A8279;">
                         Trading involves risk. Past performance does not guarantee future results.
                     </p>
                 </td>
@@ -2159,8 +2159,8 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
             footer = self._email_footer_html(user_id)
         else:
             footer = '''<tr>
-                <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
-                    <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                <td style="background-color: #ECE6D9; padding: 24px; text-align: center; border-top: 1px solid #DDD5C7;">
+                    <p style="margin: 0; font-size: 12px; color: #8A8279;">
                         Trading involves risk. Past performance does not guarantee future results.
                     </p>
                 </td>
@@ -2169,38 +2169,38 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
         html = f'''<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;">
+<body style="margin:0;padding:0;background-color:#F5F1E8;font-family:Georgia,'Times New Roman',serif;color:#141210;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background-color:#FAF7F0;">
   <!-- Header -->
   <tr>
-    <td style="background: linear-gradient(135deg, #172554 0%, #1e3a5f 100%); padding: 32px 24px; text-align: center;">
-      <h1 style="margin:0;color:white;font-size:20px;font-weight:700;">RigaCap Weekly Market Intelligence</h1>
-      <p style="margin:8px 0 0 0;color:#94a3b8;font-size:14px;">{date_str}</p>
+    <td style="padding: 32px 24px 20px 24px; border-bottom: 2px solid #141210;">
+      <h1 style="margin:0;color:#141210;font-size:22px;font-weight:400;">Weekly Regime Report</h1>
+      <p style="margin:8px 0 0 0;color:#8A8279;font-size:13px;font-style:italic;">{date_str}</p>
     </td>
   </tr>
 
   <!-- Regime Badge -->
   <tr>
-    <td style="background:white;padding:24px;text-align:center;">
-      <div style="display:inline-block;background:{bg_color};border:2px solid {color};border-radius:12px;padding:12px 24px;">
-        <span style="font-size:24px;font-weight:700;color:{color};">{regime_name}</span>
+    <td style="padding:28px 24px 20px 24px;text-align:center;">
+      <div style="display:inline-block;background:{bg_color};border:1px solid {color};padding:10px 28px;">
+        <span style="font-size:22px;font-weight:500;color:{color};">{regime_name}</span>
       </div>
-      <p style="margin:12px 0 0 0;font-size:14px;color:#6b7280;">{wow_text}</p>
+      <p style="margin:10px 0 0 0;font-size:14px;color:#5A544E;">{wow_text}</p>
     </td>
   </tr>
 
   <!-- SPY & VIX -->
   <tr>
-    <td style="background:white;padding:0 24px 24px 24px;">
+    <td style="padding:0 24px 24px 24px;">
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr>
-          <td width="50%" style="text-align:center;padding:12px;background:#f9fafb;border-radius:8px 0 0 8px;">
-            <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;">S&amp;P 500</p>
-            <p style="margin:4px 0 0 0;font-size:20px;font-weight:700;color:#172554;">{spy_display}{spy_delta}</p>
+          <td width="50%" style="text-align:center;padding:14px;background:#ECE6D9;border-right:1px solid #DDD5C7;">
+            <p style="margin:0;font-size:11px;color:#8A8279;text-transform:uppercase;letter-spacing:1px;">S&amp;P 500</p>
+            <p style="margin:6px 0 0 0;font-size:20px;font-weight:500;color:#141210;">{spy_display}{spy_delta}</p>
           </td>
-          <td width="50%" style="text-align:center;padding:12px;background:#f9fafb;border-radius:0 8px 8px 0;">
-            <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;">Market Fear</p>
-            <p style="margin:4px 0 0 0;font-size:20px;font-weight:700;color:#172554;">{_vix_label(vix_close)}{vix_delta}</p>
+          <td width="50%" style="text-align:center;padding:14px;background:#ECE6D9;">
+            <p style="margin:0;font-size:11px;color:#8A8279;text-transform:uppercase;letter-spacing:1px;">Market Fear</p>
+            <p style="margin:6px 0 0 0;font-size:20px;font-weight:500;color:#141210;">{_vix_label(vix_close)}{vix_delta}</p>
           </td>
         </tr>
       </table>
@@ -2209,14 +2209,14 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
 
   <!-- Outlook & Action -->
   <tr>
-    <td style="background:white;padding:0 24px 24px 24px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f9ff;border-radius:8px;border-left:4px solid #172554;">
+    <td style="padding:0 24px 24px 24px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-left:3px solid #7A2430;">
         <tr>
-          <td style="padding:16px;">
-            <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;text-transform:uppercase;">Outlook</p>
-            <p style="margin:0 0 12px 0;font-size:16px;font-weight:600;color:#172554;">{outlook.replace('_', ' ').title()}</p>
-            <p style="margin:0 0 8px 0;font-size:13px;color:#6b7280;text-transform:uppercase;">Recommended Action</p>
-            <p style="margin:0;font-size:16px;font-weight:600;color:#172554;">{action_display}</p>
+          <td style="padding:16px 20px;">
+            <p style="margin:0 0 6px 0;font-size:11px;color:#8A8279;text-transform:uppercase;letter-spacing:1px;">Outlook</p>
+            <p style="margin:0 0 14px 0;font-size:16px;font-weight:500;color:#141210;">{outlook.replace('_', ' ').title()}</p>
+            <p style="margin:0 0 6px 0;font-size:11px;color:#8A8279;text-transform:uppercase;letter-spacing:1px;">Recommended Action</p>
+            <p style="margin:0;font-size:16px;font-weight:500;color:#141210;">{action_display}</p>
           </td>
         </tr>
       </table>
@@ -2225,8 +2225,8 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
 
   <!-- Transition Probabilities -->
   <tr>
-    <td style="background:white;padding:0 24px 24px 24px;">
-      <p style="margin:0 0 12px 0;font-size:14px;font-weight:600;color:#172554;">What's Next? Transition Probabilities</p>
+    <td style="padding:0 24px 24px 24px;">
+      <p style="margin:0 0 12px 0;font-size:13px;font-weight:500;color:#141210;text-transform:uppercase;letter-spacing:1px;">Transition Probabilities</p>
       <table width="100%" cellpadding="0" cellspacing="0">
         {trans_rows}
       </table>
@@ -2235,8 +2235,8 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
 
   <!-- 30-Day Timeline -->
   <tr>
-    <td style="background:white;padding:0 24px 24px 24px;">
-      <p style="margin:0 0 12px 0;font-size:14px;font-weight:600;color:#172554;">30-Day Regime Timeline</p>
+    <td style="padding:0 24px 24px 24px;">
+      <p style="margin:0 0 12px 0;font-size:13px;font-weight:500;color:#141210;text-transform:uppercase;letter-spacing:1px;">30-Day Timeline</p>
       <table cellpadding="1" cellspacing="1" style="width:100%;">
         <tr>{timeline_blocks}</tr>
       </table>
@@ -2245,13 +2245,13 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
 
   <!-- CTA -->
   <tr>
-    <td style="background:white;padding:0 24px 32px 24px;text-align:center;">
-      <p style="margin:0 0 16px 0;font-size:14px;color:#6b7280;">
-        RigaCap members get daily buy/sell signals powered by this intelligence.
+    <td style="padding:0 24px 32px 24px;text-align:center;border-top:1px solid #DDD5C7;">
+      <p style="margin:20px 0 16px 0;font-size:14px;color:#5A544E;font-style:italic;">
+        RigaCap subscribers see daily signals informed by this regime intelligence.
       </p>
       <a href="https://rigacap.com?utm_source=regime_report&utm_medium=email&utm_campaign=weekly"
-         style="display:inline-block;padding:12px 32px;background:#172554;color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">
-        See Our Full Signals →
+         style="display:inline-block;padding:12px 28px;background:#141210;color:#F5F1E8;text-decoration:none;font-weight:500;font-size:14px;">
+        Start Your Trial
       </a>
     </td>
   </tr>
@@ -2266,7 +2266,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
     async def send_weekly_regime_report(self, to_email: str, html: str,
                                          subscriber_id: int = None, user_id: str = None) -> bool:
         """Send the weekly regime report email."""
-        subject = f"📊 Weekly Market Regime Report — {_now_et().strftime('%B %d, %Y')}"
+        subject = f"Weekly Regime Report — {_now_et().strftime('%B %d, %Y')}"
         return await self.send_email(
             to_email=to_email,
             subject=subject,

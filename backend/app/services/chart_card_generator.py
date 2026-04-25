@@ -31,7 +31,6 @@ BRAND_RED = '#8F2D3D'
 BRAND_DARK = '#141210'
 BRAND_LIGHT = '#F5F1E8'
 BRAND_ACCENT = '#7A2430'
-BRAND_GOLD = '#B8923D'
 BRAND_GRAY = '#5A544E'
 
 
@@ -93,7 +92,7 @@ class ChartCardGenerator:
 
         # --- Header ---
         ax.text(0.05, 0.97, 'RigaCap', fontsize=22, fontweight='bold',
-                color='white', va='top', ha='left',
+                color=BRAND_LIGHT, va='top', ha='left',
                 fontfamily='sans-serif')
         if regime_name:
             ax.text(0.95, 0.97, f'Market: {regime_name}', fontsize=15,
@@ -105,7 +104,7 @@ class ChartCardGenerator:
 
         # --- Symbol ---
         ax.text(0.5, 0.91, f'${symbol}', fontsize=46, fontweight='bold',
-                color='white', va='top', ha='center',
+                color=BRAND_LIGHT, va='top', ha='center',
                 fontfamily='sans-serif')
         if company_name:
             ax.text(0.5, 0.87, company_name, fontsize=17,
@@ -209,14 +208,14 @@ class ChartCardGenerator:
         prices = price_data['close'].values
 
         # Background
-        ax.set_facecolor('#0f1b3d')
+        ax.set_facecolor('#1A1714')
 
         # Smooth the price line with Gaussian kernel for polished look
         try:
             smooth_prices = self._gaussian_smooth(prices, sigma=1.5)
-            ax.plot(dates, smooth_prices, color='white', linewidth=1.5, alpha=0.9)
+            ax.plot(dates, smooth_prices, color=BRAND_LIGHT, linewidth=1.5, alpha=0.9)
         except Exception:
-            ax.plot(dates, prices, color='white', linewidth=1.5, alpha=0.9)
+            ax.plot(dates, prices, color=BRAND_LIGHT, linewidth=1.5, alpha=0.9)
 
         # Find entry/exit indices
         entry_dt = pd.Timestamp(entry_date[:10])
@@ -240,7 +239,7 @@ class ChartCardGenerator:
         ax.set_ylim(min(prices) - y_pad, max(prices) + y_pad)
 
         # Label background box style
-        label_bbox = dict(boxstyle='round,pad=0.3', facecolor='#0f1b3d',
+        label_bbox = dict(boxstyle='round,pad=0.3', facecolor='#1A1714',
                           edgecolor='none', alpha=0.85)
 
         # Entry marker (green triangle up) — label ABOVE the line
@@ -268,13 +267,13 @@ class ChartCardGenerator:
         ax.yaxis.set_visible(False)
         for spine in ax.spines.values():
             spine.set_visible(False)
-        ax.grid(axis='y', alpha=0.1, color='white')
+        ax.grid(axis='y', alpha=0.1, color=BRAND_LIGHT)
 
     def _draw_badge(self, ax, x, y, text, color):
         """Draw a rounded badge at the given position."""
         bbox = dict(boxstyle='round,pad=0.4', facecolor=color, alpha=0.3,
                     edgecolor=color, linewidth=1)
-        ax.text(x, y, text, fontsize=12, color='white',
+        ax.text(x, y, text, fontsize=12, color=BRAND_LIGHT,
                 va='center', ha='center', fontfamily='sans-serif',
                 bbox=bbox)
 
@@ -371,7 +370,7 @@ class ChartCardGenerator:
 
         # --- Header ---
         ax.text(0.05, 0.97, 'RigaCap', fontsize=22, fontweight='bold',
-                color='white', va='top', ha='left', fontfamily='sans-serif')
+                color=BRAND_LIGHT, va='top', ha='left', fontfamily='sans-serif')
         ax.text(0.95, 0.97, 'Signal Intelligence', fontsize=15,
                 color=BRAND_GRAY, va='top', ha='right', fontfamily='sans-serif')
 
@@ -418,12 +417,12 @@ class ChartCardGenerator:
         cursor_y = top_y
         if headline:
             ax.text(0.5, cursor_y, headline, fontsize=34, fontweight='bold',
-                    color=BRAND_GOLD, va='top', ha='center',
+                    color=BRAND_ACCENT, va='top', ha='center',
                     fontfamily='sans-serif')
             # Small gold accent line under headline
             accent_y = cursor_y - headline_height + 0.005
             ax.plot([0.35, 0.65], [accent_y, accent_y],
-                    color=BRAND_GOLD, lw=1.5, alpha=0.35)
+                    color=BRAND_ACCENT, lw=1.5, alpha=0.35)
             cursor_y = accent_y - gap_after_headline
 
         # --- Body text ---
@@ -432,7 +431,7 @@ class ChartCardGenerator:
                 cursor_y -= line_spacing * 0.5
                 continue
             ax.text(0.5, cursor_y, line,
-                    fontsize=18, color='white', va='top', ha='center',
+                    fontsize=18, color=BRAND_LIGHT, va='top', ha='center',
                     fontfamily='sans-serif', linespacing=1.3)
             cursor_y -= line_spacing
 
@@ -443,7 +442,7 @@ class ChartCardGenerator:
         ax.text(0.05, 0.03, 'rigacap.com', fontsize=14,
                 color=BRAND_ACCENT, va='bottom', ha='left',
                 fontfamily='sans-serif', fontweight='bold')
-        ax.text(0.95, 0.03, 'AI-Powered Signals', fontsize=14,
+        ax.text(0.95, 0.03, 'Walk-Forward Verified', fontsize=14,
                 color=BRAND_GRAY, va='bottom', ha='right',
                 fontfamily='sans-serif', style='italic')
 
@@ -472,12 +471,12 @@ class ChartCardGenerator:
         equities = [p["equity"] for p in equity_curve]
         spy_equities = [p.get("spy_equity", 100000) for p in equity_curve]
 
-        BG_COLOR = '#FAFBFC'
-        TEXT_COLOR = '#1E293B'
-        TEXT_MUTED = '#64748B'
-        GRID_COLOR = '#E2E8F0'
-        SPINE_COLOR = '#CBD5E1'
-        PORTFOLIO_COLOR = '#172554'  # Navy for the main line
+        BG_COLOR = '#F5F1E8'
+        TEXT_COLOR = '#141210'
+        TEXT_MUTED = '#5A544E'
+        GRID_COLOR = '#DDD5C7'
+        SPINE_COLOR = '#C4BAA9'
+        PORTFOLIO_COLOR = '#7A2430'
 
         fig, ax = plt.subplots(figsize=(12, 6), dpi=100)
         fig.patch.set_facecolor(BG_COLOR)
