@@ -88,6 +88,7 @@ ABSOLUTE RULES:
 - Sound human. Use fragments sometimes. Vary rhythm. Write like you typed it on a Sunday morning, not like you drafted it in a boardroom.
 - Never start paragraphs with "Interesting" or "It's worth noting" or "Let me explain."
 - Keep it tight. Each section should be 150-250 words. Total newsletter under 1000 words.
+- CRITICAL: Every number you cite MUST come from the data provided. If the data says 0 stops, say 0. If it says 1, say 1. NEVER invent, round, or estimate numbers. If you don't have data for something, don't mention it. Getting a number wrong destroys trust instantly.
 
 The newsletter has four sections. Each has a job:
 §01 "The Week in Focus" — what the system is seeing right now, in plain English
@@ -165,14 +166,28 @@ class NewsletterGeneratorService:
         monitoring_count = len([s for s in buy_signals if not s.get("is_fresh")])
         watchlist = dashboard.get("watchlist", [])
 
-        # Build market summary for Claude
+        # Pull real position data (open positions, recent exits/stops)
+        positions = dashboard.get("positions", [])
+        open_count = len(positions)
+        recent_sells = dashboard.get("recent_sells", [])
+        stops_hit = [s for s in recent_sells if s.get("exit_reason", "").lower() in ("trailing_stop", "stop_loss", "regime_exit")]
+        profit_exits = [s for s in recent_sells if s.get("exit_reason", "").lower() not in ("trailing_stop", "stop_loss", "regime_exit") and s.get("pnl_pct", 0) > 0]
+
+        # Build market summary for Claude — ONLY verifiable facts
         market_summary = f"Regime: {regime}."
         if spy_price is not None:
             direction = "up" if (spy_change or 0) >= 0 else "down"
             market_summary += f" S&P 500 closed {direction} {abs(spy_change or 0):.1f}% at ${spy_price:,.0f}."
         if vix is not None:
             market_summary += f" VIX at {vix:.0f}."
-        market_summary += f" Fresh signals this week: {fresh_count}. Monitoring: {monitoring_count}. Watchlist: {len(watchlist)}."
+        market_summary += f"\nFresh signals this week: {fresh_count}. Monitoring: {monitoring_count}. Watchlist: {len(watchlist)}."
+        market_summary += f"\nOpen positions: {open_count}."
+        if stops_hit:
+            market_summary += f"\nStops triggered this week: {len(stops_hit)}."
+        else:
+            market_summary += f"\nStops triggered this week: 0."
+        if profit_exits:
+            market_summary += f"\nProfit exits this week: {len(profit_exits)}."
         if market_context:
             market_summary += f"\n\nAI market briefing from the system: {market_context}"
 
@@ -184,7 +199,7 @@ Market data:
 
 Write 2-3 paragraphs explaining what the system is seeing in plain English. Translate the regime and data into something a smart non-trader would understand. Don't just list numbers — interpret them. What does this regime mean for how the system is behaving?
 
-If there were fresh signals, mention that the system found opportunities (don't name tickers). If there were none, explain why quiet weeks happen and why that's the system working as designed.
+You may reference: number of fresh signals, watchlist count, open positions, stops triggered, profit exits — but ONLY the exact numbers from the data above. Do NOT make up any numbers. If the data says 1 stop was triggered, say 1. If it says 0, say 0. Do not name specific tickers.
 
 150-250 words."""
 
