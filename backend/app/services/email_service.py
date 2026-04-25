@@ -989,7 +989,7 @@ class EmailService:
         <tr><td style="padding: 0 40px;">
             <p style="{sn}">&sect; 03 &middot; The Anti-Pitch</p>
             <h2 style="{sh}">{s3_title}</h2>
-            <p style="margin: 0 0 4px 0; font-size: 16px; line-height: 1.75; color: #141210;">Right now, the system is not:</p>
+            <p style="margin: 0 0 4px 0; font-size: 16px; line-height: 1.75; color: #141210;">Right now, the system is:</p>
             {s3_list_html}
             <p style="margin: 0; font-size: 16px; line-height: 1.75; color: #141210; font-style: italic;">
                 If you're looking for a system that does all of those things, this isn't it. What you're getting instead is a system that tries to do one thing very well and is transparent about what it won't do.
@@ -1172,7 +1172,7 @@ Market, Measured. is a weekly reading from RigaCap.
                 part += f'<h2 style="{sh}">{title}</h2>'
 
             if items:
-                part += '<p style="margin: 0 0 4px 0; font-size: 16px; line-height: 1.75; color: #141210;">Right now, the system is not:</p>'
+                part += '<p style="margin: 0 0 4px 0; font-size: 16px; line-height: 1.75; color: #141210;">Right now, the system is:</p>'
                 for item in items:
                     part += f'''<table cellpadding="0" cellspacing="0" style="width: 100%;"><tr>
                         <td style="padding: 12px 0 12px 20px; border-top: 1px solid #DDD5C7; font-size: 16px; line-height: 1.75; color: #141210; position: relative;">

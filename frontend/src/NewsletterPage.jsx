@@ -154,7 +154,7 @@ export function NewsletterIssuePage() {
                   )}
                   {sec.items && (
                     <>
-                      <p className="text-[1.05rem] leading-[1.75] text-ink mb-4">Right now, the system is not:</p>
+                      <p className="text-[1.05rem] leading-[1.75] text-ink mb-4">Right now, the system is:</p>
                       <ul className="list-none p-0 m-0 mb-5">
                         {sec.items.map((item, j) => (
                           <li key={j} className="py-3 pl-5 border-t border-rule text-[1.02rem] leading-[1.7] relative last:border-b">
