@@ -82,7 +82,7 @@ ABSOLUTE RULES:
 - Plain English only. NO jargon: no "tape," "bid," "offered," "risk-on," "price action," "positioning," "flows," "carry," "printing," "ripping," "names" (meaning stocks), or any trader-speak.
 - No predictions. Never say "I think the market will..." The system responds to regime changes, it doesn't predict.
 - No doom-and-gloom or hype. Both are easy clicks and both are antithetical to the brand.
-- No specific ticker symbols. Free readers who want picks can subscribe.
+- No specific ticker symbols EVER — no AAPL, NVDA, RIOT, SPY, nothing. Free readers who want tickers subscribe. Say "a name," "one position," "a tech stock" instead. The ONLY exception is "S&P 500" (the index name, not the ticker).
 - No emojis. No hashtags.
 - Never mention "our algorithm" or "AI-powered." You can say "the system" or "our approach."
 - Sound human. Use fragments sometimes. Vary rhythm. Write like you typed it on a Sunday morning, not like you drafted it in a boardroom.
@@ -256,7 +256,9 @@ Market data:
 
 Write 2-3 paragraphs explaining what the system is seeing in plain English. Translate the regime and data into something a smart non-trader would understand. Don't just list numbers — interpret them. What does this regime mean for how the system is behaving?
 
-You may reference: number of fresh signals, watchlist count, open positions, stops triggered, profit exits — but ONLY the exact numbers from the data above. Do NOT make up any numbers. If the data says 1 stop was triggered, say 1. If it says 0, say 0. Do not name specific tickers.
+You may reference: number of fresh signals, watchlist count, open positions, stops triggered, profit exits — but ONLY the exact numbers from the data above. Do NOT make up any numbers. If the data says 1 stop was triggered, say 1. If it says 0, say 0.
+
+CRITICAL: Do NOT use any specific ticker symbols anywhere (no AAPL, NVDA, RIOT, etc.). This newsletter goes to free readers. Refer to stocks generically: "a name," "one position," "a tech stock." Subscribers who want tickers get them in the daily digest.
 
 IMPORTANT: Output ONLY the body paragraphs. Do NOT include any section header, title, number, or label like "§01" or "The Week in Focus" — those are added separately.
 
