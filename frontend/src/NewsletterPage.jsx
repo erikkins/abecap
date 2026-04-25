@@ -20,6 +20,7 @@ const Navbar = () => (
         <span className="font-display text-2xl font-semibold text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 144' }}>RigaCap<span className="text-claret">.</span></span>
       </Link>
       <div className="flex items-center gap-7">
+        <Link to="/" className="hidden sm:inline text-[0.9rem] text-ink-mute no-underline hover:text-ink transition-colors">Home</Link>
         <Link to="/about" className="hidden sm:inline text-[0.9rem] text-ink-mute no-underline hover:text-ink transition-colors">About</Link>
         <Link to="/methodology" className="hidden sm:inline text-[0.9rem] text-ink-mute no-underline hover:text-ink transition-colors">Methodology</Link>
         <Link to="/track-record" className="hidden sm:inline text-[0.9rem] text-ink-mute no-underline hover:text-ink transition-colors">Track Record</Link>
