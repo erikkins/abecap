@@ -2988,9 +2988,9 @@ async def public_newsletter_unsubscribe(
     from fastapi.responses import HTMLResponse
 
     err_html = (
-        '<html><body style="font-family:sans-serif;text-align:center;padding:60px;'
-        'background:#0f172a;color:#e2e8f0;"><h2>Invalid or expired link</h2>'
-        '<p>Please contact support@rigacap.com</p></body></html>'
+        '<html><body style="font-family:Georgia,serif;text-align:center;padding:60px;'
+        'background:#F5F1E8;color:#141210;"><h2 style="color:#7A2430;font-weight:400;">Invalid or expired link</h2>'
+        '<p style="color:#5A544E;">Please contact support@rigacap.com</p></body></html>'
     )
 
     try:
@@ -3004,6 +3004,7 @@ async def public_newsletter_unsubscribe(
     except JWTError:
         return HTMLResponse(content=err_html, status_code=400)
 
+    # Check free subscriber list
     pref = (await db.execute(
         select(NewsletterPreference).where(
             NewsletterPreference.email == email,
@@ -3015,13 +3016,25 @@ async def public_newsletter_unsubscribe(
         pref.unsubscribed_at = datetime.utcnow()
         await db.commit()
 
+    # Also check if this is a registered user — opt them out via email_preferences
+    if report_type == "market_measured":
+        from app.core.database import User as _UUser
+        user_row = (await db.execute(
+            select(_UUser).where(_UUser.email == email)
+        )).scalar_one_or_none()
+        if user_row:
+            prefs = user_row.email_preferences or {}
+            prefs["market_measured"] = False
+            user_row.email_preferences = prefs
+            await db.commit()
+
     label = "Market, Measured" if report_type == "market_measured" else "weekly regime report"
     return HTMLResponse(
-        content=f'<html><body style="font-family:sans-serif;text-align:center;padding:60px;'
-        f'background:#0f172a;color:#e2e8f0;">'
-        f'<h2 style="color:#f59e0b;">Unsubscribed</h2>'
-        f'<p>You\'ve been removed from the {label}.</p>'
-        f'<p style="margin-top:24px;"><a href="https://rigacap.com" style="color:#818cf8;">'
+        content=f'<html><body style="font-family:Georgia,serif;text-align:center;padding:60px;'
+        f'background:#F5F1E8;color:#141210;">'
+        f'<h2 style="color:#7A2430;font-weight:400;">Unsubscribed</h2>'
+        f'<p style="color:#5A544E;">You\'ve been removed from the {label}.</p>'
+        f'<p style="margin-top:24px;"><a href="https://rigacap.com" style="color:#7A2430;">'
         f'Back to RigaCap</a></p></body></html>'
     )
 

@@ -1757,7 +1757,7 @@ function Dashboard() {
   const [referralCopied, setReferralCopied] = useState(false);
   const [journeyData, setJourneyData] = useState(null);
   const [journeyCopied, setJourneyCopied] = useState(false);
-  const [emailPrefs, setEmailPrefs] = useState({ daily_digest: true, sell_alerts: true, double_signals: true, intraday_signals: true });
+  const [emailPrefs, setEmailPrefs] = useState({ daily_digest: true, sell_alerts: true, double_signals: true, intraday_signals: true, market_measured: true });
   const [emailPrefsSaving, setEmailPrefsSaving] = useState(false);
   const [emailPrefsToast, setEmailPrefsToast] = useState(null); // null | 'saved' | 'unsubscribed'
   const [dataFreshness, setDataFreshness] = useState(null); // { status: 'fresh'|'processing'|'stale', message }
@@ -1835,7 +1835,7 @@ function Dashboard() {
           .then(res => res.json())
           .then(() => {
             setEmailPrefsToast('unsubscribed');
-            setEmailPrefs({ daily_digest: false, sell_alerts: false, double_signals: false, intraday_signals: false });
+            setEmailPrefs({ daily_digest: false, sell_alerts: false, double_signals: false, intraday_signals: false, market_measured: false });
             setTimeout(() => setEmailPrefsToast(null), 6000);
           })
           .catch(() => {});
@@ -4185,6 +4185,7 @@ function Dashboard() {
                 { key: 'sell_alerts', label: 'Sell Alerts', desc: 'Trailing stop and regime exit alerts' },
                 { key: 'double_signals', label: 'Double Signal Alerts', desc: 'Breakout + momentum confirmation alerts' },
                 { key: 'intraday_signals', label: 'Intraday Signals', desc: 'Breakout crossover during market hours' },
+                { key: 'market_measured', label: 'Market, Measured.', desc: 'Sunday morning weekly newsletter' },
               ].map(({ key, label, desc }) => (
                 <label key={key} className="flex items-center justify-between cursor-pointer group">
                   <div>

@@ -3622,22 +3622,41 @@ async def send_newsletter_now(
     from app.services.data_export import data_export_service
     dashboard_data = data_export_service.read_dashboard_json() or {}
 
-    # Get free list subscribers
-    from app.core.database import NewsletterPreference
+    # Collect all recipients: free list + paid subscribers who haven't opted out
+    all_emails = set()
+
+    # Free newsletter subscribers
+    from app.core.database import NewsletterPreference, User as _User, Subscription
     result = await db.execute(
         select(NewsletterPreference).where(
             NewsletterPreference.report_type == "market_measured",
             NewsletterPreference.unsubscribed_at.is_(None),
         )
     )
-    subscribers = result.scalars().all()
+    for sub in result.scalars().all():
+        all_emails.add(sub.email.strip().lower())
+
+    # Paid subscribers who haven't opted out of market_measured
+    from sqlalchemy import and_
+    result = await db.execute(
+        select(_User).join(Subscription, _User.id == Subscription.user_id).where(
+            and_(
+                Subscription.status.in_(["active", "trialing"]),
+                _User.is_active == True,
+            )
+        )
+    )
+    for user in result.scalars().all():
+        prefs = user.email_preferences or {}
+        if prefs.get("market_measured", True):
+            all_emails.add(user.email.strip().lower())
 
     sent = 0
     failed = 0
-    for sub in subscribers:
+    for email_addr in all_emails:
         try:
             ok = await email_service.send_market_measured(
-                to_email=sub.email,
+                to_email=email_addr,
                 dashboard_data=dashboard_data,
                 show_symbols=False,
             )
@@ -3646,7 +3665,7 @@ async def send_newsletter_now(
             else:
                 failed += 1
         except Exception as e:
-            logger.warning(f"Newsletter send failed for {sub.email}: {e}")
+            logger.warning(f"Newsletter send failed for {email_addr}: {e}")
             failed += 1
 
-    return {"sent": sent, "failed": failed, "total": len(subscribers)}
+    return {"sent": sent, "failed": failed, "total": len(all_emails)}
