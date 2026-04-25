@@ -174,3 +174,4 @@
 - [Newsletter topic rotation](project_newsletter_topics.md) — §02 educational topics, review quarterly, add from new features + subscriber feedback
 - [Newsletter ops and timing](project_newsletter_ops.md) — Sat 8PM generate, Sun 10AM auto-send, no weekend refresh by design
 - [Newsletter has no signals](feedback_newsletter_no_signals.md) — purely editorial, same for free and paid, no tickers ever
+- [Never blast emails without target_emails check](feedback_never_blast_without_target.md) — verify handler supports filtering BEFORE invoking
