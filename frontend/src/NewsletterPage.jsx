@@ -268,11 +268,6 @@ export default function NewsletterPage() {
       </header>
 
       <div className="max-w-[720px] mx-auto px-4 sm:px-8">
-        {/* Subscribe */}
-        <div className="py-10 border-b border-rule">
-          <MarketMeasuredSignup source="archive_page" />
-        </div>
-
         {loading ? (
           <div className="py-20 flex justify-center">
             <Loader2 className="w-6 h-6 animate-spin text-ink-mute" />
@@ -356,6 +351,11 @@ export default function NewsletterPage() {
             )}
           </>
         )}
+
+        {/* Subscribe — after the archive */}
+        <div className="py-10 border-t border-rule">
+          <MarketMeasuredSignup source="archive_page" />
+        </div>
       </div>
 
       {/* Footer */}
