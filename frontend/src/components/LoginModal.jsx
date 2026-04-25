@@ -95,7 +95,6 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
         const result = await login(email, password);
         if (result.success) {
           if (result.requires_2fa) {
-            // 2FA step will be shown automatically via twoFactorRequired state
             return;
           }
           if (onSuccess) {
@@ -121,14 +120,12 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
     }
 
     try {
-      // Use Google Identity Services (GIS)
       const google = window.google;
       if (!google?.accounts?.id) {
         setLocalError('Google Sign-In SDK not loaded. Please refresh and try again.');
         return;
       }
 
-      // Initialize and prompt
       google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: async (response) => {
@@ -148,10 +145,8 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
         },
       });
 
-      // Show the One Tap or popup
       google.accounts.id.prompt((notification) => {
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          // Fallback: use popup flow
           google.accounts.id.renderButton(
             document.getElementById('google-signin-button'),
             { theme: 'outline', size: 'large', width: '100%' }
@@ -208,7 +203,6 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
     }
   };
 
-  // Handle 2FA code submission
   const handle2FASubmit = async (e) => {
     e.preventDefault();
     setTwoFactorLoading(true);
@@ -230,7 +224,6 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
     }
   };
 
-  // Auto-focus 2FA input
   useEffect(() => {
     if (twoFactorRequired && twoFactorInputRef.current) {
       twoFactorInputRef.current.focus();
@@ -239,31 +232,31 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
 
   if (!isOpen) return null;
 
-  // Show 2FA verification step
+  // 2FA verification step
   if (twoFactorRequired) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex justify-between items-center">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Shield size={20} /> Two-Factor Authentication
+      <div className="fixed inset-0 bg-ink/60 flex items-center justify-center z-50 p-4">
+        <div className="bg-paper rounded max-w-md w-full overflow-hidden border border-rule">
+          <div className="bg-ink px-6 py-4 flex justify-between items-center">
+            <h2 className="font-display text-lg text-paper flex items-center gap-2" style={{ fontVariationSettings: '"opsz" 24' }}>
+              <Shield size={18} /> Two-Factor Authentication
             </h2>
             <button
               onClick={() => { cancel2FA(); setTwoFactorCode(''); setTwoFactorError(''); setUseBackupCode(false); }}
-              className="text-white/80 hover:text-white transition-colors"
+              className="text-paper/70 hover:text-paper transition-colors"
             >
-              <X size={24} />
+              <X size={22} />
             </button>
           </div>
           <div className="p-6">
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-ink-mute mb-4">
               {useBackupCode
                 ? 'Enter one of your 8-character backup codes.'
                 : 'Enter the 6-digit code from your authenticator app.'}
             </p>
 
             {(twoFactorError || error) && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+              <div className="mb-4 p-3 bg-negative/10 border border-negative/30 text-negative text-sm">
                 {twoFactorError || error}
               </div>
             )}
@@ -279,7 +272,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
                   maxLength={useBackupCode ? 8 : 6}
                   autoComplete="one-time-code"
                   inputMode={useBackupCode ? 'text' : 'numeric'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-center text-2xl font-mono tracking-widest focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 border border-rule-dark text-center text-2xl font-mono tracking-widest bg-paper-card focus:outline-none focus:border-ink"
                 />
               </div>
 
@@ -288,15 +281,15 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
                   type="checkbox"
                   checked={trustDevice}
                   onChange={(e) => setTrustDevice(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded"
+                  className="w-4 h-4 accent-claret"
                 />
-                <span className="text-sm text-gray-600">Trust this device for 30 days</span>
+                <span className="text-sm text-ink-mute">Trust this device for 30 days</span>
               </label>
 
               <button
                 type="submit"
                 disabled={twoFactorLoading || (!useBackupCode && twoFactorCode.length !== 6) || (useBackupCode && twoFactorCode.length < 8)}
-                className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 bg-ink text-paper font-medium hover:bg-claret transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {twoFactorLoading ? 'Verifying...' : 'Verify'}
               </button>
@@ -305,13 +298,13 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
             <div className="mt-4 flex justify-between text-sm">
               <button
                 onClick={() => { setUseBackupCode(!useBackupCode); setTwoFactorCode(''); setTwoFactorError(''); }}
-                className="text-blue-600 hover:text-blue-700"
+                className="text-claret hover:underline"
               >
                 {useBackupCode ? 'Use authenticator app' : 'Use a backup code'}
               </button>
               <button
                 onClick={() => { cancel2FA(); setTwoFactorCode(''); setTwoFactorError(''); setUseBackupCode(false); }}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-ink-mute hover:text-ink"
               >
                 Cancel
               </button>
@@ -323,18 +316,18 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
+    <div className="fixed inset-0 bg-ink/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-paper rounded max-w-md w-full overflow-hidden border border-rule">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-white">
+        <div className="bg-ink px-6 py-4 flex justify-between items-center">
+          <h2 className="font-display text-lg text-paper" style={{ fontVariationSettings: '"opsz" 24' }}>
             {mode === 'login' ? 'Welcome Back' : 'Start Your Free Trial'}
           </h2>
           <button
             onClick={onClose}
-            className="text-white/80 hover:text-white transition-colors"
+            className="text-paper/70 hover:text-paper transition-colors"
           >
-            <X size={24} />
+            <X size={22} />
           </button>
         </div>
 
@@ -345,15 +338,15 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
             <div id="google-signin-button" className="w-full">
               <button
                 onClick={handleGoogleLogin}
-                className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-rule-dark hover:bg-paper-deep transition-colors"
               >
-                <Chrome size={20} className="text-gray-600" />
-                <span className="font-medium text-gray-700">Continue with Google</span>
+                <Chrome size={20} className="text-ink-mute" />
+                <span className="font-medium text-ink">Continue with Google</span>
               </button>
             </div>
             <button
               onClick={handleAppleLogin}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-ink text-paper hover:bg-claret transition-colors"
             >
               <Apple size={20} />
               <span className="font-medium">Continue with Apple</span>
@@ -363,16 +356,16 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
           {/* Divider */}
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200"></div>
+              <div className="w-full border-t border-rule"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">or continue with email</span>
+              <span className="px-3 bg-paper text-ink-light">or continue with email</span>
             </div>
           </div>
 
           {/* Error message */}
           {(localError || error) && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            <div className="mb-4 p-3 bg-negative/10 border border-negative/30 text-negative text-sm">
               {localError || error}
             </div>
           )}
@@ -381,45 +374,39 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'register' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name
-                </label>
+                <label className="block text-sm font-medium text-ink mb-1">Full Name</label>
                 <div className="relative">
-                  <User size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-light" />
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="John Doe"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full pl-10 pr-4 py-3 border border-rule-dark bg-paper-card focus:outline-none focus:border-ink"
                   />
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
+              <label className="block text-sm font-medium text-ink mb-1">Email</label>
               <div className="relative">
-                <Mail size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-light" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-10 pr-4 py-3 border border-rule-dark bg-paper-card focus:outline-none focus:border-ink"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
+              <label className="block text-sm font-medium text-ink mb-1">Password</label>
               <div className="relative">
-                <Lock size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-light" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
@@ -427,18 +414,18 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
                   placeholder="••••••••"
                   required
                   minLength={8}
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-10 pr-12 py-3 border border-rule-dark bg-paper-card focus:outline-none focus:border-ink"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-light hover:text-ink"
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
               {mode === 'register' && (
-                <p className="text-xs text-gray-500 mt-1">Must be at least 8 characters</p>
+                <p className="text-xs text-ink-light mt-1">Must be at least 8 characters</p>
               )}
               {mode === 'login' && (
                 <div className="text-right mt-1">
@@ -448,7 +435,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
                       onClose();
                       window.location.href = '/forgot-password';
                     }}
-                    className="text-xs text-blue-600 hover:text-blue-700"
+                    className="text-xs text-claret hover:underline"
                   >
                     Forgot password?
                   </button>
@@ -466,7 +453,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-ink text-paper font-medium hover:bg-claret transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -483,13 +470,13 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
           </form>
 
           {/* Toggle mode */}
-          <div className="mt-6 text-center text-sm text-gray-600">
+          <div className="mt-6 text-center text-sm text-ink-mute">
             {mode === 'login' ? (
               <>
                 Don't have an account?{' '}
                 <button
                   onClick={() => setMode('register')}
-                  className="text-blue-600 hover:text-blue-700 font-medium"
+                  className="text-claret hover:underline font-medium"
                 >
                   Start free trial
                 </button>
@@ -499,7 +486,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
                 Already have an account?{' '}
                 <button
                   onClick={() => setMode('login')}
-                  className="text-blue-600 hover:text-blue-700 font-medium"
+                  className="text-claret hover:underline font-medium"
                 >
                   Sign in
                 </button>
@@ -509,9 +496,9 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
 
           {/* Trial info */}
           {mode === 'register' && (
-            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-800 text-center">
-                <span className="font-semibold">7-day free trial</span> · Credit card required
+            <div className="mt-4 py-2.5 border-t border-b border-rule text-center">
+              <p className="text-sm text-positive font-medium">
+                7-day free trial &middot; Credit card required
               </p>
             </div>
           )}
