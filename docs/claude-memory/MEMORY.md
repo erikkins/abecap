@@ -170,3 +170,4 @@
 - Mobile OTA: `preview` channel, manual push with `npx eas update --branch preview`
 - Terraform needs `AWS_PROFILE=rigacap`. CI/CD fights over `image_uri` — pass current tag.
 - RDS endpoint: `rigacap-prod-db-v2.csfsa4i06rux.us-east-1.rds.amazonaws.com`
+- [No "tape" in brand voice](feedback_no_tape.md) — trader jargon, banned everywhere including section names
