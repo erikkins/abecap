@@ -42,6 +42,7 @@ const Navbar = ({ onGetStarted }) => (
         <a href="/about" className="hidden sm:inline text-[0.9rem] text-ink-mute no-underline hover:text-ink transition-colors">About</a>
         <a href="/methodology" className="hidden sm:inline text-[0.9rem] text-ink-mute no-underline hover:text-ink transition-colors">Methodology</a>
         <a href="/track-record" className="hidden sm:inline text-[0.9rem] text-ink-mute no-underline hover:text-ink transition-colors">Track Record</a>
+        <a href="/newsletter" className="hidden sm:inline text-[0.9rem] text-ink-mute no-underline hover:text-ink transition-colors">Newsletter</a>
         <a href="#pricing" className="hidden sm:inline text-[0.9rem] text-ink-mute no-underline hover:text-ink transition-colors">Pricing</a>
         <button
           onClick={() => onGetStarted('founding')}
