@@ -188,12 +188,42 @@ class NewsletterGeneratorService:
         monitoring_count = len([s for s in buy_signals if not s.get("is_fresh")])
         watchlist = dashboard.get("watchlist", [])
 
-        # Pull real position data (open positions, recent exits/stops)
-        positions = dashboard.get("positions", [])
-        open_count = len(positions)
-        recent_sells = dashboard.get("recent_sells", [])
-        stops_hit = [s for s in recent_sells if s.get("exit_reason", "").lower() in ("trailing_stop", "stop_loss", "regime_exit")]
-        profit_exits = [s for s in recent_sells if s.get("exit_reason", "").lower() not in ("trailing_stop", "stop_loss", "regime_exit") and s.get("pnl_pct", 0) > 0]
+        # Pull real position data from DB (dashboard.json doesn't include portfolio)
+        open_count = 0
+        stops_count = 0
+        profit_exits_count = 0
+        try:
+            import os
+            from sqlalchemy import create_engine, text
+            db_url = os.environ.get("DATABASE_URL", "")
+            if db_url.startswith("postgresql+asyncpg://"):
+                db_url = db_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+            engine = create_engine(db_url)
+            with engine.connect() as conn:
+                row = conn.execute(text(
+                    "SELECT COUNT(*) FROM model_positions WHERE status = 'open'"
+                )).scalar()
+                open_count = row or 0
+                rows = conn.execute(text(
+                    "SELECT exit_reason, pnl_pct FROM model_positions "
+                    "WHERE status = 'closed' AND exit_date >= CURRENT_DATE - INTERVAL '7 days'"
+                )).fetchall()
+                for r in rows:
+                    reason = (r[0] or "").lower()
+                    pnl = r[1] or 0
+                    if reason in ("trailing_stop", "stop_loss", "regime_exit"):
+                        stops_count += 1
+                    elif pnl > 0:
+                        profit_exits_count += 1
+            engine.dispose()
+        except Exception as e:
+            logger.warning(f"Could not load portfolio data for newsletter: {e}")
+            # Fall back to dashboard data
+            positions = dashboard.get("positions", [])
+            open_count = len(positions)
+            recent_sells = dashboard.get("recent_sells", [])
+            stops_count = len([s for s in recent_sells if s.get("exit_reason", "").lower() in ("trailing_stop", "stop_loss", "regime_exit")])
+            profit_exits_count = len([s for s in recent_sells if s.get("exit_reason", "").lower() not in ("trailing_stop", "stop_loss", "regime_exit") and s.get("pnl_pct", 0) > 0])
 
         # Build market summary for Claude — ONLY verifiable facts
         market_summary = f"Regime: {regime}."
@@ -204,12 +234,9 @@ class NewsletterGeneratorService:
             market_summary += f" VIX at {vix:.0f}."
         market_summary += f"\nFresh signals this week: {fresh_count}. Monitoring: {monitoring_count}. Watchlist: {len(watchlist)}."
         market_summary += f"\nOpen positions: {open_count}."
-        if stops_hit:
-            market_summary += f"\nStops triggered this week: {len(stops_hit)}."
-        else:
-            market_summary += f"\nStops triggered this week: 0."
-        if profit_exits:
-            market_summary += f"\nProfit exits this week: {len(profit_exits)}."
+        market_summary += f"\nStops triggered this week: {stops_count}."
+        if profit_exits_count:
+            market_summary += f"\nProfit exits this week: {profit_exits_count}."
         if market_context:
             market_summary += f"\n\nAI market briefing from the system: {market_context}"
 
@@ -346,6 +373,15 @@ IMPORTANT: Output ONLY the personal note text. Do NOT include any section header
                 },
             ],
         }
+
+        # Don't overwrite a draft that was manually edited or locked
+        existing = self.get_draft(date_str)
+        if existing and existing.get("edited_at"):
+            logger.warning(f"Skipping overwrite — draft for {date_str} was manually edited")
+            return existing
+        if existing and existing.get("status") == "locked":
+            logger.warning(f"Skipping overwrite — draft for {date_str} is locked")
+            return existing
 
         # Save draft to S3
         self.s3.put_object(
