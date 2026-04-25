@@ -4752,6 +4752,17 @@ def handler(event, context):
             return {"status": "error", "error": str(e)}
 
     # Handle daily email digest (EventBridge: 6 PM ET Mon-Fri)
+    # Generate newsletter draft (Saturday evening cron or manual trigger)
+    # {"generate_newsletter": true}
+    if event.get("generate_newsletter"):
+        from app.services.newsletter_generator_service import newsletter_generator
+        draft = newsletter_generator.generate_draft()
+        return {"statusCode": 200, "body": json.dumps({
+            "message": f"Newsletter draft generated: {draft['word_count']} words",
+            "date": draft["date"],
+            "status": draft["status"],
+        })}
+
     # Optional: {"daily_emails": {"target_emails": ["user@example.com"]}}
     # Weekly "Market, Measured." free-list email — Sunday evening.
     # {"market_measured": {"target_emails": ["erik@rigacap.com"]}} for testing,

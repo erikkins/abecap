@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw, Beaker, Bot, Settings, Share2, Server, Briefcase, Sparkles, Calculator, Shield } from 'lucide-react';
+import { Users, Activity, DollarSign, Clock, Search, ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Plus, Zap, TrendingUp, AlertCircle, CheckCircle, PlayCircle, RefreshCw, Beaker, Bot, Settings, Share2, Server, Briefcase, Sparkles, Calculator, Shield, Mail, Lock, Loader2, Edit3 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 import StrategyGenerator from './StrategyGenerator';
@@ -19,6 +19,7 @@ const TABS = [
   { id: 'lab', label: 'Strategy Lab', icon: Beaker },
   { id: 'autopilot', label: 'Auto-Pilot', icon: Bot },
   { id: 'social', label: 'Social', icon: Share2 },
+  { id: 'newsletter', label: 'Newsletter', icon: Mail },
   { id: 'users', label: 'Users', icon: Users },
 ];
 
@@ -420,6 +421,10 @@ export default function AdminDashboard() {
 
       {activeTab === 'social' && (
         <SocialTab fetchWithAuth={fetchWithAuth} />
+      )}
+
+      {activeTab === 'newsletter' && (
+        <NewsletterTab fetchWithAuth={fetchWithAuth} />
       )}
 
       {activeTab === 'users' && (
@@ -2346,6 +2351,316 @@ function StatCard({ icon, label, value, subtext, valueColor = 'text-gray-900' })
       </div>
       <div className={`text-2xl font-bold ${valueColor}`}>{value}</div>
       {subtext && <p className="text-sm text-gray-500 mt-1">{subtext}</p>}
+    </div>
+  );
+}
+
+
+function NewsletterTab({ fetchWithAuth }) {
+  const [draft, setDraft] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [locking, setLocking] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState(null);
+  const [editedSections, setEditedSections] = useState(null);
+  const [previewMode, setPreviewMode] = useState(false);
+
+  const loadDraft = async () => {
+    setLoading(true);
+    try {
+      const res = await fetchWithAuth('/api/admin/newsletter/draft');
+      if (res.ok) {
+        const data = await res.json();
+        setDraft(data);
+        setEditedSections(JSON.parse(JSON.stringify(data.sections)));
+      } else {
+        setDraft(null);
+        setEditedSections(null);
+      }
+    } catch { setDraft(null); }
+    setLoading(false);
+  };
+
+  useEffect(() => { loadDraft(); }, []);
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      const res = await fetchWithAuth('/api/admin/newsletter/generate', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setDraft(data);
+        setEditedSections(JSON.parse(JSON.stringify(data.sections)));
+      }
+    } catch (e) { console.error(e); }
+    setGenerating(false);
+  };
+
+  const handleSave = async () => {
+    if (!draft || !editedSections) return;
+    setSaving(true);
+    try {
+      const res = await fetchWithAuth(`/api/admin/newsletter/draft/${draft.date}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sections: editedSections }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDraft(data);
+      }
+    } catch (e) { console.error(e); }
+    setSaving(false);
+  };
+
+  const handleLock = async () => {
+    if (!draft) return;
+    if (!confirm('Lock this draft? No more edits will be possible.')) return;
+    setLocking(true);
+    try {
+      const res = await fetchWithAuth(`/api/admin/newsletter/lock/${draft.date}`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setDraft(data);
+      }
+    } catch (e) { console.error(e); }
+    setLocking(false);
+  };
+
+  const handleSend = async () => {
+    if (!draft) return;
+    if (!confirm('Send this newsletter to ALL free-list subscribers now?')) return;
+    setSending(true);
+    try {
+      const res = await fetchWithAuth(`/api/admin/newsletter/send/${draft.date}`, { method: 'POST' });
+      if (res.ok) {
+        const result = await res.json();
+        setSendResult(result);
+      }
+    } catch (e) { console.error(e); }
+    setSending(false);
+  };
+
+  const updateSection = (idx, field, value) => {
+    const updated = [...editedSections];
+    if (field === 'items') {
+      updated[idx] = { ...updated[idx], items: value };
+    } else {
+      updated[idx] = { ...updated[idx], [field]: value };
+    }
+    setEditedSections(updated);
+  };
+
+  const isLocked = draft?.status === 'locked';
+  const isDirty = draft && editedSections && JSON.stringify(draft.sections) !== JSON.stringify(editedSections);
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 className="w-6 h-6 animate-spin text-ink-mute" />
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-ink">Market, Measured.</h2>
+          <p className="text-sm text-ink-mute mt-1">Weekly newsletter editor</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {!draft && (
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="flex items-center gap-2 px-4 py-2 bg-claret text-paper rounded hover:bg-ink transition-colors disabled:opacity-50"
+            >
+              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {generating ? 'Generating...' : 'Generate Draft'}
+            </button>
+          )}
+          {draft && !isLocked && (
+            <>
+              <button
+                onClick={handleGenerate}
+                disabled={generating}
+                className="flex items-center gap-2 px-3 py-2 border border-rule text-ink-mute rounded hover:bg-paper-deep transition-colors disabled:opacity-50 text-sm"
+              >
+                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                Regenerate
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !isDirty}
+                className="flex items-center gap-2 px-3 py-2 border border-rule text-ink-mute rounded hover:bg-paper-deep transition-colors disabled:opacity-50 text-sm"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit3 className="w-4 h-4" />}
+                Save Edits
+              </button>
+              <button
+                onClick={handleLock}
+                disabled={locking}
+                className="flex items-center gap-2 px-4 py-2 bg-claret text-paper rounded hover:bg-ink transition-colors disabled:opacity-50"
+              >
+                {locking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                Lock & Approve
+              </button>
+            </>
+          )}
+          {isLocked && !sendResult && (
+            <button
+              onClick={handleSend}
+              disabled={sending}
+              className="flex items-center gap-2 px-4 py-2 bg-positive text-paper rounded hover:bg-positive/80 transition-colors disabled:opacity-50"
+            >
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+              {sending ? 'Sending...' : 'Send Now'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Status bar */}
+      {draft && (
+        <div className="flex items-center gap-4 text-sm border border-rule rounded p-3 bg-paper-card">
+          <span className="font-mono text-ink-light">{draft.date}</span>
+          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+            isLocked ? 'bg-positive/10 text-positive' : 'bg-claret/10 text-claret'
+          }`}>
+            {isLocked ? 'LOCKED' : 'DRAFT'}
+          </span>
+          <span className="text-ink-mute">{draft.word_count} words</span>
+          <span className="text-ink-light">{draft.regime}</span>
+          {draft.fresh_count > 0 && <span className="text-positive">{draft.fresh_count} signals</span>}
+          {isDirty && <span className="text-claret font-medium">Unsaved changes</span>}
+        </div>
+      )}
+
+      {sendResult && (
+        <div className="p-4 bg-positive/10 border border-positive/30 rounded text-positive">
+          Newsletter sent: {sendResult.sent} delivered, {sendResult.failed} failed, {sendResult.total} total subscribers
+        </div>
+      )}
+
+      {/* No draft state */}
+      {!draft && !generating && (
+        <div className="text-center py-16 border border-rule rounded bg-paper-card">
+          <Mail className="w-10 h-10 text-ink-light mx-auto mb-3" />
+          <p className="text-ink-mute">No newsletter draft yet.</p>
+          <p className="text-sm text-ink-light mt-1">Generate one from this week's market data.</p>
+        </div>
+      )}
+
+      {/* Editor / Preview toggle */}
+      {draft && editedSections && (
+        <>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPreviewMode(false)}
+              className={`px-3 py-1.5 text-sm rounded transition-colors ${!previewMode ? 'bg-ink text-paper' : 'bg-paper-deep text-ink-mute hover:text-ink'}`}
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => setPreviewMode(true)}
+              className={`px-3 py-1.5 text-sm rounded transition-colors ${previewMode ? 'bg-ink text-paper' : 'bg-paper-deep text-ink-mute hover:text-ink'}`}
+            >
+              Preview
+            </button>
+          </div>
+
+          {previewMode ? (
+            /* Preview mode — renders like the newsletter web page */
+            <div className="border border-rule rounded bg-paper-card p-8 max-w-[720px]">
+              {editedSections.map((sec, i) => (
+                <div key={i} className="mb-8 last:mb-0">
+                  <p className="font-mono text-xs font-medium tracking-widest text-claret uppercase mb-2">
+                    &sect; {sec.num} &middot; {sec.label}
+                  </p>
+                  {sec.title && (
+                    <h3 className="text-lg font-semibold text-ink mb-3" dangerouslySetInnerHTML={{ __html: sec.title }} />
+                  )}
+                  {sec.body && (
+                    <div className="text-sm text-ink-mute leading-relaxed whitespace-pre-wrap">{sec.body}</div>
+                  )}
+                  {sec.items && (
+                    <ul className="list-none p-0 space-y-2 mt-2">
+                      {sec.items.map((item, j) => (
+                        <li key={j} className="pl-4 border-l-2 border-claret text-sm text-ink-mute leading-relaxed" dangerouslySetInnerHTML={{ __html: item }} />
+                      ))}
+                    </ul>
+                  )}
+                  {i < editedSections.length - 1 && (
+                    <div className="flex items-center gap-2 my-6 text-rule-dark">
+                      <span className="flex-1 h-px bg-rule" />
+                      <span className="text-xs tracking-widest">···</span>
+                      <span className="flex-1 h-px bg-rule" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Edit mode — per-section textareas */
+            <div className="space-y-6">
+              {editedSections.map((sec, i) => (
+                <div key={i} className="border border-rule rounded bg-paper-card overflow-hidden">
+                  <div className="px-4 py-3 bg-paper-deep border-b border-rule flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-medium text-claret">&sect;{sec.num}</span>
+                      <span className="text-sm font-medium text-ink">{sec.label}</span>
+                    </div>
+                    {isLocked && <Lock className="w-3.5 h-3.5 text-ink-light" />}
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {sec.title && (
+                      <input
+                        type="text"
+                        value={sec.title}
+                        onChange={(e) => updateSection(i, 'title', e.target.value)}
+                        disabled={isLocked}
+                        className="w-full px-3 py-2 border border-rule bg-paper text-ink font-medium disabled:opacity-60 disabled:bg-paper-deep"
+                        placeholder="Section title"
+                      />
+                    )}
+                    {sec.body !== undefined && !sec.items && (
+                      <textarea
+                        value={sec.body}
+                        onChange={(e) => updateSection(i, 'body', e.target.value)}
+                        disabled={isLocked}
+                        rows={sec.num === '04' ? 4 : 8}
+                        className="w-full px-3 py-2 border border-rule bg-paper text-ink-mute text-sm leading-relaxed resize-y disabled:opacity-60 disabled:bg-paper-deep font-mono"
+                        placeholder="Section body"
+                      />
+                    )}
+                    {sec.items && (
+                      <div className="space-y-2">
+                        {sec.items.map((item, j) => (
+                          <textarea
+                            key={j}
+                            value={item}
+                            onChange={(e) => {
+                              const newItems = [...sec.items];
+                              newItems[j] = e.target.value;
+                              updateSection(i, 'items', newItems);
+                            }}
+                            disabled={isLocked}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-rule bg-paper text-ink-mute text-sm leading-relaxed resize-y disabled:opacity-60 disabled:bg-paper-deep font-mono"
+                            placeholder={`Anti-pitch item ${j + 1}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

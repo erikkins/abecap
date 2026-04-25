@@ -3538,3 +3538,115 @@ async def calculate_what_if(
     """Calculate hypothetical returns from a start date with given capital."""
     from app.services.model_portfolio_service import model_portfolio_service
     return await model_portfolio_service.calculate_what_if(db, start_date, capital)
+
+
+# ============================================================================
+# Newsletter Management
+# ============================================================================
+
+@router.post("/newsletter/generate")
+async def generate_newsletter_draft(
+    admin: User = Depends(get_admin_user),
+):
+    """Generate a new newsletter draft using Claude."""
+    from app.services.newsletter_generator_service import newsletter_generator
+    draft = newsletter_generator.generate_draft()
+    return draft
+
+
+@router.get("/newsletter/draft")
+async def get_newsletter_draft(
+    date: Optional[str] = None,
+    admin: User = Depends(get_admin_user),
+):
+    """Get the latest or a specific newsletter draft."""
+    from app.services.newsletter_generator_service import newsletter_generator
+    if date:
+        draft = newsletter_generator.get_draft(date)
+    else:
+        draft = newsletter_generator.get_latest_draft()
+    if not draft:
+        raise HTTPException(status_code=404, detail="No draft found")
+    return draft
+
+
+@router.put("/newsletter/draft/{date}")
+async def update_newsletter_draft(
+    date: str,
+    body: dict,
+    admin: User = Depends(get_admin_user),
+):
+    """Update newsletter draft sections (admin editing)."""
+    from app.services.newsletter_generator_service import newsletter_generator
+    sections = body.get("sections")
+    if not sections:
+        raise HTTPException(status_code=400, detail="sections required")
+    try:
+        draft = newsletter_generator.update_draft(date, sections)
+        return draft
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/newsletter/lock/{date}")
+async def lock_newsletter_draft(
+    date: str,
+    admin: User = Depends(get_admin_user),
+):
+    """Lock a newsletter draft — no more edits allowed."""
+    from app.services.newsletter_generator_service import newsletter_generator
+    try:
+        draft = newsletter_generator.lock_draft(date)
+        return draft
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/newsletter/send/{date}")
+async def send_newsletter_now(
+    date: str,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Send the locked newsletter to all subscribers."""
+    from app.services.newsletter_generator_service import newsletter_generator
+    from app.services.email_service import email_service
+
+    draft = newsletter_generator.get_draft(date)
+    if not draft:
+        raise HTTPException(status_code=404, detail="No draft found")
+    if draft.get("status") != "locked":
+        raise HTTPException(status_code=400, detail="Draft must be locked before sending")
+
+    # Load dashboard data for the email template
+    from app.services.data_export import data_export_service
+    dashboard_data = data_export_service.read_dashboard_json() or {}
+
+    # Get free list subscribers
+    from app.core.database import NewsletterPreference
+    result = await db.execute(
+        select(NewsletterPreference).where(
+            NewsletterPreference.report_type == "market_measured",
+            NewsletterPreference.unsubscribed_at.is_(None),
+        )
+    )
+    subscribers = result.scalars().all()
+
+    sent = 0
+    failed = 0
+    for sub in subscribers:
+        try:
+            ok = await email_service.send_market_measured(
+                to_email=sub.email,
+                dashboard_data=dashboard_data,
+                show_symbols=False,
+            )
+            if ok:
+                sent += 1
+            else:
+                failed += 1
+        except Exception as e:
+            logger.warning(f"Newsletter send failed for {sub.email}: {e}")
+            failed += 1
+
+    return {"sent": sent, "failed": failed, "total": len(subscribers)}
