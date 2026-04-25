@@ -890,7 +890,7 @@ class EmailService:
             </table>
         </td></tr>"""
 
-        # § 01 · Reading the Tape
+        # § 01 · The Week in Focus
         s1_title = "What the system sees."
         s1_body = reading_line
         if market_context:
@@ -961,9 +961,9 @@ class EmailService:
             </td>
         </tr>
 
-        <!-- § 01 · Reading the Tape -->
+        <!-- § 01 · The Week in Focus -->
         <tr><td style="padding: 36px 40px 0 40px;">
-            <p style="{sn}">&sect; 01 &middot; Reading the Tape</p>
+            <p style="{sn}">&sect; 01 &middot; The Week in Focus</p>
             <h2 style="{sh}">{s1_title}</h2>
             <p style="margin: 0; font-size: 16px; line-height: 1.75; color: #141210;">
                 {s1_body}
@@ -1111,7 +1111,7 @@ Market, Measured. is a weekly reading from RigaCap.
                     "fresh_count": fresh_count,
                     "watchlist_count": len(watchlist),
                     "sections": [
-                        {"num": "01", "label": "Reading the Tape", "title": s1_title, "body": s1_body},
+                        {"num": "01", "label": "The Week in Focus", "title": s1_title, "body": s1_body},
                         {"num": "02", "label": "Signal Report", "title": s2_title, "body": s2_body},
                         {"num": "03", "label": "The Anti-Pitch", "title": "What the system is not doing.", "items": s3_items},
                         {"num": "04", "label": "A Note From Erik", "body": "See you next Sunday."},
