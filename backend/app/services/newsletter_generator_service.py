@@ -19,7 +19,7 @@ Rules:
 """
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 import boto3
@@ -233,6 +233,24 @@ class NewsletterGeneratorService:
             stops_count = len([s for s in recent_sells if s.get("exit_reason", "").lower() in ("trailing_stop", "stop_loss", "regime_exit")])
             profit_exits_count = len([s for s in recent_sells if s.get("exit_reason", "").lower() not in ("trailing_stop", "stop_loss", "regime_exit") and s.get("pnl_pct", 0) > 0])
 
+        # Load previous week's newsletter for continuity
+        prev_week_context = ""
+        try:
+            prev_date = target_date - timedelta(days=7)
+            prev_draft = self.get_draft(prev_date.strftime("%Y-%m-%d"))
+            if prev_draft and prev_draft.get("sections"):
+                prev_regime = prev_draft.get("regime", "")
+                prev_s1 = prev_draft["sections"][0].get("body", "")[:500]
+                prev_week_context = f"\n\nLAST WEEK'S CONTEXT (for continuity — reference if something changed dramatically, ignore if stable):"
+                prev_week_context += f"\nLast week's regime: {prev_regime}."
+                if prev_regime != regime:
+                    prev_week_context += f" THIS WEEK: regime shifted to {regime}. Note the change — readers will remember what you said last week."
+                else:
+                    prev_week_context += f" Same regime this week. No need to dwell on it."
+                prev_week_context += f"\nLast week's §01 opening (for voice continuity, don't repeat): {prev_s1[:300]}..."
+        except Exception:
+            pass
+
         # Build market summary for Claude — ONLY verifiable facts
         market_summary = f"Regime: {regime}."
         if spy_price is not None:
@@ -252,7 +270,7 @@ class NewsletterGeneratorService:
         s1_prompt = f"""Write §01 "The Week in Focus" for this week's newsletter.
 
 Market data:
-{market_summary}
+{market_summary}{prev_week_context}
 
 Write 2-3 paragraphs explaining what the system is seeing in plain English. Translate the regime and data into something a smart non-trader would understand. Don't just list numbers — interpret them. What does this regime mean for how the system is behaving?
 
