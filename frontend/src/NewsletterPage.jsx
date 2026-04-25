@@ -114,8 +114,16 @@ export function NewsletterIssuePage() {
     <div className="min-h-screen bg-paper font-body text-ink text-[17px] leading-[1.65] antialiased">
       <Navbar />
 
+      {/* Back to archive */}
+      <div className="max-w-[720px] mx-auto px-4 sm:px-8 pt-6">
+        <Link to="/newsletter" className="inline-flex items-center gap-1.5 text-ink-mute hover:text-ink text-[0.85rem] no-underline transition-colors">
+          <ArrowLeft size={15} />
+          All issues
+        </Link>
+      </div>
+
       {/* Masthead */}
-      <header className="pt-16 pb-10 sm:pt-20 sm:pb-12 text-center border-b-2 border-ink">
+      <header className="pt-8 pb-10 sm:pt-10 sm:pb-12 text-center border-b-2 border-ink">
         <div className="max-w-[720px] mx-auto px-4 sm:px-8">
           <p className="font-body text-[0.78rem] font-medium tracking-[0.25em] uppercase text-ink-mute mb-5">
             The Weekly Letter &middot; From RigaCap
