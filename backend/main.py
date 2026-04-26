@@ -4774,20 +4774,37 @@ def handler(event, context):
         cfg = event.get("market_measured") or {}
         target_emails = cfg.get("target_emails") if isinstance(cfg, dict) else None
         show_symbols = cfg.get("show_symbols", False) if isinstance(cfg, dict) else False
-        force_legacy = cfg.get("force_legacy", False) if isinstance(cfg, dict) else False
-        print(f"📨 Market, Measured triggered (show_symbols={show_symbols})" + (f" for {target_emails}" if target_emails else " (full list)"))
+        print(f"📨 Market, Measured triggered" + (f" for {target_emails}" if target_emails else " (full list)"))
 
-        # Check for a locked newsletter draft — if it exists, use the curated version
-        if not force_legacy:
-            try:
-                from app.services.newsletter_generator_service import newsletter_generator
-                from datetime import datetime as _dt
-                today_str = _dt.now().strftime("%Y-%m-%d")
-                draft = newsletter_generator.get_draft(today_str)
-                if not draft:
-                    draft = newsletter_generator.get_latest_draft()
-                if draft and draft.get("status") == "locked":
-                    print(f"📨 Using locked newsletter draft from {draft.get('date')}")
+        # Newsletter ONLY sends from a locked draft — never auto-generates
+        try:
+            from app.services.newsletter_generator_service import newsletter_generator
+            from datetime import datetime as _dt
+            today_str = _dt.now().strftime("%Y-%m-%d")
+            draft = newsletter_generator.get_draft(today_str)
+            if not draft:
+                draft = newsletter_generator.get_latest_draft()
+            if not draft or draft.get("status") != "locked":
+                print("⚠️ No locked newsletter draft found — SKIPPING send")
+                # Notify admin
+                try:
+                    from app.services.email_service import AdminEmailService
+                    admin_svc = AdminEmailService()
+                    import asyncio as _aio
+                    _loop = _aio.get_event_loop()
+                    if _loop.is_closed():
+                        _loop = _aio.new_event_loop()
+                        _aio.set_event_loop(_loop)
+                    _loop.run_until_complete(admin_svc.send_admin_email(
+                        subject="⚠️ Sunday newsletter SKIPPED — no locked draft",
+                        body=f"The Market, Measured cron fired but no locked draft was found for {today_str}. "
+                             f"The newsletter was NOT sent. Lock a draft in the admin editor before next Sunday.",
+                    ))
+                except Exception:
+                    pass
+                return {"status": "skipped", "reason": "No locked draft — newsletter requires editorial approval"}
+            else:
+                print(f"📨 Using locked newsletter draft from {draft.get('date')}")
 
                     async def _send_from_draft():
                         from app.services.email_service import email_service
@@ -4841,7 +4858,8 @@ def handler(event, context):
                         asyncio.set_event_loop(loop)
                     return loop.run_until_complete(_send_from_draft())
             except Exception as e:
-                print(f"⚠️ Locked draft check failed, falling back to legacy: {e}")
+                print(f"❌ Locked draft send failed: {e}")
+                return {"status": "error", "error": str(e)}
 
         async def _send_market_measured():
             import json as _json
