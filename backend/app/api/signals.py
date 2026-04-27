@@ -2642,10 +2642,10 @@ async def get_public_track_record_10y(db: AsyncSession = Depends(get_db)):
     import json
     from datetime import datetime as dt
 
-    # Find the 10yr sim: start <= 2016-03-01 and end >= 2026-01-01
+    # Find the 10yr sim: start <= 2016-07-01 and end >= 2026-01-01
     result = await db.execute(
         select(WalkForwardSimulation).where(
-            WalkForwardSimulation.start_date <= dt(2016, 3, 1),
+            WalkForwardSimulation.start_date <= dt(2016, 7, 1),
             WalkForwardSimulation.end_date >= dt(2026, 1, 1),
             WalkForwardSimulation.status == "completed",
             WalkForwardSimulation.is_daily_cache == False,
