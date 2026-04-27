@@ -214,6 +214,7 @@ class BacktesterService:
         self.sector_cap = 0              # 0 = disabled
         self.regime_reentry_mode = False  # False = classic (SPY>MA200 only), True = smart re-entry
         self.bear_keep_pct = 0.0         # 0.0 = close all on regime exit, 0.5 = keep top 50% of positions
+        self.regime_cooldown_days = 0    # Days to stay in cash after regime exit before allowing new entries; 0=disabled
         self.graduated_reentry = False   # Graduated re-entry: deploy partial capital on recovery signals
         # Profit-based stop tightening (V2 lever 8)
         self.breakeven_pct = 0            # Move stop to entry once up X%; 0=disabled
@@ -968,6 +969,7 @@ class BacktesterService:
         last_rebalance: Optional[pd.Timestamp] = None
         in_cash_mode = False  # True when market is unfavorable
         cash_mode_day_count = 0  # Days spent in cash mode (for anti-churn cooldown)
+        regime_cooldown_remaining = 0  # Trading days left before allowing re-entry after regime exit
         graduated_deploy_pct = 0.0  # Current graduated deployment level (0-1)
         prev_breadth = 50.0  # Previous day's breadth for thrust detection
 
@@ -1050,6 +1052,7 @@ class BacktesterService:
                 if not market_favorable and not in_cash_mode:
                     in_cash_mode = True
                     cash_mode_day_count = 0
+                    regime_cooldown_remaining = self.regime_cooldown_days
                     for symbol in list(positions.keys()):
                         pos = positions[symbol]
                         df = scanner_service.data_cache[symbol]
@@ -1089,7 +1092,10 @@ class BacktesterService:
                     positions.clear()
 
                 elif market_favorable:
-                    in_cash_mode = False
+                    if self.regime_cooldown_days > 0 and regime_cooldown_remaining > 0:
+                        regime_cooldown_remaining -= 1
+                    else:
+                        in_cash_mode = False
 
             # Check existing positions for exits
             symbols_to_close = []

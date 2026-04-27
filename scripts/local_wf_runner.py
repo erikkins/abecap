@@ -135,6 +135,7 @@ def parse_args():
     p.add_argument('--profit-lock', type=float, default=0, help='Tighten stop once up X%% (0=disabled)')
     p.add_argument('--profit-lock-stop', type=float, default=6.0, help='Tightened trailing stop %% (default: 6)')
     p.add_argument('--megacap-fallback', type=int, default=0, help='Buy top N large-caps when no primary signals (0=disabled)')
+    p.add_argument('--regime-cooldown', type=int, default=0, help='Trading days to stay in cash after regime exit (0=disabled)')
     p.add_argument('--no-ai', action='store_true', help='Disable AI optimizer (use fixed params)')
     p.add_argument('--rs-slots', type=int, default=0, help='RS Leaders slots (0=disabled, default: 0)')
     p.add_argument('--rs-stop', type=float, default=0, help='RS trailing stop pct (0=same as primary, e.g. 20 for 20%%)')

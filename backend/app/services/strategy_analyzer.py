@@ -62,6 +62,9 @@ class StrategyParams:
     profit_lock_pct: float = 0             # Tighten trailing stop once up X%; 0=disabled
     profit_lock_stop_pct: float = 5.0      # Tightened trailing stop % from peak
 
+    # Regime cooldown: days to stay in cash after regime exit (anti-whipsaw)
+    regime_cooldown_days: int = 0          # 0=disabled, 10=wait 10 trading days before re-entry
+
     # V2 lever 10: Pyramiding (doubling down on winners)
     pyramid_threshold_pct: float = 0       # Add to position once up X%; 0=disabled
     pyramid_size_pct: float = 0.0          # Add-on size as % of initial capital
@@ -134,6 +137,9 @@ class CustomBacktester(BacktesterService):
         self.breakeven_pct = params.breakeven_pct
         self.profit_lock_pct = params.profit_lock_pct
         self.profit_lock_stop_pct = params.profit_lock_stop_pct
+
+        # Regime cooldown
+        self.regime_cooldown_days = params.regime_cooldown_days
 
         # V2 lever 10: Pyramiding
         self.pyramid_threshold_pct = params.pyramid_threshold_pct

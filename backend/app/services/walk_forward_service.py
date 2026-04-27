@@ -801,6 +801,8 @@ class WalkForwardService:
             backtester.regime_reentry_mode = regime_reentry_mode
             backtester.bear_keep_pct = bear_keep_pct
             backtester.graduated_reentry = graduated_reentry
+            if hasattr(strategy_params, 'regime_cooldown_days'):
+                backtester.regime_cooldown_days = strategy_params.regime_cooldown_days
             # profit_lock_pct / profit_lock_stop_pct already applied via
             # backtester.configure(strategy_params) above (StrategyParams
             # dataclass contains them). Overriding here via undeclared locals
