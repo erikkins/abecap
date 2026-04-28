@@ -126,22 +126,52 @@ class SymbolMetadataService:
             )
             stored = {row.symbol: row for row in result.scalars().all()}
 
+            now = datetime.utcnow()
+            # Threshold for auto-quarantining a consistently-missing symbol.
+            # Symbols missing in Alpaca for this many consecutive days get
+            # status='quarantined' automatically with reason 'auto_30d_missing'.
+            # Catches real delistings without needing daily admin attention.
+            AUTO_QUARANTINE_DAYS = 30
+
             for symbol in symbols:
                 alpaca_sym = _to_alpaca(symbol)
                 asset = active_by_symbol.get(alpaca_sym) or inactive_by_symbol.get(alpaca_sym)
                 stored_meta = stored.get(symbol)
 
                 if asset is None:
+                    # Track first-missing-at so we can compute consecutive days.
+                    auto_quarantined = False
+                    days_missing = None
+                    if stored_meta is not None:
+                        if stored_meta.first_missing_at is None:
+                            stored_meta.first_missing_at = now
+                            days_missing = 0
+                        else:
+                            days_missing = (now - stored_meta.first_missing_at).days
+                            # Auto-quarantine after threshold (only if not already quarantined)
+                            if (days_missing >= AUTO_QUARANTINE_DAYS
+                                    and stored_meta.status != "quarantined"):
+                                stored_meta.status = "quarantined"
+                                stored_meta.quarantine_reason = "auto_30d_missing"
+                                stored_meta.quarantined_at = now
+                                auto_quarantined = True
+
                     summary[symbol] = {
                         "status": "missing_in_alpaca",
                         "stored_asset_id": stored_meta.asset_id if stored_meta else None,
                         "current_asset_id": None,
+                        "days_missing": days_missing,
+                        "auto_quarantined": auto_quarantined,
                     }
                     if record_events:
                         db.add(SymbolMetadataEvent(
                             symbol=symbol,
                             event_type="missing_in_alpaca",
-                            details_json=json.dumps({"reason": "not in active or inactive list"}),
+                            details_json=json.dumps({
+                                "reason": "not in active or inactive list",
+                                "days_missing": days_missing,
+                                "auto_quarantined": auto_quarantined,
+                            }),
                         ))
                     continue
 
@@ -156,13 +186,17 @@ class SymbolMetadataService:
                     }
                     continue
 
+                # Symbol IS visible in Alpaca again — clear any prior missing streak.
+                if stored_meta is not None and stored_meta.first_missing_at is not None:
+                    stored_meta.first_missing_at = None
+
                 # No prior record — create one (first verification)
                 if stored_meta is None:
                     db.add(SymbolMetadata(
                         symbol=symbol,
                         asset_id=current_id,
                         status="active",
-                        last_verified_at=datetime.utcnow(),
+                        last_verified_at=now,
                     ))
                     summary[symbol] = {
                         "status": "new",
@@ -190,13 +224,13 @@ class SymbolMetadataService:
                     # Auto-quarantine for admin review
                     stored_meta.status = "quarantined"
                     stored_meta.quarantine_reason = "asset_id_changed"
-                    stored_meta.quarantined_at = datetime.utcnow()
+                    stored_meta.quarantined_at = now
                     continue
 
                 # Healthy: update asset_id (if unset) and last_verified_at
                 if not stored_meta.asset_id:
                     stored_meta.asset_id = current_id
-                stored_meta.last_verified_at = datetime.utcnow()
+                stored_meta.last_verified_at = now
                 summary[symbol] = {
                     "status": "ok",
                     "stored_asset_id": stored_meta.asset_id,
@@ -206,6 +240,92 @@ class SymbolMetadataService:
             await db.commit()
 
         return summary
+
+    # ─────────────────────────── Diagnostic helpers ───────────────────────────
+
+    async def diagnose_missing(self) -> List[Dict]:
+        """
+        Return a rich, action-oriented view of every symbol currently flagged
+        as missing-in-Alpaca: how long it's been missing, whether it's still
+        in the pickle, whether any user holds it, and a suggested action.
+
+        Used by the admin endpoint and the data-hygiene email so admins know
+        not just WHAT is missing but what to DO about each one.
+
+        Suggested actions, in priority order:
+          - 'urgent_held'     — any user has an open position; manual close needed
+          - 'auto_quarantine' — already auto-quarantined (>=30 days missing)
+          - 'investigate'     — 7-29 days missing; possibly real delisting
+          - 'recheck'         — <7 days missing; could be transient Alpaca issue
+        """
+        from app.services.scanner import scanner_service
+        from app.core.database import Position
+
+        async with async_session() as db:
+            # All symbols with first_missing_at set (active streak)
+            result = await db.execute(
+                select(SymbolMetadata).where(
+                    SymbolMetadata.first_missing_at.is_not(None)
+                )
+            )
+            missing_metas = result.scalars().all()
+
+            if not missing_metas:
+                return []
+
+            missing_syms = [m.symbol for m in missing_metas]
+
+            # Symbols held by any user in any open position (urgent)
+            held_result = await db.execute(
+                select(Position.symbol)
+                .where(Position.status == 'open')
+                .where(Position.symbol.in_(missing_syms))
+                .distinct()
+            )
+            held_syms = {row[0] for row in held_result.all()}
+
+        now = datetime.utcnow()
+        out = []
+        for m in missing_metas:
+            days_missing = (now - m.first_missing_at).days if m.first_missing_at else None
+
+            # Pickle freshness lookup — last bar date if symbol still in pickle
+            in_pickle = m.symbol in scanner_service.data_cache
+            last_bar_date = None
+            if in_pickle:
+                df = scanner_service.data_cache.get(m.symbol)
+                if df is not None and len(df) > 0:
+                    last_bar_date = str(df.index[-1].date()) if hasattr(df.index[-1], 'date') else str(df.index[-1])
+
+            in_open_position = m.symbol in held_syms
+
+            # Suggested action ranking
+            if in_open_position:
+                action = "urgent_held"
+            elif m.status == "quarantined" and m.quarantine_reason == "auto_30d_missing":
+                action = "auto_quarantine"
+            elif days_missing is not None and days_missing >= 7:
+                action = "investigate"
+            else:
+                action = "recheck"
+
+            out.append({
+                "symbol": m.symbol,
+                "first_missing_at": m.first_missing_at.isoformat() if m.first_missing_at else None,
+                "days_missing": days_missing,
+                "in_pickle": in_pickle,
+                "last_bar_date": last_bar_date,
+                "in_open_position": in_open_position,
+                "status": m.status,
+                "quarantine_reason": m.quarantine_reason,
+                "suggested_action": action,
+            })
+
+        # Sort: urgent first, then longest-missing
+        action_priority = {"urgent_held": 0, "auto_quarantine": 1, "investigate": 2, "recheck": 3}
+        out.sort(key=lambda x: (action_priority.get(x["suggested_action"], 99),
+                                 -(x["days_missing"] or 0)))
+        return out
 
     # ─────────────────────────── Corp-actions poll ───────────────────────────
 

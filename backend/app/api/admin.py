@@ -1022,6 +1022,37 @@ async def get_pipeline_log(admin: User = Depends(get_admin_user)):
         raise HTTPException(status_code=404, detail=f"No pipeline log found: {str(e)[:100]}")
 
 
+@router.get("/missing-symbols")
+async def get_missing_symbols(
+    admin: User = Depends(get_admin_user),
+):
+    """
+    Action-oriented view of every symbol currently flagged missing-in-Alpaca.
+
+    Returns each symbol with: days missing (consecutive), whether it's still
+    in the pickle, last bar date, whether any user holds it (urgent flag),
+    current quarantine status, and a suggested_action enum:
+      - urgent_held     — any user has open position; manual close needed
+      - auto_quarantine — already auto-quarantined (>=30 days missing)
+      - investigate     — 7-29 days missing; possibly real delisting
+      - recheck         — <7 days missing; could be transient
+
+    Sorted by action priority (urgent first), then longest-missing first.
+    """
+    from app.services.symbol_metadata_service import symbol_metadata_service
+    rows = await symbol_metadata_service.diagnose_missing()
+    by_action: Dict[str, int] = {}
+    for r in rows:
+        by_action[r["suggested_action"]] = by_action.get(r["suggested_action"], 0) + 1
+    return {
+        "total": len(rows),
+        "by_action": by_action,
+        "urgent_count": by_action.get("urgent_held", 0),
+        "auto_quarantined_count": by_action.get("auto_quarantine", 0),
+        "rows": rows,
+    }
+
+
 @router.get("/parquet-divergence")
 async def get_parquet_divergence(
     days: int = Query(7, ge=1, le=90, description="Window in days"),

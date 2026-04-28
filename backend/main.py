@@ -3677,19 +3677,56 @@ def handler(event, context):
                 # like an emergency.
                 critical_flags = []
                 info_flags = []
-                # Show up to 20 missing symbols inline so the email is actionable —
-                # reading "46 symbols missing" without names sends Erik to query the
-                # DB. Same pattern as reused_symbols above.
-                missing_preview = ", ".join(sorted(missing_symbols)[:20])
-                missing_overflow = max(0, len(missing_symbols) - 20)
-                missing_suffix = f" (+{missing_overflow} more)" if missing_overflow else ""
+                # Rich diagnosis of each missing symbol — days_missing, suggested
+                # action, whether held in any open position. Surfaces actionable
+                # info instead of just a name list.
+                missing_diag = await symbol_metadata_service.diagnose_missing()
+
+                def _render_missing_table(rows: list) -> str:
+                    if not rows:
+                        return ""
+                    out_rows = []
+                    for r in rows[:20]:
+                        action = r["suggested_action"]
+                        action_label = {
+                            "urgent_held": "🚨 URGENT (held position)",
+                            "auto_quarantine": "🔒 auto-quarantined",
+                            "investigate": "🔍 investigate",
+                            "recheck": "⏳ recheck",
+                        }.get(action, action)
+                        days = r.get("days_missing")
+                        days_str = f"{days}d" if days is not None else "?"
+                        out_rows.append(
+                            f"<tr>"
+                            f"<td><b>{r['symbol']}</b></td>"
+                            f"<td>{days_str}</td>"
+                            f"<td>{action_label}</td>"
+                            f"<td>{'yes' if r['in_open_position'] else ''}</td>"
+                            f"</tr>"
+                        )
+                    overflow = max(0, len(rows) - 20)
+                    overflow_row = (
+                        f"<tr><td colspan='4'><i>...and {overflow} more</i></td></tr>"
+                        if overflow else ""
+                    )
+                    return (
+                        "<table border='1' cellpadding='4' style='border-collapse:collapse;'>"
+                        "<tr><th>symbol</th><th>missing</th><th>action</th><th>held?</th></tr>"
+                        + "".join(out_rows) + overflow_row +
+                        "</table>"
+                    )
+
+                urgent_count = sum(1 for r in missing_diag if r["suggested_action"] == "urgent_held")
+                auto_q_count = sum(1 for r in missing_diag if r["suggested_action"] == "auto_quarantine")
 
                 if tally["reused"] > 0:
                     critical_flags.append(f"🚨 {tally['reused']} ticker-reuse detected: {reused_symbols[:10]}")
+                if urgent_count > 0:
+                    # ANY held-position symbol going missing in Alpaca is critical regardless of count
+                    critical_flags.append(f"🚨 {urgent_count} missing symbol(s) ARE in open user positions — manual review needed")
                 if tally["missing_in_alpaca"] > 20:
                     critical_flags.append(
-                        f"⚠️ {tally['missing_in_alpaca']} symbols missing in Alpaca (>20 threshold): "
-                        f"{missing_preview}{missing_suffix}"
+                        f"⚠️ {tally['missing_in_alpaca']} symbols missing in Alpaca (>20 threshold)"
                     )
                 dirty_total = diag.get("total_dirty_symbols") if isinstance(diag, dict) else None
                 if dirty_total and dirty_total > 1500:
@@ -3699,11 +3736,10 @@ def handler(event, context):
                     info_flags.append(f"🔧 Auto-fixed {refetch_result['refetched']} split(s) via SPLIT-adjusted refetch")
                 if tally["new"] > 0:
                     info_flags.append(f"🆕 {tally['new']} new symbols added to metadata")
+                if auto_q_count > 0:
+                    info_flags.append(f"🔒 {auto_q_count} symbol(s) auto-quarantined (>=30 days missing)")
                 if 0 < tally["missing_in_alpaca"] <= 20:
-                    info_flags.append(
-                        f"ℹ️ {tally['missing_in_alpaca']} symbols missing in Alpaca (below alarm threshold): "
-                        f"{missing_preview}"
-                    )
+                    info_flags.append(f"ℹ️ {tally['missing_in_alpaca']} symbols missing in Alpaca (below alarm threshold)")
 
                 status_word = "Healthy" if not critical_flags else "Attention Needed"
                 emoji = "✅" if not critical_flags else "🚨"
@@ -3724,6 +3760,10 @@ def handler(event, context):
                     f"<li>Split symbols: {len(split_symbols)}</li>",
                     f"</ul>",
                 ]
+                if missing_diag:
+                    html_lines.append("<h3>Missing-in-Alpaca Symbols (action required)</h3>")
+                    html_lines.append(_render_missing_table(missing_diag))
+
                 if critical_flags:
                     html_lines.append("<h3>⚠️ Needs Attention</h3><ul>")
                     for f in critical_flags:

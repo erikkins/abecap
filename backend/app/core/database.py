@@ -718,6 +718,11 @@ class SymbolMetadata(Base):
     quarantine_reason = Column(String(255))
     quarantined_at = Column(DateTime)
     last_verified_at = Column(DateTime)
+    # Stamp of when this symbol was FIRST detected as missing-in-Alpaca on a
+    # consecutive run. Cleared when the symbol re-appears in Alpaca's lists.
+    # When > 30 days, auto-quarantine kicks in with reason 'auto_30d_missing'.
+    # See verify_asset_ids in symbol_metadata_service.
+    first_missing_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -1079,6 +1084,15 @@ async def _run_schema_migrations(conn):
         "CREATE INDEX IF NOT EXISTS idx_pde_detected_at ON parquet_divergence_events(detected_at)",
         "CREATE INDEX IF NOT EXISTS idx_pde_symbol ON parquet_divergence_events(symbol)",
         "CREATE INDEX IF NOT EXISTS idx_pde_type ON parquet_divergence_events(divergence_type)",
+    ])
+
+    # Hygiene auto-quarantine: track when a symbol first went missing-in-Alpaca,
+    # so we can auto-quarantine after a configurable consecutive-days threshold
+    # (default 30). Cleared when symbol re-appears in Alpaca's active/inactive
+    # universe. See symbol_metadata_service.verify_asset_ids.
+    await _run("symbol_metadata.first_missing_at column", [
+        "ALTER TABLE symbol_metadata ADD COLUMN IF NOT EXISTS first_missing_at TIMESTAMP",
+        "CREATE INDEX IF NOT EXISTS idx_smd_first_missing ON symbol_metadata(first_missing_at) WHERE first_missing_at IS NOT NULL",
     ])
 
 
