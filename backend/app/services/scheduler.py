@@ -254,12 +254,31 @@ class SchedulerService:
         from datetime import timedelta
         from app.core.database import async_session, WalkForwardSimulation
         from app.services.walk_forward_service import walk_forward_service
+        from app.services.data_export import data_export_service
         from sqlalchemy import select
 
         from zoneinfo import ZoneInfo
         now_et = datetime.now(ZoneInfo("America/New_York"))
         end_date = now_et.replace(tzinfo=None)
         start_date = end_date - timedelta(days=365)  # 1 year lookback
+
+        # Force-reload scanner_service.data_cache from S3 before running. The
+        # daily_wf_cache cron usually fires shortly after the daily_scan, but
+        # Lambda warm-container reuse means an older invocation's in-memory
+        # data_cache may still be loaded. Reloading from S3 guarantees we use
+        # the freshest pickle (which the just-finished scan exported). Without
+        # this, we'd backtest on yesterday's data and the period iterator
+        # would generate periods past data-end (the "27 errors during
+        # simulation" pattern from Apr 28 2026).
+        try:
+            cached = data_export_service.import_all()
+            if cached:
+                scanner_service.data_cache = cached
+                logger.info(f"[DAILY-WF] Reloaded {len(cached)} symbols from S3 (warm-container freshness)")
+            else:
+                logger.warning("[DAILY-WF] import_all returned empty; using existing in-memory cache")
+        except Exception as e:
+            logger.warning(f"[DAILY-WF] Pickle reload failed (continuing with in-memory): {e}")
 
         # Initialize so the except handler can safely reference it even if the
         # failure happens before a new job row is created.

@@ -1194,6 +1194,25 @@ class WalkForwardService:
         print(f"[WF-SERVICE] Initial universe: {len(top_symbols)} symbols (max_symbols={max_symbols}, "
               f"recomputed per-period to avoid survivorship bias)")
 
+        # Clamp end_date to the last available data date. Without this, the
+        # period iterator can generate periods that extend past pickle data
+        # (e.g. caller passes end=now, but pickle was last written before
+        # today's settlement) — every such period RuntimeErrors with
+        # "No trading days in date range". Apr 28 2026 had 27 such errors
+        # in a single daily_wf_cache run from this exact pattern.
+        spy_df = scanner_service.data_cache.get('SPY')
+        if spy_df is not None and len(spy_df) > 0:
+            last_data_dt = spy_df.index[-1]
+            # Index may be tz-aware (Alpaca) or tz-naive (pickle); normalize for compare
+            if hasattr(last_data_dt, 'tz_localize'):
+                last_data_naive = last_data_dt.tz_localize(None) if last_data_dt.tz is not None else last_data_dt
+            else:
+                last_data_naive = last_data_dt
+            last_data_naive = last_data_naive.to_pydatetime() if hasattr(last_data_naive, 'to_pydatetime') else last_data_naive
+            if end_date > last_data_naive:
+                print(f"[WF-SERVICE] Clamping end_date from {end_date.date()} to last data date {last_data_naive.date()}")
+                end_date = last_data_naive
+
         # Get period boundaries
         periods = self._get_period_dates(start_date, end_date, reoptimization_frequency)
         print(f"[WF-SERVICE] Processing {len(periods)} periods (starting at {start_period})")
