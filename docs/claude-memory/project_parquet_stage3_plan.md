@@ -10,15 +10,19 @@ Stage 1 (shadow write) has been running since Apr 14-15 — both pickle and parq
 
 ## Sequencing (committed Apr 28 2026)
 
-### Stage 3a — Parallel-read + diff harness (~6-8h)
+### Stage 3a — Parallel-read + diff harness ✅ SHIPPED Apr 28 2026
 
-**3a-1:** `data_export_service.read_both_and_compare(symbol)` reads both stores, returns the pickle copy (zero behavior change), logs any divergence to `parquet_divergence_events` table. Diff includes: column set, row count, index range/dtype, sampled value-level diffs on close/volume/key indicators.
+Code complete and deployed. `PARQUET_PARALLEL_READ=true` set on Worker via Terraform. First observation data accumulates with tonight's 4:30 PM ET daily scan.
 
-**3a-2:** Wire one production read site (daily scan symbol-load loop) to use the harness behind `PARQUET_PARALLEL_READ=true` env var. DB migration adds `parquet_divergence_events` table.
+**3a-1 ✅** `data_export_service.compare_pickle_to_parquet()` — async batched compare. Catches missing-on-either-side, row count diff, column set diff, index range diff, value diff (1e-6 relative tolerance for floats, exact for volume), compare errors. Indicator columns intentionally skipped from value compare. Sample of up to 5 mismatched cells per (symbol, column). Single batched DB commit. Returns summary `{compared, diverged, diverged_symbols, by_type}`. Commit `631171e`.
 
-**3a-3:** `GET /api/admin/parquet-divergence` endpoint — returns counts by column/symbol over a window. Lets us spot patterns ("VIX has tz divergence on every read"; "BRK-B never matches").
+**3a-2 ✅** Wired into daily scan after both stores are written. `PARQUET_PARALLEL_READ` env var gate, try/except wrap so a divergence-log failure can never break the scan. Commit `e7cb5ef`.
 
-**3a-4:** Two-week observation window. Acceptance for moving to 3b: zero divergences on close/volume/indicator columns for 7 consecutive days, OR all observed divergences are explainable + filterable.
+**3a-3 ✅** `GET /api/admin/parquet-divergence?days=7&recent_limit=20` returns `by_type`, `top_symbols`, `by_day`, `recent_events`, `stage_status` (with auto-computed `ready_for_stage_3b` flag). Commit `ef870f8`.
+
+**3a-bonus ✅** Daily pipeline health email now has a "Storage Migration → Parquet Divergence" row. GREEN/YELLOW/RED based on structural-vs-explainable types in last 24h. Commit `7dda6d8`.
+
+**3a-4 (passive) — Two-week observation window.** Acceptance for moving to 3b: zero structural divergences (missing_in_*, row_count_diff, value_diff, compare_error) for 7 consecutive days, OR all observed divergences are explainable. Currently monitored automatically via the daily health email.
 
 ### Stage 3b — Read-from-parquet feature flag (~6-8h)
 
