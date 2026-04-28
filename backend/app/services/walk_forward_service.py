@@ -1123,6 +1123,7 @@ class WalkForwardService:
         profit_lock_pct: float = 0,  # Tighten trailing stop once up X%; 0=disabled
         profit_lock_stop_pct: float = 6.0,  # Tightened trailing stop % from peak
         precomputed_params: Optional[List[Dict[str, Any]]] = None,  # Skip TPE, use these per-period params
+        cb_pause_carries_periods: bool = True,  # CB pause survives period boundaries (default: today's behavior). Set False for ablation control: pause expires at period transition (the pre-Apr 28 implicit behavior, where regime change at boundary effectively cleared pause).
     ) -> WalkForwardResult:
         """
         Run walk-forward simulation with AI optimization over a historical period.
@@ -1676,7 +1677,7 @@ class WalkForwardService:
                     regime_reentry_mode=regime_reentry_mode,
                     bear_keep_pct=bear_keep_pct,
                     graduated_reentry=graduated_reentry,
-                    pause_days_remaining=pause_days_remaining,
+                    pause_days_remaining=(pause_days_remaining if cb_pause_carries_periods else 0),
                 )
                 strategy_name = "AI-Optimized"
             else:
@@ -1694,7 +1695,7 @@ class WalkForwardService:
                     regime_reentry_mode=regime_reentry_mode,
                     bear_keep_pct=bear_keep_pct,
                     graduated_reentry=graduated_reentry,
-                    pause_days_remaining=pause_days_remaining,
+                    pause_days_remaining=(pause_days_remaining if cb_pause_carries_periods else 0),
                 )
                 strategy_name = active_strategy.name
 
@@ -2492,7 +2493,7 @@ class WalkForwardService:
                     regime_reentry_mode=_regime_reentry,
                     bear_keep_pct=_bear_keep_pct,
                     graduated_reentry=_graduated_reentry,
-                    pause_days_remaining=pause_days_remaining,
+                    pause_days_remaining=(pause_days_remaining if cb_pause_carries_periods else 0),
                 )
                 strategy_name = "AI-Optimized"
                 new_capital = sim_out.ending_capital
@@ -2520,7 +2521,7 @@ class WalkForwardService:
                     regime_reentry_mode=_regime_reentry,
                     bear_keep_pct=_bear_keep_pct,
                     graduated_reentry=_graduated_reentry,
-                    pause_days_remaining=pause_days_remaining,
+                    pause_days_remaining=(pause_days_remaining if cb_pause_carries_periods else 0),
                 )
                 strategy_name = active_strategy.name
                 new_capital = sim_out.ending_capital
