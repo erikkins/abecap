@@ -642,7 +642,12 @@ resource "aws_lambda_function" "api" {
   package_type  = "Image"
   image_uri     = "${aws_ecr_repository.api.repository_url}:${var.lambda_image_tag}"
   timeout       = 30   # API Gateway limit is 29s
-  memory_size   = 1024 # No pickle needed — dashboard reads from S3 JSON cache
+  # 1536 MB (was 1024) — at 1024 the 10-second init was tipping over (~9.99s
+  # successful inits, 20+ INIT_TIMEOUT failures/day on Apr 27 2026). Bump gives
+  # ~1.5× CPU which drops cold-start init to ~6-7s, well clear of the 10s
+  # ceiling. Hot path is dashboard.json reads from S3, so memory itself isn't
+  # needed — this is purely for CPU during Python module imports at cold start.
+  memory_size   = 1536
 
   environment {
     variables = merge(local.lambda_env_vars, {
