@@ -1706,15 +1706,34 @@ class SchedulerService:
                         continue
                     subscribers.append({'email': u.email, 'name': u.name, 'user_id': str(u.id)})
 
-            fresh_count = len([s for s in buy_signals if s.get('is_fresh')])
-
             if not subscribers:
+                fresh_count = len([s for s in buy_signals if s.get('is_fresh')])
                 logger.warning(
                     f"📧 No active subscribers. Would have sent email with "
                     f"{len(buy_signals)} ensemble signals ({fresh_count} fresh), "
                     f"{len(watchlist)} watchlist"
                 )
                 return
+
+            # Per-subscriber filtering: hide signals for symbols the subscriber
+            # already holds (matches the website's /api/signals/dashboard behavior).
+            # Single bulk query to fetch all open positions for all email-targeted
+            # users, then per-user filtering in the loop is a dict lookup.
+            from app.core.database import Position as DBPosition
+            user_ids = [sub['user_id'] for sub in subscribers]
+            user_open_symbols: dict[str, set] = {uid: set() for uid in user_ids}
+            try:
+                async with async_session() as pos_db:
+                    pos_rows = (await pos_db.execute(
+                        select(DBPosition.user_id, DBPosition.symbol)
+                        .where(DBPosition.status == 'open')
+                        .where(DBPosition.user_id.in_(user_ids))
+                    )).all()
+                    for uid, sym in pos_rows:
+                        user_open_symbols.setdefault(str(uid), set()).add(sym)
+            except Exception as e:
+                logger.warning(f"📧 Could not fetch open positions for filtering: {e}")
+                # Fall back to no-filter behavior — better to send full list than nothing
 
             logger.warning(f"📧 Sending daily summary to {len(subscribers)} subscriber(s): {[s['email'] for s in subscribers]}")
 
@@ -1723,10 +1742,15 @@ class SchedulerService:
             failed = 0
             push_sent = 0
             for sub in subscribers:
+                # Per-user signal list: drop symbols this subscriber already holds
+                held = user_open_symbols.get(sub['user_id'], set())
+                user_signals = [s for s in buy_signals if s['symbol'] not in held] if held else buy_signals
+                user_fresh_count = len([s for s in user_signals if s.get('is_fresh')])
+
                 try:
                     success = await email_service.send_daily_summary(
                         to_email=sub['email'],
-                        signals=buy_signals,
+                        signals=user_signals,
                         market_regime=regime,
                         watchlist=watchlist,
                         user_id=sub['user_id'],
@@ -1744,7 +1768,7 @@ class SchedulerService:
                 try:
                     async with email_session() as push_db:
                         count = await push_notification_service.send_daily_summary_push(
-                            push_db, sub['user_id'], len(buy_signals), fresh_count
+                            push_db, sub['user_id'], len(user_signals), user_fresh_count
                         )
                         push_sent += count
                 except Exception as e:
