@@ -3677,10 +3677,20 @@ def handler(event, context):
                 # like an emergency.
                 critical_flags = []
                 info_flags = []
+                # Show up to 20 missing symbols inline so the email is actionable —
+                # reading "46 symbols missing" without names sends Erik to query the
+                # DB. Same pattern as reused_symbols above.
+                missing_preview = ", ".join(sorted(missing_symbols)[:20])
+                missing_overflow = max(0, len(missing_symbols) - 20)
+                missing_suffix = f" (+{missing_overflow} more)" if missing_overflow else ""
+
                 if tally["reused"] > 0:
                     critical_flags.append(f"🚨 {tally['reused']} ticker-reuse detected: {reused_symbols[:10]}")
                 if tally["missing_in_alpaca"] > 20:
-                    critical_flags.append(f"⚠️ {tally['missing_in_alpaca']} symbols missing in Alpaca (>20 threshold)")
+                    critical_flags.append(
+                        f"⚠️ {tally['missing_in_alpaca']} symbols missing in Alpaca (>20 threshold): "
+                        f"{missing_preview}{missing_suffix}"
+                    )
                 dirty_total = diag.get("total_dirty_symbols") if isinstance(diag, dict) else None
                 if dirty_total and dirty_total > 1500:
                     critical_flags.append(f"⚠️ Universe dirty count {dirty_total} above 1500 threshold")
@@ -3690,7 +3700,10 @@ def handler(event, context):
                 if tally["new"] > 0:
                     info_flags.append(f"🆕 {tally['new']} new symbols added to metadata")
                 if 0 < tally["missing_in_alpaca"] <= 20:
-                    info_flags.append(f"ℹ️ {tally['missing_in_alpaca']} symbols missing in Alpaca (below alarm threshold)")
+                    info_flags.append(
+                        f"ℹ️ {tally['missing_in_alpaca']} symbols missing in Alpaca (below alarm threshold): "
+                        f"{missing_preview}"
+                    )
 
                 status_word = "Healthy" if not critical_flags else "Attention Needed"
                 emoji = "✅" if not critical_flags else "🚨"
@@ -3740,6 +3753,7 @@ def handler(event, context):
                 "refetch": refetch_result,
                 "dirty_count": diag.get("total_dirty_symbols") if isinstance(diag, dict) else None,
                 "reused_symbols": reused_symbols,
+                "missing_symbols": missing_symbols,
             }
 
         try:
