@@ -2038,7 +2038,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
             to_email=to_email,
             subject=f"RigaCap — {len(new_signals)} new signal{'s' if len(new_signals) > 1 else ''}",
             html_content=html,
-            text_content="\n".join(text_lines),
+            text_content=text,
             user_id=user_id
         )
 
@@ -2938,6 +2938,7 @@ class AdminEmailService(EmailService):
             "panic_crash": ("#EF4444", "#fee2e2"),
             "recovery": ("#06B6D4", "#cffafe"),
         }
+        market_regime = market_regime or "unknown"
         regime_color, regime_bg = regime_colors.get(market_regime, ("#6b7280", "#f3f4f6"))
 
         created_section = ""
