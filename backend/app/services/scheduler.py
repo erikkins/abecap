@@ -1406,6 +1406,7 @@ class SchedulerService:
 
             # Check for approaching signals (momentum stocks near DWAP threshold)
             # These use their own ranking since they're not yet ensemble signals
+            momentum_rankings = []
             try:
                 regime_effective_params = None
                 from app.services.market_regime import market_regime_service, get_regime_adjusted_params
@@ -1499,7 +1500,7 @@ class SchedulerService:
 
                 logger.info(f"📧 Double signal alert sent to {sent}/{len(recipients)} recipients")
             else:
-                logger.info(f"✅ No new double signals found")
+                logger.info(f"✅ No new double signals (checked {len(momentum_rankings)} momentum stocks)")
                 if approaching:
                     logger.info(f"   👀 {len(approaching)} stocks approaching trigger")
 
