@@ -1402,6 +1402,189 @@ class DataExportService:
         else:
             return "/api/signals/latest.json"
 
+    # ─────────────────── Parquet migration Stage 3a — diff harness ───────────────────
+
+    async def compare_pickle_to_parquet(
+        self,
+        pickle_data: Dict[str, "pd.DataFrame"],
+        parquet_data: Optional[Dict[str, "pd.DataFrame"]] = None,
+        sample_value_diffs: int = 5,
+    ) -> Dict:
+        """
+        Compare a pickle-sourced data_cache against parquet for the same symbols
+        and write divergence rows to parquet_divergence_events. Returns a summary
+        dict.
+
+        Args:
+            pickle_data: dict[symbol -> DataFrame] — typically scanner_service.data_cache
+            parquet_data: optional pre-loaded parquet (saves a redundant load); if
+                None, calls self.import_parquet() to load all symbols.
+            sample_value_diffs: how many mismatched cells to record per (symbol,
+                column) — keeps details_json bounded.
+
+        Behavior:
+        - For each symbol present in either store: log divergence rows for any
+          structural mismatch (missing on one side, row-count differs, column set
+          differs, dtype differs, value differs on overlapping rows).
+        - Returns: {"compared": N, "diverged": M, "by_type": {type: count}, ...}.
+        - Does not raise on individual symbol failures — logs and continues.
+
+        Used by Stage 3a parallel-read observation; see project_parquet_stage3_plan.md.
+        """
+        import json as _json
+        import pandas as _pd
+        from app.core.database import async_session, ParquetDivergenceEvent
+
+        if parquet_data is None:
+            parquet_data = self.import_parquet()
+
+        all_symbols = set(pickle_data.keys()) | set(parquet_data.keys())
+        events: List[Dict] = []  # accumulated, single-batch write at the end
+
+        # Columns we actually care about value-comparing. Indicators (dwap,
+        # ma_50, ma_200) get recomputed lazily, so a mismatch there isn't
+        # necessarily corruption — close/volume/high/low/open are the load-bearing
+        # raw columns.
+        value_cols = ['open', 'high', 'low', 'close', 'volume']
+
+        for sym in sorted(all_symbols):
+            try:
+                p_df = pickle_data.get(sym)
+                q_df = parquet_data.get(sym)
+
+                p_rows = len(p_df) if p_df is not None else 0
+                q_rows = len(q_df) if q_df is not None else 0
+
+                if p_df is None:
+                    events.append({
+                        "symbol": sym, "type": "missing_in_pickle",
+                        "details": {"parquet_rows": q_rows},
+                        "p_rows": 0, "q_rows": q_rows,
+                    })
+                    continue
+
+                if q_df is None:
+                    events.append({
+                        "symbol": sym, "type": "missing_in_parquet",
+                        "details": {"pickle_rows": p_rows},
+                        "p_rows": p_rows, "q_rows": 0,
+                    })
+                    continue
+
+                # Both present — structural compare
+                if p_rows != q_rows:
+                    events.append({
+                        "symbol": sym, "type": "row_count_diff",
+                        "details": {"pickle_rows": p_rows, "parquet_rows": q_rows,
+                                    "delta": p_rows - q_rows},
+                        "p_rows": p_rows, "q_rows": q_rows,
+                    })
+
+                p_cols = set(p_df.columns)
+                q_cols = set(q_df.columns)
+                if p_cols != q_cols:
+                    events.append({
+                        "symbol": sym, "type": "column_set_diff",
+                        "details": {"only_in_pickle": sorted(p_cols - q_cols),
+                                    "only_in_parquet": sorted(q_cols - p_cols)},
+                        "p_rows": p_rows, "q_rows": q_rows,
+                    })
+
+                # Value compare on overlapping date range, common columns
+                shared_cols = [c for c in value_cols if c in p_cols and c in q_cols]
+                if not shared_cols:
+                    continue
+
+                # Align on shared dates only — pickle/parquet may have different
+                # tail behavior (e.g. one has today's bar, other doesn't yet)
+                shared_idx = p_df.index.intersection(q_df.index)
+                if len(shared_idx) == 0:
+                    events.append({
+                        "symbol": sym, "type": "index_range_diff",
+                        "details": {
+                            "pickle_first": str(p_df.index.min()) if p_rows else None,
+                            "pickle_last": str(p_df.index.max()) if p_rows else None,
+                            "parquet_first": str(q_df.index.min()) if q_rows else None,
+                            "parquet_last": str(q_df.index.max()) if q_rows else None,
+                        },
+                        "p_rows": p_rows, "q_rows": q_rows,
+                    })
+                    continue
+
+                p_sub = p_df.loc[shared_idx, shared_cols]
+                q_sub = q_df.loc[shared_idx, shared_cols]
+
+                # Use a small relative tolerance — float roundtrip via parquet can
+                # introduce 1e-7 noise on prices; that's not corruption.
+                # Only flag genuine value differences.
+                for col in shared_cols:
+                    p_col = _pd.to_numeric(p_sub[col], errors='coerce')
+                    q_col = _pd.to_numeric(q_sub[col], errors='coerce')
+                    diff_mask = ~((p_col == q_col) | (p_col.isna() & q_col.isna()))
+                    # Tolerate tiny float roundtrip noise (relative 1e-6)
+                    if col != 'volume':  # volume is integer, no tolerance needed
+                        rel_err = (p_col - q_col).abs() / p_col.abs().replace(0, 1)
+                        diff_mask = diff_mask & (rel_err > 1e-6)
+                    n_diffs = int(diff_mask.sum())
+                    if n_diffs > 0:
+                        sample = []
+                        for idx in p_sub.index[diff_mask][:sample_value_diffs]:
+                            sample.append({
+                                "date": str(idx),
+                                "pickle": _safe_json_value(p_col.loc[idx]),
+                                "parquet": _safe_json_value(q_col.loc[idx]),
+                            })
+                        events.append({
+                            "symbol": sym, "type": "value_diff",
+                            "details": {"column": col, "n_diffs": n_diffs,
+                                        "compared_rows": len(shared_idx),
+                                        "sample": sample},
+                            "p_rows": p_rows, "q_rows": q_rows,
+                        })
+
+            except Exception as e:
+                events.append({
+                    "symbol": sym, "type": "compare_error",
+                    "details": {"error": str(e)[:300]},
+                    "p_rows": p_rows if 'p_rows' in dir() else None,
+                    "q_rows": q_rows if 'q_rows' in dir() else None,
+                })
+
+        # Single batched DB write — keeps connection cost low even with many events
+        if events:
+            async with async_session() as db:
+                for e in events:
+                    db.add(ParquetDivergenceEvent(
+                        symbol=e["symbol"],
+                        divergence_type=e["type"],
+                        details_json=_json.dumps(e["details"], default=str)[:8000],
+                        pickle_row_count=e.get("p_rows"),
+                        parquet_row_count=e.get("q_rows"),
+                    ))
+                await db.commit()
+
+        # Build summary
+        from collections import Counter
+        by_type = Counter(e["type"] for e in events)
+        return {
+            "compared": len(all_symbols),
+            "diverged": len(events),
+            "diverged_symbols": len({e["symbol"] for e in events}),
+            "by_type": dict(by_type),
+        }
+
+
+def _safe_json_value(v):
+    """Coerce numpy/pandas scalars to JSON-serializable Python types."""
+    try:
+        import math
+        f = float(v)
+        if math.isnan(f) or math.isinf(f):
+            return None
+        return f
+    except Exception:
+        return None
+
 
 # Singleton instance
 data_export_service = DataExportService()

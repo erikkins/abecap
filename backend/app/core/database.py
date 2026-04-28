@@ -744,6 +744,30 @@ class SymbolMetadataEvent(Base):
     handler_result = Column(String(255))
 
 
+class ParquetDivergenceEvent(Base):
+    """
+    Audit log of pickle-vs-parquet data divergences during the Stage 3a
+    parallel-read observation window of the storage migration.
+
+    Each daily-scan compare-sweep writes one row per (symbol, divergence
+    type). Used to gate the cutover from pickle to parquet — see
+    project_parquet_stage3_plan.md.
+    """
+    __tablename__ = "parquet_divergence_events"
+
+    id = Column(Integer, primary_key=True)
+    detected_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    symbol = Column(String(32), nullable=False, index=True)
+    # Values: missing_in_parquet, missing_in_pickle, row_count_diff,
+    #         column_set_diff, dtype_diff, value_diff, index_range_diff
+    divergence_type = Column(String(64), nullable=False, index=True)
+    # JSON-encoded specifics: which column, sample mismatched values, magnitudes
+    details_json = Column(Text)
+    # Convenience scalars for fast aggregation/filtering without parsing JSON
+    pickle_row_count = Column(Integer)
+    parquet_row_count = Column(Integer)
+
+
 # Track database availability (set during init_db)
 db_available = False
 db_init_attempted = False
@@ -1037,6 +1061,24 @@ async def _run_schema_migrations(conn):
         "CREATE INDEX IF NOT EXISTS idx_es_signal_date ON ensemble_signals(signal_date)",
         "CREATE INDEX IF NOT EXISTS idx_es_symbol ON ensemble_signals(symbol)",
         "CREATE INDEX IF NOT EXISTS idx_es_status ON ensemble_signals(status)",
+    ])
+
+    # Parquet migration Stage 3a — pickle-vs-parquet divergence audit log.
+    # Populated by data_export_service.compare_pickle_to_parquet() during
+    # the parallel-read observation window. See project_parquet_stage3_plan.md.
+    await _run("parquet_divergence_events table", [
+        """CREATE TABLE IF NOT EXISTS parquet_divergence_events (
+            id SERIAL PRIMARY KEY,
+            detected_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            symbol VARCHAR(32) NOT NULL,
+            divergence_type VARCHAR(64) NOT NULL,
+            details_json TEXT,
+            pickle_row_count INTEGER,
+            parquet_row_count INTEGER
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_pde_detected_at ON parquet_divergence_events(detected_at)",
+        "CREATE INDEX IF NOT EXISTS idx_pde_symbol ON parquet_divergence_events(symbol)",
+        "CREATE INDEX IF NOT EXISTS idx_pde_type ON parquet_divergence_events(divergence_type)",
     ])
 
 
