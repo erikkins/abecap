@@ -109,6 +109,7 @@
 
 ## Deferred Infra Improvements
 - **Lambda AL2023 migration** — update Dockerfile base from `python:3.9` to `python:3.11+` (AL2023). Enables DuckDB httpfs extension (needs glibc 2.28+), 10-25% faster Python. Zero AWS cost increase. Estimated 2-4 hours. Do after Parquet Session 3 cutover completes.
+- **[WF cache table size check — Oct 2026](project_wf_cache_size_check.md)** — daily/nightly WF cache rows are now append-only (no DELETE). Revisit Oct 2026 to confirm growth isn't problematic.
 
 ## Data Hygiene Roadmap
 - **[Layer 2 — corp-actions + ticker-reuse detection](project_data_hygiene_layer2_apr2026.md)** — nightly Alpaca corp-actions poll + asset-ID integrity check. Catches ticker reuse, silent splits, delistings before next-day scan. ~4-5 hour build. DEPLOYED Apr 15 2026.
