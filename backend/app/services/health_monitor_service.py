@@ -165,6 +165,7 @@ class HealthMonitorService:
             self._check_daily_snapshot,
             self._check_data_source_health,
             self._check_last_data_fetch,
+            self._check_parquet_divergence,
         ]
 
         for method in check_methods:
@@ -938,6 +939,85 @@ class HealthMonitorService:
             threshold="Primary source, no fallback",
             message=message,
             resolution=resolution,
+        )
+
+    # ──────────────────────────────────────────────────────────────
+    # Storage Migration (Parquet Stage 3a observation window)
+    # ──────────────────────────────────────────────────────────────
+
+    async def _check_parquet_divergence(self) -> HealthCheck:
+        """
+        Surface yesterday's parquet-vs-pickle divergence count from the
+        Stage 3a parallel-read harness. Status:
+          GREEN  — 0 events in last 24h (or feature flag disabled)
+          YELLOW — events exist but only of "explainable" types
+                   (index_range_diff, column_set_diff on indicator columns)
+          RED    — structural divergences in load-bearing columns
+                   (missing_in_*, row_count_diff, value_diff, compare_error)
+
+        See project_parquet_stage3_plan.md.
+        """
+        from app.core.database import async_session, ParquetDivergenceEvent
+        from sqlalchemy import select, func
+        cutoff = datetime.utcnow() - timedelta(hours=24)
+
+        try:
+            async with async_session() as db:
+                rows = (await db.execute(
+                    select(
+                        ParquetDivergenceEvent.divergence_type,
+                        func.count(ParquetDivergenceEvent.id).label("n"),
+                    )
+                    .where(ParquetDivergenceEvent.detected_at >= cutoff)
+                    .group_by(ParquetDivergenceEvent.divergence_type)
+                )).all()
+        except Exception as e:
+            return HealthCheck(
+                category="Storage Migration", name="Parquet Divergence",
+                status=HealthStatus.YELLOW, value="QUERY FAILED",
+                threshold="<1 structural event/day",
+                message=f"Could not query parquet_divergence_events: {str(e)[:120]}",
+                resolution="Check DB connectivity / table exists",
+            )
+
+        by_type = {row.divergence_type: row.n for row in rows}
+        total = sum(by_type.values())
+
+        # Categorize: structural events block 3b, others are merely interesting
+        structural_types = {
+            "missing_in_pickle", "missing_in_parquet", "row_count_diff",
+            "value_diff", "compare_error",
+        }
+        structural = sum(n for t, n in by_type.items() if t in structural_types)
+        explainable = total - structural
+
+        if total == 0:
+            return HealthCheck(
+                category="Storage Migration", name="Parquet Divergence",
+                status=HealthStatus.GREEN, value="0 events / 24h",
+                threshold="<1 structural event/day",
+                message="Pickle and parquet are in lockstep over the last 24h.",
+                resolution="",
+            )
+
+        if structural > 0:
+            type_summary = ", ".join(f"{t}={n}" for t, n in by_type.items() if t in structural_types)
+            return HealthCheck(
+                category="Storage Migration", name="Parquet Divergence",
+                status=HealthStatus.RED, value=f"{structural} structural / {total} total",
+                threshold="<1 structural event/day",
+                message=f"Structural divergences in last 24h: {type_summary}",
+                resolution="Inspect /api/admin/parquet-divergence for sample diffs. Pause Stage 3b cutover until resolved.",
+            )
+
+        # Explainable-only divergences (e.g. index_range_diff on weekend boundaries)
+        type_summary = ", ".join(f"{t}={n}" for t, n in by_type.items())
+        return HealthCheck(
+            category="Storage Migration", name="Parquet Divergence",
+            status=HealthStatus.YELLOW, value=f"{explainable} explainable / 24h",
+            threshold="<1 structural event/day",
+            message=f"Non-structural divergences only: {type_summary}",
+            resolution="Acceptable for now — review patterns at /api/admin/parquet-divergence to confirm explainability before Stage 3b.",
         )
 
 
