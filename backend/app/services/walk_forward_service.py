@@ -850,6 +850,9 @@ class WalkForwardService:
                 backtester.circuit_breaker_pause_days = strategy_params.circuit_breaker_pause_days
             if hasattr(strategy_params, 'circuit_breaker_tighten_pct'):
                 backtester.circuit_breaker_tighten_pct = strategy_params.circuit_breaker_tighten_pct
+            # Ablation: force CB off so it never fires (computes true no-CG baseline)
+            if getattr(self, '_disable_cb_for_run', False):
+                backtester.circuit_breaker_stops = 0
 
             # Seed carryover pause from prior period. Original triggering source is
             # preserved in the prior period's pause_events log; here we only know it's
@@ -989,6 +992,10 @@ class WalkForwardService:
         backtester.regime_reentry_mode = regime_reentry_mode
         backtester.bear_keep_pct = bear_keep_pct
 
+        # Ablation: force CB off so it never fires (computes true no-CG baseline)
+        if getattr(self, '_disable_cb_for_run', False):
+            backtester.circuit_breaker_stops = 0
+
         # Seed carryover pause from prior period.
         if pause_days_remaining > 0:
             backtester._pause_until = start_date + timedelta(days=pause_days_remaining)
@@ -1124,7 +1131,11 @@ class WalkForwardService:
         profit_lock_stop_pct: float = 6.0,  # Tightened trailing stop % from peak
         precomputed_params: Optional[List[Dict[str, Any]]] = None,  # Skip TPE, use these per-period params
         cb_pause_carries_periods: bool = True,  # CB pause survives period boundaries (default: today's behavior). Set False for ablation control: pause expires at period transition (the pre-Apr 28 implicit behavior, where regime change at boundary effectively cleared pause).
+        disable_circuit_breaker: bool = False,  # Ablation: force circuit_breaker_stops=0 so CB never fires. Used to compute the true CG-impact baseline against canonical (with-CG) runs.
     ) -> WalkForwardResult:
+        # Stash on self so per-period sim methods (_simulate_period_with_params,
+        # _simulate_period_trading) can read it without changing every signature.
+        self._disable_cb_for_run = disable_circuit_breaker
         """
         Run walk-forward simulation with AI optimization over a historical period.
 

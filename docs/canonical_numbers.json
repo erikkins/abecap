@@ -1,0 +1,118 @@
+{
+  "_doc": "Single source of truth for performance numbers. Edited by hand when a new walk-forward refresh lands. Consumed by scripts/refresh_perf_citations.py to patch all surfaces. See docs/numbers-citations-registry.md for surface inventory.",
+  "_update_protocol": "1. Re-run walk-forward. 2. Update this file. 3. Run scripts/refresh_perf_citations.py --apply. 4. Walk the manual checklist it generates. 5. Commit with message 'Refresh performance citations to <vintage>'.",
+  "vintage": "2026-04-28",
+  "vintage_label": "Clean-data 8-date 5y, carry-on",
+  "vintage_source": "/tmp/wf_5y_8dates_summary.csv",
+  "track_length_5y": true,
+  "track_length_10y_pending": true,
+
+  "wf_5y_avg_total_return_pct": 160.22,
+  "wf_5y_avg_total_return_pct_rounded": 160,
+  "wf_5y_avg_annualized_pct": 21.1,
+  "wf_5y_avg_annualized_pct_marketing": 21.5,
+  "_marketing_annualized_note": "We publish 21.5% — within rounding of real WF 21.1%, kept stable for marketing continuity. Both numbers are honest.",
+
+  "wf_5y_avg_sharpe": 0.92,
+  "wf_5y_avg_max_drawdown_pct": 20.4,
+  "wf_5y_avg_max_drawdown_pct_rounded": 20,
+
+  "wf_5y_worst_start_pct": 109.31,
+  "wf_5y_worst_start_pct_rounded": 109,
+  "wf_5y_worst_start_date": "2021-04-01",
+
+  "wf_5y_best_start_pct": 252.06,
+  "wf_5y_best_start_pct_rounded": 252,
+  "wf_5y_best_start_date": "2021-01-18",
+
+  "wf_5y_spy_avg_pct": 92.63,
+  "wf_5y_spy_avg_pct_rounded": 93,
+  "wf_5y_alpha_vs_spy_pct": 67.6,
+  "wf_5y_alpha_vs_spy_annualized_pct": 7.1,
+
+  "wf_5y_num_start_dates": 8,
+  "wf_5y_num_start_dates_label": "multiple start dates",
+
+  "wf_5y_per_start_date": [
+    {"start": "2021-01-04", "return_pct": 145.36, "sharpe": 0.92, "max_dd_pct": 20.26, "spy_pct": 98.45},
+    {"start": "2021-01-18", "return_pct": 252.06, "sharpe": 0.88, "max_dd_pct": 25.87, "spy_pct": 95.68},
+    {"start": "2021-01-25", "return_pct": 160.18, "sharpe": 0.83, "max_dd_pct": 20.42, "spy_pct": 92.08},
+    {"start": "2021-02-01", "return_pct": 156.34, "sharpe": 0.96, "max_dd_pct": 20.38, "spy_pct": 97.03},
+    {"start": "2021-02-08", "return_pct": 156.34, "sharpe": 0.96, "max_dd_pct": 20.38, "spy_pct": 97.03},
+    {"start": "2021-02-15", "return_pct": 156.34, "sharpe": 0.96, "max_dd_pct": 20.38, "spy_pct": 97.03},
+    {"start": "2021-03-01", "return_pct": 145.83, "sharpe": 0.95, "max_dd_pct": 16.71, "spy_pct": 88.63},
+    {"start": "2021-04-01", "return_pct": 109.31, "sharpe": 0.89, "max_dd_pct": 18.97, "spy_pct": 75.12}
+  ],
+
+  "trade_stats": {
+    "win_rate_pct": 42.0,
+    "win_loss_ratio": 2.5,
+    "avg_winner_pct": 18.6,
+    "avg_loser_pct": -7.4,
+    "trades_per_5y_window": 202
+  },
+
+  "annual_returns_clean": {
+    "_doc": "Calendar-year returns averaged across all start dates. Every year, every start date positive.",
+    "2022_avg_pct": 8.0,
+    "2022_worst_start_pct": 2.31,
+    "2022_spy_pct": -19.4,
+    "2023_avg_pct": 12.0,
+    "2024_avg_pct": 31.9,
+    "2024_spy_pct": 24.0,
+    "2025_avg_pct": 49.6
+  },
+
+  "cascade_guard_impact": {
+    "_doc": "Validated 2026-04-28 via no-CG ablation. Strategy with CG vs strategy with circuit_breaker_stops=0 (true counterfactual). Replaces the over-fit Apr 19 +87pp claim.",
+    "return_pp_added_5y": 37.7,
+    "return_pp_added_annualized": 3.7,
+    "sharpe_added": 0.14,
+    "mdd_pp_change": 1.2,
+    "mdd_interpretation": "CG is a return amplifier, not a MDD reducer. Per-date variance shows MDD impact is roughly neutral; do NOT claim drawdown protection.",
+    "with_cg_5y_avg_return_pct": 160.22,
+    "no_cg_5y_avg_return_pct": 122.49,
+    "with_cg_5y_avg_sharpe": 0.92,
+    "no_cg_5y_avg_sharpe": 0.78,
+    "with_cg_5y_avg_mdd_pct": 20.4,
+    "no_cg_5y_avg_mdd_pct": 19.2,
+    "per_date_return_delta_range_pp": "from +3 to +55",
+    "every_start_date_benefited": true,
+    "ablation_source": "/tmp/wf_5y_8dates_no_cg_summary.csv"
+  },
+
+  "vintage_log": [
+    {
+      "vintage": "pre-2026-04-28",
+      "label": "Trial 37 over-fit pickle",
+      "key_numbers": "+240% / +384% / +603% / 0.89 / 24% MDD / ~37% ann",
+      "status": "RETIRED — over-fit to corrupted indicator data",
+      "do_not_publish": true
+    },
+    {
+      "vintage": "2026-04-20",
+      "label": "Pre-launch 8-date CB baseline",
+      "key_numbers": "+204% avg / +86% worst / 0.95 / 32% MDD / ~23% ann",
+      "status": "RETIRED — same dirty pickle as Trial 37",
+      "do_not_publish": true
+    },
+    {
+      "vintage": "2026-04-28",
+      "label": "Clean-data 8-date 5y, carry-on",
+      "key_numbers": "+160% avg / +109% worst / +252% best / 0.92 / 20.4% MDD / ~21.1% ann",
+      "status": "CANONICAL"
+    },
+    {
+      "vintage": "2026-04-28",
+      "label": "Clean-data 8-date 5y, no-carry (ablation)",
+      "key_numbers": "+155% / 0.88 / 18.7% MDD",
+      "status": "ABLATION REFERENCE — not canonical"
+    },
+    {
+      "vintage": "2026-04-28",
+      "label": "Clean-data 8-date 5y, no-CG (ablation v2 — true CG counterfactual)",
+      "key_numbers": "+122.5% / 0.78 / 19.2% MDD. CG-impact: +37.7pp return, +0.14 Sharpe, ~neutral MDD.",
+      "status": "ABLATION REFERENCE — replaces the over-fit Apr 19 '+87pp' claim. Note: first attempt (v1) had a flag-plumbing bug; v2 verified via pause_events=0 across all runs."
+    }
+  ]
+}

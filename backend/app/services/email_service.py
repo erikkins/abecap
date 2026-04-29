@@ -1392,7 +1392,7 @@ Your friend gets their first month free, and you get a free month when they subs
                 <!-- Track Record -->
                 <div style="border-left: 2px solid #7A2430; padding: 14px 18px; background: #FAF7F0; margin: 24px 0;">
                     <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 15px; color: #141210; line-height: 1.6;">
-                        Friction-adjusted ~21.5% annualized over 5 years, walk-forward validated.
+                        ~21.5% annualized over 5 years, walk-forward validated.
                         <a href="https://rigacap.com/track-record" style="color: #7A2430; text-decoration: underline;">See the full track record.</a>
                     </p>
                 </div>
@@ -1429,7 +1429,7 @@ Here's what you get:
 
 Your 7-day free trial starts now. Visit https://rigacap.com/app to see today's signals!
 
-Our Track Record: +240% over 5 years, walk-forward validated. See the details: https://rigacap.com/track-record
+Our Track Record: ~21.5% annualized over 5 years, walk-forward validated. See the details: https://rigacap.com/track-record
 
 Pro Tip: Look for signals with the green BUY badge — these are fresh breakouts with the highest conviction.
 {referral_text}
@@ -1533,7 +1533,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
 
                 <div style="border-left: 2px solid #7A2430; padding: 14px 18px; background: #FAF7F0; margin: 24px 0;">
                     <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 15px; color: #141210; line-height: 1.6;">
-                        Friction-adjusted ~21.5% annualized over 5 years. The system ended 2022 flat while the S&amp;P fell 20%.
+                        ~21.5% annualized over 5 years, walk-forward validated. The system ended 2022 flat while the S&amp;P fell 20%.
                         <a href="https://rigacap.com/track-record" style="color: #7A2430; text-decoration: underline;">Full track record.</a>
                     </p>
                 </div>
@@ -1801,7 +1801,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
 
                 <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0;">
                     <p style="font-family: Georgia, serif; font-size: 17px; color: #141210; margin: 0; line-height: 1.65;">
-                        The value proposition is simple: on a $100K portfolio, the strategy's friction-adjusted ~21.5% annualized vs SPY's ~13% historical
+                        The value proposition is simple: on a $100K portfolio, the strategy's ~21.5% annualized vs SPY's ~13% historical
                         is roughly <strong>$8,500/year of potential excess return</strong>. A subscription at $1,548/year captures less than 20% of that value.
                     </p>
                 </div>

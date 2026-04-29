@@ -1,0 +1,301 @@
+{
+  "_doc": "Surface map for refresh_perf_citations.py. Each entry describes ONE citation in ONE file. The script tries to find `find` (regex), and if matched, replaces with `replace` (template using {key} from canonical_numbers.json). Type 'manual' entries are listed in the output checklist for human edit (used when a regex/single-line replace is too risky — e.g., table restructures, FAQ rewrites).",
+  "_replacement_types": {
+    "regex": "Standard find-and-replace. `find` is a regex, `replace` is a Python format-string with {canonical_key} placeholders.",
+    "block": "Replace everything between two literal start/end markers (e.g., `{/* SURFACE-MARKER:foo-START */}` and `{/* SURFACE-MARKER:foo-END */}`) with `replace_template`. The markers themselves stay; the content between them is fully replaced. Idempotent.",
+    "manual": "Cannot be safely auto-replaced. Listed in the manual checklist with line hints + guidance."
+  },
+
+  "entries": [
+    {
+      "id": "trackrecordv2-hero-avgreturn",
+      "file": "frontend/src/TrackRecordPageV2.jsx",
+      "type": "regex",
+      "description": "Hero stat card 1 — Average Return",
+      "line_hint": 59,
+      "find": "\\['\\+204%', 'Average Return',",
+      "replace": "['+{wf_5y_avg_total_return_pct_rounded}%', 'Average Return',"
+    },
+    {
+      "id": "trackrecordv2-hero-worst",
+      "file": "frontend/src/TrackRecordPageV2.jsx",
+      "type": "regex",
+      "description": "Hero stat card 2 — Worst Start Date",
+      "line_hint": 60,
+      "find": "\\['\\+86%', 'Worst Start Date',",
+      "replace": "['+{wf_5y_worst_start_pct_rounded}%', 'Worst Start Date',"
+    },
+    {
+      "id": "trackrecordv2-hero-sharpe",
+      "file": "frontend/src/TrackRecordPageV2.jsx",
+      "type": "regex",
+      "description": "Hero stat card 3 — Sharpe Ratio",
+      "line_hint": 61,
+      "find": "\\['0\\.95', 'Avg Sharpe Ratio',",
+      "replace": "['{wf_5y_avg_sharpe}', 'Avg Sharpe Ratio',"
+    },
+    {
+      "id": "trackrecordv2-hero-mdd",
+      "file": "frontend/src/TrackRecordPageV2.jsx",
+      "type": "regex",
+      "description": "Hero stat card 4 — Max Drawdown",
+      "line_hint": 62,
+      "find": "\\['32%', 'Avg Max Drawdown',",
+      "replace": "['{wf_5y_avg_max_drawdown_pct_rounded}%', 'Avg Max Drawdown',"
+    },
+
+    {
+      "id": "trackrecordv2-perf-table",
+      "file": "frontend/src/TrackRecordPageV2.jsx",
+      "type": "block",
+      "description": "5-Year Performance comparison table — RigaCap walk-forward + SPY benchmark",
+      "start_marker": "{/* SURFACE-MARKER:perf-comparison-table-START */}",
+      "end_marker": "{/* SURFACE-MARKER:perf-comparison-table-END */}",
+      "replace_template": "\n          <div className=\"overflow-x-auto\">\n            <table className=\"w-full border-collapse\" style={{{{ fontFeatureSettings: '\"tnum\"' }}}}>\n              <thead>\n                <tr>\n                  {{['Series', '5-Year Return', 'Annualized', 'Sharpe', 'Max Drawdown'].map((h, i) => (\n                    <th key={{h}} className={{`py-3 ${{i === 0 ? 'text-left pr-4' : 'text-right px-5'}} font-body font-medium text-[0.75rem] tracking-[0.15em] uppercase text-ink-mute border-b border-rule-dark`}}>\n                      {{h}}\n                    </th>\n                  ))}}\n                </tr>\n              </thead>\n              <tbody>\n                <tr className=\"border-b border-rule bg-paper-card\">\n                  <td className=\"py-4 pr-4 text-[0.95rem] font-semibold text-ink\">RigaCap walk-forward (avg. of {wf_5y_num_start_dates_label})</td>\n                  <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink\">+{wf_5y_avg_total_return_pct_rounded}%</td>\n                  <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink\">~{wf_5y_avg_annualized_pct_marketing}%</td>\n                  <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink\">{wf_5y_avg_sharpe}</td>\n                  <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink\">{wf_5y_avg_max_drawdown_pct_rounded}%</td>\n                </tr>\n                <tr>\n                  <td className=\"py-4 pr-4 text-[0.95rem] italic text-ink-mute\">S&P 500 (SPY, price only)</td>\n                  <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute\">+{wf_5y_spy_avg_pct_rounded}%</td>\n                  <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute\">~13%</td>\n                  <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute\">&mdash;</td>\n                  <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute\">&mdash;</td>\n                </tr>\n              </tbody>\n            </table>\n          </div>\n          "
+    },
+
+    {
+      "id": "landingv2-perf-table",
+      "file": "frontend/src/LandingPageV2.jsx",
+      "type": "block",
+      "description": "Performance comparison table on landing — same content as TrackRecordV2 (different indentation)",
+      "start_marker": "{/* SURFACE-MARKER:perf-comparison-table-START */}",
+      "end_marker": "{/* SURFACE-MARKER:perf-comparison-table-END */}",
+      "replace_template": "\n      <div className=\"overflow-x-auto my-10\">\n        <table className=\"w-full border-collapse\" style={{{{ fontFeatureSettings: '\"tnum\"' }}}}>\n          <thead>\n            <tr>\n              {{['Series', '5-Year Return', 'Annualized', 'Sharpe', 'Max Drawdown'].map((h, i) => (\n                <th key={{h}} className={{`py-3 ${{i === 0 ? 'text-left pr-4' : 'text-right px-5'}} font-body font-medium text-[0.75rem] tracking-[0.15em] uppercase text-ink-mute border-b border-rule-dark`}}>\n                  {{h}}\n                </th>\n              ))}}\n            </tr>\n          </thead>\n          <tbody>\n            <tr className=\"border-b border-rule bg-paper-card\">\n              <td className=\"py-4 pr-4 text-[0.95rem] font-semibold text-ink\">RigaCap walk-forward (avg. of {wf_5y_num_start_dates_label})</td>\n              <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink\">+{wf_5y_avg_total_return_pct_rounded}%</td>\n              <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink\">~{wf_5y_avg_annualized_pct_marketing}%</td>\n              <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink\">{wf_5y_avg_sharpe}</td>\n              <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink\">{wf_5y_avg_max_drawdown_pct_rounded}%</td>\n            </tr>\n            <tr>\n              <td className=\"py-4 pr-4 text-[0.95rem] italic text-ink-mute\">S&P 500 (SPY, price only)</td>\n              <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute\">+{wf_5y_spy_avg_pct_rounded}%</td>\n              <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute\">~13%</td>\n              <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute\">&mdash;</td>\n              <td className=\"py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute\">&mdash;</td>\n            </tr>\n          </tbody>\n        </table>\n      </div>\n      "
+    },
+
+    {
+      "id": "landingv2-faq-expected-returns",
+      "file": "frontend/src/LandingPageV2.jsx",
+      "type": "manual",
+      "description": "FAQ 'What returns should I actually expect?' — currently cites simulation 23% + friction-adjusted 21.5% framing",
+      "line_hint": 407,
+      "current": "'The simulation average is ~23% annualized. After estimating realistic slippage and commissions, that figure drops to roughly 21.5% — still meaningfully above...'",
+      "target": "Drop simulation/friction split; use walk-forward result directly: 'The 5-year walk-forward average is ~{wf_5y_avg_annualized_pct_marketing}% annualized — meaningfully above the S&P's ~13% historical, with worst-case start date still returning +{wf_5y_worst_start_pct_rounded}% over five years. Past performance does not predict future results.'",
+      "guidance": "Rewrite as walk-forward-direct framing. No friction haircut narrative needed (most readers don't notice it)."
+    },
+
+    {
+      "id": "landingv2-faq-why-publish-lower",
+      "file": "frontend/src/LandingPageV2.jsx",
+      "type": "manual",
+      "description": "FAQ 'Why publish the lower number?' — this question becomes incoherent when there's no two-column framing",
+      "line_hint": 408,
+      "current": "'Why publish the lower number?'",
+      "target": "Either delete this FAQ entry, or pivot to: 'Why don't you publish higher numbers like other services?' with answer about avoiding cherry-picked windows / over-fit backtests / outlier-inflated averages.",
+      "guidance": "Recommend deletion; the question doesn't make sense once the friction-adjusted column is gone."
+    },
+
+    {
+      "id": "landingv2-faq-pricing",
+      "file": "frontend/src/LandingPageV2.jsx",
+      "type": "regex",
+      "description": "FAQ 'Why $129/month?' — pricing math cites 21.5%; can stay but the 'friction-adjusted' framing in earlier FAQ should match",
+      "line_hint": 409,
+      "find": "targeting 21\\.5% annualized returns",
+      "replace": "targeting ~{wf_5y_avg_annualized_pct_marketing}% annualized returns"
+    },
+
+    {
+      "id": "landingv2-faq-down-year",
+      "file": "frontend/src/LandingPageV2.jsx",
+      "type": "manual",
+      "description": "FAQ 'Has the system ever had a down year?' — cites 2022 -0.4%, 2024 +1.2%",
+      "line_hint": 410,
+      "current": "Numbers cited from old run; need recompute on clean data",
+      "target": "Recompute from clean-data equity curves; verify 2022/2024 yearly numbers before publishing",
+      "guidance": "Pending equity-curve verification — defer this edit until clean per-year data is available"
+    },
+
+    {
+      "id": "social-launch-cards-v2-card1-annualized",
+      "file": "design/brand/social-launch-cards-v2.html",
+      "type": "regex",
+      "description": "Social launch card 1 — Annualized stat",
+      "line_hint": 69,
+      "find": "<div class=\"stat-value positive\">~21\\.5%</div><div class=\"stat-sub\">Friction-adjusted</div>",
+      "replace": "<div class=\"stat-value positive\">~{wf_5y_avg_annualized_pct_marketing}%</div><div class=\"stat-sub\">5-year walk-forward</div>"
+    },
+    {
+      "id": "social-launch-cards-v2-sharpe-both",
+      "file": "design/brand/social-launch-cards-v2.html",
+      "type": "regex",
+      "description": "Social launch cards — Sharpe stat (both cards 1 and 2 have identical markup)",
+      "line_hint": "70 + 94",
+      "allow_multi": true,
+      "find": "<div class=\"stat-label\">Sharpe</div><div class=\"stat-value\">0\\.95</div>",
+      "replace": "<div class=\"stat-label\">Sharpe</div><div class=\"stat-value\">{wf_5y_avg_sharpe}</div>"
+    },
+    {
+      "id": "social-launch-cards-v2-card2-avgreturn",
+      "file": "design/brand/social-launch-cards-v2.html",
+      "type": "regex",
+      "description": "Social launch card 2 — Avg Return stat",
+      "line_hint": 92,
+      "find": "<div class=\"stat-label\">Avg Return</div><div class=\"stat-value positive\">\\+204%</div>",
+      "replace": "<div class=\"stat-label\">Avg Return</div><div class=\"stat-value positive\">+{wf_5y_avg_total_return_pct_rounded}%</div>"
+    },
+    {
+      "id": "social-launch-cards-v2-card2-worst",
+      "file": "design/brand/social-launch-cards-v2.html",
+      "type": "regex",
+      "description": "Social launch card 2 — Worst Start stat",
+      "line_hint": 93,
+      "find": "<div class=\"stat-label\">Worst Start</div><div class=\"stat-value\">\\+86%</div>",
+      "replace": "<div class=\"stat-label\">Worst Start</div><div class=\"stat-value\">+{wf_5y_worst_start_pct_rounded}%</div>"
+    },
+    {
+      "id": "social-launch-cards-v2-card2-spy",
+      "file": "design/brand/social-launch-cards-v2.html",
+      "type": "regex",
+      "description": "Social launch card 2 — SPY benchmark",
+      "line_hint": 95,
+      "find": "<div class=\"stat-label\">S&P 500</div><div class=\"stat-value\">\\+84%</div>",
+      "replace": "<div class=\"stat-label\">S&P 500</div><div class=\"stat-value\">+{wf_5y_spy_avg_pct_rounded}%</div>"
+    },
+
+    {
+      "id": "email-welcome-html-track-record",
+      "file": "backend/app/services/email_service.py",
+      "type": "regex",
+      "description": "Welcome email HTML body — track record blockquote — drop 'Friction-adjusted' qualifier, keep number",
+      "line_hint": 1396,
+      "find": "Friction-adjusted ~21\\.5% annualized over 5 years, walk-forward validated\\.",
+      "replace": "~{wf_5y_avg_annualized_pct_marketing}% annualized over 5 years, walk-forward validated."
+    },
+    {
+      "id": "email-welcome-text-track-record",
+      "file": "backend/app/services/email_service.py",
+      "type": "regex",
+      "description": "Welcome email text fallback — currently says +240% (legacy); align with HTML",
+      "line_hint": 1432,
+      "find": "Our Track Record: \\+240% over 5 years, walk-forward validated\\.",
+      "replace": "Our Track Record: ~{wf_5y_avg_annualized_pct_marketing}% annualized over 5 years, walk-forward validated."
+    },
+    {
+      "id": "email-onboarding-friction-flat-2022",
+      "file": "backend/app/services/email_service.py",
+      "type": "regex",
+      "description": "Onboarding drip — drop 'Friction-adjusted' qualifier",
+      "line_hint": 1537,
+      "find": "Friction-adjusted ~21\\.5% annualized over 5 years\\. The system ended 2022 flat",
+      "replace": "~{wf_5y_avg_annualized_pct_marketing}% annualized over 5 years, walk-forward validated. The system ended 2022 flat"
+    },
+    {
+      "id": "email-pricing-justification",
+      "file": "backend/app/services/email_service.py",
+      "type": "regex",
+      "description": "Onboarding step 5 (last day) — drop 'friction-adjusted' qualifier in pricing math",
+      "line_hint": 1804,
+      "find": "the strategy's friction-adjusted ~21\\.5% annualized vs SPY",
+      "replace": "the strategy's ~{wf_5y_avg_annualized_pct_marketing}% annualized vs SPY"
+    },
+
+    {
+      "id": "blog-2022-story-headline",
+      "file": "frontend/src/Blog2022StoryPage.jsx",
+      "type": "regex",
+      "description": "Blog post 2022 story — '+384% vs SPY +84%' citation",
+      "line_hint": 265,
+      "find": "the average total return is \\+384% vs\\. the S&P's \\+84%\\.",
+      "replace": "the average total return is +{wf_5y_avg_total_return_pct_rounded}% vs. the S&P's +{wf_5y_spy_avg_pct_rounded}%."
+    },
+
+    {
+      "id": "blog-index-featured-title",
+      "file": "frontend/src/BlogIndexPage.jsx",
+      "type": "regex",
+      "description": "Blog index featured post title — '+384% 5-year walk-forward'",
+      "line_hint": 8,
+      "find": "Inside Our 5-Year Walk-Forward: \\+384%",
+      "replace": "Inside Our 5-Year Walk-Forward: +{wf_5y_avg_total_return_pct_rounded}%"
+    },
+
+    {
+      "id": "marketing-strategy-doc-section15",
+      "file": "docs/MarketingNewsletterStrategyCLAUDE.md",
+      "type": "manual",
+      "description": "§15 Performance & Methodology — full restructure of published numbers section",
+      "line_hint": "659-695",
+      "current": "Three sub-blocks: Simulation (+204%/~23%/0.95/32%), Friction-Adjusted (+173%/~21.5%), SPY (+84%/~13%)",
+      "target": "Two sub-blocks: 5-Year Walk-Forward (avg/best/worst/Sharpe/MaxDD), SPY benchmark. Drop the Simulation vs Friction-Adjusted framing entirely.",
+      "guidance": "This is the source-of-truth doc — must rewrite carefully. Use canonical_numbers.json values. Update both the numbers AND the framing."
+    },
+
+    {
+      "id": "investor-report-html",
+      "file": "design/documents/rigacap-investor-report.html",
+      "type": "manual",
+      "description": "Investor report HTML — multiple +603% / +384% / ~37% / 30% citations across cover, executive summary, performance table, benchmark bars",
+      "line_hint": "481-980",
+      "current": "Cover/exec/perf-table/bars all use over-fit Trial 37 numbers",
+      "target": "Replace 5y row with canonical clean-data numbers; flag 10y row as 'pending clean re-run' or hold until 10y refresh lands",
+      "guidance": "After edit, regenerate PDF via Chrome headless command in CLAUDE.md"
+    },
+
+    {
+      "id": "signal-intelligence-html",
+      "file": "design/documents/rigacap-signal-intelligence.html",
+      "type": "manual",
+      "description": "Signal Intelligence doc — multiple +603% / +384% / 30% MDD citations + carry analysis claim of '+206% vs +121%'",
+      "line_hint": "TBD",
+      "current": "Same Trial 37 over-fit citations as investor report",
+      "target": "Replace 5y row with canonical clean-data numbers; carry-vs-no-carry numbers updated to 160 vs 155 from this week's ablation; regen PDF",
+      "guidance": "Coordinate with investor report update; same vintage applies."
+    },
+
+    {
+      "id": "claude-md-ensemble-section",
+      "file": "CLAUDE.md",
+      "type": "manual",
+      "description": "L91-98 Ensemble Performance section — cites +240% / 33% ann / 1.19 / 30% MDD / 10y +603% / 24% MDD",
+      "line_hint": "91-98",
+      "current": "Trial 37 over-fit numbers",
+      "target": "Replace 5y line with canonical (+160% / ~21.1% ann / 0.92 / 20.4% MDD); flag 10y line as 'pending clean re-run'",
+      "guidance": "Internal doc but read by every Claude session — keep accurate to avoid future drift"
+    }
+  ],
+
+  "out_of_repo_checklist": [
+    {
+      "surface": "Twitter/X profile bio",
+      "what_to_check": "Any cited annualized return, avg return, or 'beat the market by X%' language",
+      "url": "https://x.com/RigaCap (or current handle)"
+    },
+    {
+      "surface": "Instagram profile bio",
+      "what_to_check": "Same as Twitter — bio + pinned post",
+      "url": "https://instagram.com/RigaCap"
+    },
+    {
+      "surface": "LinkedIn page (if applicable)",
+      "what_to_check": "Page tagline + about section",
+      "url": "TBD"
+    },
+    {
+      "surface": "Stripe product description",
+      "what_to_check": "If product description cites returns, update via Stripe dashboard",
+      "url": "https://dashboard.stripe.com/products"
+    },
+    {
+      "surface": "Already-scheduled social posts (unpublished)",
+      "what_to_check": "Pull DB social_posts WHERE status='scheduled' OR status='approved' AND scheduled_for > NOW() — review for stale numbers",
+      "url": "Admin UI Social tab"
+    },
+    {
+      "surface": "PDF investor report (regen after HTML)",
+      "what_to_check": "After investor-report-html edits, regenerate the PDF and re-upload to wherever it's distributed",
+      "url": "design/documents/rigacap-investor-report.pdf"
+    },
+    {
+      "surface": "PDF signal intelligence doc (regen after HTML)",
+      "what_to_check": "Same as investor report",
+      "url": "design/documents/rigacap-signal-intelligence.pdf"
+    },
+    {
+      "surface": "Any podcast / interview / press writeups",
+      "what_to_check": "Out-of-repo by definition; track in a personal log",
+      "url": "TBD"
+    }
+  ]
+}

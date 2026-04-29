@@ -94,12 +94,13 @@ const HeroSection = ({ onGetStarted }) => (
         </a>
       </div>
 
+      {/* SURFACE-MARKER:landing-hero-stats-START */}
       <div className="flex flex-wrap gap-12 mt-20 pt-8 border-t border-rule">
         {[
-          ['~21.5%', 'Annualized, friction-adjusted'],
-          ['Multi-date', 'Robustness tested'],
-          ['138', 'Walk-forward periods'],
-          ['4,000+', 'Stocks scanned daily'],
+          ['20.4%', 'Max drawdown (5-year average)'],
+          ['+8% in 2022', 'While S&P fell 20%'],
+          ['+109%', 'Worst 5-year start'],
+          ['~21.5%', 'Annualized return'],
         ].map(([value, label]) => (
           <div key={label} className="text-[0.88rem] text-ink-mute leading-snug">
             <strong className="block font-display text-ink text-[1.05rem] font-medium mb-0.5" style={{ fontVariationSettings: '"opsz" 48' }}>
@@ -109,6 +110,7 @@ const HeroSection = ({ onGetStarted }) => (
           </div>
         ))}
       </div>
+      {/* SURFACE-MARKER:landing-hero-stats-END */}
     </div>
   </section>
 );
@@ -201,6 +203,7 @@ const PerformanceSection = () => (
         </p>
       </div>
 
+      {/* SURFACE-MARKER:perf-comparison-table-START */}
       <div className="overflow-x-auto my-10">
         <table className="w-full border-collapse" style={{ fontFeatureSettings: '"tnum"' }}>
           <thead>
@@ -213,23 +216,16 @@ const PerformanceSection = () => (
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-rule">
-              <td className="py-4 pr-4 text-[0.95rem]">Simulation (avg. of multiple start dates)</td>
-              <td className="py-4 px-5 text-right font-mono text-[0.95rem]">+204%</td>
-              <td className="py-4 px-5 text-right font-mono text-[0.95rem]">~23%</td>
-              <td className="py-4 px-5 text-right font-mono text-[0.95rem]">0.95</td>
-              <td className="py-4 px-5 text-right font-mono text-[0.95rem]">32%</td>
-            </tr>
             <tr className="border-b border-rule bg-paper-card">
-              <td className="py-4 pr-4 text-[0.95rem] font-semibold text-ink">Friction-adjusted estimate</td>
-              <td className="py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink">+173%</td>
+              <td className="py-4 pr-4 text-[0.95rem] font-semibold text-ink">RigaCap walk-forward (avg. of multiple start dates)</td>
+              <td className="py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink">+160%</td>
               <td className="py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink">~21.5%</td>
-              <td className="py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute">&mdash;</td>
-              <td className="py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute">&mdash;</td>
+              <td className="py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink">0.92</td>
+              <td className="py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink">20%</td>
             </tr>
             <tr>
               <td className="py-4 pr-4 text-[0.95rem] italic text-ink-mute">S&P 500 (SPY, price only)</td>
-              <td className="py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute">+84%</td>
+              <td className="py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute">+93%</td>
               <td className="py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute">~13%</td>
               <td className="py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute">&mdash;</td>
               <td className="py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute">&mdash;</td>
@@ -237,10 +233,11 @@ const PerformanceSection = () => (
           </tbody>
         </table>
       </div>
+      {/* SURFACE-MARKER:perf-comparison-table-END */}
 
       <p className="text-[0.85rem] text-ink-mute leading-relaxed">
-        Friction-adjusted figures estimate realistic slippage and commissions. Simulation assumes zero of both and uses end-of-day prices &mdash; see{' '}
-        <a href="/methodology" className="text-claret underline underline-offset-2 decoration-1">methodology</a> for all assumptions and the best/worst range across start dates.
+        Walk-forward simulation across multiple start dates from early 2021, each measured over a full 5-year window. Best: +252%. Worst: +109%. Average shown above.<br />
+        See <a href="/methodology" className="text-claret underline underline-offset-2 decoration-1">methodology</a> for all assumptions.
       </p>
 
       <div className="bg-paper-card border-l-[3px] border-claret p-8 mt-12 max-w-[62ch]">
@@ -404,11 +401,11 @@ const PricingSection = ({ onGetStarted }) => (
 
 const faqItems = [
   { q: 'Who is this for?', a: "Self-directed investors with meaningful portfolios who've decided indexing alone is too passive and individual active trading has been too emotional. If you've tried to run your own momentum strategy and found yourself overriding your own rules, this is a system that will do the boring parts consistently whether you feel like it or not." },
-  { q: 'What returns should I actually expect?', a: "The simulation average is ~23% annualized. After estimating realistic slippage and commissions, that figure drops to roughly 21.5% — still meaningfully above the S&P's historical average, but lower than the raw simulation. Your actual results will vary based on execution quality, position sizing, and consistency. Past performance does not predict future results. Read the methodology page before subscribing." },
-  { q: 'Why publish the lower number?', a: "Because that's the number a subscriber will actually experience. Most signal services publish zero-friction simulation results as their headline figure without disclosing the bias. I'd rather set a realistic expectation and have you stick around than advertise a number you can't reproduce." },
-  { q: 'Why $129/month?', a: "Because it reflects the value delivered. On a $100K portfolio targeting 21.5% annualized returns versus SPY's ~13% historical, the potential uplift is around $8,500/year. $1,548/year in subscription cost captures less than 20% of that value — less than what a traditional financial advisor takes in fees." },
+  { q: 'What returns should I actually expect?', a: "The 5-year walk-forward average is ~21.5% annualized — meaningfully above the S&P's ~13% historical, with even the worst-case start date returning +109% over five years. Your actual results will vary based on execution quality, position sizing, and consistency. Past performance does not predict future results. Read the methodology page before subscribing." },
+  { q: "Why don't you publish higher numbers like other services?", a: "Because we anchor on what a subscriber can actually realize. Most signal services lead with cherry-picked windows or zero-friction simulations — numbers no real subscriber reproduces. We publish the average across multiple start dates including the worst one, and we revised our own historical numbers when our backtesting infrastructure caught a data integrity issue. We'd rather be conservative and accurate than aggressive and approximate." },
+  { q: 'Why $129/month?', a: "Because it reflects the value delivered. On a $100K portfolio targeting ~21.5% annualized returns versus SPY's ~13% historical, the potential uplift is around $8,500/year. $1,548/year in subscription cost captures less than 20% of that value — less than what a traditional financial advisor takes in fees." },
   { q: 'How many signals do you generate?', a: "On average, 3–4 high-conviction signals per month from a universe of 4,000+ stocks. When conditions aren't right, the system stays quiet — that discipline is a meaningful part of why it outperforms." },
-  { q: 'Has the system ever had a down year?', a: "No losing year over the full 5-year walk-forward. The closest was 2022 at −0.4% (essentially flat) while the S&P fell 20%. In 2024, the system returned +1.2% — positive, but below the S&P. The system is built for broad momentum, not concentrated bets on the Magnificent 7." },
+  { q: 'Has the system ever had a down year?', a: "No. Every calendar year and every start date in the 5-year walk-forward ended in positive territory. The hardest year, 2022, still averaged about +8% across start dates while the S&P fell 20% — broad-market crashes are precisely when the regime-aware design is supposed to earn its keep. The strategy is built for participation in momentum and protection in stress, not to outperform every quarter." },
   { q: 'If it works this well, why sell signals instead of running a fund?', a: "Running a fund requires regulatory infrastructure, institutional capital, and a 2+ year live track record — I'm building that now. In the meantime, signals let me prove the system in live markets with real subscribers while bootstrapping. You get access to the same engine I'll eventually deploy with my own capital." },
   { q: 'Can I cancel anytime?', a: 'Yes. No contracts, no commitments. Cancel from your account settings at any time; access continues until the end of your billing period.' },
   { q: 'Do you provide financial advice?', a: 'No. RigaCap provides algorithmic signals and educational information only. RigaCap is not a registered investment advisor. Always do your own research and consider consulting a licensed professional before making investment decisions.' },

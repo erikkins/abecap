@@ -37,6 +37,9 @@ coverage/
 *.tfstate
 *.tfstate.*
 *.tfvars
+*.tfvars.bak*
+tfplan
+*.tfplan
 
 # Lambda
 lambda.zip
@@ -46,3 +49,8 @@ package/
 docker-compose.override.yml
 terraform.tfvars
 backend/data/
+
+# Walk-forward / TPE run artifacts (never commit, regeneratable)
+tpe_*_archive/
+wf_*_archive/
+tpe_*.json

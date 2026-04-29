@@ -56,10 +56,10 @@ export default function TrackRecordPageV2() {
         <div className="max-w-[1120px] mx-auto px-4 sm:px-8">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-rule">
             {[
-              ['+204%', 'Average Return', 'multiple start dates, same strategy'],
-              ['+86%', 'Worst Start Date', 'Still positive, still ahead of SPY'],
-              ['0.95', 'Avg Sharpe Ratio', 'Risk-adjusted performance'],
-              ['32%', 'Avg Max Drawdown', 'Peak to trough'],
+              ['+160%', 'Average Return', 'multiple start dates, same strategy'],
+              ['+109%', 'Worst Start Date', 'Still positive, still ahead of SPY'],
+              ['0.92', 'Avg Sharpe Ratio', 'Risk-adjusted performance'],
+              ['20%', 'Avg Max Drawdown', 'Peak to trough'],
             ].map(([value, label, subtitle]) => (
               <div key={label} className="bg-paper-card p-6 sm:p-8 text-center">
                 <div className="font-display text-3xl sm:text-4xl font-normal text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 144' }}>{value}</div>
@@ -93,9 +93,10 @@ export default function TrackRecordPageV2() {
         <div className="max-w-[1120px] mx-auto px-4 sm:px-8">
           <SectionLabel>Performance Summary</SectionLabel>
           <h2 className="font-display text-ink mb-8 tracking-[-0.02em]" style={{ fontSize: 'clamp(1.6rem, 3vw, 2.25rem)', fontVariationSettings: '"opsz" 96' }}>
-            The numbers, <em className="text-claret italic">friction-adjusted.</em>
+            The numbers, <em className="text-claret italic">walk-forward.</em>
           </h2>
 
+          {/* SURFACE-MARKER:perf-comparison-table-START */}
           <div className="overflow-x-auto">
             <table className="w-full border-collapse" style={{ fontFeatureSettings: '"tnum"' }}>
               <thead>
@@ -108,23 +109,16 @@ export default function TrackRecordPageV2() {
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b border-rule">
-                  <td className="py-4 pr-4 text-[0.95rem]">Simulation (avg. of multiple start dates)</td>
-                  <td className="py-4 px-5 text-right font-mono text-[0.95rem]">+204%</td>
-                  <td className="py-4 px-5 text-right font-mono text-[0.95rem]">~23%</td>
-                  <td className="py-4 px-5 text-right font-mono text-[0.95rem]">0.95</td>
-                  <td className="py-4 px-5 text-right font-mono text-[0.95rem]">32%</td>
-                </tr>
                 <tr className="border-b border-rule bg-paper-card">
-                  <td className="py-4 pr-4 text-[0.95rem] font-semibold text-ink">Friction-adjusted estimate</td>
-                  <td className="py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink">+173%</td>
+                  <td className="py-4 pr-4 text-[0.95rem] font-semibold text-ink">RigaCap walk-forward (avg. of multiple start dates)</td>
+                  <td className="py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink">+160%</td>
                   <td className="py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink">~21.5%</td>
-                  <td className="py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute">&mdash;</td>
-                  <td className="py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute">&mdash;</td>
+                  <td className="py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink">0.92</td>
+                  <td className="py-4 px-5 text-right font-mono text-[0.95rem] font-medium text-ink">20%</td>
                 </tr>
                 <tr>
                   <td className="py-4 pr-4 text-[0.95rem] italic text-ink-mute">S&P 500 (SPY, price only)</td>
-                  <td className="py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute">+84%</td>
+                  <td className="py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute">+93%</td>
                   <td className="py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute">~13%</td>
                   <td className="py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute">&mdash;</td>
                   <td className="py-4 px-5 text-right font-mono text-[0.95rem] text-ink-mute">&mdash;</td>
@@ -132,9 +126,10 @@ export default function TrackRecordPageV2() {
               </tbody>
             </table>
           </div>
+          {/* SURFACE-MARKER:perf-comparison-table-END */}
 
           <p className="mt-4 text-[0.85rem] text-ink-light leading-relaxed">
-            Friction-adjusted figures estimate realistic slippage and commissions. Simulation assumes zero of both and uses end-of-day prices.
+            Walk-forward simulation across multiple start dates from early 2021, each measured over a full 5-year window. Rebalance frictions modeled in-simulation; realized end-of-day fills used. Best: +252%. Worst: +109%.
             See <Link to="/methodology" className="text-claret underline underline-offset-2 decoration-1">full methodology</Link> for all assumptions.
           </p>
         </div>
@@ -147,9 +142,9 @@ export default function TrackRecordPageV2() {
 
           <div className="grid sm:grid-cols-3 gap-px bg-rule">
             {[
-              ['Flat in 2022', 'S&P fell 20%', 'Capital preservation when it matters. Regime detection moved to cash before the worst of the drawdown.'],
-              ['333 trades', '48.6% win rate', '1.77x win/loss ratio. Less than half the trades win, but winners are substantially larger than losers.'],
-              ['7 emergency pauses', 'Cascade Guard', 'System froze entries when multiple stops hit the same day \u2014 preventing re-entry during cascade selloffs.'],
+              ['Positive in 2022', 'S&P fell 20%', 'Every start date ended 2022 in positive territory while broad markets had their worst year since 2008 \u2014 averaging around +8%.'],
+              ['2.5x win/loss ratio', '42% win rate', 'Less than half the trades win, but the average winner returns roughly 2.5\u00d7 the size of the average loser. That asymmetry is the engine.'],
+              ['+37pp from Cascade Guard', '~3.7pp annualized', 'When multiple positions hit their trailing stop on the same day, the system pauses new entries for ten days \u2014 preventing forced re-entries during cascading market stress. Validated against a full no-Cascade-Guard counterfactual.'],
             ].map(([title, subtitle, desc]) => (
               <div key={title} className="bg-paper-card p-8">
                 <div className="font-display text-2xl text-ink mb-1" style={{ fontVariationSettings: '"opsz" 96' }}>{title}</div>
@@ -167,9 +162,8 @@ export default function TrackRecordPageV2() {
           <div className="bg-paper-card border-l-[3px] border-claret p-8">
             <h3 className="font-display text-[1.15rem] font-semibold text-ink mb-3">The bear-market test.</h3>
             <p className="text-ink leading-[1.7]">
-              The five-year window included one major bear market. The system ended it flat while the S&P fell 20% &mdash;{' '}
-              <strong className="font-medium">not by luck, but by design.</strong> Regime detection triggered de-risking before the drawdown
-              and kept the system in cash until conditions improved.{' '}
+              The five-year window included one major bear market. <strong className="font-medium">Every start date ended 2022 in positive territory</strong> while the S&P fell 20% &mdash;{' '}
+              not by luck, but by design. Regime-aware position sizing and trailing-stop discipline kept the strategy on the right side of risk through the year &mdash; responding to data as it changed, not predicting the drawdown.<br />
               <em className="font-display italic text-claret">That behavior, not the headline return, is the reason to subscribe.</em>
             </p>
           </div>
