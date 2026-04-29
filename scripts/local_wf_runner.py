@@ -309,8 +309,11 @@ async def run_simulation(args):
     print(f"  Win rate:     {getattr(result, 'win_rate_pct', 0):.1f}%")
     print(f"  Benchmark:    {getattr(result, 'benchmark_return_pct', 0):+.1f}% (SPY)")
     print(f"  Duration:     {int(hours)}h {int(mins)}m")
-    if result.job_id:
-        print(f"  Job ID:       {result.job_id}")
+    # WalkForwardResult dataclass has no job_id (DB job tracking is on a separate
+    # WalkForwardSimulation row). getattr-with-default avoids AttributeError.
+    job_id = getattr(result, 'job_id', None)
+    if job_id:
+        print(f"  Job ID:       {job_id}")
     print(f"{'='*60}")
 
     # Calculate annualized
