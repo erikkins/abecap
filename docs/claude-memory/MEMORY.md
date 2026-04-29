@@ -149,7 +149,7 @@
 
 ## Social Posts
 - [Full text in approval emails](feedback_social_emails_full_text.md) — never truncate post previews in admin emails
-- [No "7 dates" in public content](feedback_no_7_dates.md) — say "multiple start dates", never cite the specific count
+- **[CRITICAL: NEVER cite specific WF start-date count](feedback_no_7_dates.md)** — use "multiple" or "many", never "7"/"8"/etc. Applies to PUBLIC and INTERNAL docs. Violated repeatedly; treat as load-bearing.
 
 ## Marketing & Brand Strategy (NEW Apr 28, 2026 — authoritative)
 - **[Marketing strategy doc — source of truth](project_marketing_strategy_doc.md)** — points to `docs/MarketingNewsletterStrategyCLAUDE.md` (1,090 lines, 25 sections). Brand, voice, pricing, design, content, compliance, lifecycle, growth. Read the doc directly when working on anything strategic. Memory entry covers load-bearing rules + tensions to reconcile.
