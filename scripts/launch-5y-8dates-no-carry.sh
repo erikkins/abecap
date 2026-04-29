@@ -1,23 +1,22 @@
 #!/bin/bash
-# 5-year walk-forward across 8 start dates, fixed-params (no AI), on the
-# clean 11y pickle. Generates the data for the "5y track record graph" —
-# matching the marketing format (§15) of "avg of 8 start dates."
+# Ablation control for the CB pause-carries-periods behavior. Same 8 start
+# dates × 5y windows as launch-5y-8dates.sh, but with --cb-pause-no-carry-
+# periods set so a CB pause clears at the period boundary (mimicking the
+# pre-Apr 28 implicit behavior).
 #
-# Each run produces:
-#   /tmp/wf_5y_<start_date>/wf_run_result.pkl  (full result object)
-#   /tmp/wf_5y_<start_date>/wf_run_result.json (scalar summary)
-#   /tmp/wf_5y_8dates_summary.csv (aggregated table)
+# Each run writes pickle + json directly to its per-date dir via
+# WF_RESULT_PICKLE / WF_RESULT_JSON env vars, so this script is safe to
+# run concurrently with launch-5y-8dates.sh.
 #
-# Idempotent — re-running skips dates that already have a wf_run_result.json.
-# Per-run failures don't abort the whole script (no `set -e` on the loop).
+# Output dir convention: /tmp/wf_5y_<start>_no_carry/
+# Aggregate CSV: /tmp/wf_5y_8dates_no_carry_summary.csv
 #
-# Each run is ~5 min (no-ai). 8 runs sequential = ~40 min total.
+# Idempotent — re-running skips dates that already have wf_run_result.json.
+# Per-run failures don't abort the whole script.
 
 cd /Users/erikkins/CODE/stocker-app
 source backend/venv/bin/activate
 
-# 8 start dates spread Jan-Apr 2021. End dates = start + 5y, all land in
-# Jan-Apr 2026 (well within pickle data through Apr 27).
 DATES=(
   "2021-01-04:2026-01-04"
   "2021-01-18:2026-01-18"
@@ -29,12 +28,12 @@ DATES=(
   "2021-04-01:2026-04-01"
 )
 
-SUMMARY_CSV="/tmp/wf_5y_8dates_summary.csv"
+SUMMARY_CSV="/tmp/wf_5y_8dates_no_carry_summary.csv"
 echo "start_date,end_date,total_return_pct,sharpe_ratio,max_drawdown_pct,benchmark_return_pct,total_trades" > "$SUMMARY_CSV"
 
 T_START=$(date +%s)
-echo "Launching 8 sequential 5y fixed-params WF runs at $(date)"
-echo "Progress will be visible at /tmp/wf_5y_<start>/run.log per job."
+echo "Launching 8 sequential 5y NO-CARRY ablation runs at $(date)"
+echo "Per-job logs at /tmp/wf_5y_<start>_no_carry/run.log"
 echo
 
 i=0
@@ -42,14 +41,11 @@ for pair in "${DATES[@]}"; do
   i=$((i+1))
   START="${pair%%:*}"
   END="${pair##*:}"
-  RUNDIR="/tmp/wf_5y_${START}"
+  RUNDIR="/tmp/wf_5y_${START}_no_carry"
   mkdir -p "$RUNDIR"
 
-  # Idempotent skip: if this date already has a result, harvest its row to
-  # the aggregate CSV and move on. Lets us re-fire the launcher without
-  # re-running already-completed dates.
   if [ -f "$RUNDIR/wf_run_result.json" ]; then
-    echo "[$(date '+%H:%M:%S')] Run $i/8: $START → $END  (already complete, skipping)"
+    echo "[$(date '+%H:%M:%S')] Run $i/8 (no-carry): $START → $END  (already complete, skipping)"
     python3 -c "
 import json
 try:
@@ -67,13 +63,8 @@ except Exception:
     continue
   fi
 
-  echo "[$(date '+%H:%M:%S')] Run $i/8: $START → $END"
+  echo "[$(date '+%H:%M:%S')] Run $i/8 (no-carry): $START → $END"
 
-  # Runner writes pickle + json directly into the per-date dir via
-  # WF_RESULT_PICKLE / WF_RESULT_JSON env vars. No /tmp default paths used,
-  # so this script can run concurrently with the no-carry ablation
-  # (launch-5y-8dates-no-carry.sh) without races on shared /tmp paths.
-  # `|| true` so a per-run failure doesn't abort the whole loop.
   WF_RESULT_PICKLE="$RUNDIR/wf_run_result.pkl" \
   WF_RESULT_JSON="$RUNDIR/wf_run_result.json" \
   caffeinate -i python3 scripts/local_wf_runner.py \
@@ -83,9 +74,9 @@ except Exception:
     --strategy-id 5 \
     --max-symbols 200 \
     --no-ai \
+    --cb-pause-no-carry-periods \
     > "$RUNDIR/run.log" 2>&1 || echo "  (runner exited non-zero — checking for partial result)"
 
-  # Result already lands in the per-date dir; no copy step needed.
   if [ -f "$RUNDIR/wf_run_result.json" ]; then
     python3 -c "
 import json
@@ -106,12 +97,12 @@ done
 
 T_END=$(date +%s)
 echo
-echo "All 8 runs complete in $(( (T_END - T_START) / 60 )) min."
-echo "Summary CSV: $SUMMARY_CSV"
+echo "All 8 no-carry runs complete in $(( (T_END - T_START) / 60 )) min."
+echo "No-carry summary CSV: $SUMMARY_CSV"
 echo
 column -t -s, "$SUMMARY_CSV"
 echo
-echo "Aggregate (avg + spread):"
+echo "Aggregate (no-carry):"
 python3 -c "
 import csv
 rows = list(csv.DictReader(open('$SUMMARY_CSV')))
@@ -128,3 +119,20 @@ print(f'  max_drawdown_pct      : {stats(\"max_drawdown_pct\")}')
 print(f'  benchmark_return_pct  : {stats(\"benchmark_return_pct\")}')
 print(f'  total_trades          : {stats(\"total_trades\")}')
 "
+
+echo
+echo "=================================================================="
+echo "TO COMPARE WITH-CARRY vs NO-CARRY (run after both finish):"
+echo "=================================================================="
+echo "  python3 -c \"
+import csv
+def avg(field, path):
+    rows = list(csv.DictReader(open(path)))
+    vals = [float(r[field]) for r in rows if r[field] not in ('', 'ERROR')]
+    return sum(vals)/len(vals) if vals else float('nan')
+
+for f in ['total_return_pct','sharpe_ratio','max_drawdown_pct']:
+    a = avg(f, '/tmp/wf_5y_8dates_summary.csv')
+    b = avg(f, '/tmp/wf_5y_8dates_no_carry_summary.csv')
+    print(f'  {f:24s} carry={a:8.2f} | no-carry={b:8.2f} | delta={a-b:+.2f}')
+\""
