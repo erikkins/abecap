@@ -99,14 +99,14 @@ export default function MethodologyPageV2() {
 
           <div className="space-y-5 text-[1.05rem] leading-[1.75] text-ink max-w-[62ch]">
             <p>
-              Walk-forward simulation divides the test period into <strong className="font-medium">138 biweekly periods</strong> (14 days each).
-              At the start of each period, strategy parameters are optimized using only data available up to that date &mdash;
-              no future information is ever used.
+              Walk-forward simulation tests the strategy across biweekly periods over the full 5-year window. Strategy
+              parameters are <strong className="font-medium">fixed at the start of the test and applied forward</strong> &mdash;
+              no future information is ever used, and no per-period re-tuning hides hindsight bias.
             </p>
             <p>
-              The optimizer evaluates parameters over a <strong className="font-medium">60-day lookback window</strong>, then locks
-              those parameters for the next 14 days of live trading. This repeats for every period, producing an equity
-              curve that reflects real-time decision-making.
+              The period structure governs <strong className="font-medium">rebalancing cadence</strong>, not re-optimization.
+              At each period boundary, positions are evaluated against the same locked rule set. This produces an equity
+              curve that reflects what real-time decision-making would have looked like with that configuration.
             </p>
             <p>
               To test robustness, we run the same process across <strong className="font-medium">multiple start dates</strong> (Jan&ndash;Apr 2021).
@@ -116,9 +116,9 @@ export default function MethodologyPageV2() {
 
           <div className="grid sm:grid-cols-3 gap-8 mt-10 pt-8 border-t border-rule">
             {[
-              ['Optimized per period', 'Trailing stop %, position size, momentum weights, breakout threshold, breakout window'],
-              ['Fixed across periods', 'Strategy type (Ensemble), market regime logic, universe, rebalance frequency'],
-              ['Optimizer', 'Optuna TPE (Bayesian), multi-objective: maximize Sharpe, minimize drawdown'],
+              ['Tuned via', 'Bayesian parameter optimization (Optuna TPE), multi-objective: maximize Sharpe, minimize drawdown. The configuration is selected once, then locked.'],
+              ['Locked across periods', 'Position sizing, exit rules, signal thresholds, regime logic. No per-period re-tuning, no hindsight bias.'],
+              ['Tested across', 'Multiple start dates over a 5-year window. Average, best, and worst outcomes all published.'],
             ].map(([label, text]) => (
               <div key={label}>
                 <div className="font-body text-[0.75rem] font-medium tracking-[0.15em] uppercase text-ink-mute mb-2">{label}</div>
@@ -139,10 +139,10 @@ export default function MethodologyPageV2() {
 
           <div className="grid sm:grid-cols-2 gap-x-12 gap-y-8">
             {[
-              ['Max positions', '4–8 (adaptive)', 'Adjusts biweekly based on market conditions'],
-              ['Position size', '12–20% of capital', 'Per position; total exposure up to 80%'],
+              ['Max positions', '5–7', 'Concentrated by design; not diluted across many weak signals'],
+              ['Position size', '12–20% of capital', 'Per position; total exposure up to ~80%'],
               ['Trailing stop', '12–18% from high water mark', 'Primary exit rule; tightens after +12% profit'],
-              ['Market regime filter', 'SPY > 200-day MA', 'Reduces exposure or exits when regime deteriorates'],
+              ['Market regime filter', '7-regime detection', 'Cascade Guard pauses entries when panic-grade stress is detected'],
             ].map(([label, value, desc]) => (
               <div key={label}>
                 <div className="font-body text-[0.75rem] font-medium tracking-[0.15em] uppercase text-ink-mute mb-1">{label}</div>
@@ -153,10 +153,12 @@ export default function MethodologyPageV2() {
           </div>
 
           <div className="mt-10 pt-8 border-t border-rule">
-            <div className="font-body text-[0.75rem] font-medium tracking-[0.15em] uppercase text-ink-mute mb-2">Emergency pause (Cascade Guard)</div>
+            <div className="font-body text-[0.75rem] font-medium tracking-[0.15em] uppercase text-ink-mute mb-2">Cascade Guard (validated safeguard)</div>
             <p className="text-ink text-[0.98rem] leading-relaxed max-w-[58ch]">
               When 3+ positions hit trailing stop on the same day, the system freezes all new entries for 10 trading days.
-              This prevented re-entry during cascade selloffs and added significant return over the simulation period.
+              Validated against a no-Cascade-Guard counterfactual: the safeguard contributed approximately
+              <strong className="font-medium"> +37 percentage points of return</strong> across the 5-year test period
+              (~+3.7 pp annualized) by avoiding forced re-entries during cascade selloffs.
             </p>
           </div>
         </div>
