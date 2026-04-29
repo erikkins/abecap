@@ -4889,7 +4889,51 @@ def handler(event, context):
 
     if event.get("generate_newsletter"):
         from app.services.newsletter_generator_service import newsletter_generator
-        draft = newsletter_generator.generate_draft()
+        try:
+            draft = newsletter_generator.generate_draft()
+        except ValueError as ve:
+            # Lock-protection guardrail — refusing to overwrite a locked draft
+            print(f"⚠️ Newsletter generate refused: {ve}")
+            try:
+                from app.services.email_service import AdminEmailService
+                admin_svc = AdminEmailService()
+                _loop = asyncio.get_event_loop()
+                if _loop.is_closed():
+                    _loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(_loop)
+                _loop.run_until_complete(admin_svc.send_admin_email(
+                    subject="ℹ️ Newsletter generate skipped — draft already locked",
+                    body=f"The Saturday cron tried to generate this week's draft but it's already locked.\n\n{ve}\n\nNo action needed — your locked version will publish Sunday.",
+                ))
+            except Exception:
+                pass
+            return {"status": "skipped", "reason": "draft already locked"}
+
+        # Notify admin: draft is ready for editing
+        try:
+            from app.services.email_service import AdminEmailService
+            admin_svc = AdminEmailService()
+            _loop = asyncio.get_event_loop()
+            if _loop.is_closed():
+                _loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(_loop)
+            _loop.run_until_complete(admin_svc.send_admin_email(
+                subject=f"📝 Newsletter draft ready for {draft.get('date_display', draft['date'])}",
+                body=f"""The Saturday cron generated this week's Market, Measured draft.
+
+Date: {draft.get('date_display', draft['date'])}
+Word count: {draft['word_count']}
+Regime: {draft.get('regime', 'unknown')}
+SPY: ${draft.get('spy_price', '?')} ({draft.get('spy_change', '?')}%)
+
+Edit at: https://rigacap.com/admin (Newsletter tab)
+Lock the draft before Sunday 7 PM ET to publish.
+
+If you don't lock by Sunday 7 PM, the cron will skip the send and email you again.""",
+            ))
+        except Exception as e:
+            print(f"⚠️ Admin notify failed: {e}")
+
         return {
             "message": f"Newsletter draft generated: {draft['word_count']} words",
             "date": draft["date"],

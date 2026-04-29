@@ -266,7 +266,7 @@
 - **priority:** P1
 - **estimatedWordCount:** 2,000+
 - **outline:**
-  1. Strategy entry conditions (DWAP timing, momentum quality, breakout confirmation).
+  1. Strategy entry conditions (breakout timing, momentum quality, volume confirmation). NEVER name DWAP in public copy — use "proprietary timing reference" or similar.
   2. Cascade Guard mechanics + the carry-on rule.
   3. Position sizing + rebalance cadence.
   4. The 7 regimes — what they are, how detected, what we do in each (light touch given the substrategy decision).

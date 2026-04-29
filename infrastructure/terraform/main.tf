@@ -940,6 +940,36 @@ resource "aws_lambda_permission" "market_measured_weekly" {
 }
 
 # ============================================================================
+# EventBridge - Saturday Newsletter Draft Generation (10 AM ET = 14:00 UTC)
+# Generates the upcoming Sunday's Market, Measured draft from Friday close
+# data, saves to S3 (drafts/{next_sunday}.json), and emails admin to edit.
+# Filename uses publish date (Sunday) — never the generation day — so there's
+# only one canonical file per week. Code-level guardrail in generate_draft()
+# refuses to overwrite a locked draft.
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "newsletter_draft_saturday" {
+  name                = "${local.prefix}-newsletter-draft-saturday"
+  description         = "Generate Market, Measured draft every Saturday 10 AM ET for Sun publish"
+  schedule_expression = "cron(0 14 ? * SAT *)"
+}
+
+resource "aws_cloudwatch_event_target" "newsletter_draft_saturday" {
+  rule      = aws_cloudwatch_event_rule.newsletter_draft_saturday.name
+  target_id = "lambda-newsletter-draft-saturday"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ generate_newsletter = true })
+}
+
+resource "aws_lambda_permission" "newsletter_draft_saturday" {
+  statement_id  = "AllowNewsletterDraftSaturdayEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.newsletter_draft_saturday.arn
+}
+
+# ============================================================================
 # EventBridge - Biweekly TPE Strategy Optimization (Mon 8 PM ET = 00:00 UTC Tue)
 # Runs every other Monday after daily scan + emails complete. Produces new
 # adaptive strategy params and writes to strategy_adaptive_params table.

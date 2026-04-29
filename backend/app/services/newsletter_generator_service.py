@@ -172,9 +172,28 @@ class NewsletterGeneratorService:
             logger.warning(f"Failed to load dashboard data: {e}")
             return {}
 
-    def generate_draft(self, target_date: Optional[datetime] = None) -> dict:
+    def generate_draft(self, target_date: Optional[datetime] = None, force: bool = False) -> dict:
         if target_date is None:
-            target_date = datetime.now(timezone.utc)
+            # Newsletter publishes on Sunday. Find the upcoming Sunday — including
+            # today if today IS Sunday — so the filename matches the publish date.
+            # This prevents the Apr 25/26 incident where a Saturday-generated draft
+            # got dated for Saturday and a separate Sunday draft was created later.
+            now = datetime.now(timezone.utc)
+            days_until_sunday = (6 - now.weekday()) % 7  # Mon=0, Sun=6
+            target_date = now + timedelta(days=days_until_sunday)
+
+        date_str = target_date.strftime("%Y-%m-%d")
+
+        # Safety: never overwrite a locked draft. Primary guardrail against the
+        # Apr 25/26 incident — once you lock an editorial commit, no regen can
+        # silently overwrite it. Pass force=True only if you explicitly want
+        # to overwrite (e.g., emergency content correction).
+        existing = self.get_draft(date_str)
+        if existing and existing.get("status") == "locked" and not force:
+            raise ValueError(
+                f"Draft for {date_str} is already locked — refusing to regenerate. "
+                f"Pass force=True only if you explicitly want to overwrite a locked draft."
+            )
 
         dashboard = self._load_dashboard_data()
         market_stats = dashboard.get("market_stats", {})
