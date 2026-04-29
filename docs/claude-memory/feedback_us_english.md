@@ -6,12 +6,12 @@ originSessionId: 1081317d-f863-470f-ab07-65ddc614e856
 ---
 **Rule:** Always use US English spelling in any RigaCap content — subscriber-facing, investor docs, internal documents, social posts, emails.
 
-**Watch for these common slips:**
-- favour → favor, favorable
-- behaviour → behavior
+**Watch for these common slips (and ALL their inflected forms):**
+- favour → favor / favored / favorable / favoring
+- behaviour / behavioural → behavior / behavioral
 - centre → center
 - colour → color
-- realise → realize
+- realise / realised / realising → realize / realized / realizing  ← missed in 2026-04-29 session
 - emphasise → emphasize
 - analyse → analyze
 - optimise / optimisation → optimize / optimization
