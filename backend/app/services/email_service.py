@@ -1626,15 +1626,31 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
           Step 4 (Day 6): Last Day of Your Free Trial
           Step 5 (Day 8): We Miss You (win-back)
 
-        Event-triggered (per marketing doc §14 — fire when the named event
-        occurs for a subscriber, not on a calendar):
+        Event-triggered for subscribers (per marketing doc §14 — fire when
+        the named event occurs, not on a calendar):
           Step 6: First trailing-stop hit (DR-005 in marketing doc)
           Step 7: First profitable exit (DR-006)
           Step 8: 7-day no-signal streak (DR-008)
 
-        Step-6/7/8 triggering is event-driven, not day-based — see
-        scheduler hooks (TODO) for when they fire. Each is one-shot
-        per subscriber.
+        Re-engagement for trial-exited (no longer subscribers):
+          Step 9: Worked-example after a signal fires post-trial (RE-001)
+                  Renders {symbol}, {signal_date}, {entry_price},
+                  {trail_stop}, {regime_context} placeholders — caller
+                  supplies via str.format() before send. 24-48h delayed
+                  delivery per Marketing Rule guidance.
+          Step 10: 30-day "still here" check-in (RE-002)
+          Step 11: 90-day quarterly summary (RE-003)
+                   Renders {signal_count}, {cash_days}, {current_regime}.
+
+        ATTORNEY REVIEW REQUIRED before steps 9-11 fire publicly: the
+        worked-example mechanism in step 9 has Marketing Rule
+        implications. Per project_marketing_strategy_doc.md §14: "Run
+        by Juris (legal counsel) before shipping."
+
+        Step-6+ triggering is event-driven, not day-based — see scheduler
+        hooks (TODO) for when each one fires. Each is one-shot per
+        recipient (tracked separately for steps 6-8 vs 9-11 since
+        9-11 fire to former subscribers, not active ones).
         """
         first_name = name.split()[0] if name else "there"
 
@@ -1647,6 +1663,9 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
             6: "About that trailing stop",
             7: "Locked in",
             8: "Quiet week",
+            9: "A signal you missed (worked example)",
+            10: "Still here",
+            11: "Quarterly check-in",
         }
 
         subject = f"RigaCap — {subjects.get(step, 'RigaCap')}"
@@ -1898,6 +1917,112 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
 
                 <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
                     Worth a small celebration. Not a strategy change. — Erik
+                </p>
+            """,
+            9: f"""
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
+                    {first_name},
+                </p>
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
+                    Your trial ended quiet. Most of it landed in a stretch where the system stayed in cash, so you never saw a signal fire — and that's a tough way to evaluate something. I get it.
+                </p>
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
+                    But yesterday, the system did fire. Here's what subscribers saw — delivered as a worked example, not a trade idea. The window has closed; this is what happened.
+                </p>
+
+                <table cellpadding="0" cellspacing="0" style="width:100%; border-top: 2px solid #141210; border-bottom: 1px solid #141210; margin: 28px 0;">
+                    <tr>
+                        <td style="padding: 16px 16px 16px 0; border-right: 1px solid #DDD5C7; text-align: center;">
+                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Signal</div>
+                            <div style="font-family: Georgia, serif; font-size: 22px; color: #141210; margin-top: 4px;">{{symbol}}</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 10px; color: #8A8279; margin-top: 2px;">{{signal_date}}</div>
+                        </td>
+                        <td style="padding: 16px; border-right: 1px solid #DDD5C7; text-align: center;">
+                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Entry</div>
+                            <div style="font-family: Georgia, serif; font-size: 20px; color: #141210; margin-top: 4px;">${{entry_price}}</div>
+                        </td>
+                        <td style="padding: 16px 0 16px 16px; text-align: center;">
+                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Trail</div>
+                            <div style="font-family: Georgia, serif; font-size: 20px; color: #141210; margin-top: 4px;">${{trail_stop}}</div>
+                        </td>
+                    </tr>
+                </table>
+
+                <div style="border-left: 2px solid #7A2430; padding: 16px 20px; background: #FAF7F0; margin: 24px 0;">
+                    <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 16px; color: #141210; line-height: 1.65;">
+                        {{regime_context}} — that's why the breakout passed every filter. The system was waiting; this was the entry it was waiting for.
+                    </p>
+                </div>
+
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
+                    If you'd been a subscriber, you would have received this signal in real-time, with the entry price, the stop level, and the regime context. Subscribers act on it; trial-exits see it 24 hours later as a worked example, like this one.
+                </p>
+
+                <div style="text-align: center; margin: 32px 0;">
+                    <a href="https://rigacap.com/app?promo=COMEBACK20"
+                       style="display: inline-block; background: #141210; color: #F5F1E8; font-size: 13px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; padding: 14px 36px; text-decoration: none;">
+                        Reactivate — 20% off
+                    </a>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin-top: 8px;">Use code COMEBACK20</p>
+                </div>
+
+                <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
+                    No pressure. The next signal will fire when the system says it should — could be days, could be weeks. — Erik
+                </p>
+            """,
+            10: f"""
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
+                    {first_name},
+                </p>
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
+                    It's been about a month since your trial ended. No pitch, no urgency — I just wanted to say I'm still here, and the system is still working.
+                </p>
+
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
+                    A handful of signals fired since you left. A couple of trailing stops triggered. Mostly the system has been doing what it usually does: waiting for the conditions it likes, and staying in cash when it doesn't see them.
+                </p>
+
+                <div style="border-left: 2px solid #7A2430; padding: 16px 20px; background: #FAF7F0; margin: 24px 0;">
+                    <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 16px; color: #141210; line-height: 1.65;">
+                        If you tried RigaCap and it wasn't right for where you are, that's fine. If you're still curious but the timing wasn't right then, the door's open whenever it is.
+                    </p>
+                </div>
+
+                <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
+                    Reply if you want to talk through anything specific. — Erik
+                </p>
+            """,
+            11: f"""
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
+                    {first_name},
+                </p>
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
+                    A quarter has passed since your trial. Here's what the system has done in that time — not a sales pitch, just the honest summary I'd want if I were where you are.
+                </p>
+
+                <table cellpadding="0" cellspacing="0" style="width:100%; border-top: 2px solid #141210; border-bottom: 1px solid #141210; margin: 28px 0;">
+                    <tr>
+                        <td style="padding: 16px 16px 16px 0; border-right: 1px solid #DDD5C7; text-align: center;">
+                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Signals Fired</div>
+                            <div style="font-family: Georgia, serif; font-size: 28px; color: #141210; margin-top: 4px;">{{signal_count}}</div>
+                        </td>
+                        <td style="padding: 16px; border-right: 1px solid #DDD5C7; text-align: center;">
+                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Days In Cash</div>
+                            <div style="font-family: Georgia, serif; font-size: 28px; color: #141210; margin-top: 4px;">{{cash_days}}</div>
+                        </td>
+                        <td style="padding: 16px 0 16px 16px; text-align: center;">
+                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Active Regime</div>
+                            <div style="font-family: Georgia, serif; font-size: 20px; color: #141210; margin-top: 4px;">{{current_regime}}</div>
+                        </td>
+                    </tr>
+                </table>
+
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
+                    Whether or not RigaCap is for you, I hope your trading's been going well this quarter. If you want to come back, the door's still open.
+                </p>
+
+                <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
+                    No reply needed. — Erik
                 </p>
             """,
             8: f"""
