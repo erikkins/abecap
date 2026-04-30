@@ -352,10 +352,169 @@ resource "aws_s3_bucket_policy" "frontend" {
 # CloudFront Distribution (with SSL)
 # ============================================================================
 
+# CloudFront Function: redirect www.rigacap.com → rigacap.com (301).
+# Resolves the Google Search Console "Page with redirect" issue for the
+# www variant by collapsing to a single canonical host. Runs at the edge
+# on every request before cache lookup; ~1ms overhead.
+resource "aws_cloudfront_function" "www_redirect" {
+  name    = "${local.prefix}-www-redirect"
+  runtime = "cloudfront-js-2.0"
+  comment = "Redirect www.rigacap.com to rigacap.com (301)"
+  publish = true
+  code    = <<-EOT
+    function handler(event) {
+      var request = event.request;
+      var host = request.headers.host && request.headers.host.value;
+      if (host === 'www.${var.domain_name}') {
+        var qs = '';
+        var keys = Object.keys(request.querystring || {});
+        if (keys.length > 0) {
+          qs = '?' + keys.map(function(k) {
+            return k + '=' + request.querystring[k].value;
+          }).join('&');
+        }
+        return {
+          statusCode: 301,
+          statusDescription: 'Moved Permanently',
+          headers: {
+            location: { value: 'https://${var.domain_name}' + request.uri + qs }
+          }
+        };
+      }
+      return request;
+    }
+  EOT
+}
+
+# ============================================================================
+# AWS WAF — both CloudFront (frontend) and API Gateway (backend)
+#
+# Rule sets per ACL (priority order, low to high):
+#   1. AWSManagedRulesAmazonIpReputationList — known-bad IP threat feeds
+#   2. AWSManagedRulesKnownBadInputsRuleSet  — known attack signatures
+#   3. AWSManagedRulesCommonRuleSet          — SQL injection, XSS, common exploits
+#   4. RateLimitPerIP                        — 2000 req/5min per source IP
+#
+# Default action: ALLOW. Rules above block what they detect.
+# Cost: ~$9/mo per ACL ($5 ACL fee + 4 rules × $1) + per-million-request fees.
+# ============================================================================
+
+# CloudFront-scope WAF — protects rigacap.com frontend
+resource "aws_wafv2_web_acl" "cloudfront" {
+  name        = "${local.prefix}-frontend-waf"
+  description = "WAF for rigacap.com frontend CloudFront distribution"
+  scope       = "CLOUDFRONT"
+
+  default_action {
+    allow {}
+  }
+
+  rule {
+    name     = "AWS-IP-Reputation"
+    priority = 1
+    override_action {
+      none {}
+    }
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesAmazonIpReputationList"
+        vendor_name = "AWS"
+      }
+    }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${local.prefix}-frontend-ip-reputation"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "AWS-Known-Bad-Inputs"
+    priority = 2
+    override_action {
+      none {}
+    }
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesKnownBadInputsRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${local.prefix}-frontend-known-bad-inputs"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "AWS-Common-Rule-Set"
+    priority = 3
+    override_action {
+      none {}
+    }
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${local.prefix}-frontend-common-rule-set"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "RateLimitPerIP"
+    priority = 4
+    action {
+      block {}
+    }
+    statement {
+      rate_based_statement {
+        limit              = 2000
+        aggregate_key_type = "IP"
+      }
+    }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${local.prefix}-frontend-rate-limit"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "${local.prefix}-frontend-waf"
+    sampled_requests_enabled   = true
+  }
+
+  tags = {
+    Name = "${local.prefix}-frontend-waf"
+  }
+}
+
+# NOTE: AWS WAFv2 does NOT support API Gateway HTTP API v2 (aws_apigatewayv2_*).
+# It only supports CloudFront, ALB, REST API v1, App Runner, Cognito, AppSync.
+# To put WAF on api.rigacap.com you'd need to either:
+#   (a) migrate to REST API v1, or
+#   (b) front the API Gateway with a CloudFront distribution.
+#
+# For now: only CloudFront (frontend) is WAF-protected. The API surface relies
+# on JWT auth, subscription gating, Turnstile bot protection on signup, and
+# Lambda concurrency caps (api=50, worker=200). When we have headroom, we'll
+# revisit option (a) or (b) and add the same rule set there.
+
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   default_root_object = "index.html"
   price_class         = "PriceClass_100"
+
+  # Attach the CloudFront-scope WAF — IP reputation, known-bad-inputs, CRS,
+  # and rate-based rules. See aws_wafv2_web_acl.cloudfront above.
+  web_acl_id = aws_wafv2_web_acl.cloudfront.arn
 
   # Custom domain names
   aliases = [var.domain_name, "www.${var.domain_name}"]
@@ -383,6 +542,12 @@ resource "aws_cloudfront_distribution" "frontend" {
       cookies {
         forward = "none"
       }
+    }
+
+    # Viewer-request function: collapse www.rigacap.com → rigacap.com (301)
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.www_redirect.arn
     }
 
     min_ttl     = 0
