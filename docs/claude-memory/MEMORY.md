@@ -153,6 +153,7 @@
 
 ## Marketing & Brand Strategy (NEW Apr 28, 2026 — authoritative)
 - **[Marketing strategy doc — source of truth](project_marketing_strategy_doc.md)** — points to `docs/MarketingNewsletterStrategyCLAUDE.md` (1,090 lines, 25 sections). Brand, voice, pricing, design, content, compliance, lifecycle, growth. Read the doc directly when working on anything strategic. Memory entry covers load-bearing rules + tensions to reconcile.
+- **["Publication" is aesthetic-only, not product positioning](feedback_publication_is_aesthetic_only.md)** — RigaCap is a signal service. FT/Economist/Stratechery references are voice/aesthetic register only. Bios and lead copy must foreground the signal product.
 
 ## Redesign — Premium Editorial Publication (SHIPPED Apr 27, 2026)
 - **[Rebrand SHIPPED](project_rebrand_premium_publication.md)** — $129/mo premium publication is live. Treat editorial framing as the live brand.
