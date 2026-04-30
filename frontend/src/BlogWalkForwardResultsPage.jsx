@@ -6,14 +6,14 @@ import MarketMeasuredSignup from './components/MarketMeasuredSignup';
 export default function BlogWalkForwardResultsPage() {
   useEffect(() => { document.title = 'Inside Our 5-Year Walk-Forward | RigaCap';
     const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute('content', 'Inside RigaCap 5-year walk-forward simulation: +384% total return, 1.19 Sharpe ratio, tested across 138 rebalancing periods.');
+    if (meta) meta.setAttribute('content', 'RigaCap 5-year walk-forward simulation across multiple start dates: +160% average return, 0.92 Sharpe, 20.4% max drawdown. Every start date positive, every calendar year positive.');
 
     // OG tags for social sharing
-    document.querySelector('meta[property="og:title"]')?.setAttribute('content', 'Inside Our 5-Year Walk-Forward: +384% Validated | RigaCap');
-    document.querySelector('meta[property="og:description"]')?.setAttribute('content', 'Inside RigaCap 5-year walk-forward simulation: +384% total return, 1.19 Sharpe ratio, tested across 138 rebalancing periods with zero look-ahead bias.');
+    document.querySelector('meta[property="og:title"]')?.setAttribute('content', 'Inside Our 5-Year Walk-Forward | RigaCap');
+    document.querySelector('meta[property="og:description"]')?.setAttribute('content', 'RigaCap 5-year walk-forward simulation across multiple start dates: +160% average return, 0.92 Sharpe, 20.4% max drawdown. Every start date positive, every calendar year positive.');
     document.querySelector('meta[property="og:url"]')?.setAttribute('content', 'https://rigacap.com/blog/walk-forward-results');
-    document.querySelector('meta[name="twitter:title"]')?.setAttribute('content', 'Inside Our 5-Year Walk-Forward: +384% Validated | RigaCap');
-    document.querySelector('meta[name="twitter:description"]')?.setAttribute('content', 'Inside RigaCap 5-year walk-forward simulation: +384% total return, 1.19 Sharpe ratio, tested across 138 rebalancing periods with zero look-ahead bias.');
+    document.querySelector('meta[name="twitter:title"]')?.setAttribute('content', 'Inside Our 5-Year Walk-Forward | RigaCap');
+    document.querySelector('meta[name="twitter:description"]')?.setAttribute('content', 'RigaCap 5-year walk-forward simulation across multiple start dates: +160% average return, 0.92 Sharpe, 20.4% max drawdown.');
     // JSON-LD Article schema
     const existingSchema = document.querySelector('script[type="application/ld+json"]');
     if (existingSchema) existingSchema.remove();
@@ -22,8 +22,8 @@ export default function BlogWalkForwardResultsPage() {
     schema.text = JSON.stringify({
       "@context": "https://schema.org",
       "@type": "Article",
-      "headline": "Inside Our 5-Year Walk-Forward: +384% Validated",
-      "description": "Inside RigaCap 5-year walk-forward simulation: +384% total return, 1.19 Sharpe ratio, tested across 138 rebalancing periods with zero look-ahead bias.",
+      "headline": "Inside Our 5-Year Walk-Forward",
+      "description": "RigaCap 5-year walk-forward simulation across multiple start dates: +160% average return, 0.92 Sharpe, 20.4% max drawdown. Every start date positive, every calendar year positive.",
       "author": {"@type": "Organization", "name": "RigaCap"},
       "publisher": {"@type": "Organization", "name": "RigaCap", "url": "https://rigacap.com"},
       "url": "https://rigacap.com/blog/walk-forward-results",
@@ -63,13 +63,13 @@ export default function BlogWalkForwardResultsPage() {
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-paper-card border border-positive/30 rounded p-6 text-center">
             <TrendingUp className="w-6 h-6 text-positive mx-auto mb-2" />
-            <div className="text-3xl sm:text-4xl font-bold text-positive">+384.6%</div>
+            <div className="text-3xl sm:text-4xl font-bold text-positive">+160%</div>
             <div className="text-xs text-ink-light uppercase tracking-wider mt-1">Our Strategy</div>
-            <div className="text-xs text-ink-light mt-0.5">5-Year Walk-Forward</div>
+            <div className="text-xs text-ink-light mt-0.5">5-Year Walk-Forward, Avg.</div>
           </div>
           <div className="bg-paper-card border border-rule/50 rounded p-6 text-center">
             <BarChart3 className="w-6 h-6 text-ink-mute mx-auto mb-2" />
-            <div className="text-3xl sm:text-4xl font-bold text-ink-mute">+85.9%</div>
+            <div className="text-3xl sm:text-4xl font-bold text-ink-mute">+93%</div>
             <div className="text-xs text-ink-light uppercase tracking-wider mt-1">S&P 500</div>
             <div className="text-xs text-ink-light mt-0.5">Same Period</div>
           </div>
@@ -93,8 +93,8 @@ export default function BlogWalkForwardResultsPage() {
           <p className="text-ink-mute leading-relaxed text-base">
             We didn't want to build another one of those. So instead of asking "how good
             can we make this look?", we asked "how hard can we stress-test this before it
-            breaks?" The answer: 5.3 years, 138 rebalancing periods, 500 stocks, and zero
-            peeking at the future.
+            breaks?" The answer: 5 years, biweekly rebalancing, a universe of 4,000+ liquid
+            US equities, multiple start dates, and zero peeking at the future.
           </p>
 
           {/* What is walk-forward */}
@@ -110,9 +110,11 @@ export default function BlogWalkForwardResultsPage() {
             forward. No hindsight. No do-overs.
           </p>
           <p className="text-ink-mute leading-relaxed text-base">
-            Every two weeks, the system re-optimizes its parameters using only backward-looking
-            data, then trades the next period with those fresh parameters. If the optimization
-            was just finding noise, the out-of-sample performance would collapse. Ours didn't.
+            Strategy parameters are fixed at the start of the test and applied forward across
+            every period — no per-period re-tuning that could quietly leak future information
+            into past decisions. Then we run the same test from <strong className="font-medium">multiple
+            start dates</strong> across early 2021. If the strategy were just finding noise, the
+            outcomes would diverge wildly. Ours stayed consistent.
           </p>
           <p className="text-ink-mute leading-relaxed text-base">
             For a deeper dive into the methodology, see our{' '}
@@ -134,10 +136,10 @@ export default function BlogWalkForwardResultsPage() {
         {/* Setup Details */}
         <div className="grid sm:grid-cols-2 gap-4 my-8">
           {[
-            { label: 'Time Span', value: '5.3 Years', detail: 'Jan 2021 through early 2026' },
-            { label: 'Periods', value: '138', detail: 'Regular rebalancing' },
-            { label: 'Stock Universe', value: '500', detail: 'Liquid US equities' },
-            { label: 'Re-optimization', value: 'Every 2 Weeks', detail: 'Backward-looking data only' },
+            { label: 'Time Span', value: '5 Years', detail: 'Jan 2021 through early 2026' },
+            { label: 'Rebalance Cadence', value: 'Biweekly', detail: 'Same configuration every period' },
+            { label: 'Stock Universe', value: '4,000+', detail: 'Liquid US equities' },
+            { label: 'Robustness', value: 'Multi-start', detail: 'Same strategy, different start dates' },
           ].map((item) => (
             <div key={item.label} className="bg-paper-card border border-rule rounded p-5">
               <div className="text-xs text-ink-light uppercase tracking-wider">{item.label}</div>
@@ -174,11 +176,12 @@ export default function BlogWalkForwardResultsPage() {
             </thead>
             <tbody>
               {[
-                { metric: 'Total Return', ours: '+384.6%', spy: '+85.9%', highlight: true },
-                { metric: 'Sharpe: 1.19', spy: '0.65' },
-                { metric: 'Max Drawdown', ours: '-29.97%', spy: '-25.4%' },
-                { metric: 'Annualized Return', ours: '~30%', spy: '~12%' },
-                { metric: 'Testing Periods', ours: '138', spy: '—' },
+                { metric: 'Total Return (avg.)', ours: '+160%', spy: '+93%', highlight: true },
+                { metric: 'Worst-case Start', ours: '+109%', spy: '+75%' },
+                { metric: 'Best-case Start', ours: '+252%', spy: '+98%' },
+                { metric: 'Sharpe Ratio', ours: '0.92', spy: '~0.65' },
+                { metric: 'Max Drawdown (avg.)', ours: '-20.4%', spy: '-25%' },
+                { metric: 'Annualized Return', ours: '~21%', spy: '~13%' },
               ].map((row) => (
                 <tr key={row.metric} className={`border-b border-rule/50 ${row.highlight ? 'bg-positive/5' : ''}`}>
                   <td className="px-6 py-4 text-ink-mute font-medium">{row.metric}</td>
@@ -192,11 +195,12 @@ export default function BlogWalkForwardResultsPage() {
 
         <div className="space-y-4 text-ink-mute text-[1.05rem] leading-[1.75]">
           <p className="text-ink-mute leading-relaxed text-base">
-            A 1.19 Sharpe ratio won't make hedge fund managers jealous — but for a fully
+            A 0.92 Sharpe won't make hedge fund managers jealous — but for a fully
             systematic, rules-based strategy with no discretionary overrides, it signals
             genuine risk-adjusted alpha. The S&P 500's Sharpe over the same window was roughly
-            0.65. Our strategy delivered nearly triple the total return with a similar drawdown
-            profile.
+            0.65. The strategy delivered nearly double the total return with a tighter drawdown
+            profile than the index. And every start date in the test ended in positive territory
+            &mdash; the worst-case still nearly doubled capital.
           </p>
 
           {/* Equity Curve Description */}
@@ -207,15 +211,17 @@ export default function BlogWalkForwardResultsPage() {
           <p className="text-ink-mute leading-relaxed text-base">
             The equity curve tells the real story. Early 2021 was strong — momentum was
             everywhere, and the system captured it aggressively. Then came the 2022 bear
-            market, and the curve went flat. Not down. Flat. The regime filter moved the
-            portfolio to cash, and it stayed there for months while the market shed 20%.
+            market. The S&P 500 fell roughly 20%; the strategy ended the year up about
+            +8% on average across start dates. Not by predicting the crash &mdash; by
+            responding to the data. Regime-aware position sizing tightened, trailing stops
+            did their job, and Cascade Guard paused new entries during the worst of the
+            cascade selloffs.
           </p>
           <p className="text-ink-mute leading-relaxed text-base">
-            When the recovery began in late 2022 and into 2023, the system re-entered
-            cautiously — small gains, measured risk. Then came the acceleration: 2024 and
-            2025 saw the curve steepen dramatically as the AI rally created exactly the kind
-            of concentrated momentum the system was built to exploit. The best gains came not
-            from predicting the rally, but from being positioned when it arrived.
+            When the recovery accelerated in 2023 and beyond, the system caught the
+            move. 2024 produced an average +32% across start dates (versus the index's
+            +25%); 2025 has so far averaged about +50%. The best gains came not from
+            predicting the rally, but from being positioned when it arrived.
           </p>
 
           {/* Worst and Best Periods */}
@@ -237,9 +243,9 @@ export default function BlogWalkForwardResultsPage() {
           <table className="w-full text-sm">
             <tbody>
               {[
-                { period: 'Feb 2021', ret: '-16.6%', context: 'Meme stock squeeze volatility' },
-                { period: 'Mar 2021', ret: '-12.5%', context: 'Post-squeeze rotation' },
-                { period: 'Sep 2021', ret: '-8.3%', context: 'Sector rotation whipsaw' },
+                { period: 'Mar 2021', ret: '-12.2%', context: 'Post-squeeze rotation, breadth collapse' },
+                { period: 'Jul 2023', ret: '-10.4%', context: 'Mid-summer breadth thrust reversal' },
+                { period: 'Dec 2024', ret: '-8.6%', context: 'Year-end momentum unwind' },
               ].map((row) => (
                 <tr key={row.period} className="border-b border-rule/50">
                   <td className="px-6 py-3 text-ink-mute font-medium w-28">{row.period}</td>
@@ -255,9 +261,9 @@ export default function BlogWalkForwardResultsPage() {
           <table className="w-full text-sm">
             <tbody>
               {[
-                { period: 'Jan 2021', ret: '+24.5%', context: 'Post-COVID momentum surge' },
-                { period: 'Sep 2025', ret: '+19.9%', context: 'AI rally breakout' },
-                { period: 'Nov 2024', ret: '+16.1%', context: 'Year-end momentum leaders' },
+                { period: 'Aug 2024', ret: '+16.4%', context: 'Post-yen-unwind recovery (Cascade Guard fired the prior week)' },
+                { period: 'Sep 2025', ret: '+12.6%', context: 'AI rally breadth expansion' },
+                { period: 'Nov 2024', ret: '+11.0%', context: 'Year-end momentum leaders' },
               ].map((row) => (
                 <tr key={row.period} className="border-b border-rule/50">
                   <td className="px-6 py-3 text-ink-mute font-medium w-28">{row.period}</td>
@@ -271,49 +277,63 @@ export default function BlogWalkForwardResultsPage() {
 
         <div className="space-y-4 text-ink-mute text-[1.05rem] leading-[1.75]">
           <p className="text-ink-mute leading-relaxed text-base">
-            The worst drawdowns both came during the meme stock frenzy of early 2021.
-            Momentum strategies are vulnerable to sudden reversals, and the GameStop/AMC
-            squeeze created exactly that kind of whiplash. But the system recovered within
-            two periods each time — the trailing stops limited the damage, and the momentum
-            ranking quickly rotated into stronger names.
+            The worst stretch — March 2021 — came during the meme stock aftermath. Momentum
+            strategies are vulnerable to sudden reversals when leadership rotates fast, and
+            the GameStop/AMC unwind produced exactly that kind of whiplash. But the system
+            recovered within two periods. Trailing stops limited the damage; the momentum
+            ranking rotated into stronger names; Cascade Guard prevented forced re-entries
+            during the worst of it.
+          </p>
+          <p className="text-ink-mute leading-relaxed text-base">
+            The single best period — August 2024 — is more telling than it looks. Cascade
+            Guard had fired the previous week during the yen-carry-unwind selloff, sidelining
+            new entries. When the recovery snapped back, the strategy was positioned for it
+            rather than chasing late.
           </p>
 
-          {/* Adaptive vs Fixed */}
+          {/* Multi-Start-Date Robustness */}
           <h2 className="font-display text-2xl font-bold text-ink mt-12 mb-4 flex items-center gap-2" style={{ fontVariationSettings: '"opsz" 48' }}>
             <Zap className="w-6 h-6 text-claret flex-shrink-0" />
-            Why Adaptive Beats Fixed
+            Why Multi-Start-Date Testing Matters
           </h2>
           <p className="text-ink-mute leading-relaxed text-base">
-            Here's a result that surprised even us. We ran the same strategy with fixed
-            parameters — no re-optimization, just locked-in settings from day one — over
-            the identical 5-year window.
+            Cherry-picking a favorable start date is the most common backtest distortion in
+            retail signal services. A strategy can look incredible when run from one specific
+            date and unremarkable from another. We addressed this by running the same 5-year
+            window from multiple different start dates and publishing the full distribution.
           </p>
         </div>
 
-        {/* Adaptive vs Fixed comparison */}
-        <div className="grid grid-cols-2 gap-4 my-8">
+        {/* Multi-start-date result range */}
+        <div className="grid grid-cols-3 gap-4 my-8">
           <div className="bg-paper-card border border-positive/30 rounded p-6 text-center">
-            <Zap className="w-6 h-6 text-positive mx-auto mb-2" />
-            <div className="text-3xl sm:text-4xl font-bold text-positive">+384.6%</div>
-            <div className="text-xs text-ink-light uppercase tracking-wider mt-1">Adaptive</div>
-            <div className="text-xs text-ink-light mt-0.5">Re-optimized biweekly</div>
+            <TrendingUp className="w-6 h-6 text-positive mx-auto mb-2" />
+            <div className="text-3xl sm:text-4xl font-bold text-positive">+252%</div>
+            <div className="text-xs text-ink-light uppercase tracking-wider mt-1">Best Start</div>
+            <div className="text-xs text-ink-light mt-0.5">Top of distribution</div>
+          </div>
+          <div className="bg-paper-card border border-claret/30 rounded p-6 text-center">
+            <BarChart3 className="w-6 h-6 text-claret mx-auto mb-2" />
+            <div className="text-3xl sm:text-4xl font-bold text-claret">+160%</div>
+            <div className="text-xs text-ink-light uppercase tracking-wider mt-1">Average</div>
+            <div className="text-xs text-ink-light mt-0.5">Across all start dates</div>
           </div>
           <div className="bg-paper-card border border-rule/50 rounded p-6 text-center">
-            <TrendingDown className="w-6 h-6 text-ink-light mx-auto mb-2" />
-            <div className="text-3xl sm:text-4xl font-bold text-ink-light">+99%</div>
-            <div className="text-xs text-ink-light uppercase tracking-wider mt-1">Fixed Params</div>
-            <div className="text-xs text-ink-light mt-0.5">Same strategy, no adaptation</div>
+            <ShieldCheck className="w-6 h-6 text-ink-mute mx-auto mb-2" />
+            <div className="text-3xl sm:text-4xl font-bold text-ink-mute">+109%</div>
+            <div className="text-xs text-ink-light uppercase tracking-wider mt-1">Worst Start</div>
+            <div className="text-xs text-ink-light mt-0.5">Still nearly doubled</div>
           </div>
         </div>
 
         <div className="space-y-4 text-ink-mute text-[1.05rem] leading-[1.75]">
           <p className="text-ink-mute leading-relaxed text-base">
-            The fixed-parameter version still beat the S&P 500 — which validates the
-            underlying strategy logic. But periodic re-optimization tripled the returns.
-            Markets change. The momentum characteristics of a post-COVID recovery are
-            different from a Fed tightening cycle, which are different from an AI-driven
-            tech rally. A strategy that adapts its sensitivity to current conditions
-            captures opportunities that a rigid system misses.
+            Every start date in the test ended in positive territory. Every calendar year —
+            including the 2022 bear market — averaged positive across start dates. The spread
+            from worst to best is real path-dependency, not strategy fragility: the same rules
+            run from a different entry date land in a different part of the distribution. We
+            publish all of it. The headline +160% is the average a typical subscriber experiences
+            across the full window.
           </p>
 
           {/* What we're NOT claiming */}
@@ -336,13 +356,15 @@ export default function BlogWalkForwardResultsPage() {
           <p className="text-ink-mute text-sm m-0">
             <span className="text-negative font-semibold">Past performance does not guarantee future results.</span>{' '}
             The next 5 years could look nothing like the last 5. Market regimes shift, correlations
-            break down, and black swans happen. We believe our adaptive approach handles this better
-            than fixed strategies, but nothing is certain.
+            break down, and black swans happen. We believe a regime-aware, discipline-driven strategy
+            handles this better than discretionary trading, but nothing is certain.
           </p>
           <p className="text-ink-mute text-sm m-0">
             <span className="text-negative font-semibold">The max drawdown was real.</span>{' '}
-            At its worst, the strategy was down nearly 30% from its peak. That's a real number
-            that would test any investor's resolve. We don't hide it behind averages.
+            At its worst, the strategy was down about 20% from its peak (averaged across start
+            dates; the worst single start touched 26%). That's a real number that would test any
+            investor's resolve. We don't hide it behind averages — we publish the worst, the best,
+            and the typical.
           </p>
         </div>
 

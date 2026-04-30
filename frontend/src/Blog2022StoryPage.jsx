@@ -241,11 +241,10 @@ export default function Blog2022StoryPage() {
             </thead>
             <tbody>
               {[
-                { year: '2021', rc: '+4.6%', spy: '+21.0%', note: 'Choppy momentum rotations', rcColor: 'text-positive' },
-                { year: '2022', rc: '+6.0%', spy: '-20.4%', note: 'Bear market — stayed positive', rcColor: 'text-positive', highlight: true },
-                { year: '2023', rc: '+4.5%', spy: '+23.4%', note: 'Cautious recovery positioning', rcColor: 'text-positive' },
-                { year: '2024', rc: '+20.3%', spy: '+23.8%', note: 'Near parity with SPY', rcColor: 'text-positive' },
-                { year: '2025', rc: '+57.4%', spy: '+18.3%', note: 'Breakout year — 3x SPY', rcColor: 'text-positive' },
+                { year: '2022', rc: '+8.0%', spy: '-18.2%', note: 'Bear market — every start date positive', rcColor: 'text-positive', highlight: true },
+                { year: '2023', rc: '+12.0%', spy: '+26.2%', note: 'Lagged the index but stayed positive', rcColor: 'text-positive' },
+                { year: '2024', rc: '+31.9%', spy: '+24.9%', note: 'Beat the index', rcColor: 'text-positive' },
+                { year: '2025', rc: '+49.6%', spy: '+17.7%', note: 'Beat the index handily', rcColor: 'text-positive' },
               ].map((row) => (
                 <tr key={row.year} className={`border-b border-rule/50 ${row.highlight ? 'bg-claret/10' : ''}`}>
                   <td className={`px-6 py-4 font-medium ${row.highlight ? 'text-claret' : 'text-ink'}`}>{row.year}</td>

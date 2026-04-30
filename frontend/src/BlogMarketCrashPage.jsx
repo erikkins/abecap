@@ -348,7 +348,7 @@ export default function BlogMarketCrashPage() {
             That's exactly what we built RigaCap to do. Our system uses a 7-regime market model
             that classifies conditions in real time. When conditions deteriorate, it reduces
             exposure automatically. When conditions improve, it re-enters with conviction. In 2022,
-            while the S&P 500 lost 20%, our walk-forward validated system finished the year up 6%.
+            while the S&P 500 lost 20%, our walk-forward validated system averaged +8% across start dates — every start date positive.
           </p>
           <p className="text-ink-mute leading-relaxed text-base">
             The next crash is coming. It always is. The only question is whether you'll face it
