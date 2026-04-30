@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Reserve scrollbar gutter on every page so nav layout doesn't shift
+   between short pages (no scrollbar) and long pages (scrollbar takes
+   ~15px of viewport width). Modern alternative to `overflow-y: scroll`
+   — reserves the space without forcing a visible scrollbar when the
+   content fits. */
+html {
+  scrollbar-gutter: stable;
+}
+
 /* Custom styles */
 body {
   font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
