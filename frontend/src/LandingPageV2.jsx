@@ -4,6 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
 import LoginModal from './components/LoginModal';
 import MarketMeasuredSignup from './components/MarketMeasuredSignup';
+import TopNav from './components/TopNav';
 
 const SectionLabel = ({ children }) => (
   <div className="flex items-center gap-3 mb-5">
@@ -29,31 +30,7 @@ const LogoMark = () => (
   </svg>
 );
 
-const Navbar = ({ onGetStarted }) => (
-  <nav className="sticky top-0 z-50 bg-paper/95 backdrop-blur-sm border-b border-rule">
-    <div className="max-w-[1120px] mx-auto px-4 sm:px-8 py-5 flex items-center justify-between">
-      <Link to="/" className="flex items-baseline gap-2.5 no-underline">
-        <LogoMark />
-        <span className="font-display text-2xl font-semibold text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 144' }}>
-          RigaCap<span className="text-claret">.</span>
-        </span>
-      </Link>
-      <div className="flex items-center gap-9">
-        <a href="/methodology" className="hidden sm:inline text-[0.9rem] text-ink-mute no-underline hover:text-ink transition-colors">Methodology</a>
-        <a href="/track-record" className="hidden sm:inline text-[0.9rem] text-ink-mute no-underline hover:text-ink transition-colors">Track Record</a>
-        <a href="/newsletter" className="hidden sm:inline text-[0.9rem] text-ink-mute no-underline hover:text-ink transition-colors">Newsletter</a>
-        <a href="/blog" className="hidden sm:inline text-[0.9rem] text-ink-mute no-underline hover:text-ink transition-colors">Blog</a>
-        <a href="#pricing" className="hidden sm:inline text-[0.9rem] text-ink-mute no-underline hover:text-ink transition-colors">Pricing</a>
-        <button
-          onClick={() => onGetStarted('founding')}
-          className="bg-ink text-paper px-4 py-2.5 text-[0.9rem] font-medium rounded-[2px] hover:bg-claret transition-colors"
-        >
-          Start Trial
-        </button>
-      </div>
-    </div>
-  </nav>
-);
+const Navbar = ({ onGetStarted }) => <TopNav onGetStarted={onGetStarted} />;
 
 const HeroSection = ({ onGetStarted }) => (
   <section className="bg-paper pt-16 pb-12 sm:pt-24 sm:pb-16">
