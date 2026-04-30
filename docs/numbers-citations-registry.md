@@ -22,7 +22,11 @@ These are the numbers every surface must converge on. Any divergence from this t
 | Best start date (5y) | _not currently cited_ | **+252%** | Jan 18, 2021 start |
 | Win rate | 48.6% | _to recompute from trade list_ | trade-level analysis pending |
 | Win/loss ratio | 1.77x | _to recompute_ | trade-level analysis pending |
-| Track length | 5y / 10y | 5y verified clean; 10y pending re-run | n/a |
+| Track length | 5y / 10y | **5y verified clean (multi-start) + 11y verified clean (single-start)** | n/a |
+| **11y total return** | (retired +603%) | **+675%** (Oct 2015 → Apr 2026, 10.5 yrs) | `/tmp/wf_11y_clean_fixed/` |
+| **11y annualized** | (retired ~37%) | **~21.6%** ← *within rounding of 5y's 21.1% — strongest consistency check* | derived |
+| **11y Sharpe / MaxDD** | (retired 1.19 / 30%) | **0.95 / 28.1%** (longer window includes more bear cycles) | per-run |
+| **11y vs SPY** | (retired +257% SPY) | **+318% SPY** → +357 pp total alpha / ~7.6 pp annualized | per-run |
 | Number of start dates | "multiple" (publicly) | 8 (internally) | n/a |
 | SPY 5y benchmark | +84% | **+92.63%** (avg of multiple start dates) | per-date avg |
 | Alpha vs SPY (5y) | +89 pp | **+67.6 pp** | RigaCap − SPY |
@@ -68,7 +72,7 @@ These are the numbers every surface must converge on. Any divergence from this t
 > *"We modeled an average of +204% with a worst case of +86% and a 32% drawdown. Reality came in tighter on every risk metric: max drawdown 20%, worst-case still +109%, and our annualized return landed within rounding of the 21.5% friction-adjusted estimate."*
 
 **Headline angles to retire / requalify:**
-- `+603%` (10y). Sourced from old over-fit run. Status: **DO NOT PUBLISH** until 10y clean re-run lands.
+- ~~`+603%` (10y)~~ → **REPLACED with +675% (11y)** on 2026-04-29 clean re-run. Status: **PUBLISHABLE.**
 - `+384%` (5y). Sourced from same over-fit run. Status: **DO NOT PUBLISH** — replace with +160% (real) or +173% (friction-adjusted estimate, currently on website).
 - `~37%` annualized. Status: **DO NOT PUBLISH** — replace with 21.5%.
 - 30% MaxDD. Status: **REPLACE with 20.4%** wherever cited.

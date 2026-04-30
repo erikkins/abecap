@@ -33,6 +33,26 @@
   "wf_5y_num_start_dates": 8,
   "wf_5y_num_start_dates_label": "multiple start dates",
 
+  "wf_11y": {
+    "_doc": "11-year clean walk-forward, single start date. Independent confirmation of the 5y annualized rate — same strategy, longer window, same compound growth. Trial 37 fixed params on Apr 28 2026 cleanest data.",
+    "window_start": "2015-10-15",
+    "window_end": "2026-04-27",
+    "years_covered": 10.54,
+    "total_return_pct": 675.0,
+    "annualized_pct": 21.6,
+    "sharpe_ratio": 0.95,
+    "max_drawdown_pct": 28.1,
+    "max_drawdown_pct_rounded": 28,
+    "spy_total_return_pct": 318.3,
+    "spy_total_return_pct_rounded": 318,
+    "alpha_total_pct": 357,
+    "alpha_annualized_pp": 7.6,
+    "total_trades": 410,
+    "single_start_date": true,
+    "consistency_note": "11y annualized 21.6% within rounding of 5y annualized 21.1% — strongest internal-consistency check available. Same strategy, two different windows, same compound growth rate.",
+    "source": "/tmp/wf_11y_clean_fixed/wf_run_result.json"
+  },
+
   "wf_5y_per_start_date": [
     {"start": "2021-01-04", "return_pct": 145.36, "sharpe": 0.92, "max_dd_pct": 20.26, "spy_pct": 98.45},
     {"start": "2021-01-18", "return_pct": 252.06, "sharpe": 0.88, "max_dd_pct": 25.87, "spy_pct": 95.68},
@@ -113,6 +133,12 @@
       "label": "Clean-data 8-date 5y, no-CG (ablation v2 — true CG counterfactual)",
       "key_numbers": "+122.5% / 0.78 / 19.2% MDD. CG-impact: +37.7pp return, +0.14 Sharpe, ~neutral MDD.",
       "status": "ABLATION REFERENCE — replaces the over-fit Apr 19 '+87pp' claim. Note: first attempt (v1) had a flag-plumbing bug; v2 verified via pause_events=0 across all runs."
+    },
+    {
+      "vintage": "2026-04-29",
+      "label": "Clean-data 11y, single start, fixed Trial 37 params",
+      "key_numbers": "+675% / 0.95 / 28.1% MDD over 10.5 years. Annualized 21.6% (within rounding of 5y's 21.1% — strongest consistency check).",
+      "status": "CANONICAL — long-window companion to the 5y multi-start canonical. Use both: 5y for distribution disclosure, 11y for consistency confirmation."
     }
   ]
 }

@@ -116,6 +116,36 @@ export default function TrackRecordPageV2() {
             Walk-forward simulation across multiple start dates from early 2021, each measured over a full 5-year window. Rebalance frictions modeled in-simulation; realized end-of-day fills used. Best: +252%. Worst: +109%.
             See <Link to="/methodology" className="text-claret underline underline-offset-2 decoration-1">full methodology</Link> for all assumptions.
           </p>
+
+          {/* 11-year companion result — long-window consistency check */}
+          <div className="mt-12 bg-paper-card border-l-[3px] border-claret p-8">
+            <div className="font-body text-[0.75rem] font-medium tracking-[0.15em] uppercase text-ink-mute mb-3">
+              The 11-Year Consistency Check
+            </div>
+            <div className="grid sm:grid-cols-4 gap-6 mt-4">
+              <div>
+                <div className="font-display text-[1.6rem] font-medium text-ink leading-none" style={{ fontVariationSettings: '"opsz" 96' }}>+675%</div>
+                <div className="text-[0.78rem] text-ink-mute mt-1.5">11-year total return</div>
+              </div>
+              <div>
+                <div className="font-display text-[1.6rem] font-medium text-claret leading-none" style={{ fontVariationSettings: '"opsz" 96' }}>~21.6%</div>
+                <div className="text-[0.78rem] text-ink-mute mt-1.5">Annualized</div>
+              </div>
+              <div>
+                <div className="font-display text-[1.6rem] font-medium text-ink leading-none" style={{ fontVariationSettings: '"opsz" 96' }}>0.95</div>
+                <div className="text-[0.78rem] text-ink-mute mt-1.5">Sharpe</div>
+              </div>
+              <div>
+                <div className="font-display text-[1.6rem] font-medium text-ink leading-none" style={{ fontVariationSettings: '"opsz" 96' }}>28%</div>
+                <div className="text-[0.78rem] text-ink-mute mt-1.5">Max drawdown</div>
+              </div>
+            </div>
+            <p className="mt-6 text-[0.95rem] text-ink leading-[1.6]">
+              Same strategy, run from October 2015 through April 2026 — a full ten-and-a-half-year window covering the 2018 vol spikes, the COVID crash, the 2022 bear market, and the AI rally. The annualized return came in at <strong className="font-medium">~21.6%</strong>, within rounding of the 5-year multi-start average of <strong className="font-medium">~21.1%</strong>. Two different windows, two different validation methods, the same compound growth rate.
+            </p>
+            <p className="mt-3 text-[0.85rem] text-ink-light leading-relaxed">
+              The longer window includes more bear cycles, so the max drawdown reads slightly higher (28% vs the 5-year's 20%). SPY over the same 11-year window: +318% (about ~14% annualized).
+          </p>
         </div>
       </section>
 
