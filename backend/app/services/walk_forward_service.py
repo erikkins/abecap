@@ -854,6 +854,12 @@ class WalkForwardService:
             if getattr(self, '_disable_cb_for_run', False):
                 backtester.circuit_breaker_stops = 0
 
+            # Intraday-aware mode (b-full WF parity): when enabled, trailing stops
+            # use day's HIGH/LOW instead of close-only. Default False preserves
+            # existing WF behavior.
+            if getattr(self, '_intraday_aware_for_run', False):
+                backtester.intraday_aware = True
+
             # Seed carryover pause from prior period. Original triggering source is
             # preserved in the prior period's pause_events log; here we only know it's
             # a continuation, so the marker is generic.
@@ -996,6 +1002,10 @@ class WalkForwardService:
         if getattr(self, '_disable_cb_for_run', False):
             backtester.circuit_breaker_stops = 0
 
+        # Intraday-aware mode (b-full WF parity)
+        if getattr(self, '_intraday_aware_for_run', False):
+            backtester.intraday_aware = True
+
         # Seed carryover pause from prior period.
         if pause_days_remaining > 0:
             backtester._pause_until = start_date + timedelta(days=pause_days_remaining)
@@ -1132,10 +1142,12 @@ class WalkForwardService:
         precomputed_params: Optional[List[Dict[str, Any]]] = None,  # Skip TPE, use these per-period params
         cb_pause_carries_periods: bool = True,  # CB pause survives period boundaries (default: today's behavior). Set False for ablation control: pause expires at period transition (the pre-Apr 28 implicit behavior, where regime change at boundary effectively cleared pause).
         disable_circuit_breaker: bool = False,  # Ablation: force circuit_breaker_stops=0 so CB never fires. Used to compute the true CG-impact baseline against canonical (with-CG) runs.
+        intraday_aware: bool = False,  # Match production intraday-stop logic: HWM tracks day's HIGH, trigger checks day's LOW. Default False keeps existing WF results bit-for-bit reproducible.
     ) -> WalkForwardResult:
         # Stash on self so per-period sim methods (_simulate_period_with_params,
         # _simulate_period_trading) can read it without changing every signature.
         self._disable_cb_for_run = disable_circuit_breaker
+        self._intraday_aware_for_run = intraday_aware
         """
         Run walk-forward simulation with AI optimization over a historical period.
 

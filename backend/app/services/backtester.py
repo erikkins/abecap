@@ -218,6 +218,12 @@ class BacktesterService:
         self.sector_cap = 0              # 0 = disabled
         self.regime_reentry_mode = False  # False = classic (SPY>MA200 only), True = smart re-entry
         self.bear_keep_pct = 0.0         # 0.0 = close all on regime exit, 0.5 = keep top 50% of positions
+        # Intraday-aware mode (b-full WF parity work, May 1 2026):
+        # When True, trailing-stop check uses today's HIGH/LOW (intraday) for HWM update
+        # and trigger detection — matching production's intraday monitor — instead of
+        # close-only (current EOD-anchored backtest). Default False keeps every existing
+        # WF result reproducible bit-for-bit.
+        self.intraday_aware = False
         self.regime_cooldown_days = 0    # Days to stay in cash after regime exit before allowing new entries; 0=disabled
         self.graduated_reentry = False   # Graduated re-entry: deploy partial capital on recovery signals
         # Profit-based stop tightening (V2 lever 8)
@@ -651,19 +657,33 @@ class BacktesterService:
         pos: dict,
         current_price: float,
         current_date: pd.Timestamp,
-        exit_strategy: ExitStrategyConfig
+        exit_strategy: ExitStrategyConfig,
+        day_high: Optional[float] = None,
+        day_low: Optional[float] = None,
     ) -> Optional[str]:
         """
         Check if position should be exited based on exit strategy.
 
         Args:
             pos: Position dictionary with entry info
-            current_price: Current price
+            current_price: Current price (typically the day's close)
             current_date: Current date
             exit_strategy: Exit strategy configuration
+            day_high: Optional day's intraday high (used in intraday_aware mode for HWM)
+            day_low: Optional day's intraday low (used in intraday_aware mode for trigger)
 
         Returns:
             Exit reason string if should exit, None otherwise
+
+        When `self.intraday_aware` is True AND day_high/day_low are provided, the
+        trailing-stop branch updates HWM using the day's intraday HIGH and tests
+        the trigger against the day's intraday LOW — matching production's
+        intraday monitor. The exit price (when stop fires) is recorded on the
+        position as `pos['_intraday_exit_price']`; the caller is responsible
+        for honoring it instead of `current_price`.
+
+        Default behavior (intraday_aware=False) is bit-for-bit identical to the
+        prior close-only logic, so existing WF results stay reproducible.
         """
         entry_price = pos['entry_price']
         pnl_pct = (current_price - entry_price) / entry_price * 100
@@ -677,11 +697,21 @@ class BacktesterService:
         strategy_type = exit_strategy.strategy_type
 
         if strategy_type == ExitStrategyType.TRAILING_STOP:
-            # Update high water mark
+            use_intraday = (
+                self.intraday_aware
+                and day_high is not None
+                and day_low is not None
+            )
+
+            # Update high water mark.
+            # In EOD mode: HWM updates from the day's CLOSE.
+            # In intraday-aware mode: HWM updates from the day's HIGH (matches
+            # production's day_high bridge between 5-min checks).
             high_water = pos.get('high_water_mark', entry_price)
-            if current_price > high_water:
-                pos['high_water_mark'] = current_price
-                high_water = current_price
+            hwm_candidate = day_high if use_intraday else current_price
+            if hwm_candidate > high_water:
+                pos['high_water_mark'] = hwm_candidate
+                high_water = hwm_candidate
 
             # Determine effective trailing stop % based on profit state
             effective_stop_pct = exit_strategy.trailing_stop_pct
@@ -695,10 +725,22 @@ class BacktesterService:
             if self.profit_lock_pct > 0 and pnl_pct >= self.profit_lock_pct:
                 effective_stop_pct = self.profit_lock_stop_pct
 
-            # Check trailing stop from high (using effective %)
-            drop_from_high = (high_water - current_price) / high_water * 100
-            if drop_from_high >= effective_stop_pct:
-                return 'trailing_stop'
+            stop_trigger_price = high_water * (1 - effective_stop_pct / 100)
+
+            if use_intraday:
+                # Intraday-aware: did the day's LOW cross the trigger?
+                if day_low <= stop_trigger_price:
+                    # Exit price = the trigger level itself (clamped to day's LOW
+                    # so we never claim a fill better than what the market saw).
+                    # This is mildly optimistic vs production live-price exit
+                    # but consistent within the simulation.
+                    pos['_intraday_exit_price'] = max(day_low, stop_trigger_price)
+                    return 'trailing_stop'
+            else:
+                # EOD-only (legacy): trigger from current_price, exit at current_price.
+                drop_from_high = (high_water - current_price) / high_water * 100
+                if drop_from_high >= effective_stop_pct:
+                    return 'trailing_stop'
 
         elif strategy_type == ExitStrategyType.FIXED_TARGET:
             # Exit when profit target is reached
@@ -1154,12 +1196,22 @@ class BacktesterService:
                     continue
 
                 current_price = row['close']
+                # Day's H/L drive the intraday-aware path (no-op when flag off).
+                day_high = float(row['high']) if 'high' in row.index else None
+                day_low = float(row['low']) if 'low' in row.index else None
                 pnl_pct = (current_price - pos['entry_price']) / pos['entry_price']
 
-                # Check exit condition using configured strategy
-                exit_reason = self._check_exit_condition(pos, current_price, date, exit_strategy)
+                # Check exit condition using configured strategy.
+                # Pass day_high/day_low so intraday_aware mode can use them.
+                exit_reason = self._check_exit_condition(
+                    pos, current_price, date, exit_strategy,
+                    day_high=day_high, day_low=day_low,
+                )
 
                 if exit_reason:
+                    # If the exit was triggered intraday, use the simulated
+                    # intraday exit price instead of the day's close.
+                    effective_exit_price = pos.pop('_intraday_exit_price', current_price)
                     trade_id += 1
                     trades.append(SimulatedTrade(
                         id=trade_id,
@@ -1167,10 +1219,10 @@ class BacktesterService:
                         entry_date=pos['entry_date'],
                         exit_date=date_str,
                         entry_price=pos['entry_price'],
-                        exit_price=current_price,
+                        exit_price=effective_exit_price,
                         shares=pos['shares'],
-                        pnl=round((current_price - pos['entry_price']) * pos['shares'], 2),
-                        pnl_pct=round(pnl_pct * 100, 2),
+                        pnl=round((effective_exit_price - pos['entry_price']) * pos['shares'], 2),
+                        pnl_pct=round((effective_exit_price - pos['entry_price']) / pos['entry_price'] * 100, 2),
                         exit_reason=exit_reason,
                         days_held=self._days_between(date, pos['entry_date']),
                         dwap_at_entry=pos.get('dwap_at_entry', 0),
@@ -1186,7 +1238,7 @@ class BacktesterService:
                         vol_ratio=pos.get('vol_ratio', 0),
                         spy_trend=pos.get('spy_trend', 0),
                     ))
-                    capital += pos['shares'] * current_price
+                    capital += pos['shares'] * effective_exit_price
                     symbols_to_close.append(symbol)
 
             # Remove closed positions
