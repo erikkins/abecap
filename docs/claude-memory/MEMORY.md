@@ -12,6 +12,9 @@
 ## CRITICAL STRATEGY RULE
 - **[WF backtest ↔ production signal generation MUST be identical](feedback_wf_prod_parity.md)** — any lever proven in walk-forward backtesting MUST be ported into production signal code in lockstep. Marketing claims come from backtests; subscribers must be able to realize them. **Known gap (Apr 28 2026): CB pause logic exists in backtester only, not in production scanner.**
 
+## CRITICAL LEGAL FRAMEWORK
+- **[Publisher's exemption + canonical disclaimer language](project_disclaimer_canonical.md)** — RigaCap operates under the Investment Advisers Act §202(a)(11)(d) publisher's exemption (confirmed by counsel Apr 30 2026). Three Lowe factors must be preserved: impersonal advice, bona fide commentary, regular circulation. Canonical disclaimer language (long/short/micro forms) lives in the linked file — use it consistently, don't paraphrase.
+
 ## AWS
 - **Always use `--profile rigacap`** (account 149218244179). Default profile = wrong account (774558858301).
 - **Two Lambdas:** `rigacap-prod-api` (1024 MB, 30s) and `rigacap-prod-worker` (3008 MB, 900s). Same image, `LAMBDA_ROLE` env var.
