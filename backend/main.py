@@ -996,6 +996,11 @@ def handler(event, context):
         t0 = _time.time()
         df2 = loop.run_until_complete(cache.get_or_fetch(symbol, date_str))
         t_second = _time.time() - t0
+        # Diagnostic: compare in detail
+        index_dtype_match = str(df.index.dtype) == str(df2.index.dtype)
+        col_dtype_match = bool((df.dtypes.astype(str) == df2.dtypes.astype(str)).all())
+        values_match = bool((df.values == df2.values).all())
+        index_values_match = bool(df.index.equals(df2.index))
         return {
             "status": "ok",
             "symbol": symbol,
@@ -1011,7 +1016,14 @@ def handler(event, context):
             "total_volume": int(df["volume"].sum()),
             "first_fetch_seconds": round(t_first, 2),
             "cache_hit_seconds": round(t_second, 3),
-            "data_match": bool(df.equals(df2)),
+            "data_match_strict": bool(df.equals(df2)),
+            "index_dtype_orig": str(df.index.dtype),
+            "index_dtype_cached": str(df2.index.dtype),
+            "index_dtypes_equal": index_dtype_match,
+            "col_dtypes_equal": col_dtype_match,
+            "values_equal": values_match,
+            "index_values_equal": index_values_match,
+            "col_dtype_diff": {c: f"{df[c].dtype} -> {df2[c].dtype}" for c in df.columns if str(df[c].dtype) != str(df2[c].dtype)},
         }
 
     # Handle warmer events - just return success to keep Lambda warm
