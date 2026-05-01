@@ -56,6 +56,7 @@
 - **Formula B:** base=60 + 5 bonus factors. r=+0.083, validated 4/5 LOO-CV.
 
 ## Data Pipeline
+- **[Never re-fetch from data providers](feedback_data_provider_cache.md)** — anything pulled from Alpaca/yfinance/etc. must be cached durably (S3 parquet) and re-read forever. New research jobs check cache before calling any provider.
 - See [data-pipeline-lessons.md](data-pipeline-lessons.md) for Mar 6 outage details
 - Daily scan chains CSV export (step 10). Scan at **4:30 PM EDT** (Alpaca settlement).
 - Signal universe: top 100 by volume (`SIGNAL_UNIVERSE_SIZE=100`). Pickle loads all ~6900.
@@ -108,6 +109,7 @@
 - [Pickle → Parquet/DuckDB/TimescaleDB migration](project_storage_migration_roadmap.md) — triggers, options, sequencing. Stay on pickle through ~500 paid subs, then start with Parquet on S3.
 
 ## Active Tasks
+- **[Wire Circuit Breaker / Cascade Guard into production](project_cb_production_wiring.md)** — scheduled early week of May 4 2026. Closes the WF ↔ prod parity gap. Marketing numbers assume CB protection that subscribers don't currently get.
 - **[Parquet migration 4-stage plan](project_storage_migration_roadmap.md)** — Stage 1 shadow write ✅ (Apr 14-15). **Stage 2 AL2023 ✅ (deployed before Apr 28 via commit `21f9e51`).** Stage 3 consumer migration → Stage 4 decommission pickle. Goal: parquet becomes primary, pickle retired.
 - **[Stage 3 detailed plan](project_parquet_stage3_plan.md)** — 6 work packages (3a-1, 3a-2, 3a-3, 3a-4, 3b, 3c, 4) with parallel-read diff harness + 2-week observation window before any cutover. Three independent safety nets. ~25-30h total spread over ~6 weeks.
 
