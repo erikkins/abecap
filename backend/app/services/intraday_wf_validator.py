@@ -75,8 +75,14 @@ class IntradayWFValidator:
     """Walks each trade minute-by-minute when an EOD-impossible-but-intraday-possible
     trailing-stop trigger may exist. Uses cached minute bars so re-runs are free."""
 
-    def __init__(self, trailing_stop_pct: float = 0.12):
+    def __init__(self, trailing_stop_pct: float = 0.12, check_cadence_minutes: int = 5):
+        """check_cadence_minutes: 1 = check every minute, 5 = match production
+        intraday monitor (default). HWM still tracks every minute (via day_high
+        bridge) but stop trigger is only evaluated at the cadence boundary,
+        and exit fills at the live price at that moment (not the trigger level).
+        """
         self.trailing_stop_pct = float(trailing_stop_pct)
+        self.check_cadence_minutes = int(check_cadence_minutes)
 
     async def validate_trades(
         self,
@@ -207,23 +213,30 @@ class IntradayWFValidator:
                     continue
 
             minute_bars_used = True
-            # Walk minute-by-minute. Update HWM on each bar's HIGH; check trigger
-            # against bar's LOW. First bar that triggers wins.
-            for ts, m_row in df_min.iterrows():
+            # Walk minute-by-minute matching production behavior:
+            # 1) HWM updates every minute (production uses day_high to bridge between
+            #    its 5-min checks, equivalent to running max of all minute highs).
+            # 2) Stop trigger is evaluated only at check-cadence boundaries (every
+            #    5 minutes by default, matching prod). Between checks, brief dips
+            #    and recoveries are not seen.
+            # 3) When stop fires, fill at the LIVE PRICE (close of that minute),
+            #    not at the trigger level — production exits at current price.
+            for i, (ts, m_row) in enumerate(df_min.iterrows()):
                 m_high = float(m_row["high"])
-                m_low = float(m_row["low"])
-                # Stop fires if minute LOW crosses HWM * (1 - pct) using the HWM
-                # AS OF the start of this minute (i.e., not including m_high yet).
-                stop_price = running_hwm * (1 - self.trailing_stop_pct)
-                if m_low <= stop_price:
-                    intraday_fired = True
-                    intraday_exit_date = date_str
-                    intraday_exit_price = round(stop_price, 4)
-                    intraday_exit_minute = pd.Timestamp(ts).isoformat()
-                    break
-                # Otherwise, fold this minute's high into HWM
+                m_close = float(m_row["close"])
+                # Always fold high into HWM (matches production day_high bridge)
                 if m_high > running_hwm:
                     running_hwm = m_high
+                # Only check trigger at cadence boundary
+                if (i + 1) % self.check_cadence_minutes != 0:
+                    continue
+                stop_price = running_hwm * (1 - self.trailing_stop_pct)
+                if m_close <= stop_price:
+                    intraday_fired = True
+                    intraday_exit_date = date_str
+                    intraday_exit_price = round(m_close, 4)  # exit at live price
+                    intraday_exit_minute = pd.Timestamp(ts).isoformat()
+                    break
             if intraday_fired:
                 break
             # Day completed without trigger — running_hwm was updated minute by

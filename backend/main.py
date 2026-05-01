@@ -1065,7 +1065,9 @@ def handler(event, context):
             daily_lookup_dict[sym] = df_d
 
         cache = get_intraday_cache()
-        validator = IntradayWFValidator(trailing_stop_pct=ts_pct)
+        cadence = int(cfg.get("check_cadence_minutes", 5))  # default matches production
+        validator = IntradayWFValidator(trailing_stop_pct=ts_pct, check_cadence_minutes=cadence)
+        print(f"📊 Cadence: {cadence}-min check (production = 5-min)")
 
         def daily_lookup(symbol):
             return daily_lookup_dict.get(symbol)
