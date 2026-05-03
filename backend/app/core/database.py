@@ -1097,14 +1097,32 @@ async def _run_schema_migrations(conn):
 
 
 async def init_db():
-    """Initialize database tables"""
+    """Initialize database tables.
+
+    Wrapped in a Postgres advisory lock so concurrent Lambda cold starts
+    serialize their migration runs. Without the lock, multiple containers
+    cold-starting at the same time would each try to ALTER the same tables
+    in parallel, deadlocking on Postgres system-catalog locks. Symptom seen
+    May 3 2026: 3+ simultaneous cold starts → DeadlockDetectedError → API
+    returned 503 "Database not available" until one container won.
+
+    Advisory lock (pg_advisory_xact_lock) blocks until acquirable, then
+    releases at end of transaction. The lock-key is an arbitrary 64-bit int
+    chosen for this purpose (rigacap-init-db). First container migrates;
+    others wait, then no-op (CREATE/ALTER ... IF NOT EXISTS is idempotent).
+    """
+    from sqlalchemy import text
     global db_available, db_init_attempted
     db_init_attempted = True
 
+    LOCK_KEY = 9148_3712_5099_2026  # arbitrary; "rigacap" → 7-char x base of decimals
+
     try:
         async with engine.begin() as conn:
+            # Take advisory lock — held until commit/rollback
+            await conn.execute(text(f"SELECT pg_advisory_xact_lock({LOCK_KEY})"))
             await conn.run_sync(Base.metadata.create_all)
-            # Run any pending schema migrations
+            # Run any pending schema migrations (now serialized via the lock)
             await _run_schema_migrations(conn)
         db_available = True
         print("✅ Database initialized")
