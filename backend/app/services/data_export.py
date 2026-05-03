@@ -255,11 +255,15 @@ class DataExportService:
             s3 = self._get_s3_client()
             print(f"📥 S3 import starting. Bucket={S3_BUCKET}")
 
-            # Try pickle file first (fastest - no parsing/splitting needed)
+            # Try pickle file first (fastest - no parsing/splitting needed).
+            # PRICE_DATA_PICKLE_KEY env var can override the S3 key (used for
+            # research jobs needing a longer-history pickle, e.g. all_data_11y_STAGING.pkl.gz).
+            # Default = production 7y pickle.
+            pickle_key = os.environ.get("PRICE_DATA_PICKLE_KEY") or "prices/all_data.pkl.gz"
             try:
-                print("📦 Loading pickle data from S3...")
+                print(f"📦 Loading pickle data from S3 (key={pickle_key})...")
                 import pickle
-                response = s3.get_object(Bucket=S3_BUCKET, Key='prices/all_data.pkl.gz')
+                response = s3.get_object(Bucket=S3_BUCKET, Key=pickle_key)
                 print(f"📦 Got S3 response, reading body...")
                 raw_bytes = response['Body'].read()
                 print(f"📦 Read {len(raw_bytes)} bytes, decompressing...")

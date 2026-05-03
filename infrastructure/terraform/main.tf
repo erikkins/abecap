@@ -190,6 +190,11 @@ variable "lambda_image_tag" {
   default     = "latest"
 }
 
+variable "price_data_pickle_key" {
+  description = "S3 key override for the price-data pickle. Empty = production default (prices/all_data.pkl.gz). Used for long-history research jobs to point at e.g. all_data_11y_STAGING.pkl.gz without disturbing production."
+  default     = ""
+}
+
 data "aws_caller_identity" "current" {}
 
 locals {
@@ -913,7 +918,7 @@ resource "aws_lambda_function" "worker" {
   package_type  = "Image"
   image_uri     = "${aws_ecr_repository.api.repository_url}:${var.lambda_image_tag}"
   timeout       = 900  # 15 minutes (max for Lambda)
-  memory_size   = 3008 # AWS account limit (request increase if 10y pickle needs more)
+  memory_size   = 4096 # 11y pickle requires >3008 (raw 728 MB after decompression). Bumped May 3 2026.
 
   ephemeral_storage {
     size = 1024 # MB — needed for streaming pickle export (344 MB compressed)
@@ -931,6 +936,10 @@ resource "aws_lambda_function" "worker" {
       # breaks the scan. Starts the 2-week Stage 3a observation window.
       # See project_parquet_stage3_plan.md.
       PARQUET_PARALLEL_READ = "true"
+      # Override pickle S3 key for research jobs. Empty/unset = use the default
+      # production pickle (prices/all_data.pkl.gz). Set via -var on apply when
+      # running 11y or other long-history WF research; revert back to "" after.
+      PRICE_DATA_PICKLE_KEY = var.price_data_pickle_key
     })
   }
 
