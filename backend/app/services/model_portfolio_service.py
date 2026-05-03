@@ -11,6 +11,7 @@ Both generate "We Called It" social content on profitable exits.
 
 import json
 import logging
+import os
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 
@@ -27,6 +28,16 @@ MAX_POSITIONS = 6
 POSITION_SIZE_PCT = 0.15  # 15% of available cash per position
 TRAILING_STOP_PCT = 12.0
 STARTING_CAPITAL = 100_000.0
+
+# Intraday-stop kill switch (May 3 2026):
+# b-full WF validation showed intraday trailing stops cost ~17 pp annualized
+# vs EOD-only over 7y (Lambda jobs 1226 vs 1227). Production decision: switch
+# to EOD-only trailing stops. The intraday_monitor cron still runs (regime
+# exits and HWM tracking are still valuable), but trailing-stop FIRES are
+# gated to EOD only. Set INTRADAY_TRAILING_STOP_ENABLED=true to re-enable
+# (e.g., for A/B testing if/when TPE finds a sub-strategy where it helps).
+def _intraday_trailing_stop_enabled() -> bool:
+    return os.environ.get("INTRADAY_TRAILING_STOP_ENABLED", "false").lower() == "true"
 WF_ANCHOR_DATE = date(2026, 2, 1)  # Canonical biweekly boundaries
 WF_PERIOD_DAYS = 14
 
@@ -232,8 +243,13 @@ class ModelPortfolioService:
                 if rec == "go_to_cash":
                     exit_reason = "regime_exit"
 
-            # Check trailing stop (overrides regime)
-            if price <= trailing_stop_level:
+            # Check trailing stop (overrides regime) — INTRADAY GATED.
+            # As of May 3 2026, intraday trailing stops are disabled in
+            # production by default. HWM tracking continues every 5 min so
+            # EOD checks have an accurate intraday-peak HWM, but the
+            # firing decision is deferred to EOD via process_live_exits_eod.
+            # Set INTRADAY_TRAILING_STOP_ENABLED=true to re-enable.
+            if _intraday_trailing_stop_enabled() and price <= trailing_stop_level:
                 exit_reason = "trailing_stop"
 
             if exit_reason:
@@ -1406,8 +1422,13 @@ class ModelPortfolioService:
                 if rec == "go_to_cash":
                     exit_reason = "regime_exit"
 
-            # Check trailing stop (overrides regime)
-            if price <= trailing_stop_level:
+            # Check trailing stop (overrides regime) — INTRADAY GATED.
+            # See process_live_exits comment + module-level kill switch.
+            # When use_cache=True (EOD path), price is the day's close, so the
+            # gate is irrelevant — the EOD check fires correctly. When use_cache
+            # is False (intraday-monitor path), the gate suppresses firing.
+            intraday_path = not use_cache
+            if (not intraday_path or _intraday_trailing_stop_enabled()) and price <= trailing_stop_level:
                 exit_reason = "trailing_stop"
 
             if exit_reason:
