@@ -2000,6 +2000,15 @@ async def get_dashboard_data(
                 served.append(annotated)
             buy_signals = served
             tier_meta = {k: overlay.get(k) for k in ('tier', 'signal_source', 'exit_rule', 'tier_note')}
+            # Recompute fresh counts from the SERVED list — otherwise the swapped breakout
+            # view inherits the t30v cache's total_fresh_count and the empty-state falsely
+            # reads "N fresh signals already in your positions" (Jul 24 2026).
+            total_fresh_count = sum(1 for s in buy_signals if s.get('is_fresh'))
+            fresh_signal_dates = [
+                s.get('ensemble_entry_date') or s.get('crossover_date') or s.get('signal_date')
+                for s in buy_signals if s.get('is_fresh')
+            ]
+            fresh_signal_dates = [d for d in fresh_signal_dates if d]
             # Maximizer serves breakout-based missed-opps (real closed breakout winners),
             # filtered like the base list (drop names the user already holds).
             if overlay.get('missed_opportunities') is not None:

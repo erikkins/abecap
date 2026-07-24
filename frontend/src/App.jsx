@@ -2618,14 +2618,26 @@ function Dashboard() {
               <h1 className="font-display text-lg sm:text-xl font-semibold text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 144' }}>RigaCap<span className="text-claret">.</span></h1>
               <p className="text-[0.65rem] font-medium tracking-[0.2em] uppercase text-ink-mute hidden sm:block">Ensemble Signals</p>
             </div>
-            {/* Tier badge — which product the subscriber is on (has_maximizer add-on -> Maximizer). */}
-            {user?.subscription && (
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${
-                user.subscription.has_maximizer ? 'bg-claret/10 text-claret' : 'bg-rule-dark/10 text-ink-mute'
-              }`}>
-                {user.subscription.has_maximizer ? 'Maximizer' : 'Preserver'}
-              </span>
-            )}
+            {/* Tier badge — reflects the SERVED tier (dashboardData.tier, so admin ?preview_tier
+                flips it too), falling back to the subscription. Maximizer = premium filled
+                claret pill w/ mark; Preserver = subtle outline. */}
+            {(() => {
+              const servedTier = dashboardData?.tier
+                || (user?.subscription ? (user.subscription.has_maximizer ? 'maximizer' : 'preserver') : null);
+              if (!servedTier) return null;
+              if (servedTier === 'maximizer') {
+                return (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.15em] bg-claret text-paper shadow-sm">
+                    <span className="text-[8px] leading-none">◆</span> Maximizer
+                  </span>
+                );
+              }
+              return (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.12em] border border-rule-dark text-ink-mute">
+                  Preserver
+                </span>
+              );
+            })()}
           </div>
 
           <nav className="flex items-center border border-rule-dark bg-paper-card">
@@ -3089,9 +3101,9 @@ function Dashboard() {
                     </svg>
                   </div>
                   {/* Regime TELL — expectation-setter (not a trade signal). Tier from the
-                      subscription (has_maximizer add-on -> 'maximizer', else base 'preserver'). */}
+                      SERVED tier (dashboardData.tier, so admin ?preview_tier flips it), else sub. */}
                   <RegimeTell regime={dashboardData.regime_forecast.current_regime}
-                              tier={user?.subscription?.has_maximizer ? 'maximizer' : 'preserver'} />
+                              tier={dashboardData?.tier || (user?.subscription?.has_maximizer ? 'maximizer' : 'preserver')} />
                   {regimeExpanded && (() => {
                     const rf = dashboardData.regime_forecast;
                     const regimeColors = {
