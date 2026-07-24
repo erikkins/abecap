@@ -190,6 +190,107 @@ async def build_maximizer_missed(db, limit: int = 5) -> List[dict]:
     return out
 
 
+async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
+                          trailing_stop_pct: float = 30.0) -> Optional[dict]:
+    """Capital-scaled MIRROR of a tier's model book. Scales the book's positions to the user's
+    capital (implied_shares = book_shares × capital/book_value) so their portfolio auto-mirrors
+    the book with zero per-trade entry. Maximizer = breakout book (day-X/29 exits); Preserver =
+    live t30v model book (30% trailing). Returns None if the book has no data."""
+    from app.core.database import MaximizerBookSnapshot, ModelPosition, ModelPortfolioSnapshot
+
+    capital = float(capital or 100000.0)
+    holdings: List[dict] = []
+    invested = 0.0
+    book_cash = 0.0
+    as_of = None
+    regime = None
+    book_equity = None
+
+    if tier == "maximizer":
+        snap = (await db.execute(
+            select(MaximizerBookSnapshot).order_by(MaximizerBookSnapshot.snapshot_date.desc()).limit(1)
+        )).scalars().first()
+        if not snap or not isinstance(snap.positions_json, dict):
+            return None
+        pj = snap.positions_json
+        positions = pj.get("positions", []) or []
+        book_cash = float(pj.get("bk_cash") or 0.0)
+        as_of, regime = snap.snapshot_date, snap.regime
+        book_equity = float(snap.equity) if snap.equity else None
+        await _load_prices([p.get("symbol") for p in positions if p.get("symbol")], data_cache)
+        for p in positions:
+            sym = p.get("symbol")
+            if not sym:
+                continue
+            entry = float(p.get("entry") or 0) or 0.0
+            cur = _current_price(sym, data_cache, entry)
+            shares = float(p.get("shares") or 0)
+            val = shares * cur
+            invested += val
+            days_held = int(p.get("days_held") or 0)
+            hold = int(p.get("hold") or BREAKOUT_HOLD)
+            days_left = max(0, hold - days_held)
+            holdings.append({
+                "symbol": sym, "shares": shares, "price": round(cur, 2),
+                "entry_price": round(entry, 2), "value": val, "source": "breakout",
+                "exit_rule": "hold", "days_held": days_held, "hold_days": hold,
+                "days_left": days_left, "exit_date_approx": _approx_exit_date(days_left),
+                "pnl_pct": round((cur / entry - 1) * 100, 1) if entry else 0.0,
+            })
+    else:  # preserver (and any non-maximizer) = live t30v model book
+        rows = (await db.execute(
+            select(ModelPosition).where(
+                ModelPosition.portfolio_type == "live", ModelPosition.status == "open")
+        )).scalars().all()
+        snap = (await db.execute(
+            select(ModelPortfolioSnapshot).where(ModelPortfolioSnapshot.portfolio_type == "live")
+            .order_by(ModelPortfolioSnapshot.snapshot_date.desc()).limit(1)
+        )).scalars().first()
+        if not rows and not snap:
+            return None
+        book_cash = float(snap.cash) if snap and snap.cash is not None else 0.0
+        as_of = snap.snapshot_date if snap else None
+        book_equity = float(snap.total_value) if snap and snap.total_value else None
+        await _load_prices([r.symbol for r in rows], data_cache)
+        for r in rows:
+            entry = float(r.entry_price or 0) or 0.0
+            cur = _current_price(r.symbol, data_cache, entry)
+            val = float(r.shares or 0) * cur
+            invested += val
+            hwm = max(entry, float(r.highest_price or 0) or entry, cur)
+            stop = hwm * (1 - trailing_stop_pct / 100.0)
+            holdings.append({
+                "symbol": r.symbol, "shares": float(r.shares or 0), "price": round(cur, 2),
+                "entry_price": round(entry, 2), "value": val, "source": "preserver",
+                "exit_rule": "trailing", "trailing_stop_pct": trailing_stop_pct,
+                "trailing_stop_level": round(stop, 2),
+                "pnl_pct": round((cur / entry - 1) * 100, 1) if entry else 0.0,
+            })
+
+    book_value = invested + book_cash
+    if book_value <= 0:
+        return None
+    scale = capital / book_value
+    for h in holdings:
+        h["implied_shares"] = round(h["shares"] * scale, 2)
+        h["implied_value"] = round(h["value"] * scale, 2)
+        h["weight_pct"] = round(h["value"] / book_value * 100, 1)
+    holdings.sort(key=lambda h: -h["implied_value"])
+    return {
+        "tier": tier,
+        "capital": round(capital, 2),
+        "holdings": holdings,
+        "invested_value": round(invested * scale, 2),
+        "cash_value": round(book_cash * scale, 2),
+        "cash_pct": round(book_cash / book_value * 100, 1),
+        "invested_pct": round(invested / book_value * 100, 1),
+        "as_of": as_of.isoformat() if hasattr(as_of, "isoformat") else (str(as_of) if as_of else None),
+        "regime": regime,
+        # Since-inception return of the model book (live shadow window — label as such in UI).
+        "book_return_pct": round((book_equity / CAP0 - 1) * 100, 1) if book_equity else None,
+    }
+
+
 async def apply_tier_serving(
     db, cached: dict, tier: str, data_cache: dict, buy_signals: List[dict],
 ) -> dict:
@@ -202,6 +303,14 @@ async def apply_tier_serving(
     """
     regime = (cached.get("regime_forecast") or {}).get("current_regime") or ""
 
+    # Stamp the Preserver base list (used by Preserver, and by Maximizer when out of rotating).
+    preserver_signals = []
+    for s in buy_signals:
+        card = dict(s)
+        card["source"] = "preserver"
+        card["exit_rule"] = "trailing"
+        preserver_signals.append(card)
+
     if tier == "maximizer":
         missed = await build_maximizer_missed(db)
         if regime == ROTATING:
@@ -209,27 +318,46 @@ async def apply_tier_serving(
             # Faithful only if the shadow book has data; otherwise fall back to the Preserver
             # base rather than showing an empty screen.
             if breakout:
+                held = sum(1 for c in breakout if c.get("status") == "holding")
+                fresh = sum(1 for c in breakout if c.get("status") == "new")
                 return {
                     "buy_signals": breakout,
                     "tier": "maximizer",
                     "signal_source": "breakout",
                     "exit_rule": "hold",
                     "missed_opportunities": missed,
+                    "market_context": (
+                        f"Rotating-bull momentum is broad — your Maximizer book is riding "
+                        f"{held} breakout name{'s' if held != 1 else ''} into their hold windows"
+                        f"{f' and added {fresh} today' if fresh else ''}. Aggressive by design; "
+                        f"each name sells on time at day 29, no trailing stop. Expect chop."
+                    ),
                     "tier_note": (
                         "Rotating-bull regime: your Maximizer book is hunting breakouts. Each "
                         "name is a same-day entry held ~29 trading days, then sold on time (no "
                         "trailing stop). Held names show their day X/29 countdown."
                     ),
                 }
-
-    # Preserver base (also Maximizer in every non-rotating regime — Option B). Stamp each
-    # card source='preserver' so an entry scopes the trade to the trailing-stop rule.
-    preserver_signals = []
-    for s in buy_signals:
-        card = dict(s)
-        card["source"] = "preserver"
-        card["exit_rule"] = "trailing"
-        preserver_signals.append(card)
+        # Maximizer OUTSIDE rotating_bull: breakout hunting is off. Serve the Preserver base for
+        # new buys; existing breakout positions wind down on their own 29-day clocks (positions
+        # panel). No wholesale swap.
+        return {
+            "buy_signals": preserver_signals,
+            "tier": "maximizer",
+            "signal_source": "preserver",
+            "exit_rule": "trailing",
+            "missed_opportunities": missed,
+            "market_context": (
+                "Out of rotating-bull — the Maximizer book has paused breakout hunting and is "
+                "in Preserver mode. Any breakout names you hold wind down on their exit dates; "
+                "new buys follow the Preserver book (30% trailing)."
+            ),
+            "tier_note": (
+                "Not a rotating-bull regime: breakout hunting is paused. Hold your existing "
+                "breakout names to their day-29 exits (see your positions); new buys follow "
+                "Preserver until momentum broadens again."
+            ),
+        }
     note = None
     if regime in CAPITULATION:
         note = (

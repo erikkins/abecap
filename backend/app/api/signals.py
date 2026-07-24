@@ -1982,6 +1982,7 @@ async def get_dashboard_data(
     # book in rotating_bull. Off (TIER_SERVING unset) => legacy Core payload unchanged.
     tier_meta = {'tier': None, 'signal_source': 'preserver', 'exit_rule': 'trailing', 'tier_note': None}
     upsell_missed = []
+    tier_book = None
     try:
         from app.services import tier_serving
         if tier_serving.tier_serving_enabled():
@@ -2000,6 +2001,10 @@ async def get_dashboard_data(
                 served.append(annotated)
             buy_signals = served
             tier_meta = {k: overlay.get(k) for k in ('tier', 'signal_source', 'exit_rule', 'tier_note')}
+            # Per-tier sentiment: Maximizer overrides the market briefing with its book-posture
+            # voice; Preserver keeps the measured t30v market_context from the cache.
+            if overlay.get('market_context'):
+                cached = {**cached, 'market_context': overlay['market_context']}
             # Recompute fresh counts from the SERVED list — otherwise the swapped breakout
             # view inherits the t30v cache's total_fresh_count and the empty-state falsely
             # reads "N fresh signals already in your positions" (Jul 24 2026).
@@ -2018,6 +2023,14 @@ async def get_dashboard_data(
                 ]
             # Preserver upsell: breakout winners Maximizer caught (separate block).
             upsell_missed = overlay.get('upsell_missed') or []
+            # Capital-scaled MIRROR book — implied holdings scaled to the user's portfolio_size.
+            try:
+                tier_book = await tier_serving.build_tier_book(
+                    db, tier, float(getattr(user, 'portfolio_size', None) or 100000.0),
+                    scanner_service.data_cache, regime_trail_pct
+                )
+            except Exception as _tbe:
+                print(f"⚠️ tier_book build failed: {_tbe}")
     except Exception as e:
         import traceback
         print(f"⚠️ tier serving skipped (serving Core base): {e}")
@@ -2032,6 +2045,7 @@ async def get_dashboard_data(
         'exit_rule': tier_meta['exit_rule'],
         'tier_note': tier_meta['tier_note'],
         'upsell_missed': upsell_missed,
+        'tier_book': tier_book,
         'positions_with_guidance': positions_with_guidance,
         'watchlist': cached.get('watchlist', []),
         'market_stats': cached.get('market_stats', {}),

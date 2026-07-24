@@ -58,6 +58,7 @@ import CookieConsent from './components/CookieConsent';
 import PageViewBeacon from './components/PageViewBeacon';
 import TwoFactorSettings from './components/TwoFactorSettings';
 import RegimeTell from './RegimeTell';
+import TierBookView from './TierBookView';
 // DoubleSignals, MomentumRankings, ApproachingTrigger removed — absorbed into unified dashboard
 
 // ============================================================================
@@ -3977,6 +3978,40 @@ function Dashboard() {
                                 </span>
                                 <p className="font-display italic text-[1rem] text-ink leading-[1.6]">{dashboardData.market_context}</p>
                               </div>
+                            </div>
+                          )}
+
+                          {/* Capital-scaled MIRROR book — the primary portfolio view for a
+                              served tier (implied holdings scaled to portfolio_size). Renders
+                              above the signal list; when present it IS the portfolio. */}
+                          {dashboardData?.tier_book && (
+                            <div className="px-4 pt-4">
+                              <TierBookView
+                                book={dashboardData.tier_book}
+                                onSetCapital={async (val) => {
+                                  try {
+                                    await api.patch('/api/auth/me/portfolio-size', { portfolio_size: val });
+                                    await refreshUser();
+                                    // Rescale the book client-side (everything is linear in capital)
+                                    // so the preview updates instantly; the next fetch confirms it.
+                                    setDashboardData(prev => {
+                                      const tb = prev?.tier_book;
+                                      if (!tb) return prev;
+                                      const f = val / (tb.capital || val);
+                                      return { ...prev, tier_book: {
+                                        ...tb, capital: val,
+                                        invested_value: Math.round((tb.invested_value || 0) * f),
+                                        cash_value: Math.round((tb.cash_value || 0) * f),
+                                        holdings: (tb.holdings || []).map(h => ({
+                                          ...h,
+                                          implied_shares: +(h.implied_shares * f).toFixed(2),
+                                          implied_value: Math.round(h.implied_value * f),
+                                        })),
+                                      } };
+                                    });
+                                  } catch (e) { console.error('set capital failed', e); }
+                                }}
+                              />
                             </div>
                           )}
 
