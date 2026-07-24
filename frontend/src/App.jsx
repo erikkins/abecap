@@ -3496,8 +3496,10 @@ function Dashboard() {
             )}
 
             {/* Metric Cards */}
-            {/* Stats strip — always show all 5 */}
-            {(
+            {/* Stats strip — hidden for served tiers (capital-scaled mirror): Portfolio Value /
+                P&L / Positions / Win Rate are all manual-portfolio-derived and have no data
+                under the mirror model. The book view carries capital/invested/cash instead. */}
+            {!dashboardData?.tier_book && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 border-t border-b border-ink py-4 mb-6">
                 <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} subtitle={`Cost basis $${totalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}`} />
                 <MetricCard title="Open P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} trend={totalPnlPct >= 0 ? 'up' : 'down'} subtitle={`${totalPnlPct >= 0 ? '+' : ''}$${Math.abs(totalValue - totalCost).toLocaleString(undefined, {maximumFractionDigits: 0})} unrealized`} />
@@ -3525,11 +3527,12 @@ function Dashboard() {
               </p>
             )}
 
-            {/* Two column layout: Buy Signals | Open Positions */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Two column layout: Buy Signals | Open Positions. Served tiers (capital-scaled
+                mirror) collapse to a single column — the book view IS the portfolio. */}
+            <div className={`grid grid-cols-1 gap-6 ${dashboardData?.tier_book ? '' : 'lg:grid-cols-2'}`}>
               {/* LEFT: Buy Signals */}
               <div className="overflow-hidden">
-                <div className="pb-3 border-b-2 border-ink mb-5">
+                {!dashboardData?.tier_book && (<div className="pb-3 border-b-2 border-ink mb-5">
                   <div className="flex items-baseline justify-between gap-3">
                     <div className="flex items-baseline gap-2 min-w-0">
                       <h2 className="font-display text-[1.25rem] font-medium text-ink tracking-tight whitespace-nowrap" style={{ fontVariationSettings: '"opsz" 48' }}>Buy Signals</h2>
@@ -3580,7 +3583,7 @@ function Dashboard() {
                   </span>
                   </div>
                   <em className="block font-display italic text-ink-mute text-[0.78rem] mt-1.5" style={{ fontVariationSettings: '"opsz" 24' }}>Signals only — execute via your broker</em>
-                </div>
+                </div>)}
 
                 {/* Collapsible sector filter pills */}
                 {sectorFilterOpen && (() => {
@@ -4027,8 +4030,9 @@ function Dashboard() {
                             </div>
                           )}
 
-                          {/* Buy Signals section (fresh) */}
-                          {freshSignals.length > 0 ? (
+                          {/* Buy Signals section (fresh) — hidden for served tiers; the
+                              capital-scaled mirror book replaces the pick-and-add flow. */}
+                          {!dashboardData?.tier_book && (freshSignals.length > 0 ? (
                             <div>
                               <div className="px-4 py-2.5 border-b border-rule flex items-center justify-between">
                                 <span className="font-display text-[0.95rem] font-medium tracking-tight">Buy Signals <em className="font-display italic text-ink-light font-normal">({freshSignals.length})</em></span>
@@ -4086,10 +4090,10 @@ function Dashboard() {
                                 </>
                               )}
                             </div>
-                          )}
+                          ))}
 
-                          {/* Monitoring section (non-fresh) */}
-                          {monitoringSignals.length > 0 && (
+                          {/* Monitoring section (non-fresh) — hidden for served tiers (mirror book) */}
+                          {!dashboardData?.tier_book && monitoringSignals.length > 0 && (
                             <div>
                               <div className="px-4 py-2.5 border-b border-rule flex items-center justify-between">
                                 <span className="font-display text-[0.95rem] font-medium tracking-tight">Monitoring <em className="font-display italic text-ink-light font-normal">({monitoringSignals.length})</em></span>
@@ -4253,8 +4257,8 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* RIGHT: Open Positions with Sell Guidance */}
-              {(() => {
+              {/* RIGHT: Open Positions with Sell Guidance — hidden for served tiers (mirror book) */}
+              {!dashboardData?.tier_book && (() => {
                 const positionSectorFilter = (p) => !excludedSectors.includes(p.sector || 'Other');
                 const filteredGuidance = guidanceWithLiveQuotes.filter(positionSectorFilter);
                 const filteredPositions = positionsWithLiveQuotes.filter(positionSectorFilter);
