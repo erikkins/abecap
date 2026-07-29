@@ -1804,6 +1804,15 @@ class SchedulerService:
                         )).scalars().first()
                         if _bs and isinstance(_bs.positions_json, dict):
                             max_context = _bs.positions_json.get('briefing')
+                        # Snapshots that predate the briefing feature have none — generate the
+                        # Maximizer book-posture briefing ON DEMAND so the digest prose actually
+                        # differs from Preserver's (not just the signals/subject).
+                        if not max_context and max_signals:
+                            from app.services.maximizer_service import generate_maximizer_briefing
+                            _held = sum(1 for c in max_signals if c.get('status') == 'holding')
+                            _new = sum(1 for c in max_signals if c.get('status') == 'new')
+                            _reg = (getattr(_bs, 'regime', None) or 'rotating_bull')
+                            max_context = generate_maximizer_briefing(_held, _new, _reg)
             except Exception as e:
                 logger.warning(f"📧 Maximizer email content build failed (falling back to base): {e}")
 
