@@ -8818,9 +8818,11 @@ RigaCap Admin
     if event.get("daily_emails"):
         daily_config = event.get("daily_emails") if isinstance(event.get("daily_emails"), dict) else {}
         target_emails = daily_config.get("target_emails")
-        print(f"📧 Daily email digest triggered" + (f" for {target_emails}" if target_emails else ""))
+        force_tier = daily_config.get("force_tier")  # admin sample sends: 'preserver' | 'maximizer'
+        print(f"📧 Daily email digest triggered" + (f" for {target_emails}" if target_emails else "")
+              + (f" [force_tier={force_tier}]" if force_tier else ""))
         try:
-            result = _run_async(scheduler_service.send_daily_emails(target_emails=target_emails))
+            result = _run_async(scheduler_service.send_daily_emails(target_emails=target_emails, force_tier=force_tier))
 
             # NOTE: previously this handler re-computed dashboard.json from
             # scratch after sending emails. That caused the dashboard to diverge

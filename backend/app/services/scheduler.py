@@ -1618,7 +1618,7 @@ class SchedulerService:
             import traceback
             traceback.print_exc()
 
-    async def send_daily_emails(self, target_emails: list = None):
+    async def send_daily_emails(self, target_emails: list = None, force_tier: str = None):
         """
         Send daily summary emails to subscribers
 
@@ -1627,6 +1627,8 @@ class SchedulerService:
 
         Args:
             target_emails: If provided, only send to these email addresses (bypasses freshness gate).
+            force_tier: Admin testing — force every recipient's email to 'preserver' or
+                'maximizer' regardless of their actual entitlement (for sample sends).
         """
         logger.info("📧 Starting daily email job...")
 
@@ -1791,7 +1793,8 @@ class SchedulerService:
             max_context = None
             try:
                 from app.services import tier_serving
-                if tier_serving.tier_serving_enabled() and any(s.get('is_maximizer') for s in subscribers):
+                _need_max = any(s.get('is_maximizer') for s in subscribers) or force_tier == 'maximizer'
+                if tier_serving.tier_serving_enabled() and _need_max:
                     from app.core.database import MaximizerBookSnapshot
                     from app.services.scanner import scanner_service as _ss
                     async with async_session() as _mdb:
@@ -1811,7 +1814,9 @@ class SchedulerService:
             for sub in subscribers:
                 # Maximizer recipients get the breakout book + Maximizer briefing; Preserver
                 # recipients get the t30v digest (held-symbol filtered) + base briefing.
-                if sub.get('is_maximizer') and max_signals is not None:
+                # force_tier (admin sample sends) overrides the recipient's real entitlement.
+                _eff_max = (force_tier == 'maximizer') if force_tier else sub.get('is_maximizer')
+                if _eff_max and max_signals is not None:
                     user_signals = max_signals
                     user_context = max_context or market_context
                     user_watchlist = []  # breakout book has no t30v watchlist
