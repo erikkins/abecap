@@ -29,6 +29,7 @@ from sqlalchemy import select
 CAPITULATION = {"panic_crash", "recovery", "weak_bear"}
 ROTATING = "rotating_bull"
 BREAKOUT_HOLD = 29  # trading days (maximizer_sleeves.BREAKOUT["hold"])
+CAP0 = 100_000.0    # book inception capital (matches maximizer/preserver book CAP0)
 
 
 def tier_serving_enabled() -> bool:
