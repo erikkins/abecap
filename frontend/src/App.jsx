@@ -1269,12 +1269,31 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-ink-mute">Current P&L</p>
-                    <p className={`text-lg font-semibold ${data?.pnl_pct >= 0 ? 'text-positive' : 'text-negative'}`}>
-                      {data?.pnl_pct >= 0 ? '+' : ''}{data?.pnl_pct?.toFixed(1)}%
-                    </p>
-                    <p className={`text-xs ${data?.pnl_dollars >= 0 ? 'text-positive' : 'text-negative'}`}>
-                      ${data?.pnl_dollars?.toFixed(0) || ((data?.current_price - data?.entry_price) * data?.shares).toFixed(0)}
-                    </p>
+                    {(() => {
+                      // NaN-safe: tier-book holdings use `price`/`implied_shares` (no
+                      // current_price/pnl_dollars). Derive from the modal's currentPrice +
+                      // implied_shares/shares; render "—" rather than ever showing NaN.
+                      const entry = data?.entry_price;
+                      const sh = data?.implied_shares ?? data?.shares ?? 0;
+                      const pctVal = (data?.pnl_pct != null && isFinite(data.pnl_pct))
+                        ? data.pnl_pct
+                        : ((isFinite(currentPrice) && entry) ? ((currentPrice - entry) / entry) * 100 : null);
+                      const dollarVal = (data?.pnl_dollars != null && isFinite(data.pnl_dollars))
+                        ? data.pnl_dollars
+                        : ((isFinite(currentPrice) && isFinite(entry) && sh) ? (currentPrice - entry) * sh : null);
+                      return (
+                        <>
+                          <p className={`text-lg font-semibold ${(pctVal ?? 0) >= 0 ? 'text-positive' : 'text-negative'}`}>
+                            {pctVal == null ? '—' : `${pctVal >= 0 ? '+' : ''}${pctVal.toFixed(1)}%`}
+                          </p>
+                          {dollarVal != null && (
+                            <p className={`text-xs ${dollarVal >= 0 ? 'text-positive' : 'text-negative'}`}>
+                              {dollarVal >= 0 ? '+' : '-'}${Math.abs(Math.round(dollarVal)).toLocaleString()}
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-ink-mute">Trailing Stop</p>
