@@ -802,6 +802,38 @@ async def revoke_comp(
     return {"message": "Comp subscription revoked"}
 
 
+@router.post("/users/{user_id}/comp-maximizer")
+async def comp_maximizer(
+    user_id: str,
+    enable: bool = Query(True),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Grant or revoke a complimentary MAXIMIZER entitlement (sets subscription.compmax).
+    Maximizer is an add-on to a base subscription, so the user must already have one
+    (comp a base subscription first if not)."""
+    import uuid
+
+    user = (await db.execute(select(User).where(User.id == uuid.UUID(user_id)))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    subscription = (await db.execute(
+        select(Subscription).where(Subscription.user_id == user.id)
+    )).scalar_one_or_none()
+    if not subscription:
+        raise HTTPException(status_code=400,
+                            detail="User has no subscription — comp a base subscription first, then grant Maximizer.")
+
+    subscription.compmax = bool(enable)
+    await db.commit()
+    return {
+        "message": f"Maximizer comp {'granted' if enable else 'revoked'} for {user.email}",
+        "compmax": subscription.compmax,
+        "has_maximizer": bool(subscription.has_maxpp_addon or subscription.compmax),
+    }
+
+
 # Internal/test accounts excluded from growth + revenue stats so the admin
 # dashboard reflects REAL users (mirrors the skip-list in
 # auth._ping_admin_new_signup). erikkins+test@... is caught by the +test pattern.

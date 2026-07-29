@@ -228,6 +228,25 @@ export default function AdminDashboard() {
     }
   };
 
+  // Grant / revoke a complimentary Maximizer entitlement (sets subscription.compmax).
+  const compMaximizer = async (userId, enable) => {
+    if (!confirm(enable ? 'Grant complimentary Maximizer to this user?' : 'Revoke Maximizer comp?')) return;
+    try {
+      const response = await fetchWithAuth(
+        `${API_URL}/api/admin/users/${userId}/comp-maximizer?enable=${enable}`, { method: 'POST' });
+      if (response.ok) {
+        const data = await response.json();
+        alert(data.message);
+        fetchUsers(usersPagination.page, searchQuery);
+      } else {
+        const err = await response.json();
+        alert(`Failed: ${err.detail}`);
+      }
+    } catch (err) {
+      console.error('Failed to comp Maximizer:', err);
+    }
+  };
+
   // Fetch strategies
   const fetchStrategies = async () => {
     setStrategiesLoading(true);
@@ -489,6 +508,7 @@ export default function AdminDashboard() {
           extendTrial={extendTrial}
           compUser={compUser}
           revokeComp={revokeComp}
+          compMaximizer={compMaximizer}
           fetchUsers={fetchUsers}
           openActivity={openActivity}
         />
@@ -1128,7 +1148,7 @@ function AutoPilotTab({ fetchWithAuth }) {
 }
 
 // Users Tab Component
-function UsersTab({ users, usersPagination, searchQuery, setSearchQuery, handleSearch, toggleUserStatus, extendTrial, compUser, revokeComp, fetchUsers, openActivity }) {
+function UsersTab({ users, usersPagination, searchQuery, setSearchQuery, handleSearch, toggleUserStatus, extendTrial, compUser, revokeComp, compMaximizer, fetchUsers, openActivity }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
       <div className="p-6 border-b border-gray-200">
@@ -1247,6 +1267,23 @@ function UsersTab({ users, usersPagination, searchQuery, setSearchQuery, handleS
                         title="Revoke comp subscription"
                       >
                         Revoke
+                      </button>
+                    )}
+                    {user.subscription?.has_maximizer ? (
+                      <button
+                        onClick={() => compMaximizer(user.id, false)}
+                        className="px-2 py-1 rounded text-xs font-medium text-rose-800 bg-rose-100 hover:bg-rose-200"
+                        title="Revoke complimentary Maximizer"
+                      >
+                        ◆ Revoke Max
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => compMaximizer(user.id, true)}
+                        className="px-2 py-1 rounded text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100"
+                        title="Grant complimentary Maximizer (requires a base subscription)"
+                      >
+                        ◆ Comp Max
                       </button>
                     )}
                   </div>
