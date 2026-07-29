@@ -1737,18 +1737,21 @@ class SchedulerService:
                 logger.warning(f"📧 Found {len(all_users)} users in DB" + (f", filtering for {target_set}" if target_set else ""))
 
             subscribers = []
+            def _is_max(u):
+                s = getattr(u, 'subscription', None)
+                return bool(s and (getattr(s, 'has_maxpp_addon', False) or getattr(s, 'compmax', False)))
             for u in all_users:
                 email_lower = (u.email or '').lower()
                 if target_set and email_lower not in target_set:
                     continue
                 # Admin override: skip subscription/preference checks for admin target sends
                 if target_set and email_lower in ADMIN_EMAILS:
-                    subscribers.append({'email': u.email, 'name': u.name, 'user_id': str(u.id)})
+                    subscribers.append({'email': u.email, 'name': u.name, 'user_id': str(u.id), 'is_maximizer': _is_max(u)})
                     continue
                 if u.subscription and u.subscription.is_valid():
                     if not u.get_email_preference('daily_digest'):
                         continue
-                    subscribers.append({'email': u.email, 'name': u.name, 'user_id': str(u.id)})
+                    subscribers.append({'email': u.email, 'name': u.name, 'user_id': str(u.id), 'is_maximizer': _is_max(u)})
 
             if not subscribers:
                 fresh_count = len([s for s in buy_signals if s.get('is_fresh')])
@@ -1781,14 +1784,44 @@ class SchedulerService:
 
             logger.warning(f"📧 Sending daily summary to {len(subscribers)} subscriber(s): {[s['email'] for s in subscribers]}")
 
+            # Tier bifurcation: Maximizer subscribers get the breakout book + the Maximizer
+            # briefing; Preserver subscribers get the t30v digest + base briefing. Built once
+            # (shared across all Maximizer recipients). Only when TIER_SERVING is on.
+            max_signals = None
+            max_context = None
+            try:
+                from app.services import tier_serving
+                if tier_serving.tier_serving_enabled() and any(s.get('is_maximizer') for s in subscribers):
+                    from app.core.database import MaximizerBookSnapshot
+                    from app.services.scanner import scanner_service as _ss
+                    async with async_session() as _mdb:
+                        max_signals = await tier_serving.build_maximizer_breakout_view(_mdb, _ss.data_cache)
+                        _bs = (await _mdb.execute(
+                            select(MaximizerBookSnapshot).order_by(MaximizerBookSnapshot.snapshot_date.desc()).limit(1)
+                        )).scalars().first()
+                        if _bs and isinstance(_bs.positions_json, dict):
+                            max_context = _bs.positions_json.get('briefing')
+            except Exception as e:
+                logger.warning(f"📧 Maximizer email content build failed (falling back to base): {e}")
+
             # Send emails + push notifications to each subscriber
             sent = 0
             failed = 0
             push_sent = 0
             for sub in subscribers:
-                # Per-user signal list: drop symbols this subscriber already holds
-                held = user_open_symbols.get(sub['user_id'], set())
-                user_signals = [s for s in buy_signals if s['symbol'] not in held] if held else buy_signals
+                # Maximizer recipients get the breakout book + Maximizer briefing; Preserver
+                # recipients get the t30v digest (held-symbol filtered) + base briefing.
+                if sub.get('is_maximizer') and max_signals is not None:
+                    user_signals = max_signals
+                    user_context = max_context or market_context
+                    user_watchlist = []  # breakout book has no t30v watchlist
+                    user_tier = 'maximizer'
+                else:
+                    held = user_open_symbols.get(sub['user_id'], set())
+                    user_signals = [s for s in buy_signals if s['symbol'] not in held] if held else buy_signals
+                    user_context = market_context
+                    user_watchlist = watchlist
+                    user_tier = 'preserver'
                 user_fresh_count = len([s for s in user_signals if s.get('is_fresh')])
 
                 try:
@@ -1796,9 +1829,10 @@ class SchedulerService:
                         to_email=sub['email'],
                         signals=user_signals,
                         market_regime=regime,
-                        watchlist=watchlist,
+                        watchlist=user_watchlist,
                         user_id=sub['user_id'],
-                        market_context=market_context,
+                        market_context=user_context,
+                        tier=user_tier,
                     )
                     if success:
                         sent += 1

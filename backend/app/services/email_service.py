@@ -263,7 +263,8 @@ class EmailService:
         watchlist: List[Dict] = None,
         regime_forecast: Dict = None,
         user_id: str = None,
-        market_context: str = None
+        market_context: str = None,
+        tier: str = 'preserver'
     ) -> str:
         """
         Generate beautiful HTML for daily summary email
@@ -397,6 +398,13 @@ class EmailService:
                 </table>
             </td>
         </tr>
+
+        <!-- Tier label — premium cue distinguishing Maximizer from Preserver emails -->
+        {f'''<tr>
+            <td style="padding: 0 24px 12px;">
+                <span style="display: inline-block; font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; {'background:#7A2430;color:#F5F1E8;' if tier == 'maximizer' else 'border:1px solid #DDD5C7;color:#5A544E;'} padding: 3px 8px;">{'&#9670; Maximizer' if tier == 'maximizer' else 'Preserver'}</span>
+            </td>
+        </tr>''' if tier else ''}
 
         <!-- Market Context -->
         {f'''<tr>
@@ -793,7 +801,8 @@ class EmailService:
         regime_forecast: Dict = None,
         date: Optional[datetime] = None,
         user_id: str = None,
-        market_context: str = None
+        market_context: str = None,
+        tier: str = 'preserver'
     ) -> bool:
         """
         Send daily summary email to a subscriber
@@ -837,6 +846,15 @@ class EmailService:
         else:
             subject = f"📊 RigaCap Daily{date_label}: watching the market · {approaching_count} approaching"
 
+        # Maximizer subscribers get a book-posture subject (breakouts in play + new today).
+        if tier == 'maximizer':
+            new_ct = len([s for s in signals if s.get('status') == 'new' or s.get('is_fresh')])
+            held_ct = len([s for s in signals if s.get('status') == 'holding'])
+            if new_ct > 0:
+                subject = f"◆ RigaCap Maximizer{date_label}: {new_ct} new breakout{'s' if new_ct != 1 else ''} · {held_ct} in play"
+            else:
+                subject = f"◆ RigaCap Maximizer{date_label}: {held_ct} breakout{'s' if held_ct != 1 else ''} in play"
+
         html = self.generate_daily_summary_html(
             signals=signals,
             market_regime=market_regime,
@@ -846,7 +864,8 @@ class EmailService:
             regime_forecast=regime_forecast,
             date=date,
             user_id=user_id,
-            market_context=market_context
+            market_context=market_context,
+            tier=tier
         )
 
         text = self.generate_plain_text(signals, market_regime, date=date, watchlist=watchlist)

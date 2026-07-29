@@ -206,6 +206,7 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
     as_of = None
     regime = None
     book_equity = None
+    preserver_exposure = None  # set in the preserver branch; drives the cash-raise overlay
 
     if tier == "maximizer":
         snap = (await db.execute(
@@ -252,6 +253,22 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
         book_cash = float(snap.cash) if snap and snap.cash is not None else 0.0
         as_of = snap.snapshot_date if snap else None
         book_equity = float(snap.total_value) if snap and snap.total_value else None
+        # Preserver is the t30v names at the book's REGIME EXPOSURE (cash-raise in capitulation).
+        # Read the Preserver book's exposure (1.0 normally, 0.25 in capitulation) + its own
+        # exposure-adjusted equity — so the book view is genuinely Preserver, not raw Core.
+        from app.core.database import PreserverBookSnapshot
+        _psnap = (await db.execute(
+            select(PreserverBookSnapshot).order_by(PreserverBookSnapshot.snapshot_date.desc()).limit(1)
+        )).scalars().first()
+        if _psnap and isinstance(_psnap.positions_json, dict):
+            try:
+                preserver_exposure = float(_psnap.positions_json.get("exposure", 1.0))
+            except (TypeError, ValueError):
+                preserver_exposure = 1.0
+            if _psnap.equity:
+                book_equity = float(_psnap.equity)
+            if _psnap.snapshot_date:
+                as_of = _psnap.snapshot_date
         await _load_prices([r.symbol for r in rows], data_cache)
         for r in rows:
             entry = float(r.entry_price or 0) or 0.0
@@ -271,6 +288,35 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
     book_value = invested + book_cash
     if book_value <= 0:
         return None
+
+    if preserver_exposure is not None:
+        # PRESERVER: hold `exposure` of capital across the t30v names (proportional to their
+        # book weights), the rest in cash. exposure=1.0 in normal regimes (== fully mirrored
+        # Core); exposure=0.25 in capitulation (75% cash raised). This is what makes the
+        # served book genuinely Preserver rather than raw t30v.
+        exp = max(0.0, min(1.0, preserver_exposure))
+        invested_cap = capital * exp
+        cash_cap = capital * (1 - exp)
+        for h in holdings:
+            w = (h["value"] / invested) if invested else 0.0   # name's weight within the book
+            h["implied_value"] = round(invested_cap * w, 2)
+            h["implied_shares"] = round((invested_cap * w) / h["price"], 2) if h["price"] else 0.0
+            h["weight_pct"] = round(w * exp * 100, 1)           # weight of TOTAL capital
+        holdings.sort(key=lambda h: -h["implied_value"])
+        return {
+            "tier": tier,
+            "capital": round(capital, 2),
+            "holdings": holdings,
+            "invested_value": round(invested_cap, 2),
+            "cash_value": round(cash_cap, 2),
+            "cash_pct": round((1 - exp) * 100, 1),
+            "invested_pct": round(exp * 100, 1),
+            "exposure": round(exp, 2),
+            "as_of": as_of.isoformat() if hasattr(as_of, "isoformat") else (str(as_of) if as_of else None),
+            "regime": regime,
+            "book_return_pct": round((book_equity / CAP0 - 1) * 100, 1) if book_equity else None,
+        }
+
     scale = capital / book_value
     for h in holdings:
         h["implied_shares"] = round(h["shares"] * scale, 2)
