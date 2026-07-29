@@ -3674,11 +3674,19 @@ def handler(event, context):
             try:
                 from app.services.tier_walkforward_service import compute_tier_walkforward
                 from app.services.data_export import data_export_service as _dex
+                from sqlalchemy import text as _text
                 if 'SPY' not in scanner_service.data_cache:
                     _c = _dex.import_all()
                     if _c:
                         scanner_service.data_cache = _c
-                _tw = compute_tier_walkforward(scanner_service.data_cache)
+                _rmap = {}
+                async with async_session() as _rdb:
+                    _rr = (await _rdb.execute(_text(
+                        "SELECT snapshot_date, current_regime FROM regime_forecast_snapshots "
+                        "WHERE snapshot_date >= NOW() - INTERVAL '400 days'"))).all()
+                    for _d, _r in _rr:
+                        _rmap[_d] = _r
+                _tw = compute_tier_walkforward(scanner_service.data_cache, regime_map=_rmap)
                 if _tw:
                     _tw["computed_at"] = datetime.now().isoformat()
                     _dex.write_json("tier_walkforward.json", _tw)
@@ -3701,23 +3709,37 @@ def handler(event, context):
     # Standalone rolling trailing-365 TIER walk-forward (manual invoke / validation).
     if event.get("tier_walkforward"):
         print(f"📊 Tier walk-forward triggered - {len(scanner_service.data_cache)} symbols in cache")
-        try:
+        async def _run_tier_wf():
             from app.services.tier_walkforward_service import compute_tier_walkforward
             from app.services.data_export import data_export_service as _dex
+            from sqlalchemy import text as _text
             if 'SPY' not in scanner_service.data_cache:
                 print("📥 Loading price data from S3 for tier WF...")
                 _c = _dex.import_all()
                 if _c:
                     scanner_service.data_cache = _c
                     print(f"✅ Loaded {len(_c)} symbols")
-            result = compute_tier_walkforward(scanner_service.data_cache)
+            # REAL recorded regime labels the live product uses (regime_forecast_snapshots).
+            regime_map = {}
+            async with async_session() as _db:
+                rows = (await _db.execute(_text(
+                    "SELECT snapshot_date, current_regime FROM regime_forecast_snapshots "
+                    "WHERE snapshot_date >= NOW() - INTERVAL '400 days'"))).all()
+                for d, r in rows:
+                    regime_map[d] = r
+            print(f"📊 regime_map: {len(regime_map)} recorded days")
+            result = compute_tier_walkforward(scanner_service.data_cache, regime_map=regime_map)
             if not result:
-                return {"status": "failed", "error": "compute returned None (insufficient data?)"}
+                return {"status": "failed", "error": "compute returned None (no regime_map / insufficient data?)"}
             result["computed_at"] = datetime.now().isoformat()
             w = _dex.write_json("tier_walkforward.json", result) if event.get("write", True) else {"skipped": True}
             return {"status": "success", "write": w,
                     "preserver": result.get("preserver"), "maximizer": result.get("maximizer"),
                     "diag": result.get("diag")}
+        try:
+            result = _run_async(_run_tier_wf())
+            print(f"📊 Tier WF result: {result}")
+            return result
         except Exception as e:
             import traceback
             tb = traceback.format_exc()

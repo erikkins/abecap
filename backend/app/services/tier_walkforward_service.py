@@ -44,13 +44,13 @@ def _stats(equity: pd.Series) -> dict:
             "max_drawdown_pct": round(mdd, 1)}
 
 
-def compute_tier_walkforward(data_cache: Dict[str, pd.DataFrame], days: int = 365) -> Optional[dict]:
+def compute_tier_walkforward(data_cache: Dict[str, pd.DataFrame], days: int = 365,
+                             regime_map: Optional[dict] = None) -> Optional[dict]:
     """Compute both tiers' trailing-`days` walk-forward. Returns a dict keyed by tier, each
     {total_return_pct, sharpe_ratio, max_drawdown_pct, benchmark_return_pct, start_date,
     end_date, label, window, rolling:True} — the shape tier_serving.tier_backtest expects.
     Returns None on failure (caller keeps the certified fallback)."""
     from app.services.backtester import BacktesterService
-    from app.services.market_regime import market_regime_service
     from app.services.maximizer_portfolio import replay_sleeve, vol_scaled_returns
 
     spy = data_cache.get("SPY")
@@ -87,30 +87,18 @@ def compute_tier_walkforward(data_cache: Dict[str, pd.DataFrame], days: int = 36
     grid = core_eq.index
     rt = core_eq.pct_change().fillna(0.0)
 
-    # 2) daily regime series over the window — mirror scripts/regime_research: RESET the
-    #    classifier's sequential hysteresis state first, and feed it a top-50 point-in-time
-    #    breadth universe (by 20d $-volume), not the full cache, so labels match research.
-    vix = data_cache.get("^VIX")
-    market_regime_service._current_regime_type = None
-    market_regime_service._cache = {}
-    market_regime_service._regime_history = []
-    dvols = []
-    for s, df in data_cache.items():
-        if s.startswith("^") or df is None or len(df) < 200 or "close" not in df or "volume" not in df:
-            continue
-        try:
-            if float(df["close"].iloc[-1]) < 15:
-                continue
-            dvols.append((s, float((df["close"] * df["volume"]).tail(20).mean())))
-        except Exception:
-            continue
-    top50 = {s for s, _ in sorted(dvols, key=lambda x: -x[1])[:50]}
-    breadth = {s: df for s, df in data_cache.items() if s in top50}
-    hist = market_regime_service.get_regime_history(
-        spy_df=spy, universe_dfs=breadth, vix_df=vix,
-        start_date=start.to_pydatetime(), end_date=end.to_pydatetime(), sample_frequency="daily")
-    reg_map = {pd.Timestamp(r.date).normalize(): r.regime_type.value for r in hist}
-    reg = pd.Series([reg_map.get(pd.Timestamp(d).normalize()) for d in grid], index=grid).ffill().fillna("range_bound")
+    # 2) daily regime series — use the REAL regime labels the live product already recorded
+    #    (regime_forecast_snapshots.current_regime), passed in as `regime_map` by the worker.
+    #    Do NOT re-derive them. If the map is missing we bail (better no rolling number than a
+    #    wrong-regime one — the certified full-cycle fallback stays up).
+    if not regime_map:
+        print("⚠️ tier WF: no regime_map provided (regime_forecast_snapshots) — skipping")
+        return None
+    rser = pd.Series({pd.Timestamp(d).normalize(): v for d, v in regime_map.items()}).sort_index()
+    reg = rser.reindex(grid, method="ffill").bfill()
+    if reg.isna().all():
+        return None
+    reg = reg.fillna("range_bound")
     cap = reg.isin(CAPITULATION)
     rot = (reg == ROTATING)
 
@@ -138,8 +126,7 @@ def compute_tier_walkforward(data_cache: Dict[str, pd.DataFrame], days: int = 36
     # Diagnostics — surfaced in the dry-run so we can SEE why tiers do/don't diverge (regime
     # composition, breakout activity) before trusting/serving. Not shown to subscribers.
     diag = {
-        "n_regime_points": len(hist),
-        "n_breadth_universe": len(breadth),
+        "n_regime_points": len(rser),
         "grid_days": len(grid),
         "regime_composition": {k: int(v) for k, v in reg.value_counts().items()},
         "rotating_days": int(rot.sum()),
