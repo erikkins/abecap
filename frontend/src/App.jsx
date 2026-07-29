@@ -592,6 +592,27 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
     ? chartDataWithLive.findIndex(d => d.date === data.entry_date)
     : -1;
 
+  // Breakout hold-to-exit (Maximizer): the exit is a FUTURE time-stop (day 29), not a price
+  // level. Extend the series with future business-day placeholders (null close) up to the exit
+  // date so a vertical exit line can render on the categorical date axis.
+  const exitDateStr = data?.exit_date_approx ? String(data.exit_date_approx).split('T')[0] : null;
+  const isHoldExit = data?.exit_rule === 'hold' && !!exitDateStr;
+  const chartDataForRender = (() => {
+    if (!isHoldExit || chartDataWithLive.length === 0) return chartDataWithLive;
+    const out = [...chartDataWithLive];
+    let d = new Date(out[out.length - 1].date + 'T00:00:00');
+    const end = new Date(exitDateStr + 'T00:00:00');
+    let guard = 0;
+    while (d < end && guard < 45) {
+      d.setDate(d.getDate() + 1);
+      const dow = d.getDay();
+      if (dow === 0 || dow === 6) continue; // business days only
+      out.push({ date: d.toISOString().split('T')[0], close: null, _future: true });
+      guard++;
+    }
+    return out;
+  })();
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-paper-card rounded shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
@@ -710,7 +731,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={320}>
-              <ComposedChart data={chartDataWithLive}>
+              <ComposedChart data={chartDataForRender}>
                 <defs>
                   <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#141210" stopOpacity={0.08}/>
@@ -827,7 +848,9 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   if (data?.high_water_mark && entryPrice && data.high_water_mark > entryPrice * 1.01) {
                     lines.push({ id: 'high', y: data.high_water_mark });
                   }
-                  if (basePrice && (type === 'position' || type === 'signal')) {
+                  // +20% target is a Preserver/t30v concept — NOT applicable to breakout
+                  // (time-stop, no profit target). Suppress it for hold-exit holdings.
+                  if (basePrice && (type === 'position' || type === 'signal') && data?.exit_rule !== 'hold') {
                     lines.push({ id: 'gain20', y: basePrice * 1.20 });
                   }
 
@@ -1033,6 +1056,23 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                     />
                   );
                 })()}
+
+                {/* Breakout time-stop exit — vertical line at the projected day-29 exit date */}
+                {isHoldExit && (
+                  <ReferenceLine
+                    yAxisId="price"
+                    x={exitDateStr}
+                    stroke="#7A2430"
+                    strokeDasharray="4 3"
+                    label={{
+                      value: `Exit · day ${data?.days_held ?? '?'}/${data?.hold_days ?? 29}`,
+                      position: 'insideTopRight',
+                      fontSize: 10,
+                      fontFamily: 'IBM Plex Mono',
+                      fill: '#7A2430',
+                    }}
+                  />
+                )}
 
                 {/* Sell point marker - triangle at sell date (for trades) */}
                 {(() => {
@@ -2299,6 +2339,36 @@ function Dashboard() {
     }
     return p;
   });
+
+  // Intraday-live tier book: reprice the mirror-book holdings with live quotes (the backend
+  // marks them at the EOD close). Scales each holding's implied value by live/EOD price and
+  // recomputes P&L + the invested total; cash is unchanged.
+  const tierBookLive = (() => {
+    const tb = dashboardData?.tier_book;
+    if (!tb || !Array.isArray(tb.holdings)) return tb;
+    let invested = 0;
+    let anyLive = false;
+    const holdings = tb.holdings.map(h => {
+      const q = liveQuotes[h.symbol];
+      if (q && q.price && h.entry_price && h.price) {
+        anyLive = true;
+        const price = q.price;
+        const iv = h.implied_value * (price / h.price);
+        invested += iv;
+        return {
+          ...h,
+          price: +price.toFixed(2),
+          pnl_pct: +(((price / h.entry_price) - 1) * 100).toFixed(1),
+          implied_value: Math.round(iv),
+          live_change_pct: q.change_pct,
+          _live: true,
+        };
+      }
+      invested += (h.implied_value || 0);
+      return h;
+    });
+    return anyLive ? { ...tb, holdings, invested_value: Math.round(invested), _intraday: true } : tb;
+  })();
 
   // Merge live quotes into dashboard positions_with_guidance (these take render priority)
   const guidanceWithLiveQuotes = (dashboardData?.positions_with_guidance || []).map(p => {
@@ -3990,7 +4060,7 @@ function Dashboard() {
                           {dashboardData?.tier_book && (
                             <div className="px-4 pt-4">
                               <TierBookView
-                                book={dashboardData.tier_book}
+                                book={tierBookLive || dashboardData.tier_book}
                                 radar={dashboardData.breakout_radar}
                                 actions={dashboardData.todays_actions}
                                 onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}

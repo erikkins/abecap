@@ -363,9 +363,12 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
             days_held = int(p.get("days_held") or 0)
             hold = int(p.get("hold") or BREAKOUT_HOLD)
             days_left = max(0, hold - days_held)
+            # entry date ≈ days_held trading days ago (so the chart's entry marker positions).
+            entry_date = (_date.today() - _timedelta(days=int(round(days_held * 7 / 5)))).isoformat()
             holdings.append({
                 "symbol": sym, "shares": shares, "price": round(cur, 2),
                 "entry_price": round(entry, 2), "value": val, "source": "breakout",
+                "entry_date": entry_date,
                 "exit_rule": "hold", "days_held": days_held, "hold_days": hold,
                 "days_left": days_left, "exit_date_approx": _approx_exit_date(days_left),
                 "pnl_pct": round((cur / entry - 1) * 100, 1) if entry else 0.0,
