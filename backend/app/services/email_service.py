@@ -177,7 +177,7 @@ class EmailService:
       you've been watching. The difference is how aggressively they lean in, and what they optimize for.
     </p>
     <div style="text-align:center;margin:8px 0 28px;">
-      <img src="https://rigacap.com/email-knob.png" alt="One knob — Preserve to Maximize" width="300" style="display:inline-block;max-width:100%;height:auto;" />
+      <img src="https://rigacap.com/email-knob-v2.png" alt="One knob — Preserve to Maximize" width="280" style="display:inline-block;max-width:100%;height:auto;" />
       <p style="margin:8px 0 0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#8A8279;">One knob &mdash; Preserve to Maximize</p>
     </div>
     <div style="{card}">
