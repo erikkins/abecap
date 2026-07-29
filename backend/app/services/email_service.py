@@ -567,12 +567,65 @@ class EmailService:
             return min(ages) <= 5
         return bool(sig.get('is_fresh'))
 
+    def _breakout_signal_row(self, signal: Dict) -> str:
+        """Breakout (Maximizer) row — NO ensemble score / "% above trend" (those are t30v
+        concepts). Shows the BREAKOUT tag, new-vs-holding state with the day-X/29 hold
+        countdown, price, and hold P&L. Same block-anchor layout as _signal_row."""
+        symbol = signal.get('symbol', 'N/A')
+        price = signal.get('price', 0) or 0
+        status = signal.get('status')
+        hold = signal.get('hold_days') or 29
+        days_held = signal.get('days_held')
+        days_left = signal.get('days_left')
+        pnl = signal.get('pnl_pct')
+        is_new = status == 'new' or bool(signal.get('is_fresh'))
+        if is_new:
+            age_label = 'NEW BREAKOUT · ENTER TODAY'
+            exit_note = f'HOLD {hold} TRADING DAYS'
+        else:
+            age_label = f'HOLDING · DAY {days_held}/{hold}' if days_held is not None else 'HOLDING'
+            exit_note = f'{days_left}D TO EXIT · NO TRAILING STOP' if days_left is not None else 'TIME-STOP EXIT'
+        pnl_html = ''
+        if pnl is not None and not is_new:
+            pnl_color = '#245232' if pnl >= 0 else '#7A2430'
+            pnl_html = (f'<div style="font-family: \'Courier New\', monospace; font-size: 12px; '
+                        f'color: {pnl_color}; margin-top: 4px;">{"+" if pnl >= 0 else ""}{pnl:.1f}%</div>')
+        border = 'border-left: 3px solid #7A2430; padding-left: 14px;' if is_new else ''
+        return f"""
+        <a href="https://rigacap.com/app?chart={symbol}" style="display: block; color: inherit; text-decoration: none;">
+        <div style="padding: 14px 0; border-bottom: 1px solid #DDD5C7; {border}">
+            <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                <tr>
+                    <td style="vertical-align: top; padding-right: 12px;">
+                        <div style="font-family: Georgia, serif; font-size: 19px; font-weight: 500; color: #141210;">
+                            <span style="text-decoration: underline;">{symbol}</span>
+                            &nbsp;<span style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 1px; color: #7A2430;">BREAKOUT</span>
+                        </div>
+                        <div style="font-family: 'Courier New', monospace; font-size: 12px; color: #6B6356; letter-spacing: 0.3px; margin-top: 4px;">
+                            {age_label}
+                        </div>
+                    </td>
+                    <td style="text-align: right; vertical-align: top; white-space: nowrap;">
+                        <div style="font-family: 'Courier New', monospace; font-size: 15px; font-weight: bold; color: #141210;">${price:.2f}</div>
+                        <div style="font-family: 'Courier New', monospace; font-size: 12px; color: #7A2430; letter-spacing: 0.3px; text-transform: uppercase; margin-top: 4px;">{exit_note}</div>
+                        {pnl_html}
+                    </td>
+                </tr>
+            </table>
+        </div>
+        </a>
+        """
+
     def _signal_row(self, signal: Dict) -> str:
         """Generate HTML for a single signal row — mirrors the dashboard card:
         symbol, price, ensemble score + strength label, and the trend distance
         explicitly labeled ("+x.x% above trend" — never a bare percentage).
         The whole row is a block anchor to the dashboard (inline styles only,
         color inherit, no underline on the block; symbol carries the underline)."""
+        # Breakout (Maximizer) signals carry none of the t30v fields (score / % above trend) —
+        # render the breakout-specific row instead of showing 0 / 0% above trend.
+        if signal.get('source') == 'breakout' or signal.get('exit_rule') == 'hold':
+            return self._breakout_signal_row(signal)
         symbol = signal.get('symbol', 'N/A')
         price = signal.get('price', 0)
         pct_above = signal.get('pct_above_dwap') or 0
@@ -829,6 +882,16 @@ class EmailService:
         def _signal_line(s: Dict, fresh: bool) -> str:
             symbol = s.get('symbol', 'N/A')
             price = s.get('price', 0)
+            # Breakout (Maximizer): no score / "% above trend" — show the hold countdown.
+            if s.get('source') == 'breakout' or s.get('exit_rule') == 'hold':
+                hold = s.get('hold_days') or 29
+                if s.get('status') == 'new' or s.get('is_fresh'):
+                    return f"  {symbol}: ${price:.2f} - BREAKOUT, enter today, hold {hold} trading days [NEW]"
+                dh, dl = s.get('days_held'), s.get('days_left')
+                pnl = s.get('pnl_pct')
+                pnl_s = f", {'+' if (pnl or 0) >= 0 else ''}{pnl:.1f}%" if pnl is not None else ""
+                return (f"  {symbol}: ${price:.2f} - BREAKOUT, day {dh}/{hold}"
+                        f"{f', {dl}d to exit' if dl is not None else ''}{pnl_s} [holding]")
             pct = s.get('pct_above_dwap') or 0
             days_since = s.get('days_since_crossover')
             score, label = self._signal_strength(s)
