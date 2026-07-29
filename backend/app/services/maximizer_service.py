@@ -192,6 +192,59 @@ async def emit_tier_fills(db, tier: str, fill_date, regime: str, fills: List[dic
     return n
 
 
+def generate_maximizer_briefing(held: int, new_today: int, regime: str,
+                                recent: List[str] = None) -> str:
+    """AI daily briefing for the Maximizer book — book-posture voice (aggressive, breakout-
+    hunting), generated once/day in the worker and cached in the snapshot. Fed its last few
+    briefings so it doesn't read templated. Falls back to a deterministic line if AI is down."""
+    recent = recent or []
+    fallback = (
+        f"Rotating-bull momentum is broad — your Maximizer book is riding {held} breakout "
+        f"name{'s' if held != 1 else ''} into their hold windows"
+        f"{f' and added {new_today} today' if new_today else ''}. Aggressive by design; each "
+        f"name sells on time at day 29, no trailing stop. Expect chop."
+    ) if regime == "rotating_bull" else (
+        "Out of rotating-bull — the Maximizer book has paused breakout hunting and is in "
+        "Preserver mode. Held breakouts wind down on their exit dates; new buys follow the "
+        "Preserver book."
+    )
+    try:
+        import httpx
+        from app.core.config import settings
+        if not settings.ANTHROPIC_API_KEY:
+            return fallback
+        system_prompt = (
+            "You write the daily briefing for RigaCap's MAXIMIZER tier — an aggressive, "
+            "systematic breakout book (momentum names bought on a same-day breakout, held ~29 "
+            "trading days, sold on a hard time-stop, no trailing stop; a book-level vol-target "
+            "trims exposure when things get wild). Voice: a sharp, confident analyst friend who "
+            "runs an aggressive book and owns it — not hype, not a robot.\n"
+            "Rules: 1-2 sentences, max 280 chars. Plain text, no markdown/emoji. Never say "
+            "'buy'/'sell' as advice. Never say 'algorithm'/'model' — say 'the book' or 'the "
+            "ensemble'. Convey the aggressive, time-boxed nature honestly (it's high-variance; "
+            "don't oversell). Vary opening, structure, and rhythm every day — sound spontaneous."
+        )
+        avoid = ("\n\nYour last briefings (do NOT echo their opening, structure, or rhythm):\n"
+                 + "\n".join(f"- {m}" for m in recent)) if recent else ""
+        user_prompt = (
+            f"Regime: {regime}. The book holds {held} breakout name(s)"
+            f"{f' and entered {new_today} today' if new_today else ' (no new entries today)'}."
+            f"{avoid}"
+        )
+        headers = {"x-api-key": settings.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
+                   "content-type": "application/json"}
+        payload = {"model": "claude-sonnet-4-6", "max_tokens": 150,
+                   "system": system_prompt, "messages": [{"role": "user", "content": user_prompt}]}
+        resp = httpx.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=15)
+        if resp.status_code == 200:
+            content = resp.json().get("content", [])
+            if content and content[0].get("type") == "text":
+                return content[0]["text"].strip().strip('"')
+    except Exception as e:
+        print(f"⚠️ Maximizer briefing AI failed (fallback): {e}")
+    return fallback
+
+
 async def run_shadow_day(db, signal_date, regime, t30v_signals, data_cache, n_positions: int = 15):
     """MAXIMIZER SHADOW daily hook — records only, never served; ADDITIVE (new tables, t30v path
     untouched). Wired into _run_daily_scan AFTER compute_shared_dashboard_data, INSIDE try/except,
@@ -259,8 +312,25 @@ async def run_shadow_day(db, signal_date, regime, t30v_signals, data_cache, n_po
                   "hold_days": stmt.excluded.hold_days, "status": stmt.excluded.status})
         await db.execute(stmt)
 
+    # Daily AI briefing (book-posture voice), fed the last few briefings for anti-repetition.
+    # Generated here in the worker where the book state is fresh; cached in the snapshot JSON
+    # (no migration) and served by tier_serving. Never fatal.
+    briefing = None
+    try:
+        recent_briefs = (await db.execute(
+            select(MaximizerBookSnapshot.positions_json)
+            .where(MaximizerBookSnapshot.snapshot_date < sd)
+            .order_by(MaximizerBookSnapshot.snapshot_date.desc()).limit(5)
+        )).scalars().all()
+        recent = [pj.get("briefing") for pj in recent_briefs
+                  if isinstance(pj, dict) and pj.get("briefing")]
+        new_today = sum(1 for f in getattr(book, "day_fills", []) if f.get("side") == "buy")
+        briefing = generate_maximizer_briefing(len(book.pos), new_today, regime, recent)
+    except Exception as _be:
+        print(f"⚠️ Maximizer briefing generate failed (non-fatal): {_be}")
+
     snap = {"bk_cash": book.bk_cash, "positions": book.to_positions(),
-            "bk_eq_hist": book.bk_eq_hist, "max_value": book.max_value}
+            "bk_eq_hist": book.bk_eq_hist, "max_value": book.max_value, "briefing": briefing}
     snap_stmt = pg_insert(MaximizerBookSnapshot).values(
         snapshot_date=sd, regime=regime, active_source=src, equity=equity, positions_json=snap)
     snap_stmt = snap_stmt.on_conflict_do_update(

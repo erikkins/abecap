@@ -1679,10 +1679,37 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
             }
 
             headlines_section = f"\n\n{headlines_block}" if headlines_block else ""
+
+            # Anti-templating: feed Claude its OWN last 5 briefings and tell it to sound
+            # deliberately different — different opening, structure, rhythm. Without this it
+            # has no memory and drifts into a house style that reads canned day after day.
+            avoid_block = ""
+            try:
+                recent = []
+                for _db in range(1, 12):
+                    if len(recent) >= 5:
+                        break
+                    _snap = data_export_service.read_snapshot(
+                        (date.today() - timedelta(days=_db)).strftime("%Y-%m-%d"))
+                    _mc = (_snap or {}).get("market_context")
+                    if _mc:
+                        recent.append(_mc.strip())
+                if recent:
+                    _lines = "\n".join(f"- {m}" for m in recent)
+                    avoid_block = (
+                        "\n\nYour last few briefings (DO NOT echo their opening words, sentence "
+                        "structure, or rhythm — a reader seeing these in sequence should feel a "
+                        "distinct, spontaneous voice each day, not a fill-in-the-blank template):\n"
+                        f"{_lines}"
+                    )
+            except Exception as _av_err:
+                print(f"⚠️ recent-briefing anti-repeat load failed (non-fatal): {_av_err}")
+
             user_prompt = (
                 f"{tone_hints[day_type]}\n\n"
                 f"Today's data:\n{context_block}"
                 f"{headlines_section}"
+                f"{avoid_block}"
             )
 
             # Try Claude API (raw HTTP — anthropic SDK not in Lambda)

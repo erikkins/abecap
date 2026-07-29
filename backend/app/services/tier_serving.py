@@ -314,6 +314,18 @@ async def apply_tier_serving(
 
     if tier == "maximizer":
         missed = await build_maximizer_missed(db)
+        # Prefer the AI-generated daily briefing cached in the latest book snapshot (worker
+        # writes it, anti-repetition); fall back to the templated strings below if absent.
+        ai_brief = None
+        try:
+            from app.core.database import MaximizerBookSnapshot
+            _bsnap = (await db.execute(
+                select(MaximizerBookSnapshot).order_by(MaximizerBookSnapshot.snapshot_date.desc()).limit(1)
+            )).scalars().first()
+            if _bsnap and isinstance(_bsnap.positions_json, dict):
+                ai_brief = _bsnap.positions_json.get("briefing")
+        except Exception:
+            ai_brief = None
         if regime == ROTATING:
             breakout = await build_maximizer_breakout_view(db, data_cache)
             # Faithful only if the shadow book has data; otherwise fall back to the Preserver
@@ -327,7 +339,7 @@ async def apply_tier_serving(
                     "signal_source": "breakout",
                     "exit_rule": "hold",
                     "missed_opportunities": missed,
-                    "market_context": (
+                    "market_context": ai_brief or (
                         f"Rotating-bull momentum is broad — your Maximizer book is riding "
                         f"{held} breakout name{'s' if held != 1 else ''} into their hold windows"
                         f"{f' and added {fresh} today' if fresh else ''}. Aggressive by design; "
@@ -348,7 +360,7 @@ async def apply_tier_serving(
             "signal_source": "preserver",
             "exit_rule": "trailing",
             "missed_opportunities": missed,
-            "market_context": (
+            "market_context": ai_brief or (
                 "Out of rotating-bull — the Maximizer book has paused breakout hunting and is "
                 "in Preserver mode. Any breakout names you hold wind down on their exit dates; "
                 "new buys follow the Preserver book (30% trailing)."
