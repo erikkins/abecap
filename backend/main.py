@@ -8838,6 +8838,43 @@ RigaCap Admin
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
+    # Tier announcement campaign (beta testers pick a tier). Test:
+    # {"tier_announcement": {"target_emails": ["erik@rigacap.com"]}}
+    if event.get("tier_announcement"):
+        cfg = event.get("tier_announcement") if isinstance(event.get("tier_announcement"), dict) else {}
+        target_emails = cfg.get("target_emails") or []
+        print(f"📢 Tier announcement campaign -> {target_emails}")
+        async def _send_tier_ann():
+            from app.core.database import User as _U
+            from sqlalchemy import select as _sel, func as _func
+            sent, failed = 0, []
+            async with async_session() as db:
+                for em in target_emails:
+                    e = (em or "").strip()
+                    if not e:
+                        continue
+                    try:
+                        u = (await db.execute(
+                            _sel(_U).where(_func.lower(_U.email) == e.lower()))).scalars().first()
+                        ok = await email_service.send_tier_announcement(
+                            to_email=e,
+                            first_name=(u.name if u and u.name else "there"),
+                            user_id=str(u.id) if u else None)
+                        sent += 1 if ok else 0
+                        if not ok:
+                            failed.append(e)
+                    except Exception as _e:
+                        failed.append(f"{e}: {_e}")
+            return {"sent": sent, "failed": failed}
+        try:
+            res = _run_async(_send_tier_ann())
+            print(f"📢 Tier announcement result: {res}")
+            return {"status": "success", **res}
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
     # Handle double signal alerts (EventBridge: 5 PM ET Mon-Fri)
     if event.get("double_signal_alerts"):
         print("🔔 Double signal alerts triggered")

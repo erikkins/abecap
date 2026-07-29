@@ -143,6 +143,96 @@ class EmailService:
             </td>
         </tr>'''
 
+    async def send_tier_announcement(self, to_email: str, first_name: str = "there",
+                                     user_id: str = None) -> bool:
+        """Beta-tester announcement of the two product tiers (Preserver / Maximizer) so they can
+        self-select. Brand-styled (paper/claret), thesis-led (no hard return numbers — the app's
+        Simulated Portfolio carries the live walk-forward)."""
+        first_name = (first_name or "there").split()[0]
+        subject = "RigaCap now comes in two settings — pick the one that fits you"
+        footer = self._email_footer_html(user_id)
+        card = ("border-left: 3px solid #7A2430; background: #FAF7F0; padding: 18px 20px; "
+                "margin: 0 0 20px;")
+        html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background-color:#F5F1E8;-webkit-font-smoothing:antialiased;">
+<span style="display:none;max-height:0;overflow:hidden;opacity:0;">Same engine, two temperaments. Here's how to choose.</span>
+<table cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;margin:0 auto;">
+  <tr><td style="padding:32px 32px 0;">
+    <table cellpadding="0" cellspacing="0" style="width:100%;border-bottom:2px solid #141210;padding-bottom:20px;">
+      <tr>
+        <td><img src="https://rigacap.com/email-header.png" alt="RigaCap." width="150" height="36" style="display:block;" /></td>
+        <td align="right" style="font-family:'Courier New',monospace;font-size:11px;color:#8A8279;letter-spacing:1px;text-transform:uppercase;">Two Tiers</td>
+      </tr>
+    </table>
+  </td></tr>
+  <tr><td style="padding:32px;">
+    <p style="font-size:17px;color:#141210;margin:0 0 24px;line-height:1.65;">Hi {first_name},</p>
+    <p style="font-size:17px;color:#141210;margin:0 0 24px;line-height:1.65;">
+      When you joined the beta, RigaCap was one strategy. Your feedback pushed us somewhere better:
+      <strong>one engine, two settings</strong> &mdash; so the signals match <em>your</em> temperament, not the other way around.
+    </p>
+    <p style="font-size:17px;color:#141210;margin:0 0 24px;line-height:1.65;">
+      Both tiers run the same underlying ensemble &mdash; the momentum, regime-detection, and risk discipline
+      you've been watching. The difference is how aggressively they lean in, and what they optimize for.
+    </p>
+    <div style="{card}">
+      <p style="margin:0 0 6px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#7A2430;">&#9670; Preserver</p>
+      <p style="margin:0 0 10px;font-size:15px;font-style:italic;color:#5A544E;">for the investor who never wants a reason to panic-sell.</p>
+      <p style="margin:0;font-size:16px;color:#141210;line-height:1.6;">
+        Participate in the upside, but cut the gut-punch drawdowns that make people bail at the worst
+        possible moment. In a genuine capitulation, Preserver raises cash and gets defensive automatically.
+        You won't beat a raging bull every quarter &mdash; that's the premium you pay &mdash; but you'll stay in
+        the seat through the parts that shake other people out. <strong>Choose this if your bigger fear is
+        losing your nerve, not missing a rally.</strong>
+      </p>
+    </div>
+    <div style="{card}">
+      <p style="margin:0 0 6px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#7A2430;">&#9670; Maximizer</p>
+      <p style="margin:0 0 10px;font-size:15px;font-style:italic;color:#5A544E;">for the investor with a long horizon and the stomach for it.</p>
+      <p style="margin:0;font-size:16px;color:#141210;line-height:1.6;">
+        Chases momentum breakouts hard when the regime rewards it, then throttles its own exposure with a
+        volatility brake when things get choppy &mdash; aggressive, but not reckless. Higher-variance by design:
+        some stretches it flies, some its risk-management deliberately leaves upside on the table to protect
+        you from a momentum crash. Over full cycles that trade has paid off handsomely. <strong>Choose this if
+        your bigger fear is missing the big move &mdash; and you won't bail during the quiet stretches.</strong>
+      </p>
+    </div>
+    <p style="font-size:17px;color:#141210;margin:24px 0;line-height:1.65;">
+      <strong>How to choose, honestly:</strong> what keeps you up at night &mdash; drawdowns, or missing out?
+      If it's drawdowns, Preserver. If it's missing the run and you can ride out the flat patches, Maximizer.
+      There's no wrong answer &mdash; only the one that fits how you actually behave when the market gets loud.
+      You can see each tier's live book and walk-forward track record in the app before you decide.
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      <p style="font-size:16px;color:#141210;margin:0 0 4px;">Just reply <strong>"Preserver"</strong> or <strong>"Maximizer"</strong> and I'll get you set up.</p>
+      <p style="font-size:14px;color:#5A544E;margin:0;">You're a beta member &mdash; first in line, and you keep your beta standing either way.</p>
+    </div>
+    <p style="font-size:17px;color:#141210;margin:24px 0 0;line-height:1.65;">Thanks for being here from the start,<br>Erik<br><span style="color:#5A544E;font-size:14px;">Founder, RigaCap</span></p>
+  </td></tr>
+  {footer}
+</table>
+</body></html>"""
+        text = (
+            f"Hi {first_name},\n\n"
+            "When you joined the beta, RigaCap was one strategy. Your feedback pushed us somewhere better: "
+            "one engine, two settings — so the signals match your temperament.\n\n"
+            "PRESERVER — for the investor who never wants a reason to panic-sell. Participate in the upside, "
+            "but cut the gut-punch drawdowns; in a real capitulation it raises cash automatically. Choose this "
+            "if your bigger fear is losing your nerve, not missing a rally.\n\n"
+            "MAXIMIZER — for the long-horizon investor with the stomach for it. Chases momentum breakouts, then "
+            "throttles exposure with a volatility brake when things get choppy. Higher-variance; over full cycles "
+            "it's paid off handsomely. Choose this if your bigger fear is missing the big move and you won't bail "
+            "during the quiet stretches.\n\n"
+            "How to choose: drawdowns or missing out? Drawdowns -> Preserver. Missing out (and you can ride the "
+            "flat patches) -> Maximizer. See each tier's live book + track record in the app.\n\n"
+            "Just reply \"Preserver\" or \"Maximizer\" and I'll set you up. You keep your beta standing either way.\n\n"
+            "Thanks for being here from the start,\nErik\nFounder, RigaCap\n\n"
+            "Signals only — you execute through your own broker. Past performance is not a guarantee of future returns."
+        )
+        return await self.send_email(to_email, subject, html, text, user_id=user_id,
+                                     email_type="tier_announcement")
+
     async def send_email(
         self,
         to_email: str,
