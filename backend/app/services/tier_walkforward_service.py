@@ -135,8 +135,21 @@ def compute_tier_walkforward(data_cache: Dict[str, pd.DataFrame], days: int = 36
 
     base = {"benchmark_return_pct": bench, "start_date": start.strftime("%Y-%m-%d"),
             "end_date": end.strftime("%Y-%m-%d"), "window": "trailing 365 days", "rolling": True}
+    # Diagnostics — surfaced in the dry-run so we can SEE why tiers do/don't diverge (regime
+    # composition, breakout activity) before trusting/serving. Not shown to subscribers.
+    diag = {
+        "n_regime_points": len(hist),
+        "n_breadth_universe": len(breadth),
+        "grid_days": len(grid),
+        "regime_composition": {k: int(v) for k, v in reg.value_counts().items()},
+        "rotating_days": int(rot.sum()),
+        "capitulation_days": int(cap.sum()),
+        "breakout_active_days": int((r_bk != 0).sum()),
+        "core_total_return_pct": round((core_eq.iloc[-1] / core_eq.iloc[0] - 1) * 100, 1),
+    }
     return {
         "preserver": {**_stats(pres_eq), **base, "label": "t30v + capitulation overlay"},
         "maximizer": {**_stats(max_eq), **base, "label": "Option-B breakout blend (N=15)"},
+        "diag": diag,
         "computed_at": None,  # stamped by the caller (worker) — Date.now() unavailable here is fine
     }

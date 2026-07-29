@@ -3716,7 +3716,8 @@ def handler(event, context):
             result["computed_at"] = datetime.now().isoformat()
             w = _dex.write_json("tier_walkforward.json", result) if event.get("write", True) else {"skipped": True}
             return {"status": "success", "write": w,
-                    "preserver": result.get("preserver"), "maximizer": result.get("maximizer")}
+                    "preserver": result.get("preserver"), "maximizer": result.get("maximizer"),
+                    "diag": result.get("diag")}
         except Exception as e:
             import traceback
             tb = traceback.format_exc()
