@@ -31,6 +31,28 @@ ROTATING = "rotating_bull"
 BREAKOUT_HOLD = 29  # trading days (maximizer_sleeves.BREAKOUT["hold"])
 CAP0 = 100_000.0    # book inception capital (matches maximizer/preserver book CAP0)
 
+# Certified walk-forward numbers per tier (2021-2026, survivorship-free PITFWU). Maximizer =
+# Option-B blend at the LOCKED N=15; Preserver = t30v + capitulation overlay. These are the
+# canonical/marketed figures — served for the "Simulated Portfolio (Walk-Forward)" card so a
+# tier subscriber sees their tier's real edge, not the ensemble/0%. SPY same period +105%.
+CERTIFIED_WF = {
+    "maximizer": {
+        "total_return_pct": 301.4, "sharpe_ratio": 1.47, "max_drawdown_pct": -15.5,
+        "benchmark_return_pct": 105.0, "start_date": "2021-01-01", "end_date": "2026-05-29",
+        "label": "Option-B breakout blend (N=15)",
+    },
+    "preserver": {
+        "total_return_pct": 89.2, "sharpe_ratio": 0.97, "max_drawdown_pct": -20.2,
+        "benchmark_return_pct": 105.0, "start_date": "2021-01-01", "end_date": "2026-05-29",
+        "label": "t30v + capitulation overlay",
+    },
+}
+
+
+def tier_backtest(tier: str):
+    """Certified walk-forward summary for the served tier's Simulated Portfolio card."""
+    return CERTIFIED_WF.get(tier)
+
 
 def tier_serving_enabled() -> bool:
     """Global kill-switch. Off => callers serve the legacy Core payload unchanged."""
@@ -238,6 +260,7 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
                 "exit_rule": "hold", "days_held": days_held, "hold_days": hold,
                 "days_left": days_left, "exit_date_approx": _approx_exit_date(days_left),
                 "pnl_pct": round((cur / entry - 1) * 100, 1) if entry else 0.0,
+                "is_new": days_held == 0,   # entered today
             })
     else:  # preserver (and any non-maximizer) = live t30v model book
         rows = (await db.execute(
@@ -270,6 +293,7 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
             if _psnap.snapshot_date:
                 as_of = _psnap.snapshot_date
         await _load_prices([r.symbol for r in rows], data_cache)
+        _today = _date.today()
         for r in rows:
             entry = float(r.entry_price or 0) or 0.0
             cur = _current_price(r.symbol, data_cache, entry)
@@ -277,12 +301,15 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
             invested += val
             hwm = max(entry, float(r.highest_price or 0) or entry, cur)
             stop = hwm * (1 - trailing_stop_pct / 100.0)
+            _edate = r.entry_date.date() if getattr(r, "entry_date", None) else None
             holdings.append({
                 "symbol": r.symbol, "shares": float(r.shares or 0), "price": round(cur, 2),
                 "entry_price": round(entry, 2), "value": val, "source": "preserver",
+                "entry_date": _edate.isoformat() if _edate else None,
                 "exit_rule": "trailing", "trailing_stop_pct": trailing_stop_pct,
                 "trailing_stop_level": round(stop, 2),
                 "pnl_pct": round((cur / entry - 1) * 100, 1) if entry else 0.0,
+                "is_new": _edate == _today,   # entered today
             })
 
     book_value = invested + book_cash
@@ -307,6 +334,7 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
             "tier": tier,
             "capital": round(capital, 2),
             "holdings": holdings,
+            "new_today": sum(1 for h in holdings if h.get("is_new")),
             "invested_value": round(invested_cap, 2),
             "cash_value": round(cash_cap, 2),
             "cash_pct": round((1 - exp) * 100, 1),
@@ -327,6 +355,7 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
         "tier": tier,
         "capital": round(capital, 2),
         "holdings": holdings,
+        "new_today": sum(1 for h in holdings if h.get("is_new")),
         "invested_value": round(invested * scale, 2),
         "cash_value": round(book_cash * scale, 2),
         "cash_pct": round(book_cash / book_value * 100, 1),

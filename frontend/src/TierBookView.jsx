@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 // the book's positions to it (implied_shares = book_shares x capital/book_value) so their
 // portfolio auto-mirrors the book with zero per-trade entry. Maximizer = breakout book
 // (day-X/29 exits); Preserver = t30v book (30% trailing). (Jul 24 2026)
-export default function TierBookView({ book, onSetCapital }) {
+export default function TierBookView({ book, onSetCapital, onRowClick }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(book?.capital ?? 100000));
   const [saving, setSaving] = useState(false);
@@ -34,7 +34,14 @@ export default function TierBookView({ book, onSetCapital }) {
             Auto-mirrored to the model book — no manual entry. {isMax ? 'Breakouts, held ~29 trading days.' : '30% trailing stop, let winners run.'}
           </p>
         </div>
-        {book.regime && <span className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-ink-mute">{book.regime}</span>}
+        <div className="flex items-center gap-2">
+          {book.new_today > 0 && (
+            <span className="font-mono text-[0.62rem] uppercase tracking-[0.14em] bg-claret text-paper px-2 py-0.5 rounded">
+              {book.new_today} new today
+            </span>
+          )}
+          {book.regime && <span className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-ink-mute">{book.regime}</span>}
+        </div>
       </div>
 
       {/* Capital + summary */}
@@ -89,9 +96,16 @@ export default function TierBookView({ book, onSetCapital }) {
           </thead>
           <tbody>
             {(book.holdings || []).map((h) => (
-              <tr key={h.symbol} className="border-b border-rule/50">
+              <tr
+                key={h.symbol}
+                onClick={() => onRowClick && onRowClick(h)}
+                className={`border-b border-rule/50 ${onRowClick ? 'cursor-pointer hover:bg-paper-deep transition-colors' : ''}`}
+              >
                 <td className="py-2.5 px-3 sm:px-5">
                   <span className="font-display text-[1rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{h.symbol}</span>
+                  {h.is_new && (
+                    <span className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-claret border border-claret/40 px-1 py-0.5 ml-2 align-middle">New</span>
+                  )}
                 </td>
                 <td className="py-2.5 px-3 text-right font-mono text-[0.82rem] text-ink-mute hidden sm:table-cell">{h.weight_pct}%</td>
                 <td className="py-2.5 px-3 text-right font-mono text-[0.82rem]">${h.price?.toFixed(2)}</td>

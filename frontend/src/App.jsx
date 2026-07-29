@@ -3991,6 +3991,7 @@ function Dashboard() {
                             <div className="px-4 pt-4">
                               <TierBookView
                                 book={dashboardData.tier_book}
+                                onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
                                 onSetCapital={async (val) => {
                                   try {
                                     await api.patch('/api/auth/me/portfolio-size', { portfolio_size: val });
@@ -4406,8 +4407,9 @@ function Dashboard() {
               })()}
             </div>
 
-            {/* Watchlist — Approaching Trigger (hidden when promoted into empty buy signals) */}
-            {(dashboardData?.watchlist || []).length > 0 && (dashboardData?.buy_signals || []).length > 0 && (
+            {/* Watchlist — Approaching Trigger. Hidden for Maximizer: the mirror book auto-enters
+                breakouts, so a manual t30v "approaching" list doesn't apply. Preserver keeps it. */}
+            {dashboardData?.tier !== 'maximizer' && (dashboardData?.watchlist || []).length > 0 && (dashboardData?.buy_signals || []).length > 0 && (
               viewMode === 'simple' ? (
                 <div className="mt-6 p-3 bg-paper-deep border border-amber-200 rounded text-sm text-ink">
                   <Eye className="w-4 h-4 text-claret inline mr-1.5" />
@@ -4548,41 +4550,52 @@ function Dashboard() {
               </div>
             )}
 
-            {/* Backtest/Walk-Forward summary */}
-            {backtest && (
-              <div className={`mt-6 bg-gradient-to-r ${backtest.is_walk_forward ? 'from-paper-deep to-paper-card border-rule-dark' : 'from-paper-deep to-paper-card border-rule'} border rounded p-4`}>
+            {/* Backtest/Walk-Forward summary. For a served tier, source the CERTIFIED tier
+                walk-forward numbers (tier_backtest) instead of the ensemble/0% cache. */}
+            {(() => {
+              const tb = dashboardData?.tier_backtest;
+              const bt = tb ? {
+                total_return_pct: tb.total_return_pct?.toFixed ? tb.total_return_pct.toFixed(1) : tb.total_return_pct,
+                sharpe_ratio: tb.sharpe_ratio, max_drawdown_pct: tb.max_drawdown_pct,
+                start_date: tb.start_date, end_date: tb.end_date, is_walk_forward: true,
+                subtitle: `${tb.label} · walk-forward`,
+              } : backtest;
+              if (!bt) return null;
+              const subtitle = bt.subtitle || (bt.is_walk_forward
+                ? `Ensemble strategy${bt.num_strategy_switches > 0 ? ` · ${bt.num_strategy_switches} switches` : ''}`
+                : `${bt.strategy === 'momentum' ? 'Momentum' : 'Breakout'} strategy`);
+              return (
+              <div className="mt-6 bg-gradient-to-r from-paper-deep to-paper-card border-rule-dark border rounded p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-display text-[1.1rem] font-medium text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>
-                      Simulated Portfolio {backtest.is_walk_forward ? '(Walk-Forward)' : '(Backtest)'}
+                      Simulated Portfolio (Walk-Forward)
                     </h3>
                     <p className="font-mono text-[0.78rem] text-ink-mute tracking-wide mt-1">
-                      {backtest.is_walk_forward
-                        ? `Ensemble strategy${backtest.num_strategy_switches > 0 ? ` · ${backtest.num_strategy_switches} switches` : ''}`
-                        : `${backtest.strategy === 'momentum' ? 'Momentum' : 'Breakout'} strategy`
-                      }
-                      {' · '}{formatDate(backtest.start_date, { includeYear: true })} to {formatDate(backtest.end_date, { includeYear: true })}
+                      {subtitle}
+                      {' · '}{formatDate(bt.start_date, { includeYear: true })} to {formatDate(bt.end_date, { includeYear: true })}
                     </p>
                   </div>
                   <div className="flex gap-8">
                     <div>
                       <div className="font-body text-[0.64rem] font-medium tracking-[0.22em] uppercase text-ink-mute mb-1">Return</div>
-                      <div className={`font-display text-[1.5rem] font-normal leading-none tracking-tight ${parseFloat(backtest.total_return_pct) >= 0 ? 'text-positive' : 'text-negative'}`} style={{ fontVariationSettings: '"opsz" 72' }}>
-                        {parseFloat(backtest.total_return_pct) >= 0 ? '+' : ''}{backtest.total_return_pct}%
+                      <div className={`font-display text-[1.5rem] font-normal leading-none tracking-tight ${parseFloat(bt.total_return_pct) >= 0 ? 'text-positive' : 'text-negative'}`} style={{ fontVariationSettings: '"opsz" 72' }}>
+                        {parseFloat(bt.total_return_pct) >= 0 ? '+' : ''}{bt.total_return_pct}%
                       </div>
                     </div>
                     <div>
                       <div className="font-body text-[0.64rem] font-medium tracking-[0.22em] uppercase text-ink-mute mb-1">Sharpe</div>
-                      <div className="font-display text-[1.5rem] font-normal leading-none tracking-tight text-ink" style={{ fontVariationSettings: '"opsz" 72' }}>{backtest.sharpe_ratio}</div>
+                      <div className="font-display text-[1.5rem] font-normal leading-none tracking-tight text-ink" style={{ fontVariationSettings: '"opsz" 72' }}>{bt.sharpe_ratio}</div>
                     </div>
                     <div>
                       <div className="font-body text-[0.64rem] font-medium tracking-[0.22em] uppercase text-ink-mute mb-1">Max DD</div>
-                      <div className="font-display text-[1.5rem] font-normal leading-none tracking-tight text-ink" style={{ fontVariationSettings: '"opsz" 72' }}>{backtest.max_drawdown_pct}%</div>
+                      <div className="font-display text-[1.5rem] font-normal leading-none tracking-tight text-ink" style={{ fontVariationSettings: '"opsz" 72' }}>{bt.max_drawdown_pct}%</div>
                     </div>
                   </div>
                 </div>
               </div>
-            )}
+              );
+            })()}
           </>
         ) : activeTab === 'history' ? (
           <div className="space-y-6">

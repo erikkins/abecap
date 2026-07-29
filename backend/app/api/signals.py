@@ -2073,6 +2073,7 @@ async def get_dashboard_data(
         'tier_note': tier_meta['tier_note'],
         'upsell_missed': upsell_missed,
         'tier_book': tier_book,
+        'tier_backtest': (tier_serving.tier_backtest(tier_meta['tier']) if tier_meta['tier'] else None),
         'positions_with_guidance': positions_with_guidance,
         'watchlist': cached.get('watchlist', []),
         'market_stats': cached.get('market_stats', {}),
