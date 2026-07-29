@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 // the book's positions to it (implied_shares = book_shares x capital/book_value) so their
 // portfolio auto-mirrors the book with zero per-trade entry. Maximizer = breakout book
 // (day-X/29 exits); Preserver = t30v book (30% trailing). (Jul 24 2026)
-export default function TierBookView({ book, onSetCapital, onRowClick }) {
+export default function TierBookView({ book, onSetCapital, onRowClick, radar, actions }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(book?.capital ?? 100000));
   const [saving, setSaving] = useState(false);
@@ -43,6 +43,35 @@ export default function TierBookView({ book, onSetCapital, onRowClick }) {
           {book.regime && <span className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-ink-mute">{book.regime}</span>}
         </div>
       </div>
+
+      {/* Today's Actions — the "sync your broker" ribbon (Maximizer). */}
+      {actions && ((actions.buys || []).length > 0 || (actions.sells || []).length > 0) && (
+        <div className="px-4 sm:px-5 py-2.5 border-b border-rule bg-paper-deep flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.82rem]">
+          <span className="font-body text-[0.6rem] font-medium tracking-[0.18em] uppercase text-ink-mute">Today's actions</span>
+          {(actions.buys || []).length > 0 && (
+            <span className="text-positive font-mono">+ Enter {actions.buys.map(b => b.symbol).join(', ')}</span>
+          )}
+          {(actions.sells || []).length > 0 && (
+            <span className="text-claret font-mono">Sell {actions.sells.map(s => `${s.symbol} (day 29)`).join(', ')}</span>
+          )}
+          {(actions.buys || []).length === 0 && (actions.sells || []).length === 0 && (
+            <span className="text-ink-mute italic">No entries or exits today.</span>
+          )}
+        </div>
+      )}
+
+      {/* Vol-Target exposure gauge (Maximizer only) — the Barroso vol-brake. */}
+      {book.vol_scale != null && (
+        <div className="px-4 sm:px-5 py-3 border-b border-rule">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-body text-[0.6rem] font-medium tracking-[0.18em] uppercase text-ink-mute">Vol-target exposure</span>
+            <span className="font-mono text-[0.82rem] text-ink">{Math.round(book.vol_scale * 100)}%{book.vol_scale >= 0.999 ? ' · full' : ' · trimming risk'}</span>
+          </div>
+          <div className="h-2 bg-paper-deep rounded overflow-hidden">
+            <div className="h-full bg-claret" style={{ width: `${Math.min(100, Math.round(book.vol_scale * 100))}%` }} />
+          </div>
+        </div>
+      )}
 
       {/* Capital + summary */}
       <div className="px-4 sm:px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 border-b border-rule">
@@ -112,9 +141,18 @@ export default function TierBookView({ book, onSetCapital, onRowClick }) {
                 <td className="py-2.5 px-3 text-right font-mono text-[0.9rem] text-ink">{sh(h.implied_shares)}</td>
                 <td className="py-2.5 px-3 text-right font-mono text-[0.9rem] text-ink">{usd0(h.implied_value)}</td>
                 <td className="py-2.5 px-3 font-mono text-[0.72rem] text-claret whitespace-nowrap">
-                  {h.exit_rule === 'hold'
-                    ? `day ${h.days_held}/${h.hold_days} · ~${h.days_left}d`
-                    : `30% trail · $${h.trailing_stop_level?.toFixed(2)}`}
+                  {h.exit_rule === 'hold' ? (
+                    <div className="min-w-[92px]">
+                      <div className="mb-0.5">day {h.days_held}/{h.hold_days} · ~{h.days_left}d</div>
+                      {/* Hold-clock: progress through the 29-day time-stop; near-exit turns solid claret */}
+                      <div className="h-1 bg-paper-deep rounded overflow-hidden">
+                        <div className={`h-full ${h.days_left <= 5 ? 'bg-claret' : 'bg-claret/50'}`}
+                             style={{ width: `${Math.min(100, Math.round((h.days_held / (h.hold_days || 29)) * 100))}%` }} />
+                      </div>
+                    </div>
+                  ) : (
+                    `30% trail · $${h.trailing_stop_level?.toFixed(2)}`
+                  )}
                 </td>
                 <td className={`py-2.5 px-3 text-right font-mono text-[0.82rem] hidden sm:table-cell ${h.pnl_pct >= 0 ? 'text-positive' : 'text-negative'}`}>
                   {h.pnl_pct >= 0 ? '+' : ''}{h.pnl_pct}%
@@ -124,6 +162,29 @@ export default function TierBookView({ book, onSetCapital, onRowClick }) {
           </tbody>
         </table>
       </div>
+
+      {/* Breakout Radar — names approaching a 50-day-high breakout (what the book is about to
+          enter). Replaces the watchlist for Maximizer. */}
+      {(radar || []).length > 0 && (
+        <div className="border-t border-rule">
+          <div className="px-4 sm:px-5 py-2.5 flex items-baseline justify-between">
+            <span className="font-display text-[0.95rem] font-medium tracking-tight text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>Breakout Radar</span>
+            <span className="font-display italic text-[0.8rem] text-claret" style={{ fontVariationSettings: '"opsz" 24' }}>approaching trigger</span>
+          </div>
+          <div className="flex flex-wrap gap-2 px-4 sm:px-5 pb-3">
+            {radar.map((r) => (
+              <div
+                key={r.symbol}
+                onClick={() => onRowClick && onRowClick({ symbol: r.symbol, price: r.price, source: 'breakout' })}
+                className="border border-rule rounded px-3 py-2 bg-white cursor-pointer hover:bg-paper-deep transition-colors"
+              >
+                <div className="font-display text-[0.92rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{r.symbol}</div>
+                <div className="font-mono text-[0.62rem] text-ink-mute">{r.pct_below_50d_high}% below high · vol {r.vol_ratio}x</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="px-4 sm:px-5 py-3 border-t border-rule flex flex-wrap items-center justify-between gap-2 text-[0.7rem] text-ink-mute">

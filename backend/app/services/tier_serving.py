@@ -39,19 +39,39 @@ CERTIFIED_WF = {
     "maximizer": {
         "total_return_pct": 301.4, "sharpe_ratio": 1.47, "max_drawdown_pct": -15.5,
         "benchmark_return_pct": 105.0, "start_date": "2021-01-01", "end_date": "2026-05-29",
-        "label": "Option-B breakout blend (N=15)",
+        "label": "Option-B breakout blend (N=15)", "window": "2021–2026 full cycle", "rolling": False,
     },
     "preserver": {
         "total_return_pct": 89.2, "sharpe_ratio": 0.97, "max_drawdown_pct": -20.2,
         "benchmark_return_pct": 105.0, "start_date": "2021-01-01", "end_date": "2026-05-29",
-        "label": "t30v + capitulation overlay",
+        "label": "t30v + capitulation overlay", "window": "2021–2026 full cycle", "rolling": False,
     },
 }
 
 
 def tier_backtest(tier: str):
-    """Certified walk-forward summary for the served tier's Simulated Portfolio card."""
+    """Walk-forward summary for the served tier's Simulated Portfolio card. Prefers the daily
+    ROLLING trailing-365 cache (tier_wf_store); falls back to the certified full-cycle window
+    (honestly labeled) until the nightly job lands its first result."""
+    rolling = _read_rolling_wf(tier)
+    if rolling:
+        return rolling
     return CERTIFIED_WF.get(tier)
+
+
+def _read_rolling_wf(tier: str):
+    """Read the nightly trailing-365 tier walk-forward from S3 cache (written by the worker
+    tier_walkforward job). Returns None if absent — caller falls back to the full-cycle numbers."""
+    try:
+        from app.services.data_export import data_export_service
+        cache = data_export_service.read_json("tier_walkforward.json") if hasattr(
+            data_export_service, "read_json") else None
+        row = (cache or {}).get(tier)
+        if row and row.get("total_return_pct") is not None:
+            return {**row, "rolling": True}
+    except Exception:
+        pass
+    return None
 
 
 def tier_serving_enabled() -> bool:
@@ -213,6 +233,93 @@ async def build_maximizer_missed(db, limit: int = 5) -> List[dict]:
     return out
 
 
+def build_breakout_radar(data_cache: dict, held_syms=None, limit: int = 8) -> List[dict]:
+    """Breakout Radar — names APPROACHING a 50-day-high breakout (the premium 'what's next'
+    for Maximizer, replacing the watchlist). Same trend/leadership filters as
+    maximizer_sleeves.breakout_signal, but the price is in the band just UNDER the trigger and
+    hasn't broken out yet. Returns [{symbol, price, pct_below_50d_high, vol_ratio}] nearest first."""
+    import numpy as np  # noqa: F401
+    import pandas as pd
+    from app.services.maximizer_sleeves import BREAKOUT
+    held_syms = held_syms or set()
+    try:
+        from app.services.scanner import _EXCLUDED_SET
+        excluded = set(_EXCLUDED_SET)
+    except Exception:
+        excluded = set()
+    buffer = BREAKOUT["buffer"]
+    mom_min = BREAKOUT["mom_min"]
+    NEAR_BAND = 0.03  # within 3% below the prior 50d high
+    out: List[dict] = []
+    for sym, df in data_cache.items():
+        if sym in excluded or sym.startswith("^") or sym in held_syms:
+            continue
+        if df is None or len(df) < 200 or not {"close", "volume"}.issubset(df.columns):
+            continue
+        try:
+            c = df["close"]; v = df["volume"]
+            price = float(c.iloc[-1]); vol = float(v.iloc[-1])
+            if price < 15 or vol < 500_000:
+                continue
+            ma50 = c.rolling(50, min_periods=10).mean().iloc[-1]
+            ma200 = c.rolling(200, min_periods=50).mean().iloc[-1]
+            hi50_1 = c.rolling(50, min_periods=15).max().shift(1).iloc[-1]  # prior 50d high, excl today
+            vol50 = v.rolling(50, min_periods=10).mean().iloc[-1]
+            mom126 = (c.iloc[-1] / c.iloc[-127] - 1.0) if len(c) > 127 else float("nan")
+        except Exception:
+            continue
+        if any(pd.isna(x) for x in (ma50, ma200, hi50_1, vol50, mom126)) or hi50_1 <= 0 or vol50 <= 0:
+            continue
+        trigger = hi50_1 * (1 + buffer)
+        # Approaching: uptrend + leadership + volume building + price in the band just under the
+        # trigger and not yet broken through.
+        if (ma50 > ma200 and price > ma50 and mom126 > mom_min
+                and hi50_1 * (1 - NEAR_BAND) < price <= trigger and vol > vol50):
+            out.append({
+                "symbol": sym, "price": round(price, 2),
+                "pct_below_50d_high": round((hi50_1 - price) / hi50_1 * 100, 1),
+                "vol_ratio": round(vol / vol50, 2),
+            })
+    out.sort(key=lambda x: x["pct_below_50d_high"])  # nearest to trigger first
+    return out[:limit]
+
+
+async def build_todays_actions(db) -> dict:
+    """Today's Actions — the book's most recent day of fills (BUY = new breakout entries, SELL =
+    day-29 hold-exits). Drives the 'sync your broker' ribbon. Reads the latest fill_date so it's
+    useful even before today's 4 PM scan writes new rows."""
+    from app.core.database import TierFill
+    latest = (await db.execute(
+        select(TierFill.fill_date).where(TierFill.tier == "maximizer")
+        .order_by(TierFill.fill_date.desc()).limit(1)
+    )).scalar_one_or_none()
+    if latest is None:
+        return {"buys": [], "sells": [], "as_of": None}
+    rows = (await db.execute(
+        select(TierFill).where(TierFill.tier == "maximizer", TierFill.fill_date == latest)
+    )).scalars().all()
+    buys = [{"symbol": r.symbol, "price": r.price} for r in rows if r.side == "buy"]
+    sells = [{"symbol": r.symbol, "price": r.price, "days_held": r.days_held,
+              "realized_pnl": r.realized_pnl} for r in rows if r.side == "sell"]
+    return {"buys": buys, "sells": sells, "as_of": latest.isoformat() if latest else None}
+
+
+def _vol_scale_from_hist(bk_eq_hist) -> float:
+    """The book's current Barroso vol-brake factor (target / trailing realized vol, capped 1.0)
+    — SAME formula as MaximizerBook._vol_scale. 1.0 until warm."""
+    try:
+        import pandas as pd
+        if not bk_eq_hist or len(bk_eq_hist) < 21:
+            return 1.0
+        eq = pd.Series(bk_eq_hist[-21:])
+        rv = float(eq.pct_change().std() * (252 ** 0.5))
+        if rv <= 0 or rv != rv:
+            return 1.0
+        return round(min(1.0, 0.20 / rv), 2)
+    except Exception:
+        return 1.0
+
+
 async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
                           trailing_stop_pct: float = 30.0) -> Optional[dict]:
     """Capital-scaled MIRROR of a tier's model book. Scales the book's positions to the user's
@@ -229,6 +336,7 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
     regime = None
     book_equity = None
     preserver_exposure = None  # set in the preserver branch; drives the cash-raise overlay
+    book_vol_scale = None      # maximizer only: current Barroso vol-brake exposure
 
     if tier == "maximizer":
         snap = (await db.execute(
@@ -241,6 +349,7 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
         book_cash = float(pj.get("bk_cash") or 0.0)
         as_of, regime = snap.snapshot_date, snap.regime
         book_equity = float(snap.equity) if snap.equity else None
+        book_vol_scale = _vol_scale_from_hist(pj.get("bk_eq_hist"))
         await _load_prices([p.get("symbol") for p in positions if p.get("symbol")], data_cache)
         for p in positions:
             sym = p.get("symbol")
@@ -362,6 +471,7 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
         "invested_pct": round(invested / book_value * 100, 1),
         "as_of": as_of.isoformat() if hasattr(as_of, "isoformat") else (str(as_of) if as_of else None),
         "regime": regime,
+        "vol_scale": book_vol_scale,   # maximizer vol-target exposure gauge (None for preserver)
         # Since-inception return of the model book (live shadow window — label as such in UI).
         "book_return_pct": round((book_equity / CAP0 - 1) * 100, 1) if book_equity else None,
     }

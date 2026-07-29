@@ -3991,6 +3991,8 @@ function Dashboard() {
                             <div className="px-4 pt-4">
                               <TierBookView
                                 book={dashboardData.tier_book}
+                                radar={dashboardData.breakout_radar}
+                                actions={dashboardData.todays_actions}
                                 onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
                                 onSetCapital={async (val) => {
                                   try {
@@ -4558,7 +4560,8 @@ function Dashboard() {
                 total_return_pct: tb.total_return_pct?.toFixed ? tb.total_return_pct.toFixed(1) : tb.total_return_pct,
                 sharpe_ratio: tb.sharpe_ratio, max_drawdown_pct: tb.max_drawdown_pct,
                 start_date: tb.start_date, end_date: tb.end_date, is_walk_forward: true,
-                subtitle: `${tb.label} · walk-forward`,
+                subtitle: `${tb.label} · ${tb.rolling ? 'trailing 365d (rolling)' : (tb.window || 'walk-forward')}`,
+                hide_dates: !tb.rolling,  // full-cycle label already states the window
               } : backtest;
               if (!bt) return null;
               const subtitle = bt.subtitle || (bt.is_walk_forward
@@ -4573,7 +4576,7 @@ function Dashboard() {
                     </h3>
                     <p className="font-mono text-[0.78rem] text-ink-mute tracking-wide mt-1">
                       {subtitle}
-                      {' · '}{formatDate(bt.start_date, { includeYear: true })} to {formatDate(bt.end_date, { includeYear: true })}
+                      {!bt.hide_dates && <>{' · '}{formatDate(bt.start_date, { includeYear: true })} to {formatDate(bt.end_date, { includeYear: true })}</>}
                     </p>
                   </div>
                   <div className="flex gap-8">

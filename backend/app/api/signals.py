@@ -2010,6 +2010,8 @@ async def get_dashboard_data(
     tier_meta = {'tier': None, 'signal_source': 'preserver', 'exit_rule': 'trailing', 'tier_note': None}
     upsell_missed = []
     tier_book = None
+    breakout_radar = None
+    todays_actions = None
     try:
         from app.services import tier_serving
         if tier_serving.tier_serving_enabled():
@@ -2058,6 +2060,14 @@ async def get_dashboard_data(
                 )
             except Exception as _tbe:
                 print(f"⚠️ tier_book build failed: {_tbe}")
+            # Maximizer premium widgets: Breakout Radar (approaching triggers) + Today's Actions.
+            if tier == 'maximizer':
+                try:
+                    _held = {h.get('symbol') for h in (tier_book or {}).get('holdings', [])}
+                    breakout_radar = tier_serving.build_breakout_radar(scanner_service.data_cache, _held)
+                    todays_actions = await tier_serving.build_todays_actions(db)
+                except Exception as _rae:
+                    print(f"⚠️ radar/actions build failed: {_rae}")
     except Exception as e:
         import traceback
         print(f"⚠️ tier serving skipped (serving Core base): {e}")
@@ -2074,6 +2084,8 @@ async def get_dashboard_data(
         'upsell_missed': upsell_missed,
         'tier_book': tier_book,
         'tier_backtest': (tier_serving.tier_backtest(tier_meta['tier']) if tier_meta['tier'] else None),
+        'breakout_radar': breakout_radar,
+        'todays_actions': todays_actions,
         'positions_with_guidance': positions_with_guidance,
         'watchlist': cached.get('watchlist', []),
         'market_stats': cached.get('market_stats', {}),
