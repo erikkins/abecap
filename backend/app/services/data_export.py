@@ -1563,6 +1563,42 @@ class DataExportService:
             logger.warning(f"Failed to read dashboard JSON: {e}")
             return None
 
+    def write_json(self, key: str, data: dict) -> Dict:
+        """Generic small-JSON cache write under signals/<key> (S3 or local). Used for the
+        tier_walkforward.json rolling-WF cache. no-cache so the dashboard always reads fresh."""
+        try:
+            body = json.dumps(data, default=str)
+            if self._use_s3():
+                s3 = self._get_s3_client()
+                s3.put_object(Bucket=S3_BUCKET, Key=f'signals/{key}',
+                              Body=body.encode('utf-8'), ContentType='application/json',
+                              CacheControl='no-cache, no-store, must-revalidate')
+                return {"success": True, "storage": "s3"}
+            signals_dir = LOCAL_DATA_DIR.parent / "signals"
+            signals_dir.mkdir(parents=True, exist_ok=True)
+            with open(signals_dir / key, 'w') as f:
+                f.write(body)
+            return {"success": True, "storage": "local"}
+        except Exception as e:
+            logger.error(f"Failed to write JSON {key}: {e}")
+            return {"success": False, "message": str(e)}
+
+    def read_json(self, key: str) -> Optional[dict]:
+        """Generic small-JSON cache read under signals/<key>. Returns None if absent."""
+        try:
+            if self._use_s3():
+                s3 = self._get_s3_client()
+                response = s3.get_object(Bucket=S3_BUCKET, Key=f'signals/{key}')
+                return json.loads(response['Body'].read().decode('utf-8'))
+            filepath = LOCAL_DATA_DIR.parent / "signals" / key
+            if filepath.exists():
+                with open(filepath, 'r') as f:
+                    return json.load(f)
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to read JSON {key}: {e}")
+            return None
+
     def export_snapshot(self, date_str: str, dashboard_data: dict) -> Dict:
         """
         Export a date-keyed dashboard snapshot for time-travel mode.

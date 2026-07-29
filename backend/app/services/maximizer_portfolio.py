@@ -25,12 +25,17 @@ _MIN_BARS = 200
 
 
 def replay_sleeve(data_cache: Dict[str, pd.DataFrame], sleeve: str, start, end,
-                  n_positions: int = 15) -> pd.Series:
+                  n_positions: int = 15, entry_regimes=None, regime_by_date=None) -> pd.Series:
     """Position-level equity curve for a single sleeve book over [start, end].
 
     Each day: exit positions past their `hold` (time-stop); fill free slots from today's
     firing names (excluding held), ranked by 20d avg $-volume; equal-weight; mark to market.
     Mirrors shapes_portfolio.simulate exactly (top-by-$vol, hold-day exits, COST both sides).
+
+    Optional REGIME GATE (for the Maximizer blend): if `entry_regimes` (a set) and
+    `regime_by_date` (dict of normalized Timestamp -> regime label) are provided, NEW entries
+    fire only on days whose regime is in `entry_regimes` (e.g. {'rotating_bull'}); held
+    positions still age out on their own hold. Matches the certified breakout gate.
     """
     fn = SLEEVE_FNS[sleeve]
     hold = SLEEVE_HOLD[sleeve]
@@ -67,9 +72,12 @@ def replay_sleeve(data_cache: Dict[str, pd.DataFrame], sleeve: str, start, end,
         for s in [s for s, p in pos.items() if p["exit_date"] <= today]:
             cash += pos[s]["shares"] * last_px.get(s, pos[s]["last"]) * (1 - COST)
             del pos[s]
-        # entries
+        # entries — gated to `entry_regimes` when provided (held positions still age out)
+        gate_ok = True
+        if entry_regimes is not None and regime_by_date is not None:
+            gate_ok = regime_by_date.get(pd.Timestamp(today).normalize()) in entry_regimes
         free = n_positions - len(pos)
-        if free > 0:
+        if free > 0 and gate_ok:
             cands = [s for s in close.columns
                      if bool(sig.loc[today, s]) and s not in pos and (row[s] == row[s])]
             cands.sort(key=lambda s: -(dvol.loc[today, s] if dvol.loc[today, s] == dvol.loc[today, s] else 0))

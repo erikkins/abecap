@@ -3669,6 +3669,23 @@ def handler(event, context):
         async def _run_daily_wf_cache():
             from app.services.scheduler import scheduler_service
             await scheduler_service._run_daily_walk_forward()
+            # Also refresh the rolling trailing-365 TIER walk-forward (Preserver/Maximizer) so
+            # the Simulated Portfolio card moves daily. Best-effort — never fails the WF cache.
+            try:
+                from app.services.tier_walkforward_service import compute_tier_walkforward
+                from app.services.data_export import data_export_service as _dex
+                if 'SPY' not in scanner_service.data_cache:
+                    _c = _dex.import_all()
+                    if _c:
+                        scanner_service.data_cache = _c
+                _tw = compute_tier_walkforward(scanner_service.data_cache)
+                if _tw:
+                    _tw["computed_at"] = datetime.now().isoformat()
+                    _dex.write_json("tier_walkforward.json", _tw)
+                    print(f"📊 Tier WF cached: P {_tw['preserver'].get('total_return_pct')}% / "
+                          f"M {_tw['maximizer'].get('total_return_pct')}%")
+            except Exception as _twe:
+                print(f"⚠️ Tier WF refresh failed (non-fatal): {_twe}")
             return {"status": "success"}
 
         try:
@@ -3680,6 +3697,31 @@ def handler(event, context):
             print(f"❌ Daily WF cache failed: {e}")
             traceback.print_exc()
             return {"status": "failed", "error": str(e)}
+
+    # Standalone rolling trailing-365 TIER walk-forward (manual invoke / validation).
+    if event.get("tier_walkforward"):
+        print(f"📊 Tier walk-forward triggered - {len(scanner_service.data_cache)} symbols in cache")
+        try:
+            from app.services.tier_walkforward_service import compute_tier_walkforward
+            from app.services.data_export import data_export_service as _dex
+            if 'SPY' not in scanner_service.data_cache:
+                print("📥 Loading price data from S3 for tier WF...")
+                _c = _dex.import_all()
+                if _c:
+                    scanner_service.data_cache = _c
+                    print(f"✅ Loaded {len(_c)} symbols")
+            result = compute_tier_walkforward(scanner_service.data_cache)
+            if not result:
+                return {"status": "failed", "error": "compute returned None (insufficient data?)"}
+            result["computed_at"] = datetime.now().isoformat()
+            w = _dex.write_json("tier_walkforward.json", result) if event.get("write", True) else {"skipped": True}
+            return {"status": "success", "write": w,
+                    "preserver": result.get("preserver"), "maximizer": result.get("maximizer")}
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            print(f"❌ Tier WF failed: {e}\n{tb}")
+            return {"status": "failed", "error": str(e), "traceback": tb[:1500]}
 
     # Handle regime forecast snapshot (writes to regime_forecast_snapshots table)
     if event.get("regime_forecast_snapshot"):
