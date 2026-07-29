@@ -135,8 +135,9 @@ def compute_tier_walkforward(data_cache: Dict[str, pd.DataFrame], days: int = 36
         "core_total_return_pct": round((core_eq.iloc[-1] / core_eq.iloc[0] - 1) * 100, 1),
     }
     return {
-        "preserver": {**_stats(pres_eq), **base, "label": "t30v + capitulation overlay"},
-        "maximizer": {**_stats(max_eq), **base, "label": "Option-B breakout blend (N=15)"},
+        # Customer-facing labels only — never expose t30v / overlay / Option-B / N internals.
+        "preserver": {**_stats(pres_eq), **base, "label": "Preserver Ensemble"},
+        "maximizer": {**_stats(max_eq), **base, "label": "Maximizer Ensemble"},
         "diag": diag,
         "computed_at": None,  # stamped by the caller (worker) — Date.now() unavailable here is fine
     }
