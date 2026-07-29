@@ -8846,6 +8846,7 @@ RigaCap Admin
         print(f"📢 Tier announcement campaign -> {target_emails}")
         async def _send_tier_ann():
             from app.core.database import User as _U
+            from app.services.email_service import email_service
             from sqlalchemy import select as _sel, func as _func
             sent, failed = 0, []
             async with async_session() as db:
