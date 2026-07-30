@@ -4793,18 +4793,54 @@ async def get_tier_books(limit: int = 40, admin: User = Depends(get_admin_user),
         },
     }
 
-    # Recent STR fills per tier (from tier_fills).
-    fills = {}
-    for tier in ("core", "preserver", "maximizer"):
+    # STR fills. Core t30v trades live in model_positions (not tier_fills), and Preserver holds
+    # the SAME t30v names (+ its own capitulation exposure events), so both source from the live
+    # model book; Maximizer's discrete breakout trades come from tier_fills.
+    from app.core.database import ModelPosition
+
+    async def _tier_fills(tier):
         rows = (await db.execute(
             select(TierFill).where(TierFill.tier == tier)
             .order_by(TierFill.fill_date.desc(), TierFill.id.desc()).limit(limit)
         )).scalars().all()
-        fills[tier] = [{
+        return [{
             "fill_date": r.fill_date.isoformat() if r.fill_date else None,
             "symbol": r.symbol, "side": r.side, "shares": r.shares, "price": r.price,
             "gross": r.gross, "source": r.source, "regime": r.regime, "reason": r.reason,
             "days_held": r.days_held, "realized_pnl": r.realized_pnl, "vol_scale": r.vol_scale,
         } for r in rows]
 
+    # Live model book (Core / Preserver names) -> fill-shaped rows: buy at entry, sell at exit.
+    pos_rows = (await db.execute(
+        select(ModelPosition).where(ModelPosition.portfolio_type == "live")
+        .order_by(ModelPosition.entry_date.desc()).limit(limit * 2)
+    )).scalars().all()
+    core_fills = []
+    for p in pos_rows:
+        core_fills.append({
+            "fill_date": p.entry_date.date().isoformat() if p.entry_date else None,
+            "symbol": p.symbol, "side": "buy", "shares": p.shares, "price": p.entry_price,
+            "gross": (p.shares or 0) * (p.entry_price or 0), "source": "t30v", "regime": None,
+            "reason": "entry", "days_held": None, "realized_pnl": None, "vol_scale": None,
+        })
+        if p.status == "closed" and p.exit_date:
+            core_fills.append({
+                "fill_date": p.exit_date.date().isoformat() if p.exit_date else None,
+                "symbol": p.symbol, "side": "sell", "shares": p.shares, "price": p.exit_price,
+                "gross": (p.shares or 0) * (p.exit_price or 0), "source": "t30v", "regime": None,
+                "reason": p.exit_reason or "exit", "days_held": None,
+                "realized_pnl": p.pnl_dollars, "vol_scale": None,
+            })
+    core_fills.sort(key=lambda x: (x["fill_date"] or ""), reverse=True)
+    core_fills = core_fills[:limit]
+
+    pres_exposure = await _tier_fills("preserver")  # capitulation trim/restore events only
+    preserver_fills = sorted(core_fills + pres_exposure,
+                             key=lambda x: (x["fill_date"] or ""), reverse=True)[:limit]
+
+    fills = {
+        "core": core_fills,
+        "preserver": preserver_fills,
+        "maximizer": await _tier_fills("maximizer"),
+    }
     return {"books": books, "fills": fills}
