@@ -38,81 +38,76 @@ T30V_TURNOVER_DAYS = 85        # (legacy; superseded by the fast overlay)
 
 
 class PreserverBook:
-    """Single capital pool = mirrored t30v leg + defensive-sleeve positions. `advance_day` is
-    one trading day. Rule B: never churn held positions on a regime flip — sleeve names exit by
-    their own hold, the t30v leg rotates out over Core's turnover; new entries only from the
-    active book. Equity = cash + t30v leg + sleeve marks."""
+    """Preserver = the live Core (t30v) book, DERIVED — not re-simulated. Equity is Core's equity
+    scaled by a cumulative EXPOSURE factor that moves ONLY on capitulation days (raise cash to
+    CAP_EXPOSURE, banking the avoided drawdown). At full exposure the factor is 1.0, so Preserver
+    == Core to the penny.
+
+    Rewritten Jul 30 2026: the old model ran a PARALLEL return-chain (compound exposure×core_ret
+    from its own $100k, minus an entry-cost haircut). Even with the overlay dormant it drifted from
+    Core (~0.7%) via day-alignment lag + the entry cost + rounding, so Core and Preserver disagreed
+    when they should have been identical. Deriving equity as Core×factor removes all of that."""
 
     def __init__(self, n_positions: int = 15, cap0: float = CAP0, cost: float = COST):
         self.n = n_positions
-        self.cash = cap0
         self.cost = cost
-        self.pos: Dict[str, dict] = {}   # (unused by the exposure overlay; kept for interface compat)
-        self.last: Dict[str, float] = {}
-        self.t30v_value = 0.0            # $ in the mirrored Core (t30v) leg (== book equity)
+        self.factor = 1.0                # cumulative Preserver/Core equity ratio (moves only when exposure != 1)
         self.exposure = 1.0              # current Core exposure (1.0, or CAP_EXPOSURE in capitulation)
+        self.core_equity = cap0          # last known live Core equity (for reporting)
+        self.pos: Dict[str, dict] = {}   # kept empty — Preserver mirrors the Core names (interface compat)
+        self.last: Dict[str, float] = {}
         self.day_fills: List[dict] = []  # discrete overlay actions (exposure trim/restore) for the STR
 
     def equity(self) -> float:
-        return (self.cash + self.t30v_value
-                + sum(p["shares"] * self.last.get(s, p["last"]) for s, p in self.pos.items()))
+        return self.core_equity * self.factor
 
     def source_counts(self) -> Dict[str, int]:
-        out: Dict[str, int] = {}
-        for p in self.pos.values():
-            out[p["source"]] = out.get(p["source"], 0) + 1
-        return out
+        return {}
 
     def advance_day(self, today, active_source: str, candidates: List[dict],
-                    price_of: Dict[str, float], core_ret: float = 0.0) -> float:
-        """One trading day. core_ret: the live Core book's daily total return. The book is the
-        Core book scaled by a regime EXPOSURE (return = exposure × core_ret) — full Core normally,
-        CAP_EXPOSURE in capitulation (raise the rest to cash). Returns end-of-day equity."""
+                    price_of: Dict[str, float], core_ret: float = 0.0,
+                    core_equity: float = None) -> float:
+        """One trading day. core_ret = Core's daily total return; core_equity = Core's equity today
+        (for reporting). On a full-exposure day the factor is unchanged, so Preserver == Core. On a
+        capitulation day it participates at CAP_EXPOSURE, so the factor captures — and banks — the
+        divergence from Core going forward."""
         self.day_fills = []
-        # initial deploy: put the pool into the mirrored Core leg on the first day
-        if self.t30v_value == 0.0 and self.cash > 0:
-            self.t30v_value = self.cash * (1 - self.cost)
-            self.cash = 0.0
-        # regime EXPOSURE: full Core normally; CAP_EXPOSURE in capitulation (raise the rest to cash)
         exposure = CAP_EXPOSURE if active_source == DEFENSIVE_SOURCE else 1.0
         if exposure != self.exposure:                     # one-time cost to trim / restore exposure
-            moved = abs(exposure - self.exposure) * self.t30v_value  # $ shifted between Core and cash
-            self.t30v_value *= (1.0 - abs(exposure - self.exposure) * self.cost)
-            # STR: log the overlay action (defensive trim to cash, or restore to full Core).
+            self.factor *= (1.0 - abs(exposure - self.exposure) * self.cost)
+            moved = abs(exposure - self.exposure) * (self.core_equity * self.factor)  # $ shifted Core<->cash
             self.day_fills.append({
                 # shares=1 so gross carries the $ amount shifted between Core and cash.
                 "symbol": "PORTFOLIO",
                 "side": "sell" if exposure < self.exposure else "buy",
                 "shares": 1.0, "price": round(moved, 2),
-                "cost": abs(exposure - self.exposure) * self.t30v_value * self.cost,
+                "cost": abs(exposure - self.exposure) * (self.core_equity * self.factor) * self.cost,
                 "source": "exposure",
                 "reason": "exposure_trim" if exposure < self.exposure else "exposure_restore",
             })
             self.exposure = exposure
-        # the mirrored Core leg earns the EXPOSURE-SCALED Core return. This is exactly the
-        # validated research return-stream (daily return = exposure × core_ret), so the served
-        # book maps penny-to-penny with research — no cash-moving/hold-drag to diverge.
-        if self.t30v_value and core_ret == core_ret:      # core_ret not NaN
-            self.t30v_value *= (1.0 + exposure * core_ret)
+        # Bank the exposure effect into the factor: Preserver's day return = exposure×core_ret,
+        # Core's = core_ret, so the ratio moves by (1+exposure·r)/(1+r) — exactly 1.0 when exposure=1.
+        if core_ret == core_ret and (1.0 + core_ret) != 0.0:   # core_ret not NaN, no div-by-zero
+            self.factor *= (1.0 + exposure * core_ret) / (1.0 + core_ret)
+        if core_equity is not None and core_equity == core_equity:
+            self.core_equity = float(core_equity)
         return self.equity()
 
     # ── persistence (shadow book survives across daily runs via a snapshot row) ──
     def to_positions(self) -> List[dict]:
-        return [dict(symbol=s, **{k: p[k] for k in ("shares", "entry", "hold", "days_held", "source")})
-                for s, p in self.pos.items()]
+        return []  # Preserver mirrors the Core names; per-name trades live in the Core model book.
 
     @classmethod
-    def from_state(cls, cash: float, positions: List[dict], last: Dict[str, float] = None,
-                   t30v_value: float = 0.0, exposure: float = 1.0, **kw) -> "PreserverBook":
+    def from_state(cls, factor: float = 1.0, exposure: float = 1.0,
+                   core_equity: float = CAP0, **kw) -> "PreserverBook":
+        # Drop any old-format kwargs (cash/positions/t30v_value/last) if a legacy caller passes them.
+        for _k in ("cash", "positions", "t30v_value", "last"):
+            kw.pop(_k, None)
         b = cls(**kw)
-        b.cash = cash
-        b.t30v_value = t30v_value or 0.0
+        b.factor = factor if factor else 1.0
         b.exposure = exposure or 1.0
-        b.last = dict(last or {})
-        for p in positions or []:
-            b.pos[p["symbol"]] = {"shares": p["shares"], "entry": p["entry"], "hold": p["hold"],
-                                  "days_held": p["days_held"], "source": p["source"],
-                                  "last": (last or {}).get(p["symbol"], p["entry"])}
+        b.core_equity = core_equity if core_equity else CAP0
         return b
 
 
@@ -143,17 +138,21 @@ async def run_shadow_day(db, signal_date, regime, t30v_signals, data_cache, n_po
     last_row = (await db.execute(
         select(PreserverBookSnapshot).order_by(PreserverBookSnapshot.snapshot_date.desc()).limit(1)
     )).scalars().first()
-    if last_row and isinstance(last_row.positions_json, dict):
+    if last_row and isinstance(last_row.positions_json, dict) and "factor" in last_row.positions_json:
         st = last_row.positions_json
-        book = PreserverBook.from_state(cash=st.get("cash", CAP0), positions=st.get("positions", []),
-                                        t30v_value=st.get("t30v_value", 0.0),
-                                        exposure=st.get("exposure", 1.0), n_positions=n_positions)
+        book = PreserverBook.from_state(factor=st.get("factor", 1.0), exposure=st.get("exposure", 1.0),
+                                        core_equity=st.get("core_equity", CAP0), n_positions=n_positions)
     else:
+        # No prior snapshot OR an old-format (parallel-sim) snapshot lacking 'factor' — start fresh
+        # at factor 1.0; the first advance_day sets core_equity from the live book.
+        if last_row is not None:
+            print("⚠️ Preserver: last snapshot is old-format (no 'factor') — starting fresh at factor 1.0.")
         book = PreserverBook(n_positions=n_positions)
 
-    # Core's daily total return for the mirrored t30v leg (portfolio_type='live'). Two most
-    # recent snapshots as-of today; if today's isn't written yet the leg picks it up next day.
+    # Core's daily total return AND equity for the mirrored t30v leg (portfolio_type='live'). Two
+    # most recent snapshots as-of today; if today's isn't written yet the leg picks it up next day.
     core_ret = 0.0
+    core_equity = None
     try:
         from app.core.database import ModelPortfolioSnapshot
         from datetime import datetime as _dtm, time as _tm
@@ -164,10 +163,12 @@ async def run_shadow_day(db, signal_date, regime, t30v_signals, data_cache, n_po
                    ModelPortfolioSnapshot.snapshot_date <= _cut)
             .order_by(ModelPortfolioSnapshot.snapshot_date.desc()).limit(2)
         )).scalars().all()
+        if _tv:
+            core_equity = float(_tv[0]) if _tv[0] else None
         if len(_tv) == 2 and _tv[1]:
             core_ret = _tv[0] / _tv[1] - 1.0
     except Exception as _cre:
-        print(f"⚠️ Preserver shadow: core_ret fetch failed (leg flat today): {_cre}")
+        print(f"⚠️ Preserver shadow: core equity/return fetch failed (leg flat today): {_cre}")
 
     # 2) route + today's routed candidates (sleeve regimes feed the book; t30v leg is live-referenced)
     src, cands = build_daily_signals(data_cache, regime, t30v_signals, sd, max_positions=n_positions)
@@ -183,8 +184,8 @@ async def run_shadow_day(db, signal_date, regime, t30v_signals, data_cache, n_po
         except Exception:
             pass
 
-    # 4) advance the book one trading day (t30v leg earns core_ret; sleeve leg per rule B)
-    equity = book.advance_day(sd, src, book_cands, price_of, core_ret=core_ret)
+    # 4) advance the book one trading day — Preserver = Core×factor (factor moves only on capitulation)
+    equity = book.advance_day(sd, src, book_cands, price_of, core_ret=core_ret, core_equity=core_equity)
 
     # 4b) STR: persist Preserver-specific overlay actions (exposure trim/restore) to tier_fills.
     # (Per-name Preserver trades == the Core t30v book's trades — not duplicated here.)
@@ -208,8 +209,8 @@ async def run_shadow_day(db, signal_date, regime, t30v_signals, data_cache, n_po
                   "hold_days": stmt.excluded.hold_days, "status": stmt.excluded.status})
         await db.execute(stmt)
 
-    snap = {"cash": book.cash, "positions": book.to_positions(),
-            "t30v_value": book.t30v_value, "exposure": book.exposure}
+    snap = {"factor": book.factor, "exposure": book.exposure,
+            "core_equity": book.core_equity, "positions": book.to_positions()}
     snap_stmt = pg_insert(PreserverBookSnapshot).values(
         snapshot_date=sd, regime=regime, active_source=src, equity=equity, positions_json=snap)
     snap_stmt = snap_stmt.on_conflict_do_update(

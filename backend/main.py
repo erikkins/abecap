@@ -9655,6 +9655,52 @@ RigaCap Admin
             import traceback; traceback.print_exc()
             return {"error": str(e)}
 
+    if event.get("preserver_rederive"):
+        # One-time correction (Jul 30 2026): the Preserver book used to run a parallel return-chain
+        # that drifted from Core even with the overlay dormant. It's been rewritten to Core×factor
+        # (factor moves only on capitulation days). Preserver has had ZERO capitulation events since
+        # inception (every day exposure 1.0), so its correct equity == Core's equity for the entire
+        # history → re-derive each snapshot to the Core (live) total_value with factor 1.0. Dry-run
+        # by default; pass {"preserver_rederive": {"write": true}} to persist.
+        cfg = event.get("preserver_rederive") or {}
+        do_write = bool(cfg.get("write", False)) if isinstance(cfg, dict) else False
+
+        async def _pres_rederive():
+            from app.core.database import async_session, PreserverBookSnapshot, ModelPortfolioSnapshot
+            from sqlalchemy import select
+            async with async_session() as db:
+                core_rows = (await db.execute(
+                    select(ModelPortfolioSnapshot.snapshot_date, ModelPortfolioSnapshot.total_value)
+                    .where(ModelPortfolioSnapshot.portfolio_type == "live")
+                )).all()
+                core_by_date = {}
+                for d, v in core_rows:
+                    dd = d.date() if hasattr(d, "date") else d
+                    core_by_date[dd] = float(v) if v is not None else None
+                pres = (await db.execute(
+                    select(PreserverBookSnapshot).order_by(PreserverBookSnapshot.snapshot_date.asc())
+                )).scalars().all()
+                preview, last_core = [], None
+                for r in pres:
+                    cv = core_by_date.get(r.snapshot_date) or last_core
+                    if cv is None:
+                        continue
+                    last_core = cv
+                    preview.append({"date": r.snapshot_date.isoformat(),
+                                    "old": round(float(r.equity or 0), 0), "new": round(cv, 0)})
+                    if do_write:
+                        r.positions_json = {"factor": 1.0, "exposure": 1.0, "core_equity": cv, "positions": []}
+                        r.equity = cv
+                if do_write:
+                    await db.commit()
+                return {"wrote": do_write, "n": len(preview), "preview": preview[-6:]}
+
+        try:
+            return _run_async(_pres_rederive())
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return {"error": str(e)}
+
     if event.get("db_read"):
         query_sql = event["db_read"]
         print(f"📖 DB read query: {query_sql[:200]}")
