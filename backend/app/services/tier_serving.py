@@ -420,6 +420,9 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
                 "entry_date": _edate.isoformat() if _edate else None,
                 "exit_rule": "trailing", "trailing_stop_pct": trailing_stop_pct,
                 "trailing_stop_level": round(stop, 2),
+                # HWM the trailing stop rides off (max of entry, stored high, current) — so the
+                # chart/modal can show it and confirm the 30% trail is off the HIGH, not entry.
+                "high_water_mark": round(hwm, 2),
                 "pnl_pct": round((cur / entry - 1) * 100, 1) if entry else 0.0,
                 "is_new": _edate == _today,   # entered today
             })
