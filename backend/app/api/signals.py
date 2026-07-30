@@ -155,85 +155,131 @@ async def get_signal_track_record(
 
 @router.get("/this-week")
 async def get_this_week(
+    preview_tier: Optional[str] = None,
     user: User = Depends(require_valid_subscription),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Subscriber-facing "what the system did this week" — powers the
-    dashboard hero panel that replaces Your Journey.
+    Subscriber-facing "what the system did this week" — powers the dashboard hero panel.
 
-    Reads from the signal-track-record table and bucketed to "since most
-    recent Sunday" so the panel rolls weekly without depending on the
-    newsletter publish event.
+    TIER-SCOPED (Erik Jul 30): reads the SERVED tier's capped book, NOT the uncapped
+    signal-track-record ledger. The old ledger held 30+ flat-sized names, so the panel
+    read "34 still run" next to a 15-20 book — nonsense with no tier context. Now:
+      - Preserver / Core floor → the live model book (~20 names everyone mirrors)
+      - Maximizer → the breakout book snapshot (~15, same source as the served view/email)
+    Bucketed to "since most recent Sunday" so it rolls weekly without a newsletter event.
 
     Response shape:
-      {
-        as_of_date, week_start, week_label,
-        closed_this_week: [{symbol, pnl_pct, exit_date, exit_reason}, ...]  (max 5, sorted recent first)
+      { as_of_date, week_start, week_label, tier,
+        closed_this_week: [{symbol, pnl_pct, exit_date, exit_reason}, ...]  (max 5, recent first),
         closed_count, winning_count, average_pnl_pct,
-        still_running: [{symbol, pnl_pct, current_price, entry_date}, ...]
-        still_running_count
-      }
+        still_running: [{symbol, pnl_pct, current_price, entry_date, days_held}, ...],
+        still_running_count, open_avg_pnl_pct, leader, tail, longest_hold }
     """
     from datetime import date as _date, timedelta as _td
-    from app.core.database import ModelPosition
-    from app.services.model_portfolio_service import SIGNAL_TRACK_RECORD
+    from app.core.database import ModelPosition, Subscription
+    from app.services import tier_serving
+    from app.services.scanner import scanner_service
 
     today = _date.today()
     # Most recent Sunday — Python: weekday() Mon=0..Sun=6.
     days_since_sunday = (today.weekday() + 1) % 7
     week_start = today - _td(days=days_since_sunday)
+    week_start_dt = datetime(week_start.year, week_start.month, week_start.day)
 
-    # Closed positions in this window
-    closed_q = await db.execute(
-        select(ModelPosition).where(
-            ModelPosition.portfolio_type == SIGNAL_TRACK_RECORD,
-            ModelPosition.status == "closed",
-            ModelPosition.exit_date >= datetime(week_start.year, week_start.month, week_start.day),
-        ).order_by(desc(ModelPosition.exit_date))
-    )
-    closed_rows = list(closed_q.scalars().all())
+    # Resolve the served tier (same rule as /dashboard): everyone floors to Preserver;
+    # Maximizer-entitled users swap to the breakout book. Falls back to Preserver on any error.
+    tier = "preserver"
+    try:
+        if tier_serving.tier_serving_enabled():
+            sub = (await db.execute(
+                select(Subscription).where(Subscription.user_id == user.id)
+            )).scalar_one_or_none()
+            _preview = preview_tier if user.is_admin() else None
+            tier = tier_serving.resolve_tier(sub, is_admin=user.is_admin(), preview_tier=_preview)
+    except Exception:
+        tier = "preserver"
 
-    closed_this_week = [
-        {
-            "symbol": p.symbol,
-            "pnl_pct": round(p.pnl_pct, 1) if p.pnl_pct is not None else 0.0,
-            "exit_date": p.exit_date.date().isoformat() if p.exit_date else None,
-            "exit_reason": p.exit_reason,
-        }
-        for p in closed_rows[:5]
-    ]
-    closed_count = len(closed_rows)
-    winning_count = sum(1 for p in closed_rows if (p.pnl_pct or 0) > 0)
+    # Each branch produces closed_all (full list) + still_running (full list).
+    closed_all: list = []
+    still_running: list = []
+
+    if tier == "maximizer":
+        # Open = the breakout book snapshot — the same source the served view & email render,
+        # so the panel can never disagree with the book (capped ~15).
+        cards = await tier_serving.build_maximizer_breakout_view(db, scanner_service.data_cache)
+        for c in cards:
+            still_running.append({
+                "symbol": c["symbol"],
+                "pnl_pct": c.get("pnl_pct", 0.0),
+                "current_price": c.get("price"),
+                "entry_date": None,
+                "days_held": c.get("days_held"),
+            })
+        # Closed = real breakout time-stop exits from the fill log this week.
+        from app.core.database import TierFill
+        fills = list((await db.execute(
+            select(TierFill).where(
+                TierFill.tier == "maximizer", TierFill.side == "sell",
+                TierFill.reason == "hold_exit", TierFill.fill_date >= week_start,
+            ).order_by(TierFill.fill_date.desc())
+        )).scalars().all())
+        for f in fills:
+            rp = f.realized_pnl or 0.0
+            basis = (f.shares or 0) * (f.price or 0) - rp   # exit gross − realized = cost basis
+            pct = round((rp / basis * 100), 1) if basis else 0.0
+            closed_all.append({
+                "symbol": f.symbol,
+                "pnl_pct": pct,
+                "exit_date": f.fill_date.isoformat() if f.fill_date else None,
+                "exit_reason": "time-stop",
+            })
+    else:
+        # Preserver / Core floor = the live capped model book everyone mirrors (~20).
+        from app.services.model_portfolio_service import _fetch_latest_close_from_s3
+        closed_rows = list((await db.execute(
+            select(ModelPosition).where(
+                ModelPosition.portfolio_type == "live",
+                ModelPosition.status == "closed",
+                ModelPosition.exit_date >= week_start_dt,
+            ).order_by(desc(ModelPosition.exit_date))
+        )).scalars().all())
+        closed_all = [
+            {
+                "symbol": p.symbol,
+                "pnl_pct": round(p.pnl_pct, 1) if p.pnl_pct is not None else 0.0,
+                "exit_date": p.exit_date.date().isoformat() if p.exit_date else None,
+                "exit_reason": p.exit_reason,
+            }
+            for p in closed_rows
+        ]
+        open_rows = list((await db.execute(
+            select(ModelPosition).where(
+                ModelPosition.portfolio_type == "live",
+                ModelPosition.status == "open",
+            ).order_by(desc(ModelPosition.entry_date))
+        )).scalars().all())
+        for p in open_rows:
+            last_close = _fetch_latest_close_from_s3(p.symbol)
+            cur = last_close if last_close is not None else float(p.entry_price)
+            pnl_pct = ((cur / float(p.entry_price)) - 1) * 100 if p.entry_price else 0.0
+            days_held = (today - p.entry_date.date()).days if p.entry_date else None
+            still_running.append({
+                "symbol": p.symbol,
+                "pnl_pct": round(pnl_pct, 1),
+                "current_price": round(cur, 2),
+                "entry_date": p.entry_date.date().isoformat() if p.entry_date else None,
+                "days_held": days_held,
+            })
+
+    # Shared aggregates (branch-agnostic).
+    closed_count = len(closed_all)
+    winning_count = sum(1 for c in closed_all if (c["pnl_pct"] or 0) > 0)
     avg_pnl = (
-        round(sum((p.pnl_pct or 0) for p in closed_rows) / closed_count, 1)
+        round(sum((c["pnl_pct"] or 0) for c in closed_all) / closed_count, 1)
         if closed_count else None
     )
-
-    # Open STR positions — "still running" roll-up
-    open_q = await db.execute(
-        select(ModelPosition).where(
-            ModelPosition.portfolio_type == SIGNAL_TRACK_RECORD,
-            ModelPosition.status == "open",
-        ).order_by(desc(ModelPosition.entry_date))
-    )
-    open_rows = list(open_q.scalars().all())
-
-    # For each open position compute live unrealized using S3 close
-    from app.services.model_portfolio_service import _fetch_latest_close_from_s3
-    still_running = []
-    for p in open_rows:
-        last_close = _fetch_latest_close_from_s3(p.symbol)
-        cur = last_close if last_close is not None else float(p.entry_price)
-        pnl_pct = ((cur / float(p.entry_price)) - 1) * 100 if p.entry_price else 0.0
-        days_held = (today - p.entry_date.date()).days if p.entry_date else None
-        still_running.append({
-            "symbol": p.symbol,
-            "pnl_pct": round(pnl_pct, 1),
-            "current_price": round(cur, 2),
-            "entry_date": p.entry_date.date().isoformat() if p.entry_date else None,
-            "days_held": days_held,
-        })
+    closed_this_week = closed_all[:5]
 
     # Computed across the full open set (not the [:8] slice) so the banner is
     # accurate even when the portfolio holds more than 8 positions. Frontend
@@ -267,12 +313,13 @@ async def get_this_week(
         "as_of_date": today.isoformat(),
         "week_start": week_start.isoformat(),
         "week_label": "This Week",
+        "tier": tier,
         "closed_this_week": closed_this_week,
         "closed_count": closed_count,
         "winning_count": winning_count,
         "average_pnl_pct": avg_pnl,
         "still_running": still_running[:8],
-        "still_running_count": len(open_rows),
+        "still_running_count": len(still_running),
         "open_avg_pnl_pct": open_avg_pnl,
         "leader": leader,
         "tail": tail,
