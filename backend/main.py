@@ -9596,6 +9596,65 @@ RigaCap Admin
             return {"status": "error", "error": str(e)}
 
     # Read-only DB query for admin use (no mutations)
+    if event.get("maximizer_rebase"):
+        # One-time correction (Jul 30 2026): the Maximizer shadow book's base was inflated to
+        # ~$146k on Jul 24 by a format-migration double-count (from_state defaulted bk_cash to the
+        # full CAP0 while inheriting the old snapshot's positions). The book's returns are
+        # scale-invariant (cash, position shares, and vol-target all scale together), so we rescale
+        # every new-format snapshot's monetary state by a single factor to put it back on a clean
+        # $100k inception WITHOUT altering any inter-day return. Old-format snapshots (Jul 8-23,
+        # no bk_cash key) are left untouched — they already tracked ~$98-100k. Dry-run by default;
+        # pass {"maximizer_rebase": {"write": true}} to persist.
+        cfg = event.get("maximizer_rebase") or {}
+        do_write = bool(cfg.get("write", False)) if isinstance(cfg, dict) else False
+        target_base = float(cfg.get("target_base", 100000.0)) if isinstance(cfg, dict) else 100000.0
+
+        async def _max_rebase():
+            from app.core.database import async_session, MaximizerBookSnapshot
+            from sqlalchemy import select
+            async with async_session() as db:
+                rows = (await db.execute(
+                    select(MaximizerBookSnapshot).order_by(MaximizerBookSnapshot.snapshot_date.asc())
+                )).scalars().all()
+                newfmt = [r for r in rows if isinstance(r.positions_json, dict) and "bk_cash" in r.positions_json]
+                if not newfmt:
+                    return {"error": "no new-format snapshots found"}
+                first = newfmt[0].positions_json
+                base = float(first.get("bk_cash") or 0) + sum(
+                    float(p.get("shares") or 0) * float(p.get("entry") or 0)
+                    for p in (first.get("positions") or [])
+                )
+                if base <= 0:
+                    return {"error": f"bad inception base {base}"}
+                f = target_base / base
+                preview = []
+                for r in newfmt:
+                    pj = dict(r.positions_json)
+                    old_mv = float(pj.get("max_value") or 0)
+                    pj["bk_cash"] = round(float(pj.get("bk_cash") or 0) * f, 6)
+                    pj["max_value"] = round(old_mv * f, 6)
+                    pj["bk_eq_hist"] = [round(float(x) * f, 6) for x in (pj.get("bk_eq_hist") or [])]
+                    pj["positions"] = [
+                        {**p, "shares": round(float(p.get("shares") or 0) * f, 8)}
+                        for p in (pj.get("positions") or [])
+                    ]
+                    preview.append({"date": r.snapshot_date.isoformat(),
+                                    "old_equity": round(old_mv, 0), "new_equity": round(old_mv * f, 0)})
+                    if do_write:
+                        r.positions_json = pj
+                        r.equity = round(float(r.equity or 0) * f, 6)
+                if do_write:
+                    await db.commit()
+                return {"inception_base": round(base, 0), "factor": round(f, 6),
+                        "target_base": target_base, "wrote": do_write,
+                        "n_snapshots": len(newfmt), "preview": preview}
+
+        try:
+            return _run_async(_max_rebase())
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return {"error": str(e)}
+
     if event.get("db_read"):
         query_sql = event["db_read"]
         print(f"📖 DB read query: {query_sql[:200]}")

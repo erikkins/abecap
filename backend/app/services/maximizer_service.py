@@ -284,12 +284,20 @@ async def run_shadow_day(db, signal_date, regime, t30v_signals, data_cache, n_po
     last_row = (await db.execute(
         select(MaximizerBookSnapshot).order_by(MaximizerBookSnapshot.snapshot_date.desc()).limit(1)
     )).scalars().first()
-    if last_row and isinstance(last_row.positions_json, dict):
+    if last_row and isinstance(last_row.positions_json, dict) and "bk_cash" in last_row.positions_json:
         st = last_row.positions_json
         book = MaximizerBook.from_state(bk_cash=st.get("bk_cash", CAP0), positions=st.get("positions", []),
                                         bk_eq_hist=st.get("bk_eq_hist", []), max_value=st.get("max_value", CAP0),
                                         n_positions=n_positions)
     else:
+        # Start FRESH when there's no prior snapshot OR an old-format snapshot missing 'bk_cash'.
+        # Historic footgun (Jul 24 2026): from_state defaulted bk_cash to CAP0 while inheriting the
+        # retained positions from an old-format snapshot → the full $100k cash was double-counted on
+        # top of ~$65k of positions, inflating the book's base to ~$146k. Requiring the 'bk_cash' key
+        # means we never silently graft full capital onto inherited positions again.
+        if last_row is not None:
+            print("⚠️ Maximizer: last snapshot lacks 'bk_cash' (old format) — starting book fresh "
+                  "at CAP0 rather than double-counting inherited positions.")
         book = MaximizerBook(n_positions=n_positions)
 
     # 2) route + today's routed candidates. Only the breakout sleeve feeds the Maximizer book
