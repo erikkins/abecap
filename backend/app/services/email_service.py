@@ -579,37 +579,41 @@ class EmailService:
         days_left = signal.get('days_left')
         pnl = signal.get('pnl_pct')
         is_new = status == 'new' or bool(signal.get('is_fresh'))
+        # One short meta line (no per-row "NO TRAILING STOP" — it's true of every breakout
+        # and just bloated the row; the 29-day clock is the distinctive fact). Jul 30: the
+        # old 2-col stack collided/wrapped on phones (Erik) → symbol/price on line 1, a single
+        # full-width meta line + P&L on line 2.
         if is_new:
-            age_label = 'NEW BREAKOUT · ENTER TODAY'
-            exit_note = f'HOLD {hold} TRADING DAYS'
+            meta = f'NEW BREAKOUT · ENTER TODAY · HOLDS {hold} DAYS'
         else:
-            age_label = f'HOLDING · DAY {days_held}/{hold}' if days_held is not None else 'HOLDING'
-            exit_note = f'{days_left}D TO EXIT · NO TRAILING STOP' if days_left is not None else 'TIME-STOP EXIT'
-        pnl_html = ''
+            parts = []
+            if days_held is not None:
+                parts.append(f'DAY {days_held}/{hold}')
+            if days_left is not None:
+                parts.append(f'{days_left}D TO EXIT')
+            meta = ' · '.join(parts) if parts else 'HOLDING'
+        pnl_cell = ''
         if pnl is not None and not is_new:
             pnl_color = '#245232' if pnl >= 0 else '#7A2430'
-            pnl_html = (f'<div style="font-family: \'Courier New\', monospace; font-size: 14px; '
-                        f'color: {pnl_color}; margin-top: 4px;">{"+" if pnl >= 0 else ""}{pnl:.1f}%</div>')
+            pnl_cell = (f'<span style="font-family: \'Courier New\', monospace; font-size: 14px; '
+                        f'color: {pnl_color};">{"+" if pnl >= 0 else ""}{pnl:.1f}%</span>')
         border = 'border-left: 3px solid #7A2430; padding-left: 14px;' if is_new else ''
         return f"""
         <a href="https://rigacap.com/app?chart={symbol}" style="display: block; color: inherit; text-decoration: none;">
         <div style="padding: 14px 0; border-bottom: 1px solid #DDD5C7; {border}">
             <table cellpadding="0" cellspacing="0" style="width: 100%;">
                 <tr>
-                    <td style="vertical-align: top; padding-right: 12px;">
-                        <div style="font-family: Georgia, serif; font-size: 19px; font-weight: 500; color: #141210;">
-                            <span style="text-decoration: underline;">{symbol}</span>
-                            &nbsp;<span style="font-family: 'Courier New', monospace; font-size: 12px; letter-spacing: 1px; color: #7A2430;">BREAKOUT</span>
-                        </div>
-                        <div style="font-family: 'Courier New', monospace; font-size: 14px; color: #5A544E; letter-spacing: 0.3px; margin-top: 5px;">
-                            {age_label}
-                        </div>
+                    <td style="vertical-align: baseline; padding-right: 12px;">
+                        <span style="font-family: Georgia, serif; font-size: 20px; font-weight: 500; color: #141210; text-decoration: underline;">{symbol}</span>
+                        &nbsp;<span style="font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 1px; color: #7A2430;">BREAKOUT</span>
                     </td>
-                    <td style="text-align: right; vertical-align: top; white-space: nowrap;">
-                        <div style="font-family: 'Courier New', monospace; font-size: 16px; font-weight: bold; color: #141210;">${price:.2f}</div>
-                        <div style="font-family: 'Courier New', monospace; font-size: 14px; color: #7A2430; letter-spacing: 0.3px; text-transform: uppercase; margin-top: 5px;">{exit_note}</div>
-                        {pnl_html}
+                    <td style="text-align: right; vertical-align: baseline; white-space: nowrap;">
+                        <span style="font-family: 'Courier New', monospace; font-size: 17px; font-weight: bold; color: #141210;">${price:.2f}</span>
                     </td>
+                </tr>
+                <tr>
+                    <td style="padding-top: 6px; font-family: 'Courier New', monospace; font-size: 13px; color: #5A544E; letter-spacing: 0.3px; text-transform: uppercase;">{meta}</td>
+                    <td style="padding-top: 6px; text-align: right; white-space: nowrap;">{pnl_cell}</td>
                 </tr>
             </table>
         </div>
@@ -654,30 +658,28 @@ class EmailService:
             else:
                 age_label = 'STILL QUALIFIES'
 
+        # Symbol/price on line 1, then full-width meta lines (strength+trend, then age).
+        # Was a 3-item nowrap right column beside a left age label — collided/wrapped on
+        # phones once the fonts were bumped (Erik Jul 30). Stacking full-width can't collide.
         return f"""
         <a href="https://rigacap.com/app?chart={symbol}" style="display: block; color: inherit; text-decoration: none;">
         <div style="padding: 14px 0; border-bottom: 1px solid #DDD5C7; {('border-left: 3px solid #7A2430; padding-left: 14px;' if is_fresh else '')}">
             <table cellpadding="0" cellspacing="0" style="width: 100%;">
                 <tr>
-                    <!-- Left: symbol + age. No fixed width — takes the space the
-                         right (nowrap) column leaves. -->
-                    <td style="vertical-align: top; padding-right: 12px;">
-                        <div style="font-family: Georgia, serif; font-size: 19px; font-weight: 500; color: #141210;">
-                            <span style="text-decoration: underline;">{symbol}</span>
-                        </div>
-                        <div style="font-family: 'Courier New', monospace; font-size: 14px; color: #5A544E; letter-spacing: 0.3px; margin-top: 5px;">
-                            {age_label}
-                        </div>
+                    <td style="vertical-align: baseline; padding-right: 12px;">
+                        <span style="font-family: Georgia, serif; font-size: 20px; font-weight: 500; color: #141210; text-decoration: underline;">{symbol}</span>
                     </td>
-                    <!-- Right: price / strength / trend STACKED in one right-aligned
-                         column (was 3 side-by-side cells that overlapped on mobile,
-                         Erik Jun 23). Sizes bumped again Jul 30 — line-item descriptors
-                         were still too small on retina phones (Erik). nowrap is safe. -->
-                    <td style="text-align: right; vertical-align: top; white-space: nowrap;">
-                        <div style="font-family: 'Courier New', monospace; font-size: 16px; font-weight: bold; color: #141210;">${price:.2f}</div>
-                        <div style="font-family: 'Courier New', monospace; font-size: 14px; color: #7A2430; letter-spacing: 0.3px; text-transform: uppercase; margin-top: 5px;">{score}&nbsp;·&nbsp;{label}</div>
-                        <div style="font-family: 'Courier New', monospace; font-size: 14px; color: #245232; margin-top: 5px;">+{pct_above:.0f}% above trend</div>
+                    <td style="text-align: right; vertical-align: baseline; white-space: nowrap;">
+                        <span style="font-family: 'Courier New', monospace; font-size: 17px; font-weight: bold; color: #141210;">${price:.2f}</span>
                     </td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="padding-top: 6px; font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 0.3px; text-transform: uppercase;">
+                        <span style="color: #7A2430;">{score}&nbsp;·&nbsp;{label}</span>&nbsp;·&nbsp;<span style="color: #245232;">+{pct_above:.0f}% above trend</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="padding-top: 4px; font-family: 'Courier New', monospace; font-size: 12px; color: #8A8279; letter-spacing: 0.3px; text-transform: uppercase;">{age_label}</td>
                 </tr>
             </table>
         </div>
