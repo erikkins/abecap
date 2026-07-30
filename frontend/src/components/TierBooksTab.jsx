@@ -112,7 +112,7 @@ export default function TierBooksTab({ fetchWithAuth }) {
                           {r.reason}{r.source ? ` · ${r.source}` : ''}{r.vol_scale != null ? ` · vs ${Number(r.vol_scale).toFixed(2)}` : ''}
                         </td>
                         <td className="py-1.5 px-2 text-right font-mono text-xs text-ink-mute hidden md:table-cell">{r.days_held != null ? `${r.days_held}d` : '—'}</td>
-                        <td className={`py-1.5 px-2 text-right font-mono ${r.realized_pnl >= 0 ? 'text-positive' : 'text-claret'}`}>{r.realized_pnl != null ? pnl(r.realized_pnl) : '—'}</td>
+                        <td className={`py-1.5 px-2 text-right font-mono ${r.realized_pnl >= 0 ? 'text-positive' : 'text-claret'}`} title={r.unrealized ? 'Unrealized (live mark to latest close)' : 'Realized'}>{r.realized_pnl != null ? `${r.unrealized ? '~' : ''}${pnl(r.realized_pnl)}` : '—'}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -4815,22 +4815,37 @@ async def get_tier_books(limit: int = 40, admin: User = Depends(get_admin_user),
         select(ModelPosition).where(ModelPosition.portfolio_type == "live")
         .order_by(ModelPosition.entry_date.desc()).limit(limit * 2)
     )).scalars().all()
+    # Days + P&L (Erik Jul 30): were always "—" (days_held hardcoded None on every row; P&L only on
+    # the rare closed trade). Now every row carries the holding period, and open positions show their
+    # live P&L-to-date (unrealized, latest close). Closed trades show holding period + realized P&L.
+    from datetime import date as _date
+    from app.services.model_portfolio_service import _fetch_latest_close_from_s3
+    _today = _date.today()
+
     core_fills = []
     for p in pos_rows:
-        core_fills.append({
-            "fill_date": p.entry_date.date().isoformat() if p.entry_date else None,
-            "symbol": p.symbol, "side": "buy", "shares": p.shares, "price": p.entry_price,
-            "gross": (p.shares or 0) * (p.entry_price or 0), "source": "t30v", "regime": None,
-            "reason": "entry", "days_held": None, "realized_pnl": None, "vol_scale": None,
-        })
+        entry_d = p.entry_date.date() if p.entry_date else None
+        base = {"symbol": p.symbol, "shares": p.shares, "source": "t30v", "regime": None, "vol_scale": None}
         if p.status == "closed" and p.exit_date:
-            core_fills.append({
-                "fill_date": p.exit_date.date().isoformat() if p.exit_date else None,
-                "symbol": p.symbol, "side": "sell", "shares": p.shares, "price": p.exit_price,
-                "gross": (p.shares or 0) * (p.exit_price or 0), "source": "t30v", "regime": None,
-                "reason": p.exit_reason or "exit", "days_held": None,
-                "realized_pnl": p.pnl_dollars, "vol_scale": None,
-            })
+            hold = (p.exit_date.date() - entry_d).days if entry_d else None
+            core_fills.append({**base, "fill_date": entry_d.isoformat() if entry_d else None,
+                               "side": "buy", "price": p.entry_price,
+                               "gross": (p.shares or 0) * (p.entry_price or 0), "reason": "entry",
+                               "days_held": hold, "realized_pnl": None, "unrealized": False})
+            core_fills.append({**base, "fill_date": p.exit_date.date().isoformat(),
+                               "side": "sell", "price": p.exit_price,
+                               "gross": (p.shares or 0) * (p.exit_price or 0),
+                               "reason": p.exit_reason or "exit", "days_held": hold,
+                               "realized_pnl": p.pnl_dollars, "unrealized": False})
+        else:
+            age = (_today - entry_d).days if entry_d else None
+            cur = _fetch_latest_close_from_s3(p.symbol)
+            cur = float(cur) if cur is not None else float(p.entry_price or 0)
+            unreal = (cur - float(p.entry_price or 0)) * float(p.shares or 0)
+            core_fills.append({**base, "fill_date": entry_d.isoformat() if entry_d else None,
+                               "side": "buy", "price": p.entry_price,
+                               "gross": (p.shares or 0) * (p.entry_price or 0), "reason": "open",
+                               "days_held": age, "realized_pnl": round(unreal, 0), "unrealized": True})
     core_fills.sort(key=lambda x: (x["fill_date"] or ""), reverse=True)
     core_fills = core_fills[:limit]
 
@@ -4838,9 +4853,29 @@ async def get_tier_books(limit: int = 40, admin: User = Depends(get_admin_user),
     preserver_fills = sorted(core_fills + pres_exposure,
                              key=lambda x: (x["fill_date"] or ""), reverse=True)[:limit]
 
+    # Maximizer STR: tier_fills already carry days_held + realized_pnl on hold-exits. Enrich the
+    # still-open breakout entries with their live age + unrealized P&L from the latest book snapshot.
+    max_open = {}
+    if max_snap and isinstance(max_snap.positions_json, dict):
+        for pos in (max_snap.positions_json.get("positions") or []):
+            if pos.get("symbol"):
+                max_open[pos["symbol"]] = pos
+    maximizer_fills = await _tier_fills("maximizer")
+    for r in maximizer_fills:
+        r.setdefault("unrealized", False)
+        if r["side"] == "buy" and r.get("days_held") is None and r["symbol"] in max_open:
+            pos = max_open[r["symbol"]]
+            entry = float(pos.get("entry") or 0)
+            shares = float(pos.get("shares") or 0)
+            cur = _fetch_latest_close_from_s3(r["symbol"])
+            cur = float(cur) if cur is not None else entry
+            r["days_held"] = pos.get("days_held")
+            r["realized_pnl"] = round((cur - entry) * shares, 0) if entry else None
+            r["unrealized"] = True
+
     fills = {
         "core": core_fills,
         "preserver": preserver_fills,
-        "maximizer": await _tier_fills("maximizer"),
+        "maximizer": maximizer_fills,
     }
     return {"books": books, "fills": fills}
