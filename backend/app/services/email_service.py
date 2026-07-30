@@ -584,14 +584,14 @@ class EmailService:
         # old 2-col stack collided/wrapped on phones (Erik) → symbol/price on line 1, a single
         # full-width meta line + P&L on line 2.
         if is_new:
-            meta = f'NEW BREAKOUT · ENTER TODAY · HOLDS {hold} DAYS'
+            meta = f'New breakout · enter today · holds {hold} days'
         else:
             parts = []
             if days_held is not None:
-                parts.append(f'DAY {days_held}/{hold}')
+                parts.append(f'Day {days_held}/{hold}')
             if days_left is not None:
-                parts.append(f'{days_left}D TO EXIT')
-            meta = ' · '.join(parts) if parts else 'HOLDING'
+                parts.append(f'{days_left}d to exit')
+            meta = ' · '.join(parts) if parts else 'Holding'
         pnl_cell = ''
         if pnl is not None and not is_new:
             pnl_color = '#245232' if pnl >= 0 else '#7A2430'
@@ -612,7 +612,7 @@ class EmailService:
                     </td>
                 </tr>
                 <tr>
-                    <td style="padding-top: 6px; font-family: 'Courier New', monospace; font-size: 13px; color: #5A544E; letter-spacing: 0.3px; text-transform: uppercase;">{meta}</td>
+                    <td style="padding-top: 6px; font-family: 'Courier New', monospace; font-size: 13px; color: #5A544E; letter-spacing: 0.2px;">{meta}</td>
                     <td style="padding-top: 6px; text-align: right; white-space: nowrap;">{pnl_cell}</td>
                 </tr>
             </table>
@@ -642,21 +642,23 @@ class EmailService:
 
         score, label = self._signal_strength(signal)
 
+        # Sentence case (Erik Jul 30): all-caps monospace was the hardest style to scan;
+        # descriptor lines read as normal prose now (eyebrow labels stay uppercase).
         if is_fresh:
             if days_since == 0:
-                age_label = 'NEW TODAY'
+                age_label = 'New today'
             elif days_since is not None:
-                age_label = f'NEW · {days_since}D AGO'
+                age_label = f'New · {days_since}d ago'
             else:
-                age_label = 'NEW'
+                age_label = 'New'
         else:
             # Non-fresh = older signal still qualifying. NEVER present these
             # without age context (Erik, Jun 11 — "Consider adding" on a 57d
             # signal misleads).
             if days_since is not None:
-                age_label = f'SIGNALED {days_since}D AGO · STILL QUALIFIES'
+                age_label = f'Signaled {days_since}d ago · still qualifies'
             else:
-                age_label = 'STILL QUALIFIES'
+                age_label = 'Still qualifies'
 
         # Symbol/price on line 1, then full-width meta lines (strength+trend, then age).
         # Was a 3-item nowrap right column beside a left age label — collided/wrapped on
@@ -674,12 +676,12 @@ class EmailService:
                     </td>
                 </tr>
                 <tr>
-                    <td colspan="2" style="padding-top: 6px; font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 0.3px; text-transform: uppercase;">
+                    <td colspan="2" style="padding-top: 6px; font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 0.2px;">
                         <span style="color: #7A2430;">{score}&nbsp;·&nbsp;{label}</span>&nbsp;·&nbsp;<span style="color: #245232;">+{pct_above:.0f}% above trend</span>
                     </td>
                 </tr>
                 <tr>
-                    <td colspan="2" style="padding-top: 4px; font-family: 'Courier New', monospace; font-size: 12px; color: #8A8279; letter-spacing: 0.3px; text-transform: uppercase;">{age_label}</td>
+                    <td colspan="2" style="padding-top: 4px; font-family: 'Courier New', monospace; font-size: 12px; color: #8A8279; letter-spacing: 0.2px;">{age_label}</td>
                 </tr>
             </table>
         </div>
