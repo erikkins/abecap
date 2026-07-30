@@ -4685,6 +4685,19 @@ function Dashboard() {
                     </div>
                   </div>
                 </div>
+                {/* Full-cycle line — the long-term edge next to the rolling window, so a soft
+                    trailing year (e.g. a vol-target-trimmed bull) sits beside the real track record. */}
+                {tb?.full_cycle && (
+                  <div className="mt-3 pt-3 border-t border-rule flex items-baseline justify-between font-mono text-[0.78rem] text-ink-mute tracking-wide">
+                    <span>Full cycle · {tb.full_cycle.window}</span>
+                    <span>
+                      <span className={parseFloat(tb.full_cycle.total_return_pct) >= 0 ? 'text-positive' : 'text-negative'}>
+                        {parseFloat(tb.full_cycle.total_return_pct) >= 0 ? '+' : ''}{tb.full_cycle.total_return_pct}%
+                      </span>
+                      <span className="text-ink-light"> · Sharpe {tb.full_cycle.sharpe_ratio} · MaxDD {tb.full_cycle.max_drawdown_pct}%</span>
+                    </span>
+                  </div>
+                )}
               </div>
               );
             })()}

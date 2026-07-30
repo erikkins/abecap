@@ -52,11 +52,22 @@ CERTIFIED_WF = {
 def tier_backtest(tier: str):
     """Walk-forward summary for the served tier's Simulated Portfolio card. Prefers the daily
     ROLLING trailing-365 cache (tier_wf_store); falls back to the certified full-cycle window
-    (honestly labeled) until the nightly job lands its first result."""
+    (honestly labeled) until the nightly job lands its first result.
+
+    Always carries the full-cycle certified numbers as `full_cycle` alongside the rolling window
+    — so a soft trailing year (e.g. Maximizer's vol-target trimming upside in a rip-bull year)
+    is shown next to the dominant long-term edge, not in isolation."""
+    full = CERTIFIED_WF.get(tier)
+    full_cycle = None
+    if full:
+        full_cycle = {
+            "total_return_pct": full["total_return_pct"], "sharpe_ratio": full["sharpe_ratio"],
+            "max_drawdown_pct": full["max_drawdown_pct"], "window": full.get("window", "2021–2026 full cycle"),
+        }
     rolling = _read_rolling_wf(tier)
     if rolling:
-        return rolling
-    return CERTIFIED_WF.get(tier)
+        return {**rolling, "full_cycle": full_cycle}
+    return full  # no rolling cache yet — full-cycle only (honestly labeled)
 
 
 def _read_rolling_wf(tier: str):

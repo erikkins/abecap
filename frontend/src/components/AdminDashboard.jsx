@@ -16,13 +16,14 @@ import TierBooksTab from './TierBooksTab';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+// Deprecated tabs (strategies / lab / autopilot) — leftovers of the multi-strategy +
+// auto-switching era; the product is now a fixed t30v ensemble (Preserver+Maximizer). Hidden
+// from nav (Jul 30 2026 audit); components + endpoints kept for research/debugging. Still
+// reachable via ?tab=strategies|lab|autopilot if needed.
 const TABS = [
   { id: 'overview', label: 'Overview', icon: Activity },
   { id: 'portfolio', label: 'Portfolio', icon: Briefcase },
   { id: 'tierbooks', label: 'Tier Books', icon: BarChart3 },
-  { id: 'strategies', label: 'Strategies', icon: TrendingUp },
-  { id: 'lab', label: 'Strategy Lab', icon: Beaker },
-  { id: 'autopilot', label: 'Auto-Pilot', icon: Bot },
   { id: 'social', label: 'Social', icon: Share2 },
   { id: 'newsletter', label: 'Newsletter', icon: Mail },
   { id: 'leads', label: 'Leads', icon: Sparkles },
