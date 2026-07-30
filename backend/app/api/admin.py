@@ -4821,6 +4821,12 @@ async def get_tier_books(limit: int = 40, admin: User = Depends(get_admin_user),
     from datetime import date as _date
     from app.services.model_portfolio_service import _fetch_latest_close_from_s3
     _today = _date.today()
+    _close_cache = {}
+    def _eod(sym):
+        if sym not in _close_cache:
+            c = _fetch_latest_close_from_s3(sym)
+            _close_cache[sym] = float(c) if c is not None else None
+        return _close_cache[sym]
 
     core_fills = []
     for p in pos_rows:
@@ -4839,7 +4845,7 @@ async def get_tier_books(limit: int = 40, admin: User = Depends(get_admin_user),
                                "realized_pnl": p.pnl_dollars, "unrealized": False})
         else:
             age = (_today - entry_d).days if entry_d else None
-            cur = _fetch_latest_close_from_s3(p.symbol)
+            cur = _eod(p.symbol)
             cur = float(cur) if cur is not None else float(p.entry_price or 0)
             unreal = (cur - float(p.entry_price or 0)) * float(p.shares or 0)
             core_fills.append({**base, "fill_date": entry_d.isoformat() if entry_d else None,
@@ -4867,7 +4873,7 @@ async def get_tier_books(limit: int = 40, admin: User = Depends(get_admin_user),
             pos = max_open[r["symbol"]]
             entry = float(pos.get("entry") or 0)
             shares = float(pos.get("shares") or 0)
-            cur = _fetch_latest_close_from_s3(r["symbol"])
+            cur = _eod(r["symbol"])
             cur = float(cur) if cur is not None else entry
             r["days_held"] = pos.get("days_held")
             r["realized_pnl"] = round((cur - entry) * shares, 0) if entry else None
@@ -4878,4 +4884,23 @@ async def get_tier_books(limit: int = 40, admin: User = Depends(get_admin_user),
         "preserver": preserver_fills,
         "maximizer": maximizer_fills,
     }
+
+    # Open holdings for CLIENT-SIDE intraday repricing (Erik Jul 30): the frontend polls live
+    # quotes and computes equity_live = equity_eod + Σ shares×(live − eod), so no cash math is
+    # needed. Core & Preserver share the live model names (Preserver mirrors t30v); Maximizer uses
+    # its own breakout book. Symbols with no live quote contribute a zero delta.
+    live_holdings = [
+        {"symbol": p.symbol, "shares": float(p.shares or 0), "eod_price": _eod(p.symbol) or float(p.entry_price or 0)}
+        for p in pos_rows if p.status == "open"
+    ]
+    books["core"]["holdings"] = live_holdings
+    books["preserver"]["holdings"] = live_holdings
+    max_holdings = []
+    if max_snap and isinstance(max_snap.positions_json, dict):
+        for pos in (max_snap.positions_json.get("positions") or []):
+            if pos.get("symbol"):
+                max_holdings.append({"symbol": pos["symbol"], "shares": float(pos.get("shares") or 0),
+                                     "eod_price": _eod(pos["symbol"]) or float(pos.get("entry") or 0)})
+    books["maximizer"]["holdings"] = max_holdings
+
     return {"books": books, "fills": fills}

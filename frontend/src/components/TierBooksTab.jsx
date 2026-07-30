@@ -15,6 +15,7 @@ export default function TierBooksTab({ fetchWithAuth }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [quotes, setQuotes] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -31,6 +32,26 @@ export default function TierBooksTab({ fetchWithAuth }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Poll live quotes for the union of held symbols → intraday reprice (equity + open P&L).
+  useEffect(() => {
+    if (!data?.books) return;
+    const syms = new Set();
+    Object.values(data.books).forEach(b => (b.holdings || []).forEach(h => h.symbol && syms.add(h.symbol)));
+    if (!syms.size) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetchWithAuth(`${API_URL}/api/quotes/live?symbols=${[...syms].join(',')}`);
+        if (!res.ok) return;
+        const j = await res.json();
+        if (!cancelled) setQuotes(j.quotes || {});
+      } catch { /* leave EOD values */ }
+    };
+    poll();
+    const iv = setInterval(poll, 30000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [data, fetchWithAuth]);
+
   if (loading) return <div className="p-8 text-center text-ink-mute"><RefreshCw className="w-5 h-5 animate-spin inline" /> Loading tier books…</div>;
   if (error) return <div className="p-8 text-center text-claret">Error: {error} <button onClick={load} className="underline ml-2">retry</button></div>;
   if (!data) return null;
@@ -39,6 +60,17 @@ export default function TierBooksTab({ fetchWithAuth }) {
   const pnl = (v) => v == null ? '' : `${v >= 0 ? '+' : ''}$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
   const books = data.books || {};
   const fills = data.fills || {};
+
+  // equity_live = equity_eod + Σ shares×(live − eod). Symbols without a live quote add 0.
+  const liveEquity = (b) => {
+    if (!b || b.equity == null || !Array.isArray(b.holdings)) return { value: b?.equity, live: false };
+    let delta = 0, any = false;
+    for (const h of b.holdings) {
+      const q = quotes[h.symbol];
+      if (q && q.price && h.eod_price) { delta += h.shares * (q.price - h.eod_price); any = true; }
+    }
+    return { value: any ? b.equity + delta : b.equity, live: any };
+  };
 
   return (
     <div className="space-y-6">
@@ -60,10 +92,17 @@ export default function TierBooksTab({ fetchWithAuth }) {
                 {b.regime && <span className="text-[0.6rem] uppercase tracking-wide text-ink-mute">{b.regime}</span>}
               </div>
               <div className="text-xs text-ink-mute mb-2">{t.sub}</div>
-              <div className="text-2xl font-semibold text-ink">{usd(b.equity)}</div>
-              <div className="text-[0.7rem] text-ink-mute mt-1">
-                as of {b.as_of || '—'}{b.held != null ? ` · ${b.held} held` : ''}
-              </div>
+              {(() => { const le = liveEquity(b); return (
+                <>
+                  <div className="text-2xl font-semibold text-ink">
+                    {usd(le.value)}
+                    {le.live && <span title="Live intraday" className="ml-2 inline-block w-2 h-2 rounded-full bg-positive align-middle" />}
+                  </div>
+                  <div className="text-[0.7rem] text-ink-mute mt-1">
+                    {le.live ? 'live · intraday' : `as of ${b.as_of || '—'}`}{b.held != null ? ` · ${b.held} held` : ''}
+                  </div>
+                </>
+              ); })()}
               {b.note && <div className="text-[0.68rem] text-ink-mute mt-2 leading-snug italic">{b.note}</div>}
             </div>
           );
@@ -112,7 +151,16 @@ export default function TierBooksTab({ fetchWithAuth }) {
                           {r.reason}{r.source ? ` · ${r.source}` : ''}{r.vol_scale != null ? ` · vs ${Number(r.vol_scale).toFixed(2)}` : ''}
                         </td>
                         <td className="py-1.5 px-2 text-right font-mono text-xs text-ink-mute hidden md:table-cell">{r.days_held != null ? `${r.days_held}d` : '—'}</td>
-                        <td className={`py-1.5 px-2 text-right font-mono ${r.realized_pnl >= 0 ? 'text-positive' : 'text-claret'}`} title={r.unrealized ? 'Unrealized (live mark to latest close)' : 'Realized'}>{r.realized_pnl != null ? `${r.unrealized ? '~' : ''}${pnl(r.realized_pnl)}` : '—'}</td>
+                        {(() => {
+                          // Open rows: reprice P&L off the live quote when we have one; else the EOD mark.
+                          let v = r.realized_pnl;
+                          if (r.unrealized && r.side === 'buy' && quotes[r.symbol]?.price && r.price) {
+                            v = r.shares * (quotes[r.symbol].price - r.price);
+                          }
+                          return (
+                            <td className={`py-1.5 px-2 text-right font-mono ${v >= 0 ? 'text-positive' : 'text-claret'}`} title={r.unrealized ? 'Unrealized (live/EOD mark)' : 'Realized'}>{v != null ? `${r.unrealized ? '~' : ''}${pnl(v)}` : '—'}</td>
+                          );
+                        })()}
                       </tr>
                     ))}
                   </tbody>
