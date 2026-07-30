@@ -120,89 +120,55 @@ async def _load_prices(symbols: List[str], data_cache: dict) -> None:
 
 
 async def build_maximizer_breakout_view(db, data_cache: dict) -> List[dict]:
-    """The breakout BOOK as buy_signal-shaped cards: HELD positions (day X/29 countdown)
-    first, then today's fresh breakout buys. Reads the shadow tables only."""
-    from app.core.database import MaximizerBookSnapshot, MaximizerSignal
+    """The breakout BOOK as buy_signal-shaped cards, derived SOLELY from the latest book
+    snapshot — the single source of truth, so the email and the site's book view always agree.
+    A position entered today (days_held==0) is 'new'; the rest are 'holding'.
 
-    # Latest book snapshot -> held breakout positions.
+    NOTE: we intentionally do NOT read the maximizer_signals candidate table here — it lists
+    candidates that the book may not have actually entered (e.g. it showed 'BAX' while the book
+    held KO/PM/MMM/GM/KHC), which made the email diverge from the site. The book snapshot is
+    what the subscriber mirrors; that's what we render everywhere."""
+    from app.core.database import MaximizerBookSnapshot
+
     snap = (await db.execute(
         select(MaximizerBookSnapshot).order_by(MaximizerBookSnapshot.snapshot_date.desc()).limit(1)
     )).scalars().first()
+    if not snap or not isinstance(snap.positions_json, dict):
+        return []
 
-    held: List[dict] = []
-    held_syms = set()
-    if snap and isinstance(snap.positions_json, dict):
-        held_syms = {p.get("symbol") for p in snap.positions_json.get("positions", []) if p.get("symbol")}
-        await _load_prices(list(held_syms), data_cache)
-        for p in snap.positions_json.get("positions", []):
-            sym = p.get("symbol")
-            if not sym:
-                continue
-            entry = float(p.get("entry") or 0) or 0.0
-            days_held = int(p.get("days_held") or 0)
-            hold = int(p.get("hold") or BREAKOUT_HOLD)
-            days_left = max(0, hold - days_held)
-            cur = _current_price(sym, data_cache, entry)
-            pnl_pct = ((cur / entry - 1) * 100) if entry else 0.0
-            held.append({
-                "symbol": sym,
-                "price": round(cur, 2),
-                "entry_price": round(entry, 2),
-                "source": "breakout",
-                "exit_rule": "hold",
-                "hold_days": hold,
-                "days_held": days_held,
-                "days_left": days_left,
-                "exit_date_approx": _approx_exit_date(days_left),
-                "pnl_pct": round(pnl_pct, 1),
-                "status": "holding",
-                "is_fresh": False,
-                "in_user_position": False,
-                # display-compat defaults for the buy-card renderer
-                "ensemble_score": 0,
-                "signal_strength_label": "Holding",
-            })
-        held.sort(key=lambda c: c["days_left"])  # nearest to exit first
-
-    # Today's fresh breakout buys (latest signal_date, source=breakout, active) that aren't
-    # already held.
-    latest = (await db.execute(
-        select(MaximizerSignal.signal_date)
-        .where(MaximizerSignal.source == "breakout")
-        .order_by(MaximizerSignal.signal_date.desc()).limit(1)
-    )).scalar_one_or_none()
-    fresh: List[dict] = []
-    if latest is not None:
-        rows = (await db.execute(
-            select(MaximizerSignal).where(
-                MaximizerSignal.signal_date == latest,
-                MaximizerSignal.source == "breakout",
-                MaximizerSignal.status == "active",
-            )
-        )).scalars().all()
-        for r in rows:
-            if r.symbol in held_syms:
-                continue
-            hold = int(r.hold_days or BREAKOUT_HOLD)
-            fresh.append({
-                "symbol": r.symbol,
-                "price": round(float(r.price or 0), 2),
-                "source": "breakout",
-                "exit_rule": "hold",
-                "hold_days": hold,
-                "days_held": 0,
-                "days_left": hold,
-                "exit_date_approx": _approx_exit_date(hold),
-                "dollar_volume": float(r.dollar_volume or 0),
-                "status": "new",
-                "is_fresh": True,          # act today — breakout signal is a same-day cross
-                "in_user_position": False,
-                "ensemble_score": 0,
-                "signal_strength_label": "New breakout",
-            })
-        fresh.sort(key=lambda c: -c.get("dollar_volume", 0))
-
-    return fresh + held  # new buys first, then the held book
+    positions = snap.positions_json.get("positions", []) or []
+    await _load_prices([p.get("symbol") for p in positions if p.get("symbol")], data_cache)
+    cards: List[dict] = []
+    for p in positions:
+        sym = p.get("symbol")
+        if not sym:
+            continue
+        entry = float(p.get("entry") or 0) or 0.0
+        days_held = int(p.get("days_held") or 0)
+        hold = int(p.get("hold") or BREAKOUT_HOLD)
+        days_left = max(0, hold - days_held)
+        cur = _current_price(sym, data_cache, entry)
+        is_new = days_held == 0
+        cards.append({
+            "symbol": sym,
+            "price": round(cur, 2),
+            "entry_price": round(entry, 2),
+            "source": "breakout",
+            "exit_rule": "hold",
+            "hold_days": hold,
+            "days_held": days_held,
+            "days_left": days_left,
+            "exit_date_approx": _approx_exit_date(days_left),
+            "pnl_pct": round(((cur / entry - 1) * 100) if entry else 0.0, 1),
+            "status": "new" if is_new else "holding",
+            "is_fresh": is_new,          # entered today
+            "in_user_position": False,
+            "ensemble_score": 0,
+            "signal_strength_label": "New breakout" if is_new else "Holding",
+        })
+    # New (entered today) first, then holdings nearest to their time-stop exit.
+    cards.sort(key=lambda c: (0 if c["status"] == "new" else 1, c["days_left"]))
+    return cards
 
 
 async def build_maximizer_missed(db, limit: int = 5) -> List[dict]:
