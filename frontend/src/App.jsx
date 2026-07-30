@@ -3732,7 +3732,7 @@ function Dashboard() {
                   );
                 })()}
 
-                <div className="max-h-[500px] overflow-y-auto relative">
+                <div className={`relative ${dashboardData?.tier_book ? '' : 'max-h-[500px] overflow-y-auto'}`}>
                   {timeTravelLoading && (
                     <div className="absolute inset-0 bg-paper-card/80 z-10 flex items-center justify-center">
                       <div className="flex flex-col items-center gap-2">

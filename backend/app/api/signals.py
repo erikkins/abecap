@@ -1732,8 +1732,20 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                     if resp.status_code == 200:
                         content = resp.json().get("content", [])
                         if content and content[0].get("type") == "text":
-                            market_context = content[0]["text"].strip().strip('"')
-                            print(f"📝 Market context ({day_type}): {market_context}")
+                            _mc = content[0]["text"].strip().strip('"')
+                            # Enforce brand voice — negative prompts leak "tape" etc. If the
+                            # draft has a banned term, drop it so the clean deterministic
+                            # fallback below is used instead (never ship banned words).
+                            try:
+                                from app.services.voice_filters import contains_banned
+                                _bad = contains_banned(_mc)
+                            except Exception:
+                                _bad = []
+                            if _bad:
+                                print(f"⚠️ Market context voice violation {[t for t,_ in _bad]} — using fallback")
+                            else:
+                                market_context = _mc
+                                print(f"📝 Market context ({day_type}): {market_context}")
                     else:
                         print(f"⚠️ Claude API {resp.status_code}: {resp.text[:200]}")
             except Exception as ai_err:

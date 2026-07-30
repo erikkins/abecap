@@ -211,9 +211,10 @@ def generate_maximizer_briefing(held: int, new_today: int, regime: str,
     try:
         import httpx
         from app.core.config import settings
+        from app.services.voice_filters import generate_with_voice_filter, banned_summary_for_prompt
         if not settings.ANTHROPIC_API_KEY:
             return fallback
-        system_prompt = (
+        base_system = (
             "You write the daily briefing for RigaCap's MAXIMIZER tier — an aggressive, "
             "systematic breakout book (momentum names bought on a same-day breakout, held ~29 "
             "trading days, sold on a hard time-stop, no trailing stop; a book-level vol-target "
@@ -221,8 +222,10 @@ def generate_maximizer_briefing(held: int, new_today: int, regime: str,
             "runs an aggressive book and owns it — not hype, not a robot.\n"
             "Rules: 1-2 sentences, max 280 chars. Plain text, no markdown/emoji. Never say "
             "'buy'/'sell' as advice. Never say 'algorithm'/'model' — say 'the book' or 'the "
-            "ensemble'. Convey the aggressive, time-boxed nature honestly (it's high-variance; "
-            "don't oversell). Vary opening, structure, and rhythm every day — sound spontaneous."
+            "ensemble'. NEVER use the word 'tape' for the market — say 'market', 'action', or "
+            "'the session'. Convey the aggressive, time-boxed nature honestly (it's high-variance; "
+            "don't oversell). Vary opening, structure, and rhythm every day — sound spontaneous.\n"
+            + banned_summary_for_prompt()
         )
         avoid = ("\n\nYour last briefings (do NOT echo their opening, structure, or rhythm):\n"
                  + "\n".join(f"- {m}" for m in recent)) if recent else ""
@@ -233,13 +236,25 @@ def generate_maximizer_briefing(held: int, new_today: int, regime: str,
         )
         headers = {"x-api-key": settings.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
                    "content-type": "application/json"}
-        payload = {"model": "claude-sonnet-4-6", "max_tokens": 150,
-                   "system": system_prompt, "messages": [{"role": "user", "content": user_prompt}]}
-        resp = httpx.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=15)
-        if resp.status_code == 200:
-            content = resp.json().get("content", [])
-            if content and content[0].get("type") == "text":
-                return content[0]["text"].strip().strip('"')
+
+        def _call(extra):
+            sys_p = base_system + (("\n" + extra) if extra else "")
+            payload = {"model": "claude-sonnet-4-6", "max_tokens": 150,
+                       "system": sys_p, "messages": [{"role": "user", "content": user_prompt}]}
+            try:
+                r = httpx.post("https://api.anthropic.com/v1/messages", headers=headers,
+                               json=payload, timeout=15)
+                if r.status_code == 200:
+                    c = r.json().get("content", [])
+                    if c and c[0].get("type") == "text":
+                        return c[0]["text"].strip().strip('"')
+            except Exception as _e:
+                print(f"⚠️ Maximizer briefing call failed: {_e}")
+            return None
+
+        # Enforce the brand voice (negative prompts leak "tape" etc.) — retry, else clean fallback.
+        clean = generate_with_voice_filter(_call, max_retries=2, label="maximizer-briefing")
+        return clean if clean else fallback
     except Exception as e:
         print(f"⚠️ Maximizer briefing AI failed (fallback): {e}")
     return fallback
