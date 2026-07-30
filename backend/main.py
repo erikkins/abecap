@@ -824,6 +824,50 @@ async def _notify_portfolio_change(action: str, trades: list):
         print(f"⚠️ Portfolio notification email failed (non-fatal): {e}")
 
 
+async def _notify_tier_books(db):
+    """Admin summary of the SHADOW tier books' activity today (Preserver + Maximizer), from
+    tier_fills. Core t30v is covered separately by _notify_portfolio_change (the live model
+    book). Together these give admin eyes on all three of the 'triple-threat' books each scan.
+    Admin-only, non-fatal."""
+    try:
+        from sqlalchemy import text as _text
+        from app.services.email_service import admin_email_service, ADMIN_EMAILS
+        rows = (await db.execute(_text(
+            "SELECT tier, side, symbol, reason, days_held, realized_pnl, price "
+            "FROM tier_fills WHERE fill_date = CURRENT_DATE ORDER BY tier, side, symbol"
+        ))).all()
+        if not rows:
+            return
+        by_tier = {}
+        for r in rows:
+            by_tier.setdefault(r[0], []).append(r)
+        sections = []
+        for tier in ("preserver", "maximizer"):
+            frs = by_tier.get(tier, [])
+            if not frs:
+                continue
+            lines = []
+            for (_t, side, sym, reason, dh, pnl, price) in frs:
+                if reason in ("exposure_trim", "exposure_restore"):
+                    lines.append(f"  {reason.replace('_', ' ')}: ${(price or 0):,.0f} shifted")
+                elif side == "buy":
+                    lines.append(f"  BUY {sym} @ ${(price or 0):.2f}")
+                else:
+                    _p = f", {pnl:+.1f}%" if pnl is not None else ""
+                    lines.append(f"  SELL {sym} @ ${(price or 0):.2f} ({reason or 'exit'}{_p}, {dh or 0}d)")
+            sections.append(f"{tier.upper()}:\n" + "\n".join(lines))
+        if not sections:
+            return
+        body = ("Shadow tier books — today's activity (Core t30v is in the separate "
+                "Portfolio BUY/SELL email):\n\n" + "\n\n".join(sections))
+        subject = "Tier Books: " + " / ".join(t.upper() for t in ("preserver", "maximizer") if t in by_tier)
+        for admin in ADMIN_EMAILS:
+            await admin_email_service.send_admin_alert(admin, subject, body)
+        print(f"📧 Tier-book notification sent ({len(sections)} book(s) active)")
+    except Exception as e:
+        print(f"⚠️ Tier-book notification failed (non-fatal): {e}")
+
+
 def handler(event, context):
     """
     Lambda handler that supports:
@@ -1706,6 +1750,13 @@ def handler(event, context):
                         print("🚀 Maximizer shadow skipped — no regime in dashboard data")
                 except Exception as mshe:
                     print(f"⚠️ Maximizer shadow failed (non-fatal, live scan unaffected): {mshe}")
+
+            # Admin summary of the shadow tier books' activity today (Preserver + Maximizer).
+            try:
+                async with async_session() as _tb_db:
+                    await _notify_tier_books(_tb_db)
+            except Exception as _tbe:
+                print(f"⚠️ Tier-book notify skipped (non-fatal): {_tbe}")
 
             # 7a. Check model portfolio exits using closing prices (catches trailing stops
             # that triggered in the last 5 min after the final intraday check at 3:55 PM)

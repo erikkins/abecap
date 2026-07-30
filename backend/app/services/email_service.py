@@ -125,19 +125,19 @@ class EmailService:
 
         return f'''<tr>
             <td style="border-top: 1px solid #DDD5C7; padding: 24px 24px;">
-                <p style="margin: 0 0 8px; font-family: 'Courier New', monospace; font-size: 10px; color: #8A8279; line-height: 1.8; text-align: center;">
+                <p style="margin: 0 0 8px; font-family: 'Courier New', monospace; font-size: 12px; color: #5A544E; line-height: 1.8; text-align: center;">
                     RigaCap &middot; Disciplined Momentum Strategy<br>
                     <a href="https://rigacap.com/app" style="color: #7A2430; text-decoration: underline;">Dashboard</a>
                     &nbsp;&middot;&nbsp;
                     <a href="{manage_url}" style="color: #7A2430; text-decoration: underline;">Manage Alerts</a>
                     &nbsp;&middot;&nbsp;
-                    <a href="{unsub_url}" style="color: #8A8279; text-decoration: underline;">Unsubscribe</a>
+                    <a href="{unsub_url}" style="color: #7A2430; text-decoration: underline;">Unsubscribe</a>
                 </p>
-                <p style="margin: 0; font-family: 'Courier New', monospace; font-size: 9px; color: #C9BFAC; line-height: 1.6; text-align: center;">
+                <p style="margin: 0; font-family: 'Courier New', monospace; font-size: 11px; color: #6B6356; line-height: 1.6; text-align: center;">
                     For information purposes only. Not a solicitation to invest, purchase, or sell securities in which RigaCap has an interest.<br>
                     RigaCap, LLC is not a registered investment advisor. Past performance does not guarantee future results.
                 </p>
-                <p style="margin: 8px 0 0; font-family: 'Courier New', monospace; font-size: 9px; color: #C9BFAC; text-align: center;">
+                <p style="margin: 8px 0 0; font-family: 'Courier New', monospace; font-size: 11px; color: #6B6356; text-align: center;">
                     &copy; {datetime.now().year} RigaCap, LLC
                 </p>
             </td>
@@ -481,7 +481,7 @@ class EmailService:
                 <table cellpadding="0" cellspacing="0" style="width: 100%;">
                     <tr>
                         <td>
-                            <div style="font-family: 'Courier New', monospace; font-size: 10px; color: #8A8279; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px;">{date_str}</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 13px; font-weight: bold; color: #5A544E; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8px;">{date_str}</div>
                             <div style="font-family: Georgia, serif; font-size: 22px; color: #141210; line-height: 1.2;">{regime_label} Market</div>
                         </td>
                         <td align="right" valign="top" style="font-family: 'Courier New', monospace; font-size: 12px; color: #5A544E; line-height: 1.6;">
@@ -2127,17 +2127,17 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                         <td style="padding: 16px 16px 16px 0; border-right: 1px solid #DDD5C7; text-align: center;">
                             <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Preserver Return</div>
                             <div style="font-family: Georgia, serif; font-size: 32px; color: #141210; margin-top: 4px;">8.6%</div>
-                            <div style="font-family: 'Courier New', monospace; font-size: 10px; color: #8A8279; margin-top: 2px;">/yr · 21-yr walk-forward</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 11px; color: #6B6356; margin-top: 2px;">/yr · 21-yr walk-forward</div>
                         </td>
                         <td style="padding: 16px; border-right: 1px solid #DDD5C7; text-align: center;">
                             <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Worst Drawdown</div>
                             <div style="font-family: Georgia, serif; font-size: 32px; color: #141210; margin-top: 4px;">13%</div>
-                            <div style="font-family: 'Courier New', monospace; font-size: 10px; color: #8A8279; margin-top: 2px;">Index lost half, twice</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 11px; color: #6B6356; margin-top: 2px;">Index lost half, twice</div>
                         </td>
                         <td style="padding: 16px 0 16px 16px; text-align: center;">
                             <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Sharpe</div>
                             <div style="font-family: Georgia, serif; font-size: 32px; color: #141210; margin-top: 4px;">0.88</div>
-                            <div style="font-family: 'Courier New', monospace; font-size: 10px; color: #8A8279; margin-top: 2px;">vs index 0.54</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 11px; color: #6B6356; margin-top: 2px;">vs index 0.54</div>
                         </td>
                     </tr>
                 </table>
@@ -2347,7 +2347,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                         <td style="padding: 16px 16px 16px 0; border-right: 1px solid #DDD5C7; text-align: center;">
                             <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Signal</div>
                             <div style="font-family: Georgia, serif; font-size: 22px; color: #141210; margin-top: 4px;">{{symbol}}</div>
-                            <div style="font-family: 'Courier New', monospace; font-size: 10px; color: #8A8279; margin-top: 2px;">{{signal_date}}</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 11px; color: #6B6356; margin-top: 2px;">{{signal_date}}</div>
                         </td>
                         <td style="padding: 16px; border-right: 1px solid #DDD5C7; text-align: center;">
                             <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Entry</div>
