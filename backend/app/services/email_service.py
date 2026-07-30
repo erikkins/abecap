@@ -588,7 +588,7 @@ class EmailService:
         pnl_html = ''
         if pnl is not None and not is_new:
             pnl_color = '#245232' if pnl >= 0 else '#7A2430'
-            pnl_html = (f'<div style="font-family: \'Courier New\', monospace; font-size: 12px; '
+            pnl_html = (f'<div style="font-family: \'Courier New\', monospace; font-size: 14px; '
                         f'color: {pnl_color}; margin-top: 4px;">{"+" if pnl >= 0 else ""}{pnl:.1f}%</div>')
         border = 'border-left: 3px solid #7A2430; padding-left: 14px;' if is_new else ''
         return f"""
@@ -599,15 +599,15 @@ class EmailService:
                     <td style="vertical-align: top; padding-right: 12px;">
                         <div style="font-family: Georgia, serif; font-size: 19px; font-weight: 500; color: #141210;">
                             <span style="text-decoration: underline;">{symbol}</span>
-                            &nbsp;<span style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 1px; color: #7A2430;">BREAKOUT</span>
+                            &nbsp;<span style="font-family: 'Courier New', monospace; font-size: 12px; letter-spacing: 1px; color: #7A2430;">BREAKOUT</span>
                         </div>
-                        <div style="font-family: 'Courier New', monospace; font-size: 12px; color: #6B6356; letter-spacing: 0.3px; margin-top: 4px;">
+                        <div style="font-family: 'Courier New', monospace; font-size: 14px; color: #5A544E; letter-spacing: 0.3px; margin-top: 5px;">
                             {age_label}
                         </div>
                     </td>
                     <td style="text-align: right; vertical-align: top; white-space: nowrap;">
-                        <div style="font-family: 'Courier New', monospace; font-size: 15px; font-weight: bold; color: #141210;">${price:.2f}</div>
-                        <div style="font-family: 'Courier New', monospace; font-size: 12px; color: #7A2430; letter-spacing: 0.3px; text-transform: uppercase; margin-top: 4px;">{exit_note}</div>
+                        <div style="font-family: 'Courier New', monospace; font-size: 16px; font-weight: bold; color: #141210;">${price:.2f}</div>
+                        <div style="font-family: 'Courier New', monospace; font-size: 14px; color: #7A2430; letter-spacing: 0.3px; text-transform: uppercase; margin-top: 5px;">{exit_note}</div>
                         {pnl_html}
                     </td>
                 </tr>
@@ -665,18 +665,18 @@ class EmailService:
                         <div style="font-family: Georgia, serif; font-size: 19px; font-weight: 500; color: #141210;">
                             <span style="text-decoration: underline;">{symbol}</span>
                         </div>
-                        <div style="font-family: 'Courier New', monospace; font-size: 12px; color: #6B6356; letter-spacing: 0.3px; margin-top: 4px;">
+                        <div style="font-family: 'Courier New', monospace; font-size: 14px; color: #5A544E; letter-spacing: 0.3px; margin-top: 5px;">
                             {age_label}
                         </div>
                     </td>
                     <!-- Right: price / strength / trend STACKED in one right-aligned
                          column (was 3 side-by-side cells that overlapped on mobile,
-                         Erik Jun 23). Sizes bumped + dim grays darkened for phone
-                         readability (Erik Jun 23). nowrap is safe — nothing beside it. -->
+                         Erik Jun 23). Sizes bumped again Jul 30 — line-item descriptors
+                         were still too small on retina phones (Erik). nowrap is safe. -->
                     <td style="text-align: right; vertical-align: top; white-space: nowrap;">
-                        <div style="font-family: 'Courier New', monospace; font-size: 15px; font-weight: bold; color: #141210;">${price:.2f}</div>
-                        <div style="font-family: 'Courier New', monospace; font-size: 13px; color: #7A2430; letter-spacing: 0.3px; text-transform: uppercase; margin-top: 4px;">{score}&nbsp;·&nbsp;{label}</div>
-                        <div style="font-family: 'Courier New', monospace; font-size: 12px; color: #245232; margin-top: 4px;">+{pct_above:.0f}% above trend</div>
+                        <div style="font-family: 'Courier New', monospace; font-size: 16px; font-weight: bold; color: #141210;">${price:.2f}</div>
+                        <div style="font-family: 'Courier New', monospace; font-size: 14px; color: #7A2430; letter-spacing: 0.3px; text-transform: uppercase; margin-top: 5px;">{score}&nbsp;·&nbsp;{label}</div>
+                        <div style="font-family: 'Courier New', monospace; font-size: 14px; color: #245232; margin-top: 5px;">+{pct_above:.0f}% above trend</div>
                     </td>
                 </tr>
             </table>
