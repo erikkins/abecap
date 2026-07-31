@@ -25,7 +25,7 @@ export default function Blog2022StoryPage() {
             The 2022 Story
           </h1>
           <p className="text-lg text-ink-mute max-w-2xl mx-auto">
-            The S&P 500 fell 20%. Our Preserver lost 6.5%.
+            The S&P 500 fell 20%. Our Maximizer lost 6.4%.
             <br className="hidden sm:block" />
             That difference is the whole product — here's why.
           </p>
@@ -43,8 +43,8 @@ export default function Blog2022StoryPage() {
           </div>
           <div className="bg-paper-card border border-claret/30 rounded p-6 text-center">
             <Shield className="w-6 h-6 text-claret mx-auto mb-2" />
-            <div className="text-3xl sm:text-4xl font-bold text-ink">-6.5%</div>
-            <div className="text-xs text-ink-light uppercase tracking-wider mt-1">RigaCap Preserver</div>
+            <div className="text-3xl sm:text-4xl font-bold text-ink">-6.4%</div>
+            <div className="text-xs text-ink-light uppercase tracking-wider mt-1">RigaCap Maximizer</div>
             <div className="text-xs text-ink-light mt-0.5">Continuous Walk-Forward</div>
           </div>
         </div>
@@ -98,11 +98,11 @@ export default function Blog2022StoryPage() {
           </div>
 
           <p className="text-ink-mute leading-relaxed text-base">
-            The result: <span className="text-ink font-semibold">−6.5% for the year</span> in the Preserver.
+            The result: <span className="text-ink font-semibold">−6.4% for the year</span> in the Maximizer &mdash; our <em>aggressive</em> setting.
             Yes — a loss. We're not going to dress that up. But it came in a year when the
             index lost 19.9% and the multi-year momentum unwind was destroying momentum
-            investors. Cutting the damage to about a third of the index's loss — in the
-            single worst environment for our style of investing — is the system doing
+            investors. Cutting the damage to about a third of the index's loss — with the
+            most offensive setting we run, in the single worst environment for momentum — is the system doing
             exactly what it was built to do.
           </p>
 
@@ -138,9 +138,9 @@ export default function Blog2022StoryPage() {
                 <td className="px-6 py-4 text-right text-negative font-semibold hidden sm:table-cell">+25%</td>
               </tr>
               <tr className="bg-claret/10 border-t border-claret/30">
-                <td className="px-6 py-4 text-claret font-medium">RigaCap Preserver (−6.5%)</td>
+                <td className="px-6 py-4 text-claret font-medium">RigaCap Maximizer (−6.4%)</td>
                 <td className="px-6 py-4 text-right text-ink-mute">$10,000</td>
-                <td className="px-6 py-4 text-right text-ink font-bold">$9,350</td>
+                <td className="px-6 py-4 text-right text-ink font-bold">$9,360</td>
                 <td className="px-6 py-4 text-right text-ink font-bold hidden sm:table-cell">+7%</td>
               </tr>
             </tbody>
@@ -149,9 +149,9 @@ export default function Blog2022StoryPage() {
 
         <div className="prose prose-gray max-w-none">
           <p className="text-ink-mute leading-relaxed text-base">
-            The difference between losing 20% and losing 6.5% isn't just 13 percentage points.
+            The difference between losing 20% and losing 6.4% isn't just 13.5 percentage points.
             It's the compounding math of recovery. Someone who lost 20% in 2022 needed a 25% gain
-            just to get back to even — for many index investors, that took years. A 6.5% loss
+            just to get back to even — for many index investors, that took years. A 6.4% loss
             is recoverable in months. That's the asymmetry the system is built around: you can't
             avoid every loss, but you can keep every loss small enough that the next leg up
             makes you whole quickly.
@@ -227,17 +227,17 @@ export default function Blog2022StoryPage() {
             2022 wasn't a fluke — and we won't pretend the record is spotless. Over the full
             21-year continuous walk-forward (2007–2026), the Preserver has had down years too:
             2015, 2018, and 2022. But look at how small they were — 2015 and 2018 each cost
-            barely more than a percent, and the worst of them was 2022 at −6.5%: the very year
-            we're proud of, because the S&P lost 19.9% in it. We'd rather show you those warts
+            a few percent, and the worst of them was 2022 at −11.2% — the same year our aggressive
+            Maximizer lost just 6.4%, because the S&P lost 19.9% in it. We'd rather show you those warts
             than hide them.
           </p>
           <p className="text-ink-mute leading-relaxed text-base">
             But look at what happens in the years that actually destroy portfolios.
             In 2008, while the S&P 500 fell about 37%, the regime filter held the system in cash
             by design — both tiers finished the year essentially flat, at +0.1%. In 2020, it
-            captured the recovery: the Preserver returned +13.0% and the aggressive Maximizer
-            setting +41.7%, against the S&P's +15.2%. And in 2022, the Preserver cut a 19.9%
-            index loss down to 6.5%. The pattern is consistent: in the worst years, the system
+            captured the recovery: the Preserver returned +9.2% and the aggressive Maximizer
+            setting +34.9%, against the S&P's +15.2%. And in 2022, even the aggressive Maximizer cut a 19.9%
+            index loss down to 6.4% (the Preserver, the base setting, held to −11.2%). The pattern is consistent: in the worst years, the system
             loses far less — and small losses are the ones you recover from.
           </p>
         </div>
@@ -254,12 +254,12 @@ export default function Blog2022StoryPage() {
             </thead>
             <tbody>
               {[
-                { year: '2021', rc: '+15.9%', note: 'Momentum bull market', rcColor: 'text-positive' },
-                { year: '2022', rc: '-6.5%', note: 'S&P 500: −19.9%. Loss cut to about a third of the index', rcColor: 'text-negative', highlight: true },
-                { year: '2023', rc: '+8.0%', note: "Recovered 2022's loss", rcColor: 'text-positive' },
-                { year: '2024', rc: '+14.3%', note: 'Steady year', rcColor: 'text-positive' },
-                { year: '2025', rc: '+29.7%', note: '', rcColor: 'text-positive' },
-                { year: '2026 YTD', rc: '+14.9%', note: 'Year to date', rcColor: 'text-positive' },
+                { year: '2021', rc: '+16.5%', note: 'Momentum bull market', rcColor: 'text-positive' },
+                { year: '2022', rc: '-11.2%', note: 'S&P 500: −19.9%. Loss held to about half the index (Maximizer: −6.4%)', rcColor: 'text-negative', highlight: true },
+                { year: '2023', rc: '+6.7%', note: "Recovered 2022's loss", rcColor: 'text-positive' },
+                { year: '2024', rc: '+18.7%', note: 'Steady year', rcColor: 'text-positive' },
+                { year: '2025', rc: '+29.1%', note: '', rcColor: 'text-positive' },
+                { year: '2026 YTD', rc: '+14.4%', note: 'Year to date', rcColor: 'text-positive' },
               ].map((row) => (
                 <tr key={row.year} className={`border-b border-rule/50 ${row.highlight ? 'bg-claret/10' : ''}`}>
                   <td className={`px-6 py-4 font-medium ${row.highlight ? 'text-claret' : 'text-ink'}`}>{row.year}</td>
@@ -275,8 +275,8 @@ export default function Blog2022StoryPage() {
           <p className="text-ink-mute leading-relaxed text-base">
             The system doesn't try to beat the market every year — in strong bull years the
             Preserver often lags. Over the 21-year continuous walk-forward (2007–2026), the
-            Preserver compounded at 8.6% a year with a 0.88 Sharpe ratio, roughly matching the
-            index's pace in exchange for a worst drawdown of just 13% — against the S&P's 55%
+            Preserver compounded at 7.7% a year with a 0.87 Sharpe ratio, most of the
+            index's pace in exchange for a worst drawdown of just 13.7% — against the S&P's 55%
             and raw 12-month momentum's 57%. You accept that tighter drawdown profile in some
             bull-year returns. 2022 is what you get back.
           </p>

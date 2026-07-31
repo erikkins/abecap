@@ -5,7 +5,7 @@ import MarketMeasuredSignup from './components/MarketMeasuredSignup';
 
 export default function BlogWalkForwardResultsPage() {
   useEffect(() => { document.title = 'Inside Our 21-Year Walk-Forward | RigaCap';
-    const DESC = 'RigaCap 21-year continuous walk-forward simulation (2007–2026): the Preserver at 8.6% / 0.88 Sharpe / −13% worst drawdown, the Maximizer at 14.5% — a fraction of the drawdown of raw momentum or the S&P.';
+    const DESC = 'RigaCap 21-year continuous walk-forward simulation (2007–2026): the Preserver at 7.7% / 0.87 Sharpe / −13.7% worst drawdown, the Maximizer at 13.5% — a fraction of the drawdown of raw momentum or the S&P.';
     const meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute('content', DESC);
     document.querySelector('meta[property="og:title"]')?.setAttribute('content', 'Inside Our 21-Year Walk-Forward | RigaCap');
@@ -61,7 +61,7 @@ export default function BlogWalkForwardResultsPage() {
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-paper-card border border-positive/30 rounded p-6 text-center">
             <ShieldCheck className="w-6 h-6 text-positive mx-auto mb-2" />
-            <div className="text-3xl sm:text-4xl font-bold text-positive">-13%</div>
+            <div className="text-3xl sm:text-4xl font-bold text-positive">-13.7%</div>
             <div className="text-xs text-ink-light uppercase tracking-wider mt-1">RigaCap Preserver</div>
             <div className="text-xs text-ink-light mt-0.5">Worst drawdown, 21-year</div>
           </div>
@@ -179,9 +179,9 @@ export default function BlogWalkForwardResultsPage() {
             </thead>
             <tbody>
               {[
-                { metric: 'Annualized Return', pres: '8.6%', max: '14.5%', spy: '9.8%' },
-                { metric: 'Sharpe Ratio', pres: '0.88', max: '0.95', spy: '0.54', highlight: true },
-                { metric: 'Max Drawdown', pres: '−13%', max: '−20%', spy: '−55%', highlight: true },
+                { metric: 'Annualized Return', pres: '7.7%', max: '13.5%', spy: '9.8%' },
+                { metric: 'Sharpe Ratio', pres: '0.87', max: '0.93', spy: '0.54', highlight: true },
+                { metric: 'Max Drawdown', pres: '−13.7%', max: '−20.8%', spy: '−55%', highlight: true },
               ].map((row) => (
                 <tr key={row.metric} className={`border-b border-rule/50 ${row.highlight ? 'bg-positive/5' : ''}`}>
                   <td className="px-6 py-4 text-ink-mute font-medium">{row.metric}</td>
@@ -200,11 +200,11 @@ export default function BlogWalkForwardResultsPage() {
             settings. The <em>raw</em> momentum factor returns 13.2% a year net of trading costs,
             but it does it with a stomach-churning 57% drawdown that almost no real investor
             survives. The <strong className="font-medium">Preserver</strong> dials that risk
-            almost all the way down: 8.6% a year — roughly the S&P's own pace — for a worst
-            drawdown of just 13%, a quarter of the index's 55%. The{' '}
-            <strong className="font-medium">Maximizer</strong> keeps more of the upside: 14.5% a
+            almost all the way down: 7.7% a year — most of the S&P's own pace — for a worst
+            drawdown of just 13.7%, a quarter of the index's 55%. The{' '}
+            <strong className="font-medium">Maximizer</strong> keeps more of the upside: 13.5% a
             year, ahead of both raw momentum and the S&P, while holding its worst drawdown to
-            20% — about a third of the raw factor's. Neither chases the biggest number; both chase
+            20.8% — about a third of the raw factor's. Neither chases the biggest number; both chase
             a number you can actually live through.
           </p>
 
@@ -216,9 +216,9 @@ export default function BlogWalkForwardResultsPage() {
           <p className="text-ink-mute leading-relaxed text-base">
             The equity curve tells the real story. Across 21 years — including 2008, when the
             S&P lost more than half its value — the Preserver's worst peak-to-trough loss was
-            just 13%. Through the 2022 bear, when the S&P fell roughly 20%, the Preserver lost
-            only 6.5% — not by predicting the crash, but by responding to the data:
-            risk-based sizing leaned away from the most volatile names, and disciplined exits
+            just 13.7%. Through the 2022 bear, when the S&P fell roughly 20%, the Maximizer lost
+            only 6.4% — not by predicting the crash, but by responding to the data:
+            a volatility brake eased exposure as the momentum crash built, and disciplined exits
             cut losers before they compounded.
           </p>
           <p className="text-ink-mute leading-relaxed text-base">
@@ -246,30 +246,30 @@ export default function BlogWalkForwardResultsPage() {
         <div className="grid grid-cols-3 gap-4 my-8">
           <div className="bg-paper-card border border-positive/30 rounded p-6 text-center">
             <TrendingUp className="w-6 h-6 text-positive mx-auto mb-2" />
-            <div className="text-3xl sm:text-4xl font-bold text-positive">+31.3%</div>
+            <div className="text-3xl sm:text-4xl font-bold text-positive">+13.0%</div>
             <div className="text-xs text-ink-light uppercase tracking-wider mt-1">Preserver Annualized</div>
-            <div className="text-xs text-ink-light mt-0.5">Held-out 24 months</div>
+            <div className="text-xs text-ink-light mt-0.5">Modern · 2021–26</div>
           </div>
           <div className="bg-paper-card border border-claret/30 rounded p-6 text-center">
             <BarChart3 className="w-6 h-6 text-claret mx-auto mb-2" />
-            <div className="text-3xl sm:text-4xl font-bold text-claret">1.75</div>
+            <div className="text-3xl sm:text-4xl font-bold text-claret">1.28</div>
             <div className="text-xs text-ink-light uppercase tracking-wider mt-1">Sharpe Ratio</div>
-            <div className="text-xs text-ink-light mt-0.5">vs S&P 1.18</div>
+            <div className="text-xs text-ink-light mt-0.5">vs S&P 0.87</div>
           </div>
           <div className="bg-paper-card border border-rule/50 rounded p-6 text-center">
             <ShieldCheck className="w-6 h-6 text-ink-mute mx-auto mb-2" />
             <div className="text-3xl sm:text-4xl font-bold text-ink-mute">-12.9%</div>
             <div className="text-xs text-ink-light uppercase tracking-wider mt-1">Max Drawdown</div>
-            <div className="text-xs text-ink-light mt-0.5">vs S&P -19.0%</div>
+            <div className="text-xs text-ink-light mt-0.5">vs S&P -25.4%</div>
           </div>
         </div>
 
         <div className="space-y-4 text-ink-mute text-[1.05rem] leading-[1.75]">
           <p className="text-ink-mute leading-relaxed text-base">
-            Over that held-out window the Preserver compounded at 31.3% annualized with a 1.75
-            Sharpe and a 12.9% maximum drawdown; dialed up to the Maximizer, 48.9% at a 1.94
-            Sharpe — against the S&P's 19.9%, 1.18, and 19.0%. A two-year stretch that strong
-            won't repeat on schedule; the 21-year averages — 8.6% for the Preserver, 14.5% for
+            Over the modern five years the Preserver compounded at 13.0% annualized with a 1.28
+            Sharpe and a 12.9% maximum drawdown; dialed up to the Maximizer, 31.4% at a 1.51
+            Sharpe — against the S&P's 14.2%, 0.87, and 25.4%. A five-year stretch this strong
+            won't repeat on schedule; the 21-year averages — 7.7% for the Preserver, 13.5% for
             the Maximizer — are the numbers to underwrite. But it's the cleanest evidence we have
             that the rules work on data they were never fitted to. We publish all of it.
           </p>
@@ -302,7 +302,7 @@ export default function BlogWalkForwardResultsPage() {
           </p>
           <p className="text-ink-mute text-sm m-0">
             <span className="text-negative font-semibold">The drawdown is real.</span>{' '}
-            At its worst, the Preserver was down about 13% from its peak, the Maximizer about 20%.
+            At its worst, the Preserver was down about 13.7% from its peak, the Maximizer about 20.8%.
             Those are real numbers that test an investor's resolve — they're just far smaller ones
             than the 57% the raw factor demands, or the 55% the S&P itself endured. We don't hide
             them; we lead with them.
