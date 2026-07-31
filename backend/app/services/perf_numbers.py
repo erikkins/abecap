@@ -36,6 +36,7 @@ PERF = {
     # Supporting stats — RE-DERIVED on the overlay (2007-26). Downside story survives the re-baseline.
     "supporting": {
         "yr2008":  {"preserver": 0.1,  "maximizer": 0.1,  "spy": -37.7},
+        "yr2019":  {"preserver": 6.1,  "maximizer": 1.2,  "spy": 28.6},
         "yr2020":  {"preserver": 9.2,  "maximizer": 34.9, "spy": 15.2},
         "yr2022":  {"preserver": -11.2, "maximizer": -6.4, "spy": -19.9},
         "down_month_capture": {"preserver": -1.05, "maximizer": -0.97, "spy": -3.85},

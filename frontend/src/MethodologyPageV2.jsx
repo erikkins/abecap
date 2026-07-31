@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import TopNav from './components/TopNav';
+import { PERF } from './perf_numbers';
 
 const SectionLabel = ({ children }) => (
   <div className="flex items-center gap-3 mb-5">
@@ -91,13 +92,13 @@ export default function MethodologyPageV2() {
             <p>
               <strong className="font-medium">The premium, stated plainly:</strong> the Preserver setting is structurally
               defensive &mdash; it behaves like insurance, and insurance has a premium. Over the 21-year walk-forward it beat
-              the S&amp;P in only <strong className="font-medium">37% of rolling one-year windows, 23% of three-year
-              windows, and 16% of five-year windows</strong>; its wins concentrate almost entirely in periods containing
+              the S&amp;P in only <strong className="font-medium">{PERF.supporting.beats_spy_pct.preserver.y1}% of rolling one-year windows, {PERF.supporting.beats_spy_pct.preserver.y3}% of three-year
+              windows, and {PERF.supporting.beats_spy_pct.preserver.y5}% of five-year windows</strong>; its wins concentrate almost entirely in periods containing
               a crash. The longest stretch a subscriber would have waited for their own account to make a new high was
-              <strong className="font-medium"> 2.0 years</strong> (the index's own worst wait was 5.4). If you need to beat
-              the index most years, Preserver is the wrong setting &mdash; the premium buys a 13% worst drawdown across two
+              <strong className="font-medium"> {PERF.supporting.longest_underwater_yrs.preserver} years</strong> (the index's own worst wait was {PERF.supporting.longest_underwater_yrs.spy}). If you need to beat
+              the index most years, Preserver is the wrong setting &mdash; the premium buys a {Math.abs(PERF.preserver.yr21.maxdd)}% worst drawdown across two
               decades that included two 50%+ index crashes. Maximizer trades that premium back for growth: more drawdown
-              (20%), but it beats the S&amp;P in roughly half of all rolling windows.
+              ({Math.abs(PERF.maximizer.yr21.maxdd)}%), but it beats the S&amp;P in {PERF.supporting.beats_spy_pct.maximizer.y1}% of rolling one-year windows.
             </p>
             <p>
               <strong className="font-medium">Data honesty, stated plainly:</strong> from 2016 onward our research data is
@@ -162,7 +163,7 @@ export default function MethodologyPageV2() {
             <p className="text-ink text-[0.98rem] leading-relaxed max-w-[58ch]">
               When losses cluster &mdash; a sign the market has turned hostile &mdash; the system pauses new entries rather than
               chasing a falling market. Buying into a sharp sell-off is how concentrated strategies turn one bad week into a
-              deep drawdown; stepping back is a meaningful part of how the worst-case drawdown stays at 13% for Preserver
+              deep drawdown; stepping back is a meaningful part of how the worst-case drawdown stays at {Math.abs(PERF.preserver.yr21.maxdd)}% for Preserver
               and 20% for Maximizer instead of the raw factor's 57%.
             </p>
           </div>

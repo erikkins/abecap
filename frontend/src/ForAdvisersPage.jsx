@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
+import { PERF } from './perf_numbers';
 
 const Eyebrow = ({ children }) => (
   <span className="font-body text-[0.72rem] font-semibold tracking-[0.18em] uppercase text-claret">{children}</span>
@@ -56,14 +57,14 @@ export default function ForAdvisersPage() {
           {/* Insight box */}
           <div className="mt-11 bg-paper-card border border-rule border-t-[3px] border-t-ink p-7 sm:p-8 grid sm:grid-cols-[1.1fr_1fr] gap-8 items-center">
             <div className="font-display font-medium text-[1.7rem] leading-[1.25] tracking-[-0.01em]" style={{ fontVariationSettings: '"opsz" 72' }}>
-              Clients don't fire you at <em className="text-claret italic">−13%.</em><br />They fire you at <em className="text-claret italic">−57%.</em>
+              Clients don't fire you at <em className="text-claret italic">−{Math.abs(PERF.preserver.yr21.maxdd)}%.</em><br />They fire you at <em className="text-claret italic">−57%.</em>
             </div>
             <div>
               <div className="text-[0.7rem] tracking-[0.05em] uppercase text-ink-mute font-semibold mb-3">Worst drawdown · 2007–2026</div>
               {[
                 ['Raw momentum', '100%', '−57%', false],
                 ['S&P 500', '96%', '−55%', false],
-                ['RigaCap Preserver', '23%', '−13%', true],
+                ['RigaCap Preserver', `${Math.round(Math.abs(PERF.preserver.yr21.maxdd) / 57 * 100)}%`, `−${Math.abs(PERF.preserver.yr21.maxdd)}%`, true],
               ].map(([label, w, val, good]) => (
                 <div key={label} className="grid grid-cols-[1fr_56px] items-center gap-3 my-2.5">
                   <div>
@@ -87,7 +88,7 @@ export default function ForAdvisersPage() {
             {[
               ['Behaviorally holdable', 'Your biggest portfolio risk isn’t the market — it’s a client capitulating at the bottom. A 13% worst case across twenty-one years — through 2008, COVID, and 2022 — is one a client can sit through. The index’s 55% and raw momentum’s 57% aren’t.'],
               ['Diligence you can present', 'Survivorship-free, point-in-time, walk-forward, out-of-sample. The methodology stands up in a committee meeting, not just a marketing deck.'],
-              ['A complement, not a core', 'A disciplined momentum sleeve that sits alongside an indexed core — 0.51 monthly correlation to the S&P over 21 years, sized to your mandate.'],
+              ['A complement, not a core', 'A disciplined momentum sleeve that sits alongside an indexed core — 0.55 monthly correlation to the S&P over 21 years, sized to your mandate.'],
             ].map(([h, p]) => (
               <div key={h}>
                 <h3 className="font-display text-[1.05rem] font-semibold text-claret mb-1.5" style={{ fontVariationSettings: '"opsz" 36' }}>{h}</h3>
@@ -157,12 +158,12 @@ export default function ForAdvisersPage() {
             </table>
             <div className="text-[0.95rem] text-ink leading-[1.7]">
               <p>
-                Across 21 walk-forward years, Preserver averaged <strong className="font-medium">−0.9% in the index's down months</strong> (the
-                index averaged −3.9% in those same months) while keeping <strong className="font-medium">+1.6% per month</strong> when the
+                Across 21 walk-forward years, Preserver averaged <strong className="font-medium">{PERF.supporting.down_month_capture.preserver}% in the index's down months</strong> (the
+                index averaged {PERF.supporting.down_month_capture.spy}% in those same months) while keeping <strong className="font-medium">+{PERF.supporting.up_month_capture.preserver}% per month</strong> when the
                 index was rising. Five of the index's six worst months, the regime filter had the strategy in cash before the month began.
               </p>
               <p className="mt-3 text-[0.85rem] text-ink-light">
-                That asymmetry — roughly a quarter of the downside, meaningful participation in the upside — is what a 0.51 correlation
+                That asymmetry — roughly a quarter of the downside, meaningful participation in the upside — is what a 0.55 correlation
                 feels like to a client. Walk-forward, price returns; see <a href="/methodology" className="text-claret underline underline-offset-2 decoration-1">methodology</a>.
               </p>
             </div>
@@ -216,31 +217,31 @@ export default function ForAdvisersPage() {
               <tbody>
                 <tr className="border-b border-rule">
                   <td className="py-2.5 text-[0.85rem] text-ink font-medium">RigaCap Preserver <span className="font-normal text-ink-light italic">— 21 yr · the sleeve</span></td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] text-ink">8.6%</td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] text-ink">0.88</td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] text-ink">0.65</td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-medium" style={{ color: '#2D5F3F' }}>13%</td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] text-ink">{PERF.preserver.yr21.cagr}%</td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] text-ink">{PERF.preserver.yr21.sharpe}</td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] text-ink">{PERF.preserver.yr21.calmar}</td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-medium" style={{ color: '#2D5F3F' }}>{Math.abs(PERF.preserver.yr21.maxdd)}%</td>
                 </tr>
                 <tr className="border-b border-rule">
-                  <td className="py-2.5 text-[0.85rem] text-ink">RigaCap Preserver <span className="font-normal text-ink-light italic">— last 24 mo · held-out</span></td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-semibold" style={{ color: '#2D5F3F' }}>+31.3%</td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-semibold text-ink">1.75</td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-semibold text-ink">2.43</td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-medium" style={{ color: '#2D5F3F' }}>12.9%</td>
+                  <td className="py-2.5 text-[0.85rem] text-ink">RigaCap Preserver <span className="font-normal text-ink-light italic">— modern · 2021–26</span></td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-semibold" style={{ color: '#2D5F3F' }}>+{PERF.preserver.yr5.cagr}%</td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-semibold text-ink">{PERF.preserver.yr5.sharpe}</td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-semibold text-ink">{PERF.preserver.yr5.calmar}</td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-medium" style={{ color: '#2D5F3F' }}>{Math.abs(PERF.preserver.yr5.maxdd)}%</td>
                 </tr>
                 <tr className="border-b border-rule">
                   <td className="py-2.5 text-[0.85rem] text-ink font-medium">RigaCap Maximizer <span className="font-normal text-ink-light italic">— 21 yr · aggressive setting</span></td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] text-ink">14.5%</td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] text-ink">0.95</td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] text-ink">0.71</td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-medium" style={{ color: '#2D5F3F' }}>20%</td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] text-ink">{PERF.maximizer.yr21.cagr}%</td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] text-ink">{PERF.maximizer.yr21.sharpe}</td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] text-ink">{PERF.maximizer.yr21.calmar}</td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-medium" style={{ color: '#2D5F3F' }}>{Math.abs(PERF.maximizer.yr21.maxdd)}%</td>
                 </tr>
                 <tr className="border-b border-rule">
-                  <td className="py-2.5 text-[0.85rem] text-ink">RigaCap Maximizer <span className="font-normal text-ink-light italic">— last 24 mo · held-out</span></td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-semibold" style={{ color: '#2D5F3F' }}>+48.9%</td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-semibold text-ink">1.94</td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-semibold text-ink">2.83</td>
-                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-medium" style={{ color: '#2D5F3F' }}>17.3%</td>
+                  <td className="py-2.5 text-[0.85rem] text-ink">RigaCap Maximizer <span className="font-normal text-ink-light italic">— modern · 2021–26</span></td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-semibold" style={{ color: '#2D5F3F' }}>+{PERF.maximizer.yr5.cagr}%</td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-semibold text-ink">{PERF.maximizer.yr5.sharpe}</td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-semibold text-ink">{PERF.maximizer.yr5.calmar}</td>
+                  <td className="py-2.5 text-right font-mono text-[0.9rem] font-medium" style={{ color: '#2D5F3F' }}>{Math.abs(PERF.maximizer.yr5.maxdd)}%</td>
                 </tr>
               </tbody>
             </table>

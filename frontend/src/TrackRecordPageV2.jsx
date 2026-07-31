@@ -45,6 +45,7 @@ const FOUNDATION_ROWS = [
     { v: `${PERF.benchmarks.spy_21yr.cagr}%`, tone: 'mute' }, { v: '—', tone: 'mute' }, { v: `${Math.abs(PERF.benchmarks.spy_21yr.maxdd)}%`, tone: 'mute' }] },
 ];
 
+const sgn = (x) => `${x < 0 ? '−' : '+'}${Math.abs(x)}%`;  // U+2212 minus (matches startsWith check below)
 const cellCls = (c) => `font-mono text-[1.05rem] ${c.w || ''} ${c.hex ? '' : (c.tone === 'ink' ? 'text-ink' : 'text-ink-mute')}`;
 const cellStyle = (c) => (c.hex ? { color: c.hex } : undefined);
 
@@ -186,10 +187,10 @@ export default function TrackRecordPageV2() {
             </div>
             <div>
               {[
-                ['2008 financial crisis', 'S&P −36%', '+0.1%', '+0.1%', 'in cash by design'],
-                ['COVID crash year · 2020', 'S&P +17%', '+12.4%', '+38.8%', 'exit & re-entry'],
-                ['2022 inflation bear', 'S&P −19%', '−6.9%', '−1.8%', 'a fraction of the index'],
-                ['2019 melt-up (our wart)', 'S&P +31%', '+5.9%', '+1.0%', 'defense lags a runaway bull'],
+                ['2008 financial crisis', 'S&P −38%', sgn(PERF.supporting.yr2008.preserver), sgn(PERF.supporting.yr2008.maximizer), 'in cash by design'],
+                ['COVID crash year · 2020', 'S&P +15%', sgn(PERF.supporting.yr2020.preserver), sgn(PERF.supporting.yr2020.maximizer), 'exit & re-entry'],
+                ['2022 inflation bear', 'S&P −20%', sgn(PERF.supporting.yr2022.preserver), sgn(PERF.supporting.yr2022.maximizer), 'a fraction of the index'],
+                ['2019 melt-up (our wart)', 'S&P +29%', sgn(PERF.supporting.yr2019.preserver), sgn(PERF.supporting.yr2019.maximizer), 'defense lags a runaway bull'],
               ].map(([regime, window, pres, mx, note]) => (
                 <div key={regime} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between py-3 border-b border-rule text-[1.05rem]">
                   <div className="sm:w-60"><span className="font-medium text-ink">{regime}</span> <span className="text-ink-light text-[0.88rem]">· {window}</span></div>
@@ -202,7 +203,7 @@ export default function TrackRecordPageV2() {
               ))}
             </div>
             <p className="mt-6 text-[1.05rem] text-ink leading-[1.6]">
-              Calendar years, continuous run &mdash; including the honest wart, because you should see it. A liquidity collapse both tiers sat out almost entirely, a COVID crash year Maximizer turned into a 39% gain, a 2022 bear cut to a fraction of the index's loss &mdash; and a 2019 melt-up where defense left real return on the table. <strong className="font-medium">The losses stayed bounded through all of it.</strong> That resilience &mdash; not a single headline return &mdash; is the point.
+              Calendar years, continuous run &mdash; including the honest wart, because you should see it. A liquidity collapse both tiers sat out almost entirely, a COVID crash year Maximizer turned into a {PERF.supporting.yr2020.maximizer}% gain, a 2022 bear cut to a fraction of the index's loss &mdash; and a 2019 melt-up where defense left real return on the table. <strong className="font-medium">The losses stayed bounded through all of it.</strong> That resilience &mdash; not a single headline return &mdash; is the point.
             </p>
           </div>
         </div>
