@@ -14,37 +14,49 @@ These are the numbers every surface must converge on. Any divergence from this t
 
 ### CURRENT CANONICAL — 2-tier walk-forward (vintage 2026-07-08)
 
-**Source**: `scripts/tier_vintages_21y.py` → `scripts/tier_curves_21y.json` (21-yr daily, 2007–2026) + `scripts/tier_vintages_daily.py` (recent 2-yr, clean standalone window). Live production config: `pwf.run(trail=0.30, max_pos=20, size=0.045)`, regime-routed sleeves. Pre-2016 = disclosed survivorship caveat; 2016+ = survivorship-free, point-in-time. **Say "walk-forward," never "backtest."**
+> ⚠️ **RE-BASELINED (2026-07-31) to the SHIPPED OVERLAY construction.** The prior canon (8.6/14.5 + single-window 31.3/49) was the **sleeve-idealized** backtest, which does NOT reproduce in the single-pool book ("collapsed to ≈Core" — see preserver_service.py). What we actually ship: **Preserver = the momentum engine + a capitulation cash-raise; Maximizer = that base + a real held breakout book in rotating-bull.** Numbers below are the overlay. Machine-readable SSOT: `frontend/src/perf_numbers.js` + `backend/app/services/perf_numbers.py` (mirror) + `scripts/overlay_canonical.json`. Survivorship-free; point-in-time 2016+ (pre-2016 = disclosed supporting evidence). **Say "walk-forward," never "backtest."**
 
-**21-year (2007–2026) — the honest anchor:**
+**21-year (2007–2026) — the foundation (robustness anchor, not the headline):**
 
 | Metric | Preserver | Maximizer | S&P 500 (price) | Raw momentum |
 |---|---|---|---|---|
-| Annualized | **8.6%** | **14.5%** | 9.8% | 13.2% |
-| Sharpe | 0.88 | 0.95 | 0.54 | 0.69 |
-| Max drawdown | −13% | −20% | −55% | −57% |
-| $100k → | $500k | $1.39M | $535k | — |
-| Calmar | 0.65 | 0.71 | — | — |
+| Annualized | **7.7%** | **13.5%** | 9.8% | 13.2% |
+| Sharpe | 0.87 | 0.93 | 0.54 | 0.69 |
+| Max drawdown | −13.7% | −20.8% | −55% | −57% |
+| Calmar | 0.56 | 0.65 | — | — |
 
-**Last 24 months (held-out, clean) — the recent proof (dial shows +31% / +49%):**
+**Modern 2021–26 (5-yr path) — the current-market lens (lead with this):**
 
 | Metric | Preserver | Maximizer | S&P 500 |
 |---|---|---|---|
-| Annualized | **31.3%** | **48.9%** | 19.9% |
-| Sharpe | 1.75 | 1.94 | 1.18 |
-| Calmar | 2.43 | 2.83 | 1.05 |
-| Max drawdown | −12.9% | −17.3% | −19.0% |
+| Annualized (CAGR) | **13.0%** | **31.4%** | 14.2% |
+| Sharpe | 1.28 | 1.51 | 0.87 |
+| Calmar | 1.01 | 2.10 | 0.56 |
+| Max drawdown | −12.9% | −14.9% | −25.4% |
 
-**Supporting stats (public-safe):**
-- 2008: both tiers ~flat (+0.1%) while the S&P fell ~37%.
-- Recovery (longest underwater): Preserver 2.0yr, Maximizer 3.4yr, S&P 5.4yr → Preserver recovers ~2× faster (**Preserver-specific** claim; Maximizer is only ~1.4×).
-- Rolling win-rate vs S&P: Preserver 37% / 23% / 16% (1/3/5-yr); Maximizer 54% / 51% / 48%.
-- Preserver adviser cut: −0.9% avg in the S&P's down months (S&P −3.9%), +1.6% in up months, 0.51 monthly correlation, 5 of the S&P's 6 worst months in cash.
-- Sharpe vs Buffett (lifetime 0.79): Preserver 0.88 / Maximizer 0.95 — ABOVE Buffett, so ALWAYS pair with the pre-2016 survivorship caveat.
+**Typical window (rolling avg over 2021–26) — the "what to expect" number. Drift-proof; REPLACES the single trailing-24-mo (which drifts + cherry-picks the end date):**
 
-**INTERNAL ONLY (never public):** Core/t30v 21-yr = 7.3% / 0.76 / −18% (differs from the retired 8.3%/0.73/19% canon — reconcile internally; publish neither).
+| Metric | Preserver | Maximizer |
+|---|---|---|
+| Rolling 12-mo avg | **+10.7%** (77% of windows positive) | **+26.5%** (77% positive) |
+| Rolling 24-mo avg | +20.8% | +57.5% |
 
-**Surface rules:** comparison tables use "RigaCap Preserver / RigaCap Maximizer" (house-mark + descriptor, TM). Hero dial leads with recent +31% / +49%; performance tables lead with the 21-yr anchor. No tildes on numbers in customer copy. Survivorship-free language = methodology/diligence context only, never a marketing lead.
+**Conservative PLANNING ASSUMPTIONS (DEPTH pages only — /methodology, /for-advisers, FAQ; NEVER the hero):** Preserver **11–13%/yr**, Maximizer **13–17%/yr** — historical minus a model-uncertainty discount (a *larger* discount for Maximizer, whose breakout leg is new). Framed as "our own conservative planning number," shown next to the historical. This is a trust/filtration signal for the $250k+ buyer, not a hero claim.
+
+**Confidence framing (adopt the allocator's own lens):** 2016-onward = high-confidence (survivorship-free, point-in-time); pre-2016 = disclosed supporting evidence, not proof. **Preserver = robust, well-aged core** (high confidence). **Maximizer = higher upside, but its breakout leg is the newest component (finalized 2026) → the incremental edge over Preserver carries selection risk; discount it.** Position Maximizer as a growth *satellite* alongside the Preserver core (esp. /for-advisers).
+
+**Supporting stats — RE-DERIVED ON THE OVERLAY (2026-07-31), public-safe.** The downside story survives the re-baseline (being ~75% cash in capitulation protects, so 2008 stays ~flat):
+- **2008:** both tiers **+0.1%** while the S&P fell −37.7%. · **2022:** Preserver −11.2%, Maximizer −6.4% vs S&P −19.9%. · **2020:** Preserver +9.2%, Maximizer +34.9% vs S&P +15.2%.
+- **Down-month capture:** Preserver **−1.05%**, Maximizer −0.97% avg in the S&P's down months (S&P −3.85%) → cuts the loss to ~a quarter. Up months: Preserver +1.59%, Maximizer +2.33%.
+- **Longest underwater:** Preserver **2.2 yr**, Maximizer 3.4 yr, S&P 5.4 yr → Preserver recovers ~2.4× faster (Preserver-specific claim).
+- **Beats S&P (rolling 1/3/5-yr):** Preserver 36% / 17% / 14%; Maximizer 50% / 45% / 31%.
+- **Monthly correlation to S&P:** Preserver 0.55, Maximizer 0.39.
+- Sharpe vs Buffett (lifetime 0.79): Preserver 0.87 / Maximizer 0.93 — near Buffett; ALWAYS pair with the pre-2016 survivorship caveat.
+(Source: overlay curve re-derivation; mirrored in `perf_numbers.js/.py` `supporting`.)
+
+**INTERNAL ONLY (never public):** the momentum engine alone (internal name withheld) ~7–8%/0.76/−18%; the retired sleeve-idealized marketing (8.6/14.5) and the older single-strategy (8.3/0.73/19) — publish none.
+
+**Surface rules:** comparison tables use "RigaCap Preserver / RigaCap Maximizer" (house-mark + descriptor, TM). **Hero leads with the modern rolling "typical year" + the 5-yr; performance tables carry the 21-yr foundation beneath.** Returns are the HERO; Sharpe/Calmar/MDD support (plain-language on consumer pages — "worst drop"; technical only on /methodology + /for-advisers). No tildes on numbers in customer copy. Survivorship-free = methodology/diligence context, never a marketing lead.
 
 ---
 
