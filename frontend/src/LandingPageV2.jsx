@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { PERF } from './perf_numbers';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
@@ -140,21 +141,21 @@ const HeroSection = ({ onGetStarted }) => (
               <div className="text-center flex-1">
                 <div className="font-display font-semibold uppercase tracking-[0.03em] text-[0.95rem] text-positive">Preserve</div>
                 <div className="font-display text-ink text-[1.55rem] font-medium leading-none mt-1.5" style={{ fontVariationSettings: '"opsz" 48' }}>
-                  +31%<span className="text-ink-light text-[0.8rem] font-normal">/yr</span>
+                  +{PERF.preserver.typical_12mo}%<span className="text-ink-light text-[0.8rem] font-normal">/yr</span>
                 </div>
-                <div className="text-ink-light text-[0.78rem] mt-1">&minus;13% worst</div>
+                <div className="text-ink-light text-[0.78rem] mt-1">&minus;{Math.abs(PERF.preserver.yr21.maxdd)}% worst</div>
               </div>
               <div className="w-px self-stretch bg-rule-dark mx-2" />
               <div className="text-center flex-1">
                 <div className="font-display font-semibold uppercase tracking-[0.03em] text-[0.95rem] text-claret">Maximize</div>
                 <div className="font-display text-ink text-[1.55rem] font-medium leading-none mt-1.5" style={{ fontVariationSettings: '"opsz" 48' }}>
-                  +49%<span className="text-ink-light text-[0.8rem] font-normal">/yr</span>
+                  +{PERF.maximizer.typical_12mo}%<span className="text-ink-light text-[0.8rem] font-normal">/yr</span>
                 </div>
-                <div className="text-ink-light text-[0.78rem] mt-1">&minus;17% worst</div>
+                <div className="text-ink-light text-[0.78rem] mt-1">&minus;{Math.abs(PERF.maximizer.yr21.maxdd)}% worst</div>
               </div>
             </div>
             <div className="text-ink-light text-[0.72rem] text-center mt-4 leading-snug">
-              Last 2 years, walk-forward &middot; both tiers launch this month
+              A typical year, modern market &middot; worst drop across 21 years, through 2008 &amp; 2022
             </div>
           </div>
         </div>
@@ -166,7 +167,7 @@ const HeroSection = ({ onGetStarted }) => (
         {[
           ['21 yrs', 'Walk-forward tested — through 2008, COVID & 2022'],
           ['2×', 'Preserver recovered its worst drawdown twice as fast as the market'],
-          ['14.5%', 'Maximizer’s 21-year return — the S&P did 9.8%'],
+          [`${PERF.maximizer.yr21.cagr}%`, `Maximizer’s 21-year return — the S&P did ${PERF.benchmarks.spy_21yr.cagr}%`],
         ].map(([value, label]) => (
           <div key={label} className="text-[0.98rem] text-ink-mute leading-snug">
             <strong className="block font-display text-ink text-[1.3rem] font-medium mb-1" style={{ fontVariationSettings: '"opsz" 48' }}>
@@ -268,7 +269,7 @@ const PerformanceSection = () => (
           Dial your return. <em className="text-claret italic">Keep the discipline.</em>
         </h2>
         <p className="text-ink-mute text-[1.05rem] leading-[1.65]">
-          One proven engine, two settings. <strong className="text-ink font-medium">Preserver</strong> protects, <strong className="text-ink font-medium">Maximizer</strong> pushes &mdash; both run the same disciplined momentum core. The last two years walk-forward tested at <strong className="text-ink font-medium">Preserver 31%</strong> and <strong className="text-ink font-medium">Maximizer 49%</strong>. Below is the honest anchor &mdash; the full 21-year record through three downturns, both products on the same basis.
+          One proven engine, two settings. <strong className="text-ink font-medium">Preserver</strong> protects, <strong className="text-ink font-medium">Maximizer</strong> pushes &mdash; both run the same disciplined momentum core. In the modern market, a typical year has run about <strong className="text-ink font-medium">Preserver {PERF.preserver.typical_12mo}%</strong> and <strong className="text-ink font-medium">Maximizer {PERF.maximizer.typical_12mo}%</strong>. Below is the honest anchor &mdash; the full 21-year record through three downturns, both products on the same basis.
         </p>
       </div>
 
@@ -277,10 +278,10 @@ const PerformanceSection = () => (
           scrolled off-screen. Desktop: the table. */}
       <div className="sm:hidden space-y-4 my-8">
         {[
-          { strat: 'Raw 12-month momentum, net of costs', ann: '13.2%', sharpe: '0.69', dd: '57%', ddColor: '#8F2D3D', hi: false },
-          { strat: 'S&P 500 (price)', ann: '9.8%', sharpe: '—', dd: '55%', ddColor: '#8F2D3D', hi: false },
-          { strat: 'RigaCap Preserver', ann: '8.6%', sharpe: '0.88', dd: '13%', ddColor: '#2D5F3F', hi: true },
-          { strat: 'RigaCap Maximizer', ann: '14.5%', sharpe: '0.95', dd: '20%', ddColor: '#2D5F3F', hi: true },
+          { strat: 'Raw 12-month momentum, net of costs', ann: `${PERF.benchmarks.raw_mom_21yr.cagr}%`, sharpe: `${PERF.benchmarks.raw_mom_21yr.sharpe}`, dd: `${Math.abs(PERF.benchmarks.raw_mom_21yr.maxdd)}%`, ddColor: '#8F2D3D', hi: false },
+          { strat: 'S&P 500 (price)', ann: `${PERF.benchmarks.spy_21yr.cagr}%`, sharpe: '—', dd: `${Math.abs(PERF.benchmarks.spy_21yr.maxdd)}%`, ddColor: '#8F2D3D', hi: false },
+          { strat: PERF.preserver.label, ann: `${PERF.preserver.yr21.cagr}%`, sharpe: `${PERF.preserver.yr21.sharpe}`, dd: `${Math.abs(PERF.preserver.yr21.maxdd)}%`, ddColor: '#2D5F3F', hi: true },
+          { strat: PERF.maximizer.label, ann: `${PERF.maximizer.yr21.cagr}%`, sharpe: `${PERF.maximizer.yr21.sharpe}`, dd: `${Math.abs(PERF.maximizer.yr21.maxdd)}%`, ddColor: '#2D5F3F', hi: true },
         ].map((r) => (
           <div
             key={r.strat}
@@ -331,16 +332,16 @@ const PerformanceSection = () => (
               <td className="py-4 px-5 text-right font-mono text-[1.05rem] font-medium" style={{ color: '#8F2D3D' }}>55%</td>
             </tr>
             <tr className="border-b border-rule bg-paper-card">
-              <td className="py-4 pl-5 pr-4 text-[1.05rem] font-semibold text-ink" style={{ boxShadow: 'inset 3px 0 0 #2D5F3F' }}>RigaCap Preserver</td>
-              <td className="py-4 px-5 text-right font-mono text-[1.05rem] font-medium text-ink">8.6%</td>
-              <td className="py-4 px-5 text-right font-mono text-[1.05rem] font-medium text-ink">0.88</td>
-              <td className="py-4 px-5 text-right font-mono text-[1.05rem] font-semibold" style={{ color: '#2D5F3F' }}>13%</td>
+              <td className="py-4 pl-5 pr-4 text-[1.05rem] font-semibold text-ink" style={{ boxShadow: 'inset 3px 0 0 #2D5F3F' }}>{PERF.preserver.label}</td>
+              <td className="py-4 px-5 text-right font-mono text-[1.05rem] font-medium text-ink">{PERF.preserver.yr21.cagr}%</td>
+              <td className="py-4 px-5 text-right font-mono text-[1.05rem] font-medium text-ink">{PERF.preserver.yr21.sharpe}</td>
+              <td className="py-4 px-5 text-right font-mono text-[1.05rem] font-semibold" style={{ color: '#2D5F3F' }}>{Math.abs(PERF.preserver.yr21.maxdd)}%</td>
             </tr>
             <tr className="border-b border-rule bg-paper-card">
-              <td className="py-4 pl-5 pr-4 text-[1.05rem] font-semibold text-ink" style={{ boxShadow: 'inset 3px 0 0 #7A2430' }}>RigaCap Maximizer</td>
-              <td className="py-4 px-5 text-right font-mono text-[1.05rem] font-medium text-ink">14.5%</td>
-              <td className="py-4 px-5 text-right font-mono text-[1.05rem] font-medium text-ink">0.95</td>
-              <td className="py-4 px-5 text-right font-mono text-[1.05rem] font-semibold" style={{ color: '#2D5F3F' }}>20%</td>
+              <td className="py-4 pl-5 pr-4 text-[1.05rem] font-semibold text-ink" style={{ boxShadow: 'inset 3px 0 0 #7A2430' }}>{PERF.maximizer.label}</td>
+              <td className="py-4 px-5 text-right font-mono text-[1.05rem] font-medium text-ink">{PERF.maximizer.yr21.cagr}%</td>
+              <td className="py-4 px-5 text-right font-mono text-[1.05rem] font-medium text-ink">{PERF.maximizer.yr21.sharpe}</td>
+              <td className="py-4 px-5 text-right font-mono text-[1.05rem] font-semibold" style={{ color: '#2D5F3F' }}>{Math.abs(PERF.maximizer.yr21.maxdd)}%</td>
             </tr>
           </tbody>
         </table>
@@ -357,7 +358,7 @@ const PerformanceSection = () => (
           Why the drawdown is the whole game.
         </h3>
         <p className="text-ink leading-[1.7]">
-          Raw momentum returns 13.2% a year on paper &mdash; but <strong className="font-medium">almost no one survives a 57% drawdown to collect it.</strong> In 2008 it lost nearly half its value in a single year; the index did the same twice in two decades. Investors abandon strategies at the bottom. Maximizer doesn't just cut that loss to a third &mdash; it <strong className="font-medium">out-earns raw momentum outright</strong> (14.5% vs 13.2%). Trimming the worst drawdown to a level you can actually hold is what makes the return reachable at all &mdash; and it's what lets you safely dial the risk <strong className="font-medium">up</strong> to Maximizer instead of blowing up.<br />
+          Raw momentum returns 13.2% a year on paper &mdash; but <strong className="font-medium">almost no one survives a 57% drawdown to collect it.</strong> In 2008 it lost nearly half its value in a single year; the index did the same twice in two decades. Investors abandon strategies at the bottom. Maximizer <strong className="font-medium">matches raw momentum's return at a third of the drawdown</strong> ({PERF.maximizer.yr21.cagr}% vs 13.2%, at {Math.abs(PERF.maximizer.yr21.maxdd)}% worst instead of 57%). Trimming the worst drawdown to a level you can actually hold is what makes the return reachable at all &mdash; and it's what lets you safely dial the risk <strong className="font-medium">up</strong> to Maximizer instead of blowing up.<br />
           <em className="font-display italic text-claret">The discipline is the product. The setting is your choice.</em>
         </p>
       </div>
@@ -555,10 +556,10 @@ const PricingSection = ({ onGetStarted, founding }) => {
 const faqItems = [
   { q: 'Who is this for?', a: <>Two kinds of people. Self-directed investors with meaningful portfolios who've decided indexing alone is too passive and individual active trading has been too emotional — if you've tried to run your own momentum strategy and found yourself overriding your own rules, this is a system that will do the boring parts consistently whether you feel like it or not. And registered investment advisers, who license it at the firm level as a disciplined momentum sleeve their clients can actually hold through a full cycle — see the <a href="/for-advisers" className="text-claret underline underline-offset-2 decoration-1">For Advisers page</a>.</> },
   { q: 'Who is this NOT for?', a: "Anyone who'll bail the moment they trail the market. Both tiers are built to keep you invested through a full cycle, not to win every quarter — even Maximizer, the aggressive setting, is designed to survive the drawdowns that make people capitulate. If watching the index run while your account grinds along for a stretch would make you quit, you'd be paying insurance premiums and cancelling right before the fire. We'd rather tell you that on the front page than learn it from your cancellation survey." },
-  { q: "What's the difference between Preserver and Maximizer?", a: <>Same engine, one knob &mdash; you choose how hard to push. Preserver is the capital-preservation setting: strong momentum returns with a tight drawdown (walk-forward tested at 31% a year over the last two years, 13% worst loss). Maximizer dials up the offense &mdash; an aggressive breakout strategy in trending markets, with a volatility &ldquo;seatbelt&rdquo; that automatically eases exposure when its own turbulence spikes (walk-forward tested at 49% a year, 17% worst loss). Maximizer isn&rsquo;t <em className="italic">better</em>, it&rsquo;s <em className="italic">more</em> &mdash; more return and more drawdown, in roughly equal measure &mdash; so pick the setting that matches how much volatility you can actually sit through. Preserver is the flagship and buyable today; Maximizer is a +$100/month add-on launching this month, with founding members getting first access. Both are walk-forward tested; the live record is just beginning.</> },
-  { q: 'Is your Sharpe ratio actually good?', a: 'Read it honestly. Long-horizon Sharpe ratios live on a compressed scale. Numbers above 1 come from short windows and overfit backtests; over decades the air gets thin. The S&P 500 scored 0.54 across our same 21-year window; Preserver walk-forward tested at 0.88 and Maximizer at 0.95. The highest lifetime figure ever measured for any fund with 30+ years of real history is Warren Buffett\u2019s 0.79 (\u201cBuffett\u2019s Alpha,\u201d Frazzini, Kabiller & Pedersen, 2018). Ours is walk-forward tested and his is real — that distinction matters — and our pre-2016 data carries a survivorship caveat that flatters the early years, so we hold these as strong-but-honest, not a claim to have out-Sharped Buffett.' },
-  { q: 'What returns should I actually expect?', a: "Depends on your setting. Over a 21-year walk-forward (2007–2026, through the 2008 crisis, the COVID crash, and the 2022 bear) Preserver compounds at 8.6% a year with a 13% maximum drawdown; Maximizer at 14.5% with a 20% drawdown — versus the S&P's 9.8% at a 55% drawdown, and raw momentum's 13.2% at 57%. The last two years were far stronger (Preserver 31%, Maximizer 49%), but a two-year window is a tailwind, not a promise — the 21-year figures are the honest anchor because they include every crash. Underwrite to those. Past performance, including walk-forward and simulated results, does not predict future results." },
-  { q: "Why don't you publish flashier numbers like other services?", a: "Because we anchor on what survives scrutiny. We rebuilt our research data to be survivorship-free and strictly point-in-time, then extended it back through 2008 — and each time the honest numbers came in more conservative than our earlier figures, we revised them down and said so. Most services lead with cherry-picked windows or zero-friction simulations no subscriber reproduces. We'd rather publish honest walk-forward figures — Preserver's 8.6% at a 13% worst drawdown, Maximizer's 14.5% at 20% — than a flattering number we can't defend." },
+  { q: "What's the difference between Preserver and Maximizer?", a: <>Same engine, one knob &mdash; you choose how hard to push. Preserver is the capital-preservation setting: strong momentum returns with a tight drawdown (a typical modern year around {PERF.preserver.typical_12mo}%, and a {Math.abs(PERF.preserver.yr21.maxdd)}% worst loss across 21 years). Maximizer dials up the offense &mdash; an aggressive breakout strategy in trending markets, with a volatility &ldquo;seatbelt&rdquo; that automatically eases exposure when its own turbulence spikes (a typical modern year around {PERF.maximizer.typical_12mo}%, a {Math.abs(PERF.maximizer.yr21.maxdd)}% worst loss). Maximizer isn&rsquo;t <em className="italic">better</em>, it&rsquo;s <em className="italic">more</em> &mdash; more return and more drawdown, in roughly equal measure &mdash; so pick the setting that matches how much volatility you can actually sit through. Preserver is the flagship and buyable today; Maximizer is a +$100/month add-on launching this month, with founding members getting first access. Both are walk-forward tested; the live record is just beginning.</> },
+  { q: 'Is your Sharpe ratio actually good?', a: `Read it honestly. Long-horizon Sharpe ratios live on a compressed scale. Numbers above 1 come from short windows and overfit backtests; over decades the air gets thin. The S&P 500 scored 0.54 across our same 21-year window; Preserver walk-forward tested at ${PERF.preserver.yr21.sharpe} and Maximizer at ${PERF.maximizer.yr21.sharpe}. The highest lifetime figure ever measured for any fund with 30+ years of real history is Warren Buffett\u2019s 0.79 (\u201cBuffett\u2019s Alpha,\u201d Frazzini, Kabiller & Pedersen, 2018). Ours is walk-forward tested and his is real — that distinction matters — and our pre-2016 data carries a survivorship caveat that flatters the early years, so we hold these as strong-but-honest, not a claim to have out-Sharped Buffett.` },
+  { q: 'What returns should I actually expect?', a: `Two honest lenses. The modern market (2021–26): a typical year runs about ${PERF.preserver.typical_12mo}% for Preserver and ${PERF.maximizer.typical_12mo}% for Maximizer. The full 21-year walk-forward (through 2008, COVID, and 2022): ${PERF.preserver.yr21.cagr}% a year for Preserver at a ${Math.abs(PERF.preserver.yr21.maxdd)}% worst drawdown, ${PERF.maximizer.yr21.cagr}% for Maximizer at ${Math.abs(PERF.maximizer.yr21.maxdd)}% — versus the S&P's ${PERF.benchmarks.spy_21yr.cagr}% at ${Math.abs(PERF.benchmarks.spy_21yr.maxdd)}%. But here's the number we'd actually plan around, discounted for uncertainty: ${PERF.preserver.plan_low}–${PERF.preserver.plan_high}% for Preserver, ${PERF.maximizer.plan_low}–${PERF.maximizer.plan_high}% for Maximizer (a larger haircut on Maximizer, whose breakout engine is newer). We'd rather you be pleasantly surprised than sold a peak. Past performance, including walk-forward and simulated results, does not predict future results.` },
+  { q: "Why don't you publish flashier numbers like other services?", a: `Because we anchor on what survives scrutiny. Our research is survivorship-free and point-in-time from 2016 on; every time cleaner data made the numbers smaller, we revised them down and said so — and we publish the construction we actually ship, not an idealized one that looks better on paper. Most services lead with cherry-picked windows or zero-friction simulations no subscriber reproduces. We'd rather publish honest walk-forward figures — Preserver's ${PERF.preserver.yr21.cagr}% at a ${Math.abs(PERF.preserver.yr21.maxdd)}% worst drawdown, Maximizer's ${PERF.maximizer.yr21.cagr}% at ${Math.abs(PERF.maximizer.yr21.maxdd)}% — than a flattering number we can't defend.` },
   { q: 'Why $129/month?', a: "You're not paying for a return forecast — you're paying for disciplined risk management: a momentum implementation with roughly a third of the raw factor's drawdown across twenty-one years, and the discipline to keep you invested through a cycle instead of bailing at the bottom. On a meaningful portfolio, the value of not abandoning a strategy in a drawdown dwarfs the $1,548/year — and it's less than a traditional advisor's fee." },
   { q: 'How many signals do you generate?', a: "RigaCap holds a diversified basket of positions, refreshed as fresh signals appear — typically several new entries in a normal month, fewer when the market turns hostile. It's selective, not silent: turnover stays low by design, but the strategy is invested whenever conditions support it." },
   { q: 'Has the system ever had a down year?', a: "Yes — and we'd rather tell you than hide it. Across twenty-one years of walk-forward testing both tiers had losing years (2017 and 2018 among them), but the worst peak-to-trough loss across the entire span — including the 2008 financial crisis, the COVID crash, and the 2022 bear — stayed at 13% for Preserver and 20% for Maximizer, while the market lost 55%. The design is built for participation in trends and protection in stress, not to win every quarter. (Walk-forward tested; the live record is accruing now.)" },
@@ -662,8 +663,14 @@ export default function LandingPageV2() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('monthly');
 
-  const isReturningVisitor = localStorage.getItem('rigacap_returning') === 'true';
-  useEffect(() => { localStorage.setItem('rigacap_returning', 'true'); }, []);
+  // Freeze the "returning visitor" read ONCE at mount. Previously this was a bare
+  // read plus a mount-time `setItem('rigacap_returning','true')`, which stamped the
+  // flag on the very first pageview — so the CTA re-render re-read it as 'true' and
+  // the modal opened in login mode ("Welcome Back") for brand-new visitors. That
+  // showed cold traffic a sign-in wall for an account they didn't have → they bounced
+  // → zero signups. The flag is now only set AFTER a successful auth (see onSuccess),
+  // so first-time / not-yet-registered visitors always land on "Start Free Trial".
+  const [isReturningVisitor] = useState(() => localStorage.getItem('rigacap_returning') === 'true');
 
   // Founding-seat status (drives the gated counter + gray-out when full).
   const [founding, setFounding] = useState(null);
@@ -734,7 +741,7 @@ export default function LandingPageV2() {
       {showLoginModal && (
         <LoginModal
           onClose={() => setShowLoginModal(false)}
-          onSuccess={() => { setShowLoginModal(false); navigate('/app', { replace: true }); }}
+          onSuccess={() => { localStorage.setItem('rigacap_returning', 'true'); setShowLoginModal(false); navigate('/app', { replace: true }); }}
           initialMode={isReturningVisitor ? 'login' : 'register'}
           selectedPlan={selectedPlan}
         />
