@@ -7,27 +7,19 @@ metadata:
   originSessionId: 2dce3134-d861-45c4-a371-80378750f8c0
 ---
 
-# Session snapshot — Jul 30 2026
+# Session snapshot — Jul 31 2026
 
 ## Frozen spec (load-bearing)
-- Tiers: everyone served **Preserver** floor (never raw t30v/Core). **Maximizer** = paid `has_maxpp_addon` OR admin `compmax`; = Preserver except rotating_bull → breakout book (N=15, vol-target). Flag-gated `TIER_SERVING` (both api + worker Lambdas).
-- **NEVER expose publicly:** "t30v"/"Core"/"Option-B"/"N=15"/DWAP/capitulation overlay. Never "tape" (enforce via voice_filters). Never render "NaN". (Admin-only tabs may show internal labels.)
-- Deploy = push main → wait for **"Deploy RigaCap"** workflow COMPLETE before resending emails (`gh run list --workflow "Deploy RigaCap"`; worker image can lag a beat after "success"). Long ops → invoke `rigacap-prod-worker` directly. Admin email/db targets erik@rigacap.com.
+- Never expose publicly: t30v/Core/Ensemble/Option-B/N=15/DWAP/capitulation overlay. Never "tape"/"NaN". Lean on **PITFWU** (survivorship-free) for all recomputes. Deploy = push main → wait for "Deploy RigaCap" workflow COMPLETE before resending emails.
 
-## Done this session — tier-book equity bugs FIXED + verified
-Correct numbers now (as of 2026-07-29): **Core $91,543 · Preserver $91,543 · Maximizer $97,487**.
-- **Maximizer**: was fake +42% ($142.8k) — Jul-24 rewrite double-counted cash loading an old-format snapshot. Rebased to clean $100k base (returns scale-invariant) → true −2.5%. Loader hardened. `{"maximizer_rebase"}` handler.
-- **Preserver**: drifted ~0.7% above Core (parallel return-chain). Rewrote to equity = Core×factor (factor moves ONLY on real capitulation days) → penny-locked to Core when overlay dormant. `{"preserver_rederive"}` locked 30 historical snapshots. Lesson: derive from source of truth, don't run own equity chain.
-- Polish: admin Strategies/Lab/Auto-Pilot hidden (`?tab=` still reaches); Simulated Portfolio shows full-cycle beside rolling-365; This Week widget scoped to served tier's capped book; admin Tier Books STR now shows Days+P&L + realtime intraday (polls /api/quotes/live); email rows restructured for phone + sentence-cased. Per-tier capital CLOSED (one tier/user).
-- Commits: 56d3ec0 79b726e 798ac6b 35d6ee9 c8691a7 1a7068e e6b2a85 bd15be4 2460e11.
+## ▶ IN FLIGHT — public return-number audit → rolling-window re-baseline → page walkthrough → GOOGLE ADS (Erik: "I NEED subs")
+- **SSOT EXISTS** (in docs/, not frontend): `docs/numbers-citations-registry.md §1` (canonical) + `scripts/tier_curves_21y.json` (21-yr daily PITFWU curves/tier: Preserver 8.65/0.88/−13.2, Maximizer 14.53/0.95/−20.4 ✓ matches site) + propagator `scripts/refresh_perf_citations.py` via `scripts/perf_citations_surface_map.json` (patterns STALE). `docs/canonical_numbers.json`=SUPERSEDED (8.3/0.73/19 = old single-strat, internal-only). Public numbers hardcoded in ~12 surfaces.
+- **Problem found:** published 24-mo (31.3/48.9) = ONE favorable single-window @end-May-2026 — accurate for that window but not typical + now stale (to Jul ≈ 24/42). Defects: legacy TrackRecordPage.jsx + social cards still publish retired 8.3.
+- **DECISIONS (Erik, Jul 31):** recent numbers = **ROLLING-WINDOW AVERAGES** (no monthly recalc), span **2021–26 (~5y modern bull market)**, headline stat = **average**. **LEAD modern returns / KEEP 21-yr as resilience+drawdown foundation.** Display: **returns = HERO; Sharpe/Calmar/MDD = supporting ("top tier", always shown), plain-language on consumer pages** (MDD→"worst drop"), technical only on adviser/methodology. Recent block = typical(rolling 12/24) + spread(%pos+best/worst range) + most-recent-24(current). **KNOB graphic** cites "last 2 years" → carries recent-24 (Max ~+42%, Pres ~+24%) + a "typical year" line + refreshed worst-DD; applies to landing dial + tier-announce email.
+- **INTERIM modern 2021–26 (apples-to-apples, SPY loaded live):** S&P 12mo avg +11.7%/24mo +27.7%/path CAGR 14.2%/MDD −25.4%/Sharpe 0.87/Calmar 0.56. Preserver +11.4%/+22.1%/13.8%/−9.2%/1.33/1.50. Maximizer +27.2%/+58.6%/32.3%/−14.9%/1.54/2.17. → STILL EXCELLENT (Max beats S&P on return AND risk; Pres = market return at 1/3 drawdown). Honest caveat: Pres slightly trails S&P raw return in bull runs (by design).
+- **RECOMPUTE RUNNING (bg bai0lga2a, /tmp/recompute.log):** scripts/recompute_canonical.py — tiers+SPY+raw-mom(12-mo factor lookback=252) 2021→today, full biweekly WF (~115 periods, slow). **ON COMPLETION: anchor-validate vs tier_curves_21y.json 2021-slice BEFORE trusting** (log shows WF-SERVICE strategy6/6pos/15% defaults — verify pwf.run overrides to t30v 20/4.5; fall back to certified curve if mismatch). Then post-process → final canonical table → Erik sign-off.
+- **OPEN SUB-ITEM:** dashboard CERTIFIED_WF (tier_serving.py) Pres 2021-26 MDD −20.2% vs public curve −9.2% — separate reconciliation.
 
-## ▶ IN FLIGHT (Jul 31) — PUBLIC CAGR AUDIT, in PLAN MODE (no changes until Erik agrees on all touchpoints)
-- Erik: double-verify the public site reports CORRECT CAGR the CURRENT market would reproduce, per tier (Preserver + Maximizer) for **12mo / 24mo / 60mo** — not just the "21-year blah blah." Walk every touchpoint: landing, methodology, track-record, blog, FAQ, for-advisers, etc.
-- Two Explore agents running: (1) inventory every public perf-number touchpoint (file:line · metric · window · tier · value · hardcoded/dynamic); (2) trace data sources + the callable path to compute authoritative trailing 12/24/60mo total-return AND CAGR per tier (CERTIFIED_WF constants in tier_serving.py; tier_walkforward_service.compute_tier_walkforward days-param; scripts/pitfwu_wf.py BacktesterService for multi-year per-tier backtests; live/shadow books only start ~Jun 2026 so multi-year must come from the WF backtester, NOT the live book).
-- Plan file to overwrite: /Users/erikkins/.claude/plans/unified-sauteeing-whale.md (currently stale Maximizer-widget plan).
-- NOTE: certified full-cycle (2021-26) = Maximizer +301.4/1.47/−15.5, Preserver +89.2/0.97/−20.2. Recent read (Jul 24): trailing-12mo Core/Pres ~+15.9%, Max ~+89.6% (backloaded; recent 3mo soft). Need CAGR (annualized), not just total return, per window.
-
-## Next / queued (Erik's call which first)
-- Real beta **tier-announcement** blast (send_tier_announcement, knob email-knob-v3.png) → let beta list pick tier. Then Google Ads → buyers.
-- Next-wave Maximizer widgets: book equity curve vs SPY; day-29 exit alerts (email/push); closed-trades STR; book stats.
-- Subscriber-facing tier alerts (day-29 exit etc.).
+## NEXT (sequence Erik set)
+1. Recompute → final canonical → sign-off. 2. **Page walkthrough** (landing/track-record/methodology/for-advisers/blogs/FAQ) = number fixes + copy/UX/conversion punch-list. 3. **GOOGLE ADS two-tier launch** (priority — needs subs): reuse prior stability-search-test-a groundwork, 100% mobile, fixed pricing/founding; personas Preserver=capital-preservation $250k+ / Maximizer=aggressive-growth; fix GA4→Ads conversion-import gap.
+- Gate B (after sign-off): refresh registry §1 → WIRED SSOT (backend perf_numbers.py + frontend perf_numbers.js) → re-point surface_map → update ~12 surfaces + fix retired-8.3 leaks → rebuild + regen OG/social cards + PDFs. Plan file: /Users/erikkins/.claude/plans/unified-sauteeing-whale.md.
