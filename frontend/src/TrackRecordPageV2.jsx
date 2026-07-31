@@ -4,6 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import MarketMeasuredSignup from './components/MarketMeasuredSignup';
 import TopNav from './components/TopNav';
 import TierRaceChart from './TierRaceChart';
+import { PERF } from './perf_numbers';
 
 const SectionLabel = ({ children }) => (
   <div className="flex items-center gap-3 mb-5">
@@ -20,27 +21,28 @@ const Navbar = () => <TopNav />;
 // scroll. Added Jun 16 2026: an ad group lands directly on /track-record and
 // 100% of paid clicks are mobile, so the drawdown columns must not be off-screen.
 const GREEN = '#2D5F3F', RED = '#8F2D3D';
+// RECENT = the modern 2021–26 path (annualized), which carries a real Sharpe/Calmar/MaxDD —
+// replaces the drift-prone single trailing-24-mo. The "typical single year" rolling averages
+// (Preserver +10.7% / Maximizer +26.5%) are stated in prose alongside.
 const RECENT_ROWS = [
-  { name: 'RigaCap Preserver', hi: true, cells: [
-    { v: '+31.3%', tone: 'ink', w: 'font-medium' }, { v: '1.75', tone: 'ink', w: 'font-medium' },
-    { v: '2.43', hex: GREEN, w: 'font-semibold' }, { v: '12.9%', hex: GREEN, w: 'font-semibold' }] },
-  { name: 'RigaCap Maximizer', hi: true, cells: [
-    { v: '+48.9%', tone: 'ink', w: 'font-medium' }, { v: '1.94', tone: 'ink', w: 'font-medium' },
-    { v: '2.83', hex: GREEN, w: 'font-semibold' }, { v: '17.3%', hex: GREEN, w: 'font-semibold' }] },
+  { name: PERF.preserver.label, hi: true, cells: [
+    { v: `+${PERF.preserver.yr5.cagr}%`, tone: 'ink', w: 'font-medium' }, { v: `${PERF.preserver.yr5.sharpe}`, tone: 'ink', w: 'font-medium' },
+    { v: `${PERF.preserver.yr5.calmar}`, hex: GREEN, w: 'font-semibold' }, { v: `${Math.abs(PERF.preserver.yr5.maxdd)}%`, hex: GREEN, w: 'font-semibold' }] },
+  { name: PERF.maximizer.label, hi: true, cells: [
+    { v: `+${PERF.maximizer.yr5.cagr}%`, tone: 'ink', w: 'font-medium' }, { v: `${PERF.maximizer.yr5.sharpe}`, tone: 'ink', w: 'font-medium' },
+    { v: `${PERF.maximizer.yr5.calmar}`, hex: GREEN, w: 'font-semibold' }, { v: `${Math.abs(PERF.maximizer.yr5.maxdd)}%`, hex: GREEN, w: 'font-semibold' }] },
   { name: 'S&P 500 (price)', cells: [
-    { v: '+19.9%', tone: 'mute' }, { v: '1.18', tone: 'mute' }, { v: '1.05', tone: 'mute' }, { v: '19.0%', tone: 'mute' }] },
-  { name: 'Raw momentum (gross)', cells: [
-    { v: '+71.9%', tone: 'mute' }, { v: '1.35', tone: 'mute' }, { v: '1.91', tone: 'mute' }, { v: '37.7%', hex: RED, w: 'font-medium' }] },
+    { v: `+${PERF.benchmarks.spy_5yr.cagr}%`, tone: 'mute' }, { v: `${PERF.benchmarks.spy_5yr.sharpe}`, tone: 'mute' }, { v: `${PERF.benchmarks.spy_5yr.calmar}`, tone: 'mute' }, { v: `${Math.abs(PERF.benchmarks.spy_5yr.maxdd)}%`, hex: RED, w: 'font-medium' }] },
 ];
 const FOUNDATION_ROWS = [
   { name: 'Raw 12-month momentum, net of costs', cells: [
-    { v: '13.2%', tone: 'mute' }, { v: '0.69', tone: 'mute' }, { v: '57%', hex: RED, w: 'font-medium' }] },
-  { name: 'RigaCap Preserver', hi: true, cells: [
-    { v: '8.6%', tone: 'ink', w: 'font-medium' }, { v: '0.88', tone: 'ink', w: 'font-medium' }, { v: '13%', hex: GREEN, w: 'font-semibold' }] },
-  { name: 'RigaCap Maximizer', hi: true, cells: [
-    { v: '14.5%', tone: 'ink', w: 'font-medium' }, { v: '0.95', tone: 'ink', w: 'font-medium' }, { v: '20%', hex: GREEN, w: 'font-semibold' }] },
+    { v: `${PERF.benchmarks.raw_mom_21yr.cagr}%`, tone: 'mute' }, { v: `${PERF.benchmarks.raw_mom_21yr.sharpe}`, tone: 'mute' }, { v: `${Math.abs(PERF.benchmarks.raw_mom_21yr.maxdd)}%`, hex: RED, w: 'font-medium' }] },
+  { name: PERF.preserver.label, hi: true, cells: [
+    { v: `${PERF.preserver.yr21.cagr}%`, tone: 'ink', w: 'font-medium' }, { v: `${PERF.preserver.yr21.sharpe}`, tone: 'ink', w: 'font-medium' }, { v: `${Math.abs(PERF.preserver.yr21.maxdd)}%`, hex: GREEN, w: 'font-semibold' }] },
+  { name: PERF.maximizer.label, hi: true, cells: [
+    { v: `${PERF.maximizer.yr21.cagr}%`, tone: 'ink', w: 'font-medium' }, { v: `${PERF.maximizer.yr21.sharpe}`, tone: 'ink', w: 'font-medium' }, { v: `${Math.abs(PERF.maximizer.yr21.maxdd)}%`, hex: GREEN, w: 'font-semibold' }] },
   { name: 'S&P 500 (SPY, price only)', italic: true, cells: [
-    { v: '9.8%', tone: 'mute' }, { v: '—', tone: 'mute' }, { v: '55%', tone: 'mute' }] },
+    { v: `${PERF.benchmarks.spy_21yr.cagr}%`, tone: 'mute' }, { v: '—', tone: 'mute' }, { v: `${Math.abs(PERF.benchmarks.spy_21yr.maxdd)}%`, tone: 'mute' }] },
 ];
 
 const cellCls = (c) => `font-mono text-[1.05rem] ${c.w || ''} ${c.hex ? '' : (c.tone === 'ink' ? 'text-ink' : 'text-ink-mute')}`;
@@ -149,13 +151,11 @@ export default function TrackRecordPageV2() {
             The numbers, <em className="text-claret italic">walk-forward.</em>
           </h2>
 
-          {/* Recent 24 months — held-out walk-forward window (Jun 2024 – May 2026) */}
-          <PerfTable label="The Last 24 Months" columns={['Annualized', 'Sharpe', 'Calmar', 'Max Drawdown']} rows={RECENT_ROWS} />
+          {/* Modern market 2021–26 (5-yr path). Rolling typical-year averages noted in prose. */}
+          <PerfTable label="The Modern Market · 2021–2026" columns={['Annualized', 'Sharpe', 'Calmar', 'Max Drawdown']} rows={RECENT_ROWS} />
           <p className="mb-12 text-[1rem] text-ink leading-[1.65]">
-            June 2024 through May 2026, a held-out walk-forward window (not yet live money):
-            <strong className="font-medium"> Preserver beat the index by 11 points a year, Maximizer by 29</strong> &mdash; both at
-            a smaller drawdown than the S&amp;P, and both with a higher Sharpe and Calmar. Raw momentum earned more, gross of costs &mdash;
-            and took a 38% drawdown <em>during a bull market</em> to collect it. Defense isn't the same as sitting out the bull.
+            The last five years, walk-forward. <strong className="font-medium">Preserver roughly matched the market's return at half the drawdown</strong> ({PERF.preserver.yr5.cagr}% a year vs the S&amp;P's {PERF.benchmarks.spy_5yr.cagr}%, at {Math.abs(PERF.preserver.yr5.maxdd)}% worst versus {Math.abs(PERF.benchmarks.spy_5yr.maxdd)}%);
+            <strong className="font-medium"> Maximizer beat it by roughly {Math.round(PERF.maximizer.yr5.cagr - PERF.benchmarks.spy_5yr.cagr)} points a year</strong> &mdash; and still at a shallower drawdown. In a <em>typical</em> single year over this window, Preserver averaged {PERF.preserver.typical_12mo}% and Maximizer {PERF.maximizer.typical_12mo}%. The modern market has suited this engine; we wouldn't assume it repeats at this pace.
           </p>
 
           {/* SURFACE-MARKER:perf-comparison-table-START */}
@@ -171,7 +171,7 @@ export default function TrackRecordPageV2() {
             <p className="text-[1.05rem] text-ink leading-relaxed mb-0">
               <span className="font-medium">On those Sharpe ratios:</span> figures above 1 live in short windows and
               overfit backtests &mdash; over decades, the scale compresses. The S&amp;P 500 scored <span className="font-mono">0.54</span> across
-              this same 21-year window; Preserver walk-forward tested at <span className="font-mono">0.88</span> and Maximizer at <span className="font-mono">0.95</span>. The highest lifetime figure ever measured for any fund with 30+ years of
+              this same 21-year window; Preserver walk-forward tested at <span className="font-mono">{PERF.preserver.yr21.sharpe}</span> and Maximizer at <span className="font-mono">{PERF.maximizer.yr21.sharpe}</span>. The highest lifetime figure ever measured for any fund with 30+ years of
               real history is Warren Buffett's <span className="font-mono">0.79</span> (Frazzini, Kabiller &amp; Pedersen,
               &ldquo;Buffett&rsquo;s Alpha,&rdquo; 2018). Ours is walk-forward and his is real &mdash; and our pre-2016 data carries a
               survivorship caveat that flatters the early years, so we hold these as strong-but-honest.
@@ -216,7 +216,7 @@ export default function TrackRecordPageV2() {
           <div className="grid sm:grid-cols-3 gap-px bg-rule">
             {[
               ['+0.1% through 2008', 'S&P fell 36%', 'While the index lost over a third in the worst financial year since the Depression, both RigaCap tiers ended 2008 essentially flat \u2014 the regime filter had them in cash by design.'],
-              ['Beats raw momentum', 'at a third the drawdown', 'The same momentum factor nets 13.2% over two decades with a brutal 57% drawdown. Maximizer earns more \u2014 14.5% \u2014 at a third of that pain; Preserver holds its worst loss to 13%. The risk engineering is the edge.'],
+              ['Matches raw momentum', 'at a third the drawdown', `The same momentum factor nets 13.2% over two decades with a brutal 57% drawdown. Maximizer matches that return \u2014 ${PERF.maximizer.yr21.cagr}% \u2014 at ${Math.abs(PERF.maximizer.yr21.maxdd)}% worst instead of 57%; Preserver holds its worst loss to ${Math.abs(PERF.preserver.yr21.maxdd)}%. The risk engineering is the edge.`],
               ['Steps back in stress', 'capital preservation', 'When the market turns hostile and losses cluster, both tiers pause new entries rather than chase a falling market \u2014 sidestepping the falling knife that turns a bad week into a deep drawdown.'],
             ].map(([title, subtitle, desc]) => (
               <div key={title} className="bg-paper-card p-8">
