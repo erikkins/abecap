@@ -4142,6 +4142,53 @@ function Dashboard() {
                             </div>
                           )}
 
+                          {/* Other Signals — served tiers: ensemble names that pass our
+                              screen but are NOT in our book. Kept (not discarded) so a
+                              subscriber running their OWN book off our signals — different
+                              entries = their own diversification, a hedge on our timing —
+                              still gets them. Framed so it never reads as a book holding.
+                              Breakout-tier signals ARE the book, so they're excluded here. */}
+                          {dashboardData?.tier_book && (() => {
+                            const other = [...freshSignals, ...monitoringSignals].filter(s => s.source !== 'breakout');
+                            if (other.length === 0) return null;
+                            return (
+                              <div className="mt-2">
+                                <div className="px-4 py-2.5 border-t border-rule flex items-center justify-between">
+                                  <span className="font-display text-[0.95rem] font-medium tracking-tight">Other Signals <em className="font-display italic text-ink-light font-normal">({other.length})</em></span>
+                                  <span className="font-display italic text-[0.85rem] text-ink-mute" style={{ fontVariationSettings: '"opsz" 24' }}>Not in our book</span>
+                                </div>
+                                <div className="px-4 pt-2 pb-1">
+                                  <p className="font-body text-[0.78rem] text-ink-mute leading-[1.5]">
+                                    These pass our screen but aren&rsquo;t in our book right now &mdash; shown for your own allocation. Running your own entries is its own diversification; the tags show whether each is still near its entry.
+                                  </p>
+                                </div>
+                                {viewMode === 'simple' ? (
+                                  <div className="divide-y divide-rule">
+                                    {other.map(renderSimpleSignal)}
+                                  </div>
+                                ) : (
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full border-collapse" style={{ fontFeatureSettings: '"tnum"' }}>
+                                      <thead>
+                                        <tr>
+                                          <th className="px-3 py-2 text-left font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Symbol</th>
+                                          <th className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Price</th>
+                                          <th className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Breakout</th>
+                                          <th className="px-3 py-2 text-center font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Score</th>
+                                          <th className="px-3 py-2 text-center font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink whitespace-nowrap">Strength</th>
+                                          <th className="px-3 py-2 text-center font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink"></th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {other.map(renderAdvancedSignal)}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+
                           {/* Buy Signals section (fresh) — hidden for served tiers; the
                               capital-scaled mirror book replaces the pick-and-add flow. */}
                           {!dashboardData?.tier_book && (freshSignals.length > 0 ? (

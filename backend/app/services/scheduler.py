@@ -1816,6 +1816,21 @@ class SchedulerService:
             except Exception as e:
                 logger.warning(f"📧 Maximizer email content build failed (falling back to base): {e}")
 
+            # Preserver "Our Book" (mirror) — built once, shared across Preserver recipients.
+            # The book LEADS the digest (the model you mirror); the ensemble signals follow as
+            # "Other Signals — not in our book". 30% = the live t30v trailing stop.
+            preserver_book = None
+            try:
+                from app.services import tier_serving as _ts_book
+                from app.services.scanner import scanner_service as _ss_book
+                if _ts_book.tier_serving_enabled():
+                    async with async_session() as _pbdb:
+                        preserver_book = await _ts_book.build_tier_book(
+                            _pbdb, 'preserver', 100000.0, _ss_book.data_cache, 30.0
+                        )
+            except Exception as e:
+                logger.warning(f"📧 Preserver book build failed (digest still sends without it): {e}")
+
             # Send emails + push notifications to each subscriber
             sent = 0
             failed = 0
@@ -1830,12 +1845,14 @@ class SchedulerService:
                     user_context = max_context or market_context
                     user_watchlist = []  # breakout book has no t30v watchlist
                     user_tier = 'maximizer'
+                    user_book = None  # Maximizer's signals ARE its breakout book
                 else:
                     held = user_open_symbols.get(sub['user_id'], set())
                     user_signals = [s for s in buy_signals if s['symbol'] not in held] if held else buy_signals
                     user_context = market_context
                     user_watchlist = watchlist
                     user_tier = 'preserver'
+                    user_book = preserver_book  # "Our Book" leads; signals follow as "Other Signals"
                 user_fresh_count = len([s for s in user_signals if s.get('is_fresh')])
 
                 try:
@@ -1847,6 +1864,7 @@ class SchedulerService:
                         user_id=sub['user_id'],
                         market_context=user_context,
                         tier=user_tier,
+                        book=user_book,
                     )
                     if success:
                         sent += 1

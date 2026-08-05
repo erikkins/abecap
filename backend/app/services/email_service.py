@@ -347,6 +347,62 @@ class EmailService:
                     })
                     return False
 
+    def _book_section(self, book: Dict, market_regime: Dict = None) -> str:
+        """'Our Book' — the mirror that IS the product: current model holdings + a
+        one-line posture + the mirroring rule. Leads the Preserver digest so the book
+        (what to hold to match us) comes before the bonus 'Other Signals' list."""
+        if not book or not book.get('holdings'):
+            return ''
+        holdings = sorted(book['holdings'], key=lambda h: -(h.get('weight_pct') or 0))
+        n = len(holdings)
+        new_ct = book.get('new_today') or 0
+        exposure = book.get('exposure')
+        bits = [f"Holding {n} position{'s' if n != 1 else ''}"]
+        if new_ct:
+            bits.append(f"{new_ct} new today")
+        if exposure is not None and exposure < 0.99:
+            bits.append(f"~{round(exposure * 100)}% invested &mdash; cash raised (defensive)")
+        posture = " &middot; ".join(bits)
+        rows = ""
+        for h in holdings[:20]:
+            sym = h.get('symbol', '')
+            wt = h.get('weight_pct')
+            pnl = h.get('pnl_pct')
+            if h.get('exit_rule') == 'hold':
+                exit_txt = f"day {h.get('days_held', 0)}/{h.get('hold_days', 29)}"
+            else:
+                exit_txt = f"{(h.get('trailing_stop_pct') or 30):.0f}% trail"
+            pnl_txt = ''
+            if pnl is not None:
+                _pc = '#245232' if pnl >= 0 else '#7A2430'
+                pnl_txt = (f'<span style="font-family: \'Courier New\', monospace; font-size: 13px; '
+                           f'color: {_pc};">{"+" if pnl >= 0 else ""}{pnl:.1f}%</span>')
+            new_tag = ('<span style="font-family: \'Courier New\', monospace; font-size: 10px; '
+                       'letter-spacing: 1px; color: #7A2430;">&nbsp;NEW</span>') if h.get('is_new') else ''
+            wt_txt = f"{wt:.0f}%" if wt is not None else ""
+            rows += f'''
+                <tr>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #EDE7DA; font-family: Georgia, serif; font-size: 15px; color: #141210;">{sym}{new_tag}</td>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #EDE7DA; text-align: right; font-family: 'Courier New', monospace; font-size: 12px; color: #8A8279;">{wt_txt} &middot; {exit_txt}</td>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #EDE7DA; text-align: right;">{pnl_txt}</td>
+                </tr>'''
+        return f'''
+        <tr>
+            <td style="padding: 0 24px 20px;">
+                <div style="padding-bottom: 8px; border-bottom: 2px solid #141210; margin-bottom: 6px;">
+                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                        <tr>
+                            <td style="font-family: Georgia, serif; font-size: 17px; font-weight: 500; color: #141210;">Our Book</td>
+                            <td align="right" style="font-family: Georgia, serif; font-style: italic; font-size: 13px; color: #7A2430;">the model you mirror</td>
+                        </tr>
+                    </table>
+                </div>
+                <div style="font-family: Georgia, serif; font-size: 13px; color: #5A544E; margin-bottom: 4px;">{posture}.</div>
+                <div style="font-family: Georgia, serif; font-style: italic; font-size: 12px; color: #8A8279; line-height: 1.5; margin-bottom: 10px;">Mirror at today&rsquo;s price &mdash; the trailing stop rides the high, not your entry, so a late fill just widens your cushion.</div>
+                <table cellpadding="0" cellspacing="0" style="width: 100%;">{rows}</table>
+            </td>
+        </tr>'''
+
     def generate_daily_summary_html(
         self,
         signals: List[Dict],
@@ -358,7 +414,8 @@ class EmailService:
         regime_forecast: Dict = None,
         user_id: str = None,
         market_context: str = None,
-        tier: str = 'preserver'
+        tier: str = 'preserver',
+        book: Dict = None
     ) -> str:
         """
         Generate beautiful HTML for daily summary email
@@ -398,6 +455,29 @@ class EmailService:
         open_signals = [s for s in signals if not _effective_fresh(s)]
         watchlist = watchlist or []
 
+        # "Our Book" (mirror) leads for served Preserver — the book is the product
+        # promise; signals are the bonus. The signal list below is then framed as
+        # "Other Signals — not in our book" so a subscriber running their OWN book
+        # off our signals (different entries = their own diversification) still gets
+        # them, without ever reading as a book holding. Maximizer's signals ARE its
+        # breakout book, so that section stays the book. Legacy (no book) keeps the
+        # historical "New Today / Consider adding".
+        served_preserver = (tier != 'maximizer' and book is not None)
+        book_section = self._book_section(book, market_regime) if served_preserver else ''
+        if tier == 'maximizer':
+            sig_header, sig_subhead = 'Your Maximizer Book', 'Held ~29 days'
+            sig_framing = ("Mirror at today&rsquo;s price. Each breakout is held ~29 trading days then "
+                           "sold on time &mdash; a late entry just gets fewer of those days, so favor the fresh names.")
+        elif served_preserver:
+            sig_header, sig_subhead = 'Other Signals', 'Not in our book'
+            sig_framing = ("These pass our screen but aren&rsquo;t in our book right now &mdash; shown for your "
+                           "own allocation. Running your own entries is its own diversification; the tags show "
+                           "whether each is still near its entry.")
+        else:
+            sig_header, sig_subhead = 'New Today', 'Consider adding'
+            sig_framing = ("Mirror at today&rsquo;s price &mdash; the trailing stop rides the high, not your entry, "
+                           "so a late fill just widens your cushion. Don&rsquo;t chase names already well past their signal.")
+
         # New-Today section (Jun 17 2026 rework): LEAD with the active set.
         # When nothing is fresh but signals are still active, don't headline a
         # flat "New Today (0) / No new signals" empty block — that reads like a
@@ -411,13 +491,13 @@ class EmailService:
                 <div style="padding-bottom: 8px; border-bottom: 1px solid #DDD5C7; margin-bottom: 12px;">
                     <table cellpadding="0" cellspacing="0" style="width: 100%;">
                         <tr>
-                            <td style="font-family: Georgia, serif; font-size: 16px; font-weight: 500; color: #141210;">New Today <span style="font-style: italic; color: #8A8279; font-weight: 400;">({len(fresh_signals)})</span></td>
-                            <td align="right" style="font-family: Georgia, serif; font-style: italic; font-size: 13px; color: #7A2430;">Consider adding</td>
+                            <td style="font-family: Georgia, serif; font-size: 16px; font-weight: 500; color: #141210;">{sig_header} <span style="font-style: italic; color: #8A8279; font-weight: 400;">({len(fresh_signals)})</span></td>
+                            <td align="right" style="font-family: Georgia, serif; font-style: italic; font-size: 13px; color: #7A2430;">{sig_subhead}</td>
                         </tr>
                     </table>
                 </div>
                 <div style="font-family: Georgia, serif; font-style: italic; font-size: 12px; color: #8A8279; line-height: 1.5; margin-bottom: 12px;">
-                    {"Mirror at today&rsquo;s price. Each breakout is held ~29 trading days then sold on time &mdash; a late entry just gets fewer of those days, so favor the fresh names." if tier == "maximizer" else "Mirror at today&rsquo;s price &mdash; the trailing stop rides the high, not your entry, so a late fill just widens your cushion. Don&rsquo;t chase names already well past their signal."}
+                    {sig_framing}
                 </div>
                 {_nt_rows}
             </td>
@@ -512,8 +592,11 @@ class EmailService:
             </td>
         </tr>''' if market_context else ''}
 
-        <!-- New Today / lead section (pre-computed above: full section when fresh,
-             slim one-liner when only Open exists, centered notice when truly empty) -->
+        <!-- Our Book (mirror) — leads for served Preserver; empty otherwise -->
+        {book_section}
+
+        <!-- New Today / Other Signals lead section (pre-computed above: full section
+             when fresh, slim one-liner when only Open exists, centered notice when empty) -->
         {new_today_section}
 
         <!-- Open Section (non-fresh signals still in buy zone — dashboard "Monitoring" bucket) -->
@@ -995,7 +1078,8 @@ class EmailService:
         date: Optional[datetime] = None,
         user_id: str = None,
         market_context: str = None,
-        tier: str = 'preserver'
+        tier: str = 'preserver',
+        book: Dict = None
     ) -> bool:
         """
         Send daily summary email to a subscriber
@@ -1058,7 +1142,8 @@ class EmailService:
             date=date,
             user_id=user_id,
             market_context=market_context,
-            tier=tier
+            tier=tier,
+            book=book
         )
 
         text = self.generate_plain_text(signals, market_regime, date=date, watchlist=watchlist)
