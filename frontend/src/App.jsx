@@ -3894,6 +3894,24 @@ function Dashboard() {
                         return null;
                       };
 
+                      // Actionability ("did I miss the window?"). Only flag the case that
+                      // matters — a name that's run too far to mirror cleanly. Preserver
+                      // (trailing stop): extended = chased past its signal. Maximizer
+                      // (29-day time-stop): 'late' = too few hold days left to initiate.
+                      // Fresh/actionable names get no chip — absence means clean to enter.
+                      const renderActionBadge = (s) => {
+                        if (s.entry_status !== 'extended') return null;
+                        const base = "font-mono text-[0.58rem] tracking-[0.16em] uppercase ml-2 whitespace-nowrap text-claret border border-claret/40 px-1.5 py-0.5";
+                        const isBreakout = s.source === 'breakout';
+                        const txt = isBreakout ? 'Late' : 'Extended';
+                        const title = isBreakout
+                          ? `Only ${s.days_left}d left in the hold — late to initiate a fresh mirror`
+                          : (s.move_since_signal_pct != null
+                              ? `Run +${Math.round(s.move_since_signal_pct)}% past its signal — the trade isn't broken, but don't chase; wait for a pullback or size down`
+                              : `Run well past its signal — don't chase`);
+                        return <span className={base} title={title}>{txt}</span>;
+                      };
+
                       const renderSimpleSignal = (s) => {
                         const isBreakout = s.source === 'breakout';
                         const label = s.signal_strength_label || (() => {
@@ -3924,6 +3942,7 @@ function Dashboard() {
                               <span className="font-display text-[1.1rem] font-medium tracking-tight truncate" style={{ fontVariationSettings: '"opsz" 48' }}>{s.symbol}</span>
                               {isBreakout && <span className="font-mono text-[0.58rem] tracking-[0.16em] uppercase text-claret border border-claret/40 px-1.5 py-0.5 whitespace-nowrap">Breakout</span>}
                               {!isBreakout && renderContinuityBadge(s)}
+                              {renderActionBadge(s)}
                             </div>
                             <span className="font-mono text-[0.88rem] text-ink-mute text-right">${s.price?.toFixed(2)}</span>
                             {isBreakout ? (
@@ -3973,6 +3992,7 @@ function Dashboard() {
                             {isBreakout
                               ? <span className="font-mono text-[0.58rem] tracking-[0.16em] uppercase text-claret border border-claret/40 px-1.5 py-0.5 ml-2 whitespace-nowrap">Breakout</span>
                               : renderContinuityBadge(s)}
+                            {renderActionBadge(s)}
                           </td>
                           <td className="px-3 py-3 text-right font-mono text-[0.88rem]">${s.price?.toFixed(2)}</td>
                           <td className="px-3 py-3 text-right font-mono text-[0.88rem] text-positive">

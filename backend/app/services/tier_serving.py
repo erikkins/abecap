@@ -176,6 +176,12 @@ async def build_maximizer_breakout_view(db, data_cache: dict) -> List[dict]:
             "in_user_position": False,
             "ensemble_score": 0,
             "signal_strength_label": "New breakout" if is_new else "Holding",
+            # Actionability for the 29-day TIME-stop: the exit date is fixed by the
+            # BOOK's entry, so mirroring a holding late means you only get the days
+            # that remain, not a fresh 29. New = full runway; a holding with < ~10
+            # days left is 'late' (you'd buy days before the book sells it).
+            "entry_status": "fresh" if is_new else ("actionable" if days_left >= 10 else "extended"),
+            "still_actionable": bool(is_new or days_left >= 10),
         })
     # New (entered today) first, then holdings nearest to their time-stop exit.
     cards.sort(key=lambda c: (0 if c["status"] == "new" else 1, c["days_left"]))
@@ -472,9 +478,24 @@ async def apply_tier_serving(
     """
     regime = (cached.get("regime_forecast") or {}).get("current_regime") or ""
 
+    # "Signals" = NEW buy signals you don't already hold. Names already in the model
+    # book live in the mirror-book / positions view, not the new-signal list — the
+    # same definition the daily email and the grounded briefing use, so the portal,
+    # the email, and the blurb all describe the identical set.
+    try:
+        from app.core.database import ModelPosition as _MP
+        _held = set((await db.execute(
+            select(_MP.symbol).where(
+                _MP.portfolio_type == "live", _MP.status == "open")
+        )).scalars().all())
+    except Exception:
+        _held = set()
+
     # Stamp the Preserver base list (used by Preserver, and by Maximizer when out of rotating).
     preserver_signals = []
     for s in buy_signals:
+        if s.get("symbol") in _held:
+            continue
         card = dict(s)
         card["source"] = "preserver"
         card["exit_rule"] = "trailing"

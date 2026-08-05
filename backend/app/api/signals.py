@@ -1486,6 +1486,47 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
     except Exception as cont_err:
         print(f"⚠️ Signal continuity compute failed (non-fatal): {cont_err}")
 
+    # --- Signal actionability ("is it still a good time to mirror XYZ?") ---
+    # A mirrored signal is entered at TODAY's price. Because the 30% stop trails
+    # the HIGH-water mark (not your entry), entering a day or two late mainly
+    # WIDENS your cushion to the stop — it doesn't break the trade. The real risk
+    # is CHASING a name that has already run well past where it first signaled.
+    # So per signal we surface: the price when it first signaled, how far it has
+    # moved since, and a plain still_actionable flag (fresh today, or still within
+    # CHASE_CEILING of its signal). 'extended' = run too far, size down / wait.
+    CHASE_CEILING_PCT = 8.0
+    for s in buy_signals:
+        try:
+            _sym = s.get('symbol')
+            _xdate = s.get('dwap_crossover_date')
+            _cur = s.get('price')
+            _sig_price = None
+            if _sym and _xdate:
+                _sdf = scanner_service.data_cache.get(_sym)
+                if _sdf is not None and len(_sdf):
+                    _sub = _sdf.loc[:_xdate]
+                    if len(_sub):
+                        _sig_price = float(_sub['close'].iloc[-1])
+            _move_since = ((_cur / _sig_price - 1) * 100) if (_sig_price and _cur) else None
+            _cont = s.get('continuity') or {}
+            _is_new_today = bool(_cont.get('is_new_today')) or (s.get('days_since_crossover') == 0)
+            if _is_new_today:
+                _status = 'fresh'
+            elif _move_since is None:
+                _status = 'actionable'   # unknown move → don't discourage entry
+            elif _move_since <= CHASE_CEILING_PCT:
+                _status = 'actionable'
+            else:
+                _status = 'extended'
+            s['signal_price'] = round(_sig_price, 2) if _sig_price else None
+            s['move_since_signal_pct'] = round(_move_since, 1) if _move_since is not None else None
+            s['extended_pct'] = round(float(s.get('pct_above_dwap') or 0), 1)  # % above 200-day trend
+            s['still_actionable'] = _status != 'extended'
+            s['entry_status'] = _status   # 'fresh' | 'actionable' | 'extended'
+        except Exception:
+            s.setdefault('still_actionable', True)
+            s.setdefault('entry_status', 'actionable')
+
     # --- Market context (AI-generated daily briefing) ---
     # Reuse today's cached context if it exists (generate once per day, not per call)
     market_context = None
@@ -1503,6 +1544,12 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
             # generate a briefing when fresh_count=8, then the 4:30 PM scan
             # would hit the cache even though fresh_count had dropped to 6.
             # Result: published briefing cited wrong counts.
+            # Cache key includes the exact SYMBOL SET, not just counts. A count-only
+            # key let a stale briefing survive when the composition changed but the
+            # totals happened to match (e.g. an 11am intraday briefing naming HPQ
+            # reused at 4:30 PM after HPQ dropped and another name took its slot).
+            cached_syms = frozenset(s.get('symbol') for s in existing_dashboard.get('buy_signals', []))
+            current_syms = frozenset(s.get('symbol') for s in buy_signals)
             cached_total = len(existing_dashboard.get('buy_signals', []))
             cached_fresh = sum(1 for s in existing_dashboard.get('buy_signals', []) if s.get('is_fresh'))
             current_total = len(buy_signals)
@@ -1510,13 +1557,18 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
             if (date.today().isoformat() in generated
                     and cached_regime == current_regime
                     and cached_total == current_total
-                    and cached_fresh == current_fresh):
+                    and cached_fresh == current_fresh
+                    and cached_syms == current_syms):
                 market_context = existing_dashboard['market_context']
                 print(f"📝 Market context (cached, regime={cached_regime}, total={cached_total}, fresh={cached_fresh}): {market_context}")
             elif cached_regime != current_regime:
                 print(f"📝 Market context cache invalidated: regime changed {cached_regime} → {current_regime}")
             elif cached_total != current_total or cached_fresh != current_fresh:
                 print(f"📝 Market context cache invalidated: signals shifted (cached {cached_total}/{cached_fresh} fresh → now {current_total}/{current_fresh} fresh)")
+            elif cached_syms != current_syms:
+                _added = current_syms - cached_syms
+                _dropped = cached_syms - current_syms
+                print(f"📝 Market context cache invalidated: symbol set changed (+{sorted(_added)} -{sorted(_dropped)})")
 
         # Only generate if not already cached for today
         if not market_context:
@@ -1631,10 +1683,26 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
             # produced briefings like "NVDA returns to the list" on May 11
             # when the actual return was May 6 — Claude correctly reflected
             # the bucket, but the bucket was wrong.
+            # Ground the briefing in the SAME list the Preserver surfaces show:
+            # new buy signals NOT already in the model book. Held names live in the
+            # mirror-book view, not the "new signals" list — so the AI must never
+            # cite them (that produced "BAC/PYPL are anchors at day 10" glued onto a
+            # list that hid them). The AI may only name tickers present here.
+            try:
+                from app.core.database import ModelPosition as _MP
+                _held_rows = (await db.execute(
+                    select(_MP.symbol).where(
+                        _MP.portfolio_type == "live", _MP.status == "open")
+                )).scalars().all()
+                _held_syms = set(_held_rows)
+            except Exception:
+                _held_syms = set()
+            served_signals = [s for s in buy_signals if s.get('symbol') not in _held_syms]
+
             new_today_syms = []
-            continuing_syms = []  # list of "TICKER (Day N)" strings
+            continuing_syms = []  # list of "TICKER (Day N, actionability)" strings
             resignal_syms = []    # Day-1-of-return only
-            for s in buy_signals:
+            for s in served_signals:
                 cont = s.get('continuity') or {}
                 sym = s.get('symbol')
                 if not sym:
@@ -1645,7 +1713,12 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                 elif cont.get('is_new_today'):
                     new_today_syms.append(sym)
                 elif cont.get('consecutive_days', 0) >= 2:
-                    continuing_syms.append(f"{sym} (Day {cont['consecutive_days']})")
+                    _days = cont['consecutive_days']
+                    _mv = s.get('move_since_signal_pct')
+                    if s.get('entry_status') == 'extended' and _mv is not None:
+                        continuing_syms.append(f"{sym} (Day {_days}, extended +{_mv:.0f}% past its signal — chasing risk)")
+                    else:
+                        continuing_syms.append(f"{sym} (Day {_days}, still near entry)")
             new_line = f"New today ({len(new_today_syms)}): {', '.join(new_today_syms[:8]) or 'none'}"
             cont_line = f"Continuing runs ({len(continuing_syms)}): {', '.join(continuing_syms[:8]) or 'none'}"
             resig_line = f"Re-signaling ({len(resignal_syms)}): {', '.join(resignal_syms[:6]) or 'none'}"
@@ -1690,6 +1763,13 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                 "- Never say 'our algorithm' or 'our model' — say 'the ensemble' or 'our signals'.\n"
                 "- Never give financial advice or say 'buy' / 'sell'.\n"
                 "- Reference specific tickers, regimes, or data points when interesting.\n"
+                "- CRITICAL: You may ONLY name tickers that appear in the 'New today', 'Continuing runs', "
+                "or 'Re-signaling' lists below. NEVER invent or recall a ticker that isn't in those lists — "
+                "if it's not listed, it is not shown to the reader and naming it breaks trust. Held positions "
+                "are deliberately excluded; do not mention names as 'anchors' or 'holdings'.\n"
+                "- ACTIONABILITY: a continuing name tagged 'still near entry' is a clean mirror today; one "
+                "tagged 'extended +N% past its signal' has run too far to chase — if you cite it, frame it as "
+                "extended/late, not a fresh buy. New-today names are the clean entries.\n"
                 "- Vary your phrasing. Don't start every sentence the same way. Change up structure daily.\n"
                 "- Be HONEST about signal continuity. The data shows 'New today' vs 'Continuing runs' vs "
                 "'Re-signaling.' Most days, the qualifying list is mostly continuing names with one or two "
@@ -3627,6 +3707,29 @@ async def public_page_hit(
     return Response(status_code=204)
 
 
+_newsletter_bg_tasks: set = set()
+
+
+def _fire_newsletter_confirmation(email_lower: str, report_type: str):
+    """Fire-and-forget the courtesy opt-in confirmation so the signup toast
+    returns instantly and an SMTP hiccup never fails the subscribe request."""
+    import asyncio
+
+    async def _run():
+        try:
+            from app.services.email_service import email_service
+            await email_service.send_newsletter_confirmation(email_lower, report_type)
+        except Exception as _e:
+            logger.warning(f"newsletter confirmation send failed for {email_lower}: {_e}")
+
+    try:
+        task = asyncio.create_task(_run())
+        _newsletter_bg_tasks.add(task)
+        task.add_done_callback(_newsletter_bg_tasks.discard)
+    except RuntimeError:
+        pass  # no running loop (shouldn't happen in request context)
+
+
 @public_router.post("/subscribe-newsletter")
 async def public_subscribe_newsletter(
     req: NewsletterSubscribeRequest,
@@ -3662,6 +3765,7 @@ async def public_subscribe_newsletter(
         existing.unsubscribed_at = None
         existing.subscribed_at = datetime.utcnow()
         await db.commit()
+        _fire_newsletter_confirmation(email_lower, req.report_type)
         return {"success": True, "message": "Welcome back — you're resubscribed."}
 
     db.add(NewsletterPreference(
@@ -3670,6 +3774,7 @@ async def public_subscribe_newsletter(
         source=req.source or "landing",
     ))
     await db.commit()
+    _fire_newsletter_confirmation(email_lower, req.report_type)
 
     msg = (
         "You're in. The market, measured — delivered Sundays."

@@ -416,6 +416,9 @@ class EmailService:
                         </tr>
                     </table>
                 </div>
+                <div style="font-family: Georgia, serif; font-style: italic; font-size: 12px; color: #8A8279; line-height: 1.5; margin-bottom: 12px;">
+                    {"Mirror at today&rsquo;s price. Each breakout is held ~29 trading days then sold on time &mdash; a late entry just gets fewer of those days, so favor the fresh names." if tier == "maximizer" else "Mirror at today&rsquo;s price &mdash; the trailing stop rides the high, not your entry, so a late fill just widens your cushion. Don&rsquo;t chase names already well past their signal."}
+                </div>
                 {_nt_rows}
             </td>
         </tr>'''
@@ -592,6 +595,8 @@ class EmailService:
             if days_left is not None:
                 parts.append(f'{days_left}d to exit')
             meta = ' · '.join(parts) if parts else 'Holding'
+            if signal.get('entry_status') == 'extended':
+                meta += ' · late to initiate'
         pnl_cell = ''
         if pnl is not None and not is_new:
             pnl_color = '#245232' if pnl >= 0 else '#7A2430'
@@ -638,7 +643,13 @@ class EmailService:
         # section split (was the raw stored flag → border lit up on 88-day-old
         # signals; Erik Jun 22: "isn't clear why it's there and others don't").
         is_fresh = self._effective_fresh(signal)
-        days_since = signal.get('days_since_crossover')
+        # Use the age that ACTUALLY drove freshness (min of crossover/entry) for the
+        # label — not the raw crossover. A name fresh-by-ENTRY but that crossed DWAP
+        # 50d ago was showing "New · 50d ago" under a "New Today" header (Erik Aug 5:
+        # "the market message and New Today aren't jiving"). The effective age is honest.
+        _ages = [a for a in (signal.get('days_since_crossover'), signal.get('days_since_entry')) if a is not None]
+        eff_age = min(_ages) if _ages else None
+        days_since = eff_age if eff_age is not None else signal.get('days_since_crossover')
 
         score, label = self._signal_strength(signal)
 
@@ -659,6 +670,26 @@ class EmailService:
                 age_label = f'Signaled {days_since}d ago · still qualifies'
             else:
                 age_label = 'Still qualifies'
+
+        # Actionability ("did I miss the window?"). The 30% stop trails the HIGH, not
+        # your entry, so a late fill just widens the cushion — the only real risk is
+        # chasing a name that has run well past where it signaled. entry_status is set
+        # upstream (fresh | actionable | extended) off move-since-signal.
+        _status = signal.get('entry_status')
+        _move = signal.get('move_since_signal_pct')
+        if _status == 'extended' and _move is not None:
+            action_label = f'Extended +{_move:.0f}% past its signal — size down or wait for a pullback'
+            action_color = '#7A2430'
+        elif _status == 'actionable':
+            action_label = 'Still near its entry — clean to mirror at today&rsquo;s price'
+            action_color = '#245232'
+        else:
+            action_label = ''
+            action_color = ''
+        action_row = (
+            f'''<tr><td colspan="2" style="padding-top: 3px; font-family: Georgia, serif; font-style: italic; font-size: 12px; color: {action_color}; letter-spacing: 0.1px;">{action_label}</td></tr>'''
+            if action_label else ''
+        )
 
         # Symbol/price on line 1, then full-width meta lines (strength+trend, then age).
         # Was a 3-item nowrap right column beside a left age label — collided/wrapped on
@@ -683,6 +714,7 @@ class EmailService:
                 <tr>
                     <td colspan="2" style="padding-top: 4px; font-family: 'Courier New', monospace; font-size: 12px; color: #8A8279; letter-spacing: 0.2px;">{age_label}</td>
                 </tr>
+                {action_row}
             </table>
         </div>
         </a>
@@ -1032,6 +1064,81 @@ class EmailService:
         text = self.generate_plain_text(signals, market_regime, date=date, watchlist=watchlist)
 
         return await self.send_email(to_email, subject, html, text, user_id=user_id, email_type="daily_digest")
+
+    async def send_newsletter_confirmation(
+        self,
+        to_email: str,
+        report_type: str = "market_measured",
+    ) -> bool:
+        """Courtesy opt-in confirmation sent the moment someone subscribes to a
+        free newsletter (market_measured / regime_report). Not a click-to-confirm
+        gate — the subscription is already active. Its job is to (a) confirm the
+        signup and (b) give an instant one-click out for anyone whose address was
+        entered by someone else. Reuses the segmented newsletter-unsubscribe token
+        so the footer link + List-Unsubscribe header target only this report."""
+        report_labels = {
+            "market_measured": ("Market Measured",
+                                 "a weekly read of what the system is seeing, delivered Sundays"),
+            "regime_report": ("Weekly Regime Report",
+                              "our weekly market-regime briefing"),
+        }
+        label, tagline = report_labels.get(
+            report_type, ("RigaCap newsletter", "our weekly briefing"))
+
+        from jose import jwt as _jose_jwt
+        from app.core.config import settings as _settings
+        _unsub_tok = _jose_jwt.encode(
+            {"email": to_email.strip().lower(), "report_type": report_type,
+             "purpose": "newsletter_unsubscribe"},
+            _settings.JWT_SECRET_KEY,
+            algorithm=_settings.JWT_ALGORITHM,
+        )
+        unsub_url = f"https://api.rigacap.com/api/public/newsletter/unsubscribe?token={_unsub_tok}"
+
+        subject = f"You're on the list — RigaCap {label}"
+        html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F5F1E8;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F1E8;">
+    <tr><td align="center" style="padding:40px 20px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#F5F1E8;">
+        <tr><td style="padding:0 0 28px;">
+          <span style="font-family:Georgia,'Times New Roman',serif;font-size:22px;color:#141210;letter-spacing:0.02em;">RigaCap</span>
+        </td></tr>
+        <tr><td style="border-top:1px solid #E0D9CB;padding:28px 0 0;">
+          <h1 style="margin:0 0 16px;font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:26px;line-height:1.25;color:#141210;">You're on the list.</h1>
+          <p style="margin:0 0 16px;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.6;color:#141210;">
+            Thanks for signing up for RigaCap's <strong style="font-weight:600;">{label}</strong> — {tagline}. Your first issue will land in your inbox on the next send.
+          </p>
+          <p style="margin:0 0 28px;font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:1.6;color:#5A544E;">
+            <strong style="color:#7A2430;font-weight:600;">If you didn't sign up</strong> for this, you can ignore this email or remove yourself instantly below — you won't hear from us again.
+          </p>
+          <p style="margin:0 0 32px;">
+            <a href="{unsub_url}" style="font-family:Georgia,serif;font-size:14px;color:#7A2430;text-decoration:underline;">Unsubscribe with one click</a>
+          </p>
+          <p style="margin:0;padding-top:24px;border-top:1px solid #E0D9CB;font-family:Georgia,serif;font-size:12px;line-height:1.6;color:#8A847C;">
+            RigaCap · Signals only — you execute at your own broker. Not investment advice.<br>
+            Questions? Just reply to this email.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+        text = (
+            f"You're on the list.\n\n"
+            f"Thanks for signing up for RigaCap's {label} — {tagline}. "
+            f"Your first issue will land on the next send.\n\n"
+            f"If you didn't sign up for this, you can ignore this email or unsubscribe "
+            f"instantly here: {unsub_url}\n\n"
+            f"RigaCap · Signals only — you execute at your own broker. Not investment advice.\n"
+            f"Questions? Just reply to this email."
+        )
+        return await self.send_email(
+            to_email, subject, html, text,
+            list_unsubscribe_url=unsub_url,
+            email_type="newsletter",
+        )
 
     async def send_market_measured(
         self,
