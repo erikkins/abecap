@@ -116,3 +116,83 @@ free slots from candidates under rule B) → persist `preserver_signals` + a
   in the validated *range*, not exact.
 - Regime label source: use the same `data['regime_forecast']['current_regime']` the live
   scan already computes (hysteresis-stable), so shadow and any future serve agree.
+
+---
+
+# Phase 2.5 — Plumbing Build (scope; decisions locked Jul 20 2026)
+
+*Goal: promote the shadow into three real, comparable books (Core / Preserver / Maximizer)
+each with its own fill/transaction log, an admin side-by-side compare view, and tier-aware
+serving so the Maximizer add-on can actually be sold. Shadow ran Jul 8–17; findings below
+drive this scope.*
+
+## A. What the shadow proved (verified Jul 20)
+- **Core** = the live model portfolio (`model_positions` / `model_portfolio_snapshots` /
+  `model_portfolio_state`) with real entries/exits. Ground truth; already has real fills.
+- **Preserver book is pinned at exactly $100k** every shadow day. Root cause: the tier books
+  only manage the *defensive-sleeve* overlay and **deliberately exclude the t30v leg** ("added
+  separately in prod from the live model portfolio" — never built). In rotating_bull the route
+  is `t30v`, which is not a Preserver sleeve source → zero entries → flat equity.
+- **Maximizer book moves** (100000 → 99172 over Jul 8–17) because its rotating_bull route is
+  `breakout`, a real sleeve the shadow tracks. Only **6 signals** because the breakout detector
+  is selective (close above prior 50-day high on a volume spike).
+
+## B. Corrected per-tier routing (the load-bearing table)
+| Regime | Preserver | Maximizer |
+|---|---|---|
+| calm_bull (strong/weak bull) | pullback_ma | pullback_ma *(same)* |
+| capitulation (panic/recovery/weak_bear) | oversold_bounce | oversold_bounce *(same)* |
+| **rotating_bull** | **t30v (Core)** | **breakout (vol-scaled)** |
+| range_bound / unknown | t30v (Core) | t30v (Core) |
+
+Source: `preserver_sleeves.route` (:35), `maximizer_sleeves.route` (:47). Maximizer = Preserver
+routing with ONE swap: rotating_bull → breakout.
+
+## C. Locked decisions
+1. **t30v leg = MIRROR the live Core book** (read-only reference to real model-portfolio
+   positions), not an independent re-simulation → one authoritative Core; tiers diverge only
+   where their sleeves/brake engage. Applies **fully to Preserver** (rotating_bull + range_bound)
+   and **only to range_bound for Maximizer** (rotating_bull is its own breakout book).
+2. **Start basis = align to Core inception (~Jun 14) + backfill** Preserver/Maximizer so all
+   three share one $100k origin. Discards the misaligned Jul-8 shadow start.
+
+## D. Workstreams
+- **WS1 — Real tier books.** Fold the mirrored Core t30v leg into Preserver/Maximizer equity +
+  positions during t30v-routed regimes (per B). Preserver = the big lift (leg entirely missing);
+  Maximizer already works in rotating_bull, needs the Core mirror for range_bound only. Backfill
+  from Core inception.
+- **WS2 — Per-tier fill log (STRs).** New `tier_fills` table; emit a row on every entry/exit in
+  `advance_day`. Preserver/Maximizer tier_fills already include the mirrored-Core leg fills;
+  Core's own fills are surfaced read-only from the existing model-portfolio trade records
+  (UNION in the admin view — do NOT write into the live t30v path).
+- **WS3 — Tier-aware serving.** Derive tier at serve-time from the Stripe subscription items
+  (base only → Preserver; base + Maximizer add-on → Maximizer; Core = internal/admin only) —
+  reuses `billing._maxpp_price_ids()`, **no new user column needed**. Dashboard/signals endpoints
+  branch on tier. Behind a flag. THIS is the gate that makes Maximizer sellable.
+- **WS4 — Admin 3-book compare view.** Core vs Preserver vs Maximizer side-by-side (equity
+  curves, current positions, metrics) + the per-tier fills log. Read-only; safe to ship early.
+- **WS5 — Subscriber UI per-tier behavior.** The tiers *look* different on-screen, not just a
+  different list: Preserver shows defensive-sleeve rotations (pullback/oversold) with their own
+  holds; Maximizer shows breakout entries + vol-brake sizing and more turnover; in rotating_bull
+  Preserver == Core (UI must be honest, not imply extra activity). Exit params displayed per tier
+  (ties to [[feedback_wf_prod_parity]] — displayed exit MUST equal the tier's live rule).
+  Preserver users get a Maximizer upsell nudge.
+
+## E. Build sequence (migration-first / off-hours per §0)
+1. **Migration** (first step): create `tier_fills` (additive, idempotent) via
+   `{"run_migration": true}`; verify. Off-hours, NOT near the 4 PM ET scan. See
+   `backend/migrations/tier_fills.sql`.
+2. Deploy the `TierFill` model + fill-emit logic in WS1/WS2 (still records-only; serving
+   untouched). Backfill from Core inception.
+3. **Validate** the three curves: rotating_bull → Preserver ≈ Core; Maximizer runs breakout;
+   sleeve regimes enter the expected names; fills reconcile against snapshots.
+4. **WS4 admin compare view** (read-only) — eyeball the three books before any subscriber change.
+5. **WS3 tier-aware serving** LAST, behind a flag → then wire the LandingV2 Maximizer CTA (WS5)
+   so the add-on is sellable + rendered correctly.
+
+## F. Open items
+- Confirm Core's live inception date + starting capital for the backfill anchor (memory says
+  re-dated ~Jun 14 @ $100k — verify against `model_portfolio_state`).
+- Backfill needs historical daily prices for the sleeve/breakout marks back to inception —
+  reuse the parquet/PITFWU read path (same data the scan uses).
+- Existing paid subs are all on the base plan → Preserver tier; Core is never sold.

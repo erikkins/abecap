@@ -53,9 +53,48 @@ def _vix():
     return x
 
 
-def run(start, end, vb_on=True, n=100, trail=0.12, max_pos=6, size=0.15):
+def _cap_universe_by_sector(uni, sector_cap):
+    """Cap the candidate universe to max N per GICS sector, keeping list order
+    (dollar-volume rank). Mirrors walk_forward_service._apply_sector_cap — the exact
+    method behind the May-24 cap=6 validation. Unknown-sector names always pass.
+    Sector metadata from /tmp/sectors_cache.json (seed via `aws s3 cp
+    s3://<prod-bucket>/universe/sectors_cache.json /tmp/sectors_cache.json`)."""
+    if not sector_cap or sector_cap <= 0:
+        return uni
+    import json
+    try:
+        cache = json.load(open("/tmp/sectors_cache.json"))
+    except Exception:
+        print("  [sector-cap] /tmp/sectors_cache.json missing — CAP IS A NO-OP")
+        return uni
+    counts, out = {}, []
+    for s in uni:
+        info = cache.get(s)
+        sec = (info.get("sector") if isinstance(info, dict) else "") or ""
+        if not sec:
+            out.append(s); continue
+        if counts.get(sec, 0) < sector_cap:
+            out.append(s); counts[sec] = counts.get(sec, 0) + 1
+    print(f"  [sector-cap={sector_cap}] universe {len(uni)} -> {len(out)}")
+    return out
+
+
+def _load_sector_map():
+    """{symbol: sector} from /tmp/sectors_cache.json (seed from the prod bucket)."""
+    import json
+    try:
+        cache = json.load(open("/tmp/sectors_cache.json"))
+    except Exception:
+        print("  [sectors] /tmp/sectors_cache.json missing — throttles will NO-OP")
+        return {}
+    return {s: ((i.get("sector") if isinstance(i, dict) else "") or "") for s, i in cache.items()}
+
+
+def run(start, end, vb_on=True, n=100, trail=0.12, max_pos=6, size=0.15,
+        sector_cap=0, max_sector_entries=0, max_entries_per_rebalance=0):
     panel, ca = v.load_panel(), v.load_corp_actions()
     uni = [s for s in v.universe_asof(start, 400, panel) if s not in _EXCLUDED_SET and not s.startswith("^")][:n]
+    uni = _cap_universe_by_sector(uni, sector_cap)
     cache = {}
     for s in dict.fromkeys(uni + BASKET + ["SPY"]):
         try:
@@ -70,6 +109,12 @@ def run(start, end, vb_on=True, n=100, trail=0.12, max_pos=6, size=0.15):
     bt.trailing_stop_pct = trail; bt.dd_tighten_threshold_pct = 0
     bt.dwap_threshold_pct = 0.05; bt.near_50d_high_pct = 3.0
     bt.max_positions = max_pos; bt.position_size_pct = size; bt.min_price = 15.0
+    if max_sector_entries or max_entries_per_rebalance:
+        bt.symbol_sectors = _load_sector_map()
+        bt.max_sector_entries_per_rebalance = max_sector_entries
+        bt.max_entries_per_rebalance = max_entries_per_rebalance
+        print(f"  [throttle] max_sector_entries/rebal={max_sector_entries} "
+              f"max_entries/rebal={max_entries_per_rebalance} sectors={len(bt.symbol_sectors)}")
     if vb_on:
         bt.cb_pause_basket_enabled = True; bt.cb_pause_basket_symbols = BASKET
         bt.cb_pause_basket_position_size_pct = 10.0; bt.cb_pause_basket_trail_pct = 8.0

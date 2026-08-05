@@ -62,7 +62,56 @@ if __name__ == "__main__":
         b_scaled = df["b"] * vol_scale(df["b"])
         preserver = pd.Series(np.where(calm, df["p"], np.where(cap, df["o"], df["t"])), index=grid)
         maxpp = pd.Series(np.where(calm, df["p"], np.where(cap, df["o"], np.where(rot, b_scaled, df["t"]))), index=grid)
-        print(f"  {'tier':<24} {'Annualized':>11} {'Sharpe':>7} {'MaxDD':>8}", flush=True)
-        for name, r in [("Core (t30v)", df["t"]), ("Preserver (v1)", preserver), ("Maximizer++ (v2 vol-sc)", maxpp)]:
+        print(f"  {'tier':<26} {'Annualized':>11} {'Sharpe':>7} {'MaxDD':>8}", flush=True)
+        for name, r in [("Core (t30v)", df["t"]), ("Preserver (research)", preserver), ("Maximizer (research)", maxpp)]:
             c, s, m = perf(CAP0 * (1 + r).cumprod(), ppy=252)
-            print(f"  {name:<24} {c:>10.1f}% {s:>7.2f} {m:>7.1f}%", flush=True)
+            print(f"  {name:<26} {c:>10.1f}% {s:>7.2f} {m:>7.1f}%", flush=True)
+        # --- Option A: HARD-ROTATE the whole book on each regime flip = research return-stream
+        #     MINUS a round-trip rotation cost on flip days. Shows how much of the marketed edge
+        #     a full rotate recovers (vs rule-B production which loses it) and the turnover it costs.
+        COST_RT = 0.003  # 0.15% each way on a full-book rotate
+        psrc = pd.Series(np.where(calm, "p", np.where(cap, "o", "t")), index=grid)
+        msrc = pd.Series(np.where(calm, "p", np.where(cap, "o", np.where(rot, "b", "t"))), index=grid)
+        yrs = (grid[-1] - grid[0]).days / 365.25
+        for name, r, src in [("Preserver (Option A)", preserver, psrc), ("Maximizer (Option A)", maxpp, msrc)]:
+            flip = (src != src.shift(1)).fillna(False)
+            ra = r.copy(); ra[flip] = ra[flip] - COST_RT
+            c, s, m = perf(CAP0 * (1 + ra).cumprod(), ppy=252)
+            nflip = int(flip.sum())
+            print(f"  {name:<26} {c:>10.1f}% {s:>7.2f} {m:>7.1f}%   flips={nflip} ({nflip/yrs:.1f}/yr, full-book rotates)", flush=True)
+        # --- Confirmation-filtered Option A: only rotate after the routed source persists N days
+        #     (short spells ignored -> stay put). Cuts whipsaw turnover; costs an N-day lag at real
+        #     regime changes. Shows the deliverable trade: does it hold the edge at fewer rotates?
+        ret_map_p = {"p": df["p"], "o": df["o"], "t": df["t"]}
+        ret_map_m = {"p": df["p"], "o": df["o"], "t": df["t"], "b": b_scaled}
+        def confirm(src, N):
+            out = []; cur = src.iloc[0]; pend = None; pc = 0
+            for s in src:
+                if s == cur:
+                    pend = None; pc = 0
+                else:
+                    pc = pc + 1 if s == pend else 1; pend = s
+                    if pc >= N:
+                        cur = s; pend = None; pc = 0
+                out.append(cur)
+            return pd.Series(out, index=src.index)
+        for tlabel, src0, rmap in [("Preserver", psrc, ret_map_p), ("Maximizer", msrc, ret_map_m)]:
+            for N in (3, 5, 8):
+                cs = confirm(src0, N)
+                r = pd.Series([rmap[x].loc[d] for d, x in cs.items()], index=cs.index)
+                flip = (cs != cs.shift(1)).fillna(False)
+                r2 = r.copy(); r2[flip] = r2[flip] - COST_RT
+                c, s, m = perf(CAP0 * (1 + r2).cumprod(), ppy=252)
+                nf = int(flip.sum())
+                print(f"  {tlabel+' confirm-'+str(N)+'d':<26} {c:>10.1f}% {s:>7.2f} {m:>7.1f}%   flips={nf} ({nf/yrs:.1f}/yr)", flush=True)
+        # --- OVERLAY/HEDGE: keep the t30v book (NO full liquidation); only RAISE CASH in
+        #     capitulation (exposure -> E). Return = exposure * t30v_ret; turnover = a partial
+        #     trade of size |Δexposure| on capitulation enter/exit only. Low turnover, tax-light.
+        cap_mask = pd.Series(cap, index=grid)
+        for E in (0.25, 0.5, 0.75):
+            exp = pd.Series(np.where(cap_mask.to_numpy(), E, 1.0), index=grid)
+            dexp = exp.diff().abs().fillna(0.0)
+            r_ov = exp * df["t"] - dexp * 0.0015          # one-way cost on the traded fraction
+            c, s, m = perf(CAP0 * (1 + r_ov).cumprod(), ppy=252)
+            ntr = int((dexp > 1e-9).sum())
+            print(f"  {'Preserver overlay E='+str(E):<26} {c:>10.1f}% {s:>7.2f} {m:>7.1f}%   cash-raises={ntr} ({ntr/yrs:.1f}/yr, partial)", flush=True)

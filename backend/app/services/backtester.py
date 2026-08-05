@@ -450,6 +450,11 @@ class BacktesterService:
         # exposure stays ~constant. Composes with conviction. 0=off. Targets Sharpe.
         self.vol_weight = 0.0
         self.pyramid_max_adds = 0         # Max times to pyramid into one position; 0=disabled
+        # Per-rebalance entry throttles (Jul 2026 research — targets the cold-start /
+        # rotation pile-in where a fresh book buys all slots in one day into the hot
+        # sector). Both 0 = disabled (existing behavior). Require self.symbol_sectors.
+        self.max_sector_entries_per_rebalance = 0   # >0: cap NEW same-sector entries per rebalance day
+        self.max_entries_per_rebalance = 0          # >0: cap TOTAL new entries per rebalance day (entry pacing)
         # Circuit breaker (Lever 10): halt new entries when stops cascade
         self.circuit_breaker_stops = 3    # N stops SAME DAY triggers pause; grid-search winner
         self.circuit_breaker_pause_days = 10  # Days to pause new entries after trigger
@@ -2580,9 +2585,20 @@ class BacktesterService:
                         cand['num_candidates'] = num_cands
                         cand['med_vol'] = _medvol
 
+                    _sec_entries = {}
+                    _n_entries = 0
                     for cand in candidates:
                         if len(positions) >= self.max_positions:
                             break
+                        # Per-rebalance entry throttles (0 = disabled): pace total new entries
+                        # + cap same-sector adds so a fresh book can't dump every slot into one
+                        # day's hot sector (the cold-start / rotation pile-in).
+                        if self.max_entries_per_rebalance and _n_entries >= self.max_entries_per_rebalance:
+                            break
+                        _csec = self.symbol_sectors.get(cand['symbol'], '') if self.symbol_sectors else ''
+                        if (self.max_sector_entries_per_rebalance and _csec
+                                and _sec_entries.get(_csec, 0) >= self.max_sector_entries_per_rebalance):
+                            continue
 
                         position_value = self.initial_capital * self.position_size_pct * self._size_multiplier_for(date) * self._sentiment_size_factor(cand['symbol'], date) * self._conviction_mult(cand) * self._vol_mult(cand)
                         if position_value > capital:
@@ -2614,6 +2630,9 @@ class BacktesterService:
                             'vol_ratio': round(cand.get('vol_ratio', 0), 2),
                             'spy_trend': round(cand.get('spy_trend', 0), 2),
                         }
+                        _n_entries += 1
+                        if _csec:
+                            _sec_entries[_csec] = _sec_entries.get(_csec, 0) + 1
 
                     # DISPLACEMENT: when full, a strong fresh signal bumps the WEAKEST
                     # incumbent (by CURRENT momentum score). Closes the vacancy-only gap
