@@ -268,23 +268,22 @@ def build_breakout_radar(data_cache: dict, held_syms=None, limit: int = 8) -> Li
 
 
 async def build_todays_actions(db) -> dict:
-    """Today's Actions — the book's most recent day of fills (BUY = new breakout entries, SELL =
-    day-29 hold-exits). Drives the 'sync your broker' ribbon. Reads the latest fill_date so it's
-    useful even before today's 4 PM scan writes new rows."""
+    """Today's Actions — the book's fills DATED TODAY only (BUY = new breakout entries, SELL =
+    day-29 hold-exits). Drives the 'sync your broker' ribbon. ONLY true same-day fills appear;
+    if the book didn't trade today the ribbon is empty. (Previously showed the latest fill day
+    even if weeks old, so it told users to '+ Enter' names already in the book — confusing.)"""
     from app.core.database import TierFill
-    latest = (await db.execute(
-        select(TierFill.fill_date).where(TierFill.tier == "maximizer")
-        .order_by(TierFill.fill_date.desc()).limit(1)
-    )).scalar_one_or_none()
-    if latest is None:
-        return {"buys": [], "sells": [], "as_of": None}
+    from app.core.timezone import trading_today
+    today = trading_today()
     rows = (await db.execute(
-        select(TierFill).where(TierFill.tier == "maximizer", TierFill.fill_date == latest)
+        select(TierFill).where(TierFill.tier == "maximizer", TierFill.fill_date == today)
     )).scalars().all()
+    if not rows:
+        return {"buys": [], "sells": [], "as_of": None}
     buys = [{"symbol": r.symbol, "price": r.price} for r in rows if r.side == "buy"]
     sells = [{"symbol": r.symbol, "price": r.price, "days_held": r.days_held,
               "realized_pnl": r.realized_pnl} for r in rows if r.side == "sell"]
-    return {"buys": buys, "sells": sells, "as_of": latest.isoformat() if latest else None}
+    return {"buys": buys, "sells": sells, "as_of": today.isoformat()}
 
 
 def _vol_scale_from_hist(bk_eq_hist) -> float:

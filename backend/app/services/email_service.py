@@ -364,8 +364,9 @@ class EmailService:
             bits.append(f"~{round(exposure * 100)}% invested &mdash; cash raised (defensive)")
         posture = " &middot; ".join(bits)
         rows = ""
-        for h in holdings[:20]:
+        for h in holdings:   # ALL holdings — the book is never truncated
             sym = h.get('symbol', '')
+            price = h.get('price') or 0
             wt = h.get('weight_pct')
             pnl = h.get('pnl_pct')
             if h.get('exit_rule') == 'hold':
@@ -375,31 +376,43 @@ class EmailService:
             pnl_txt = ''
             if pnl is not None:
                 _pc = '#245232' if pnl >= 0 else '#7A2430'
-                pnl_txt = (f'<span style="font-family: \'Courier New\', monospace; font-size: 13px; '
+                pnl_txt = (f'<span style="font-family: \'Courier New\', monospace; font-size: 14px; '
                            f'color: {_pc};">{"+" if pnl >= 0 else ""}{pnl:.1f}%</span>')
-            new_tag = ('<span style="font-family: \'Courier New\', monospace; font-size: 10px; '
-                       'letter-spacing: 1px; color: #7A2430;">&nbsp;NEW</span>') if h.get('is_new') else ''
-            wt_txt = f"{wt:.0f}%" if wt is not None else ""
+            new_tag = ('&nbsp;<span style="font-family: \'Courier New\', monospace; font-size: 11px; '
+                       'letter-spacing: 1px; color: #7A2430;">NEW</span>') if h.get('is_new') else ''
+            wt_txt = f"{wt:.0f}% of book" if wt is not None else ""
+            meta = " &middot; ".join([x for x in (wt_txt, exit_txt) if x])
             rows += f'''
-                <tr>
-                    <td style="padding: 8px 0; border-bottom: 1px solid #EDE7DA; font-family: Georgia, serif; font-size: 15px; color: #141210;">{sym}{new_tag}</td>
-                    <td style="padding: 8px 0; border-bottom: 1px solid #EDE7DA; text-align: right; font-family: 'Courier New', monospace; font-size: 12px; color: #8A8279;">{wt_txt} &middot; {exit_txt}</td>
-                    <td style="padding: 8px 0; border-bottom: 1px solid #EDE7DA; text-align: right;">{pnl_txt}</td>
-                </tr>'''
-        return f'''
-        <tr>
-            <td style="padding: 0 24px 20px;">
-                <div style="padding-bottom: 8px; border-bottom: 2px solid #141210; margin-bottom: 6px;">
+                <div style="padding: 14px 0; border-bottom: 1px solid #DDD5C7;">
                     <table cellpadding="0" cellspacing="0" style="width: 100%;">
                         <tr>
-                            <td style="font-family: Georgia, serif; font-size: 17px; font-weight: 500; color: #141210;">Our Book</td>
-                            <td align="right" style="font-family: Georgia, serif; font-style: italic; font-size: 13px; color: #7A2430;">the model you mirror</td>
+                            <td style="vertical-align: baseline; padding-right: 12px;">
+                                <span style="font-family: Georgia, serif; font-size: 20px; font-weight: 500; color: #141210;">{sym}</span>{new_tag}
+                            </td>
+                            <td style="text-align: right; vertical-align: baseline; white-space: nowrap;">
+                                <span style="font-family: 'Courier New', monospace; font-size: 17px; font-weight: bold; color: #141210;">${price:.2f}</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding-top: 5px; font-family: 'Courier New', monospace; font-size: 13px; color: #5A544E; letter-spacing: 0.2px;">{meta}</td>
+                            <td style="padding-top: 5px; text-align: right; white-space: nowrap;">{pnl_txt}</td>
+                        </tr>
+                    </table>
+                </div>'''
+        return f'''
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <div style="padding-bottom: 8px; border-bottom: 2px solid #141210; margin-bottom: 8px;">
+                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                        <tr>
+                            <td style="font-family: Georgia, serif; font-size: 18px; font-weight: 500; color: #141210;">Our Book</td>
+                            <td align="right" style="font-family: Georgia, serif; font-style: italic; font-size: 14px; color: #7A2430;">the model you mirror</td>
                         </tr>
                     </table>
                 </div>
-                <div style="font-family: Georgia, serif; font-size: 13px; color: #5A544E; margin-bottom: 4px;">{posture}.</div>
-                <div style="font-family: Georgia, serif; font-style: italic; font-size: 12px; color: #8A8279; line-height: 1.5; margin-bottom: 10px;">Mirror at today&rsquo;s price &mdash; the trailing stop rides the high, not your entry, so a late fill just widens your cushion.</div>
-                <table cellpadding="0" cellspacing="0" style="width: 100%;">{rows}</table>
+                <div style="font-family: Georgia, serif; font-size: 15px; color: #5A544E; margin-bottom: 4px;">{posture}.</div>
+                <div style="font-family: Georgia, serif; font-style: italic; font-size: 13px; color: #8A8279; line-height: 1.55; margin-bottom: 6px;">Mirror at today&rsquo;s price &mdash; the trailing stop rides the high, not your entry, so a late fill just widens your cushion.</div>
+                {rows}
             </td>
         </tr>'''
 
@@ -483,35 +496,62 @@ class EmailService:
         # flat "New Today (0) / No new signals" empty block — that reads like a
         # dead day. Show a slim one-liner here and let the Open (active) section
         # carry the email. Only the truly-empty day gets the centered notice.
-        if fresh_signals:
-            _nt_rows = "".join(self._signal_row(s) for s in fresh_signals[:8])
-            new_today_section = f'''
+        def _wrap(header_html, subhead, framing, rows_html):
+            return f'''
         <tr>
             <td style="padding: 0 24px 24px;">
                 <div style="padding-bottom: 8px; border-bottom: 1px solid #DDD5C7; margin-bottom: 12px;">
                     <table cellpadding="0" cellspacing="0" style="width: 100%;">
                         <tr>
-                            <td style="font-family: Georgia, serif; font-size: 16px; font-weight: 500; color: #141210;">{sig_header} <span style="font-style: italic; color: #8A8279; font-weight: 400;">({len(fresh_signals)})</span></td>
-                            <td align="right" style="font-family: Georgia, serif; font-style: italic; font-size: 13px; color: #7A2430;">{sig_subhead}</td>
+                            <td style="font-family: Georgia, serif; font-size: 16px; font-weight: 500; color: #141210;">{header_html}</td>
+                            <td align="right" style="font-family: Georgia, serif; font-style: italic; font-size: 13px; color: #7A2430;">{subhead}</td>
                         </tr>
                     </table>
                 </div>
-                <div style="font-family: Georgia, serif; font-style: italic; font-size: 12px; color: #8A8279; line-height: 1.5; margin-bottom: 12px;">
-                    {sig_framing}
-                </div>
-                {_nt_rows}
+                <div style="font-family: Georgia, serif; font-style: italic; font-size: 12px; color: #8A8279; line-height: 1.5; margin-bottom: 12px;">{framing}</div>
+                {rows_html}
             </td>
         </tr>'''
-        elif open_signals:
-            _n = len(open_signals)
-            new_today_section = f'''
+
+        def _count(n):
+            return f'<span style="font-style: italic; color: #8A8279; font-weight: 400;">({n})</span>'
+
+        if tier == 'maximizer':
+            # The breakout book IS the content — show ALL cards (new first, then holdings),
+            # always, no truncation, no "no new entries" headline. Posture line up top.
+            book_cards = signals  # already new-first from build_maximizer_breakout_view
+            _new_ct = len([s for s in book_cards if s.get('status') == 'new' or s.get('is_fresh')])
+            _held_ct = len(book_cards) - _new_ct
+            if book_cards:
+                _posture = (f"{_held_ct} breakout{'s' if _held_ct != 1 else ''} in play"
+                            + (f" &middot; {_new_ct} entered today" if _new_ct else " &middot; none entered today") + ". ")
+                _rows = "".join(self._signal_row(s) for s in book_cards)
+                new_today_section = _wrap(f"{sig_header} {_count(len(book_cards))}", sig_subhead, _posture + sig_framing, _rows)
+            else:
+                new_today_section = _wrap(sig_header, 'In cash', "Your book is in cash right now &mdash; breakout hunting resumes when momentum broadens.", '')
+        elif served_preserver:
+            # ONE "Other Signals — not in our book" list = all not-held ensemble names
+            # (fresh first); the old separate "Open" section is folded in here.
+            other = fresh_signals + open_signals
+            if other:
+                _rows = "".join(self._signal_row(s) for s in other)
+                new_today_section = _wrap(f"{sig_header} {_count(len(other))}", sig_subhead, sig_framing, _rows)
+            else:
+                new_today_section = _wrap(sig_header, sig_subhead, "Nothing outside the book today &mdash; the book above is the full picture.", '')
+        else:
+            if fresh_signals:
+                _nt_rows = "".join(self._signal_row(s) for s in fresh_signals[:8])
+                new_today_section = _wrap(f"{sig_header} {_count(len(fresh_signals))}", sig_subhead, sig_framing, _nt_rows)
+            elif open_signals:
+                _n = len(open_signals)
+                new_today_section = f'''
         <tr>
             <td style="padding: 0 24px 12px;">
                 <div style="font-family: Georgia, serif; font-style: italic; font-size: 14px; color: #5A544E; line-height: 1.5;">No new entries today &mdash; {_n} signal{"s" if _n != 1 else ""} still active in the buy zone, below.</div>
             </td>
         </tr>'''
-        else:
-            new_today_section = '''
+            else:
+                new_today_section = '''
         <tr>
             <td style="padding: 0 24px 24px;">
                 <div style="padding: 24px; text-align: center; font-family: Georgia, serif; font-style: italic; color: #5A544E;">No new signals today. The system is watching.</div>
@@ -600,7 +640,7 @@ class EmailService:
         {new_today_section}
 
         <!-- Open Section (non-fresh signals still in buy zone — dashboard "Monitoring" bucket) -->
-        {self._open_signals_section(open_signals) if open_signals else ''}
+        {self._open_signals_section(open_signals) if (open_signals and tier != 'maximizer' and not served_preserver) else ''}
 
         <!-- Approaching Section (watchlist) -->
         {self._watchlist_section(watchlist) if watchlist else ''}
