@@ -121,7 +121,7 @@ PERFORMANCE NUMBERS — these are the ONLY ones you may cite; always describe th
 - 21-year walk-forward (2007-2026): RigaCap Preserver 7.7% a year, worst drawdown 13.7%; RigaCap Maximizer 13.5% a year, worst drawdown 20.8%
 - The index (S&P 500) returned 9.8% a year and lost more than half its value twice in that span; raw momentum returned 13.2% and drew down 57%
 - 2008: both settings ended the year roughly flat (about +0.1%) while the index fell about 37%
-- Last 24 months (held-out): Preserver +31%, Maximizer +49%
+- A typical 2-year stretch (rolling, walk-forward): Preserver about +20.8%, Maximizer about +57.5%
 - Sharpe over 21 walk-forward years: Preserver 0.87, Maximizer 0.93 (S&P 0.54; Buffett's lifetime is 0.79 — note our pre-2016 data carries a survivorship caveat that flatters the early years)
 - The LIVE record began June 11, 2026 — it is days old, and we say so plainly
 PRODUCT: one engine, two settings — Preserver (preserve) and Maximizer (push). Never cite any other performance figure, including from older marketing, and NEVER the internal "Core"/t30v numbers.

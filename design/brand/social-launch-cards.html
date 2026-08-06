@@ -216,10 +216,10 @@ function drawAllCards() {
   fitText(ctx, 'Behavioral capital insurance for your portfolio.', w / 2, 808, 920,
     'bold italic 36px ' + SERIF);
   ctx.fillStyle = FOREST;
-  fitText(ctx, 'Last 24 months, walk-forward: Preserver +31% · Maximizer +49%', w / 2, 872, 920,
+  fitText(ctx, 'A typical 2 years, walk-forward: Preserver +20.8% · Maximizer +57.5%', w / 2, 872, 920,
     'bold 27px ' + MONO);
   ctx.fillStyle = INK;
-  fitText(ctx, '21-year foundation: 13% worst drawdown — the index lost half, twice', w / 2, 920, 920,
+  fitText(ctx, '21-year foundation: 13.7% worst drawdown — the index lost half, twice', w / 2, 920, 920,
     '26px ' + MONO);
   ctx.fillStyle = MUTED;
   fitText(ctx, 'Through 2008, COVID, and 2022. Every number labeled. Losers posted too.', w / 2, 985, 900,
@@ -258,8 +258,8 @@ function drawAllCards() {
   hairline(ctx, 100, w - 100, y + 22);
 
   const rows = [
-    { name: 'RigaCap Preserver', ann: '8.6%', sharpe: '0.88', dd: '−13%', ddColor: FOREST, highlight: true },
-    { name: 'RigaCap Maximizer', ann: '14.5%', sharpe: '0.95', dd: '−20%', ddColor: FOREST, highlight: true },
+    { name: 'RigaCap Preserver', ann: '7.7%', sharpe: '0.87', dd: '−13.7%', ddColor: FOREST, highlight: true },
+    { name: 'RigaCap Maximizer', ann: '13.5%', sharpe: '0.93', dd: '−20.8%', ddColor: FOREST, highlight: true },
     { name: 'S&P 500', ann: '9.8%', sharpe: '—', dd: '−55%', ddColor: OXBLOOD, highlight: false },
   ];
 
@@ -299,8 +299,8 @@ function drawAllCards() {
   drawEyebrow(ctx, 100, by, 'Worst drawdown, visualized');
 
   const bars = [
-    { name: 'Preserver', dd: 13, color: FOREST, label: '−13%' },
-    { name: 'Maximizer', dd: 20, color: FOREST, label: '−20%' },
+    { name: 'Preserver', dd: 13.7, color: FOREST, label: '−13.7%' },
+    { name: 'Maximizer', dd: 20.8, color: FOREST, label: '−20.8%' },
     { name: 'S&P 500', dd: 55, color: OXBLOOD, label: '−55%' },
   ];
   const barX = 350, barMaxW = 500, barH = 26, ddMax = 57;

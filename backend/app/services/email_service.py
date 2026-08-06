@@ -2323,7 +2323,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
 
                 <div style="border-top: 1px solid #DDD5C7; padding: 20px 0;">
                     <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7A2430; margin: 0 0 8px;">Ⅱ / It Trails the Index in Calm Markets</p>
-                    <p style="font-family: Georgia, serif; font-size: 18px; color: #141210; margin: 0 0 8px; font-weight: 500;">In our 21-year walk-forward, Preserver beat the S&amp;P in only about a quarter of rolling 3-year windows.</p>
+                    <p style="font-family: Georgia, serif; font-size: 18px; color: #141210; margin: 0 0 8px; font-weight: 500;">In our 21-year walk-forward, Preserver beat the S&amp;P in only about 17% of rolling 3-year windows.</p>
                     <p style="font-size: 15px; color: #5A544E; margin: 0; line-height: 1.6;">Its wins concentrate around the years markets break. In 2008 it finished roughly flat while the index fell about 37%. Worst drawdown across 21 walk-forward years: 13.7% — over a span in which the index lost more than half its value twice, and a raw momentum portfolio fell 57%. You give up bull-market bragging rights to get that. (Maximizer, the aggressive setting, takes more drawdown and beats the market.)</p>
                 </div>
 
@@ -2379,7 +2379,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 </table>
 
                 <p style="font-size: 15px; color: #5A544E; margin: 0 0 24px 0; line-height: 1.6;">
-                    For scale on that Sharpe: Buffett's lifetime figure is 0.79 ("Buffett's Alpha," 2018) — Preserver's 0.87 edges it, with the honest caveat that our pre-2016 data flatters the early years. The last 24 months — held out of all tuning — ran +31% for Preserver and +49% for Maximizer, but I'd rather you anchor on the 21-year number. Bull markets flatter everyone.
+                    For scale on that Sharpe: Buffett's lifetime figure is 0.79 ("Buffett's Alpha," 2018) — Preserver's 0.87 edges it, with the honest caveat that our pre-2016 data flatters the early years. A typical two-year stretch ran about +20.8% for Preserver and +57.5% for Maximizer, but I'd rather you anchor on the 21-year number. Bull markets flatter everyone.
                 </p>
 
                 <div style="border-left: 2px solid #7A2430; padding: 16px 20px; background: #FAF7F0; margin: 24px 0;">

@@ -39,12 +39,12 @@ CERTIFIED_WF = {
     "maximizer": {
         "total_return_pct": 301.4, "sharpe_ratio": 1.47, "max_drawdown_pct": -15.5,
         "benchmark_return_pct": 105.0, "start_date": "2021-01-01", "end_date": "2026-05-29",
-        "label": "Maximizer Ensemble", "window": "2021–2026 full cycle", "rolling": False,
+        "label": "Maximizer", "window": "2021–2026 full cycle", "rolling": False,
     },
     "preserver": {
         "total_return_pct": 89.2, "sharpe_ratio": 0.97, "max_drawdown_pct": -20.2,
         "benchmark_return_pct": 105.0, "start_date": "2021-01-01", "end_date": "2026-05-29",
-        "label": "Preserver Ensemble", "window": "2021–2026 full cycle", "rolling": False,
+        "label": "Preserver", "window": "2021–2026 full cycle", "rolling": False,
     },
 }
 

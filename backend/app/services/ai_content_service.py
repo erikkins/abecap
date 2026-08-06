@@ -52,8 +52,8 @@ SOUND HUMAN — people spot AI-written posts instantly. Avoid the tells:
 - Write like it was typed on a phone between meetings, not drafted in a CMS.
 
 CANONICAL NUMBERS (walk-forward, 2007–2026 — use these, invent nothing, and never cite an internal figure not listed here):
-- Preserver: 7.7%/yr, worst drawdown 13.7%. Last 2 years: 31%/yr.
-- Maximizer: 13.5%/yr, worst drawdown 20.8%. Last 2 years: 49%/yr. Beats the S&P (9.8%) and raw momentum (13.2%) on return.
+- Preserver: 7.7%/yr, worst drawdown 13.7%. Typical 2-year stretch: +20.8% total.
+- Maximizer: 13.5%/yr, worst drawdown 20.8%. Typical 2-year stretch: +57.5% total. Beats the S&P (9.8%) and raw momentum (13.2%) on return.
 - The market (S&P 500): 9.8%/yr, worst drawdown 55%. Raw momentum: 13.2%/yr, worst drawdown 57%.
 - 2008: both settings finished roughly flat while the S&P fell about 37%.
 - Preserver recovered its worst drawdown in about 2 years; the market took about 5.
