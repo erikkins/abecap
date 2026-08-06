@@ -1985,13 +1985,15 @@ function Dashboard() {
     const plan = localStorage.getItem('rigacap_selected_plan');
     if (!plan) return;
     localStorage.removeItem('rigacap_selected_plan');  // consume immediately
+    const wantMaximizer = localStorage.getItem('rigacap_want_maximizer') === '1';
+    localStorage.removeItem('rigacap_want_maximizer');
     const sub = user?.subscription;
     const alreadySubscribed = sub?.has_stripe_subscription || ['active', 'trialing', 'past_due'].includes(sub?.status);
     if (alreadySubscribed) return;
     (async () => {
       try {
-        const data = await api.post('/api/billing/create-checkout', { plan: plan === 'annual' ? 'annual' : 'monthly' });
-        if (window.gtag) window.gtag('event', 'begin_checkout', { currency: 'USD', item_variant: plan });
+        const data = await api.post('/api/billing/create-checkout', { plan: plan === 'annual' ? 'annual' : 'monthly', maximizer: wantMaximizer });
+        if (window.gtag) window.gtag('event', 'begin_checkout', { currency: 'USD', item_variant: wantMaximizer ? `${plan}+maximizer` : plan });
         if (data?.checkout_url) window.location.href = data.checkout_url;
       } catch (e) {
         // Non-fatal: leave them in /app with the subscribe button if checkout fails
