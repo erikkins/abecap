@@ -4753,17 +4753,21 @@ function Dashboard() {
                     </div>
                   </div>
                 </div>
-                {/* Full-cycle line — the long-term edge next to the rolling window, so a soft
-                    trailing year (e.g. a vol-target-trimmed bull) sits beside the real track record. */}
-                {tb?.full_cycle && (
-                  <div className="mt-3 pt-3 border-t border-rule flex items-baseline justify-between font-mono text-[0.78rem] text-ink-mute tracking-wide">
-                    <span>Full cycle · {tb.full_cycle.window}</span>
-                    <span>
-                      <span className={parseFloat(tb.full_cycle.total_return_pct) >= 0 ? 'text-positive' : 'text-negative'}>
-                        {parseFloat(tb.full_cycle.total_return_pct) >= 0 ? '+' : ''}{tb.full_cycle.total_return_pct}%{tb.full_cycle.annualized ? '/yr' : ''}
-                      </span>
-                      <span className="text-ink-light"> · Sharpe {tb.full_cycle.sharpe_ratio} · MaxDD {tb.full_cycle.max_drawdown_pct}%</span>
-                    </span>
+                {/* Foundations — the 5-year + 21-year overlay track record beneath the real
+                    trailing-365 rolling headline, so the live recent number sits on the long-term base. */}
+                {Array.isArray(tb?.foundations) && tb.foundations.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-rule space-y-1.5">
+                    {tb.foundations.map((f, idx) => (
+                      <div key={idx} className="flex items-baseline justify-between font-mono text-[0.78rem] text-ink-mute tracking-wide">
+                        <span>{f.window}</span>
+                        <span>
+                          <span className={parseFloat(f.total_return_pct) >= 0 ? 'text-positive' : 'text-negative'}>
+                            {parseFloat(f.total_return_pct) >= 0 ? '+' : ''}{f.total_return_pct}%{f.annualized ? '/yr' : ''}
+                          </span>
+                          <span className="text-ink-light"> · Sharpe {f.sharpe_ratio} · MaxDD {f.max_drawdown_pct}%</span>
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

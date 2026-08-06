@@ -33,40 +33,63 @@ ROTATING = "rotating_bull"
 BREAKOUT_HOLD = 29  # trading days (maximizer_sleeves.BREAKOUT["hold"])
 CAP0 = 100_000.0    # book inception capital (matches maximizer/preserver book CAP0)
 
-# Served "Simulated Portfolio (Walk-Forward)" card — the SAME overlay figures shown publicly on
-# /track-record, sourced from the single SSOT (perf_numbers.PERF) so the portal and the marketing
-# site can NEVER disagree (Gate B reconciliation, Aug 6 2026). All ANNUALIZED: a 5-year modern-
-# market headline + the 21-year foundation as the full-cycle line. `total_return_pct` keeps its
-# name for frontend compat but carries the ANNUALIZED (CAGR) value; the card labels it "Annualized"
-# off the `annualized` flag. No rolling-cache path — the card must match the site exactly.
-def _tier_card(tier: str) -> dict:
-    p = _PERF.get(tier) or _PERF["preserver"]
-    name = p["label"].replace("RigaCap ", "")
+# Served "Simulated Portfolio (Walk-Forward)" card. HEADLINE = the REAL trailing-365-day ROLLING
+# walk-forward (recomputed nightly by the tier_walkforward worker → S3 cache) so subscribers see
+# recent ACTUAL performance. Beneath it, the 5-year AND 21-year overlay FOUNDATIONS from the single
+# SSOT (perf_numbers.PERF) — same figures as public /track-record, so the long-term numbers can't
+# drift (Gate B). If the rolling cache isn't populated yet, the card leads with the 5-year overlay
+# (annualized) and shows the 21-year foundation beneath.
+def _overlay_line(tier: str, key: str, window: str) -> dict:
+    p = _PERF.get(tier, _PERF["preserver"])[key]
     return {
-        "total_return_pct": p["yr5"]["cagr"],   # ANNUALIZED (CAGR), NOT cumulative
-        "sharpe_ratio": p["yr5"]["sharpe"],
-        "max_drawdown_pct": p["yr5"]["maxdd"],
-        "benchmark_return_pct": _PERF["benchmarks"]["spy_5yr"]["cagr"],
-        "label": name, "window": "5-year · modern market",
-        "annualized": True, "rolling": False,
-        "full_cycle": {
-            "total_return_pct": p["yr21"]["cagr"],
-            "sharpe_ratio": p["yr21"]["sharpe"],
-            "max_drawdown_pct": p["yr21"]["maxdd"],
-            "window": "21-year foundation", "annualized": True,
-        },
+        "total_return_pct": p["cagr"], "sharpe_ratio": p["sharpe"],
+        "max_drawdown_pct": p["maxdd"], "window": window, "annualized": True,
     }
 
 
-# Back-compat alias — now derived from the SSOT, not hardcoded.
-CERTIFIED_WF = {t: _tier_card(t) for t in ("maximizer", "preserver")}
+def _read_rolling_wf(tier: str):
+    """Nightly trailing-365 tier walk-forward from the S3 cache (written by the tier_walkforward
+    worker). Returns None if absent → caller leads with the 5-year overlay instead."""
+    try:
+        from app.services.data_export import data_export_service
+        cache = data_export_service.read_json("tier_walkforward.json") if hasattr(
+            data_export_service, "read_json") else None
+        row = (cache or {}).get(tier)
+        if row and row.get("total_return_pct") is not None:
+            return {**row, "rolling": True}
+    except Exception:
+        pass
+    return None
+
+
+# Back-compat alias (SSOT-derived); some callers referenced CERTIFIED_WF.
+CERTIFIED_WF = {
+    t: {**_overlay_line(t, "yr5", "5-year · modern market"),
+        "label": _PERF[t]["label"].replace("RigaCap ", "")}
+    for t in ("maximizer", "preserver")
+}
 
 
 def tier_backtest(tier: str):
-    """Overlay SSOT numbers for the served tier's Simulated Portfolio card — identical to the
-    public /track-record figures (single source: perf_numbers.PERF). 5-year modern-market
-    headline (annualized) + the 21-year foundation as the full-cycle line."""
-    return _tier_card(tier)
+    """Simulated Portfolio card: the REAL trailing-365 ROLLING walk-forward as the headline, with
+    the 5-year + 21-year overlay foundations (SSOT) beneath. Falls back to the 5-year overlay as the
+    headline if the nightly rolling cache isn't populated yet."""
+    tier = tier if tier in _PERF else "preserver"
+    name = _PERF[tier]["label"].replace("RigaCap ", "")
+    foundations = [
+        _overlay_line(tier, "yr5", "5-year"),
+        _overlay_line(tier, "yr21", "21-year foundation"),
+    ]
+    rolling = _read_rolling_wf(tier)
+    if rolling:
+        # Real trailing-365 actual — a 12-month total return (not annualized).
+        return {**rolling, "label": rolling.get("label") or name,
+                "window": rolling.get("window") or "trailing 12 months",
+                "annualized": False, "foundations": foundations}
+    # No rolling cache yet → lead with the 5-year overlay; foundations = 21-year only (avoid dup).
+    head = _overlay_line(tier, "yr5", "5-year · modern market")
+    return {**head, "label": name, "rolling": False,
+            "foundations": [_overlay_line(tier, "yr21", "21-year foundation")]}
 
 
 def tier_serving_enabled() -> bool:
