@@ -3347,7 +3347,7 @@ function Dashboard() {
                   dashboardData.regime_forecast.current_regime === 'panic_crash' ? 'bg-paper-deep border-ink-light' :
                   'bg-paper-card border-rule'
                 }`}>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-full ${
                         dashboardData.regime_forecast.current_regime === 'strong_bull' ? 'bg-paper-card' :
@@ -3364,7 +3364,7 @@ function Dashboard() {
                          <TrendingDown className="w-5 h-5 text-negative" />}
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
                           <span className="font-semibold text-ink">
                             {dashboardData.regime_forecast.current_regime_name} Market
                           </span>
@@ -3388,7 +3388,7 @@ function Dashboard() {
                             </>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center flex-wrap gap-2 mt-1">
                           <span className={`text-xs px-2 py-0.5 rounded font-medium ${
                             dashboardData.regime_forecast.outlook === 'stable' ? 'bg-positive/10 text-positive' :
                             dashboardData.regime_forecast.outlook === 'improving' ? 'bg-positive/10 text-positive' :
@@ -3419,11 +3419,11 @@ function Dashboard() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm text-ink-mute max-w-sm text-right leading-tight">
+                    <div className="flex items-start sm:items-center gap-2 w-full sm:w-auto">
+                      <div className="text-sm text-ink-mute w-full sm:max-w-sm text-left sm:text-right leading-snug">
                         {dashboardData.regime_forecast.outlook_detail}
                       </div>
-                      <svg className={`w-4 h-4 text-ink-light transition-transform flex-shrink-0 ${regimeExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className={`w-4 h-4 text-ink-light transition-transform flex-shrink-0 mt-0.5 sm:mt-0 ${regimeExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
