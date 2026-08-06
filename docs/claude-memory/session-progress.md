@@ -23,11 +23,15 @@ metadata:
 - **MOBILE regime bar fix SHIPPED (commit e484c6d, deployed).** App.jsx advanced-mode regime bar (~3350-3429): header now flex-col on mobile/row on sm+, inline metrics + chips flex-wrap, outlook_detail forecast full-width left on mobile (was cramped right column = the "scrunch" from Erik's phone screenshot). Awaiting Erik phone re-check.
 - **MARKETING-PAGE mobile clipping = FALSE ALARM.** My headless screenshots (--window-size 390, headless=new) don't do true device emulation → rendered wide + clipped; Erik's real phone shows NO clipping. V2 pages ARE responsive (grid-cols-1, max-w, overflow-x-clip). Lesson: headless window-size ≠ mobile; trust Erik's phone. DON'T re-chase.
 
-## ▶ AWAITING ERIK DECISION (number-pass flags)
-1. Trailing-"last 2 yrs" +31%/+49% (ai_content/newsletter/email) — don't map to overlay 24-mo (+20.8/+57.5 cumulative). Keep/drop/replace?
-2. Portal Simulated-Portfolio card CERTIFIED_WF (tier_serving.py:38-49) — old 2021-26 totals + BANNED "Ensemble" label. = Gate B #13. Reconcile to overlay?
-3. Launch-card PNGs (design/brand/social-launch-cards.html L261-262 → launch-1..5.png) still 8.6/14.5 — regen needed.
-4. Email prose "quarter of rolling 3yr windows" → SSOT 17% (~a sixth). Reword?
+## ✅ NUMBER-PASS ITEMS 1/3/4 + Ensemble-label DONE (commit 7ff33fb; deploy QUEUED on GH runner backlog — will land, verify later)
+1. ✅ Trailing-24mo +31%/+49% → overlay typical 2yr +20.8%/+57.5% (ai_content, newsletter, welcome-email). Reframed "held-out"→"typical". ⚠️ FLAGGED to Erik: lost the out-of-sample "held out of all tuning" proof-point framing; offered to recompute true held-out-24mo on overlay curve if he wants it back — AWAITING.
+3. ✅ Launch-card PNGs regen (card1+card2 → launch-1/2.png): table 7.7/0.87/−13.7 + 13.5/0.93/−20.8, bar-viz, card1 2yr line. Procedure: extract JS → wrapper HTML all-5-canvases (target display:block) → headless=new --force-device-scale-factor=1 --window-size=1080,1350 → copy to frontend/public/launch-cards/. card_N→launch-N.
+4. ✅ Email "quarter of rolling 3yr windows" → "about 17%".
+- ✅ Item2 LABEL: CERTIFIED_WF "Preserver/Maximizer Ensemble" → dropped "Ensemble".
+
+## ▶ AWAITING ERIK DECISION — item 2 NUMBERS (Gate B #13)
+- Portal Simulated-Portfolio card CERTIFIED_WF (tier_serving.py:38-49) shows 2021-26 TOTAL (Pres +89.2%/0.97/−20.2, Max +301.4%/1.47/−15.5) — DISAGREES with public /track-record overlay 5yr (Pres 13.0/1.28/−12.9, Max 31.4/1.51/−14.9). Subscriber sees −20.2 on portal, −12.9 on site. **RECOMMENDED Option A: make portal card = overlay 5yr (import from perf_numbers → single source, no drift). AWAITING Erik confirm A.** (Alt: recompute true continuous total → ~−19% DD → reintroduces split; rejected.)
+- Also awaiting: item-1 held-out recompute yes/no.
 
 ## ▶ NEXT / OPEN
 - **Erik reviewing the gauge widget on his phone** → iterate on marker clarity/labels/colors at 360px. Task #20 (mirror-book actionability) largely SUBSUMED by the gauge (no separate "extended" tag unless Erik wants one).
