@@ -29,9 +29,11 @@ metadata:
 4. ✅ Email "quarter of rolling 3yr windows" → "about 17%".
 - ✅ Item2 LABEL: CERTIFIED_WF "Preserver/Maximizer Ensemble" → dropped "Ensemble".
 
-## ▶ AWAITING ERIK DECISION — item 2 NUMBERS (Gate B #13)
-- Portal Simulated-Portfolio card CERTIFIED_WF (tier_serving.py:38-49) shows 2021-26 TOTAL (Pres +89.2%/0.97/−20.2, Max +301.4%/1.47/−15.5) — DISAGREES with public /track-record overlay 5yr (Pres 13.0/1.28/−12.9, Max 31.4/1.51/−14.9). Subscriber sees −20.2 on portal, −12.9 on site. **RECOMMENDED Option A: make portal card = overlay 5yr (import from perf_numbers → single source, no drift). AWAITING Erik confirm A.** (Alt: recompute true continuous total → ~−19% DD → reintroduces split; rejected.)
-- Also awaiting: item-1 held-out recompute yes/no.
+## ✅ GATE B #13 DONE (Erik chose Option A; "leave ssot typical" on item-1 held-out — no recompute)
+- Portal Simulated-Portfolio card now = public /track-record overlay, driven by SINGLE SSOT: tier_serving._tier_card()/tier_backtest() import perf_numbers.PERF → 5yr annualized headline (Pres 13.0/1.28/−12.9, Max 31.4/1.51/−14.9) + 21yr foundation full-cycle (Pres 7.7/0.87/−13.7, Max 13.5/0.93/−20.8). CERTIFIED_WF now a derived alias; dropped rolling-cache path. App.jsx: card labeled "Annualized" (+/yr), full-cycle marked /yr; legacy non-tier "Return" path untouched. Verified locally: py_compile OK, npm build OK, PERF resolves correct. Portal↔site↔emails now single-source, can't drift.
+
+## 🟡 DEPLOY STUCK — GH ACTIONS RUNNER BACKLOG (not a failure)
+- Commit **43d6127** (contains items 1/3/4 + Ensemble-label + PNGs + Gate B — git is cumulative) QUEUED ~15+min on GitHub runner availability. Earlier run 7ff33fb showed "test: cancelled / deploy: skipped" = concurrency-cancel by my newer push, NOT a real failure. Earlier today runs deployed fine → transient GH infra. Will deploy automatically when a runner frees. **VERIFY IT LANDS** (gh run list --workflow "Deploy RigaCap") + spot-check portal card shows +13.0%/yr annualized once live.
 
 ## ▶ NEXT / OPEN
 - **Erik reviewing the gauge widget on his phone** → iterate on marker clarity/labels/colors at 360px. Task #20 (mirror-book actionability) largely SUBSUMED by the gauge (no separate "extended" tag unless Erik wants one).
