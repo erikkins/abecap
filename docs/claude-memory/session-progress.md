@@ -34,7 +34,7 @@ metadata:
 
 ## 🟡 DEPLOY BLOCKED BY GITHUB ACTIONS OUTAGE (Aug 6, confirmed via githubstatus — jobs failing/delayed/timing out, Actions API erroring; GH fix rolling out). NOT our code (verified locally). Erik: "wait it out."
 - Commit **43d6127** (cumulative: items 1/3/4 + Ensemble-label + PNGs + Gate B) can't deploy — test job never gets a runner → cancelled ~15min (no timeout/concurrency config; startedAt==createdAt). Runs 31117918919 (7ff33fb) + 31121908355 (43d6127) both cancelled this way.
-- **Background watcher bxdhyn1rf RUNNING** (bob1l0pmc died on zsh read-only `status` var → renamed vars): re-triggers the Deploy run every ~12min, exits+notifies ONLY on success (~6h max). When it fires success → VERIFY portal card shows "+13.0%/yr annualized" + confirm to Erik. If watcher gives up (still down after ~6h), re-trigger manually once githubstatus.com is green (gh run rerun <latest Deploy run id>).
+- **Background watcher b2fdduc4k RUNNING** (env reaps bg tasks ~hourly → RELAUNCH the same loop each time it's killed; prior IDs bob1l0pmc/bxdhyn1rf; zsh reserves `status` var → use `st`): re-triggers the Deploy run every ~12min, exits+notifies ONLY on success (~6h max). As of last check GH Actions STILL failing (re-triggered thru iter 5). When it fires success → VERIFY portal card shows "+13.0%/yr annualized" + confirm to Erik. If watcher gives up (still down after ~6h), re-trigger manually once githubstatus.com is green (gh run rerun <latest Deploy run id>).
 - Manual-deploy option (scripts/deploy-container.sh + frontend S3/CloudFront) REJECTED by Erik — non-urgent accuracy fixes, not worth deploy-footgun risk.
 
 ## (history) DEPLOY STUCK — GH ACTIONS RUNNER BACKLOG (not a failure)
