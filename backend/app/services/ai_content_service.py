@@ -52,8 +52,8 @@ SOUND HUMAN — people spot AI-written posts instantly. Avoid the tells:
 - Write like it was typed on a phone between meetings, not drafted in a CMS.
 
 CANONICAL NUMBERS (walk-forward, 2007–2026 — use these, invent nothing, and never cite an internal figure not listed here):
-- Preserver: 8.6%/yr, worst drawdown 13%. Last 2 years: 31%/yr.
-- Maximizer: 14.5%/yr, worst drawdown 20%. Last 2 years: 49%/yr. Beats the S&P (9.8%) and raw momentum (13.2%) on return.
+- Preserver: 7.7%/yr, worst drawdown 13.7%. Last 2 years: 31%/yr.
+- Maximizer: 13.5%/yr, worst drawdown 20.8%. Last 2 years: 49%/yr. Beats the S&P (9.8%) and raw momentum (13.2%) on return.
 - The market (S&P 500): 9.8%/yr, worst drawdown 55%. Raw momentum: 13.2%/yr, worst drawdown 57%.
 - 2008: both settings finished roughly flat while the S&P fell about 37%.
 - Preserver recovered its worst drawdown in about 2 years; the market took about 5.
@@ -368,9 +368,9 @@ class AIContentService:
     INSIGHT_SEEDS = [
         "The behavioral gap: across a full cycle, the average fund investor earns meaningfully LESS than the funds they own — not from picking wrong, but from not sitting still through the dips. The leak is behavior, not selection.",
         "An investor who panic-sells at a 25% drawdown and one who holds can end a long run with wildly different outcomes from the SAME strategy. The path you can actually stay on matters more than the path with the highest peak.",
-        "Over 21 walk-forward years, our preservation setting ended roughly neck-and-neck with the S&P on return — but it never lost more than 13% along the way, while the index lost over half its value twice. Same destination, a road you could actually stay on.",
+        "Over 21 walk-forward years, our preservation setting ended roughly neck-and-neck with the S&P on return — but it never lost more than 13.7% along the way, while the index lost over half its value twice. Same destination, a road you could actually stay on.",
         "In 2008 the index fell about 37%. Both of our settings finished the year roughly flat — not by predicting the crash, but by having a rule that steps aside when the market turns hostile. The discipline is the edge, not the forecast.",
-        "Worst-case matters more than best-case, because worst-case is when people sell. A 13% worst drawdown across two decades vs. the market's 55% isn't a smaller number for its own sake — it's the difference between a path you hold and one you abandon at the bottom.",
+        "Worst-case matters more than best-case, because worst-case is when people sell. A 13.7% worst drawdown across two decades vs. the market's 55% isn't a smaller number for its own sake — it's the difference between a path you hold and one you abandon at the bottom.",
         "We rebuilt our research on cleaner, survivorship-free data and our own numbers came in WORSE than before — so we published the worse ones. A walk-forward you can defend beats a flattering one you can't. Most services do the opposite.",
         "The biggest risk in a portfolio usually isn't in the portfolio — it's the person holding it. Most investors don't fail by picking the wrong thing; they fail by abandoning the right thing at the worst moment.",
         "Our aggressive setting beat raw momentum on return over 21 walk-forward years — and did it at a third of the drawdown. When two things earn about the same, the one you can actually live through is the one that compounds. The edge is the risk engineering, not the return.",
@@ -379,7 +379,7 @@ class AIContentService:
     # Durable walk-forward LESSONS (not full posts — the raw truths the dynamic
     # generator pairs with a live market reading). NO coefficients/recipe.
     CANON_LESSONS = [
-        "Across 21 walk-forward years the preservation setting's worst drawdown was about 13%; raw momentum's was 57%. Worst-case matters more than best-case — worst-case is when people actually sell.",
+        "Across 21 walk-forward years the preservation setting's worst drawdown was about 13.7%; raw momentum's was 57%. Worst-case matters more than best-case — worst-case is when people actually sell.",
         "In 2008 the index fell about 37%; a drawdown-controlled approach can finish a year like that roughly flat (walk-forward) — not by predicting the crash, but by stepping aside when the market turns hostile.",
         "Same engine, two settings: preservation gives up some upside for a shallow drawdown; the aggressive setting takes more drawdown and has beaten the market. You pick how hard to push — you don't get both at once.",
         "The system goes to cash when the market falls below its long-term trend. Quiet, boring weeks are a feature — much of the edge is in what it does NOT do.",

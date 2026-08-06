@@ -45,7 +45,7 @@ EDUCATIONAL_TOPICS = [
     {
         "slug": "drawdown-math",
         "title": "A 50% loss requires a 100% gain to recover. That's not symmetry — that's the trap.",
-        "seed": "Explain drawdown math and why protecting capital matters more than maximizing returns. In our 21-year walk-forward Preserver's worst drawdown was 13%, while the index lost more than half its value twice in the same span. Describe all figures as walk-forward.",
+        "seed": "Explain drawdown math and why protecting capital matters more than maximizing returns. In our 21-year walk-forward Preserver's worst drawdown was 13.7%, while the index lost more than half its value twice in the same span. Describe all figures as walk-forward.",
     },
     {
         "slug": "wide-stops",
@@ -80,7 +80,7 @@ EDUCATIONAL_TOPICS = [
     {
         "slug": "sharpe-over-decades",
         "title": "What a 'good' Sharpe ratio actually looks like over twenty years.",
-        "seed": "Explain why Sharpe ratios above 1 live in short windows and overfit backtests, while long-horizon Sharpes compress: the S&P 500 scored 0.54 over the last 21 years, Warren Buffett's lifetime figure is about 0.79 ('Buffett's Alpha', Frazzini/Kabiller/Pedersen 2018) — the best ever measured over 30+ years. Our 21-year walk-forward figures are Preserver 0.88 and Maximizer 0.95 — above Buffett's, so state plainly that ours is walk-forward (with a pre-2016 survivorship caveat that flatters the early years) where Buffett's is real.",
+        "seed": "Explain why Sharpe ratios above 1 live in short windows and overfit backtests, while long-horizon Sharpes compress: the S&P 500 scored 0.54 over the last 21 years, Warren Buffett's lifetime figure is about 0.79 ('Buffett's Alpha', Frazzini/Kabiller/Pedersen 2018) — the best ever measured over 30+ years. Our 21-year walk-forward figures are Preserver 0.87 and Maximizer 0.93 — above Buffett's, so state plainly that ours is walk-forward (with a pre-2016 survivorship caveat that flatters the early years) where Buffett's is real.",
     },
     {
         "slug": "the-premium",
@@ -118,11 +118,11 @@ NEVER use generic substitutes like "Bull," "Bear," "Strong Bear," "Neutral." Use
 POSITIONING (June 2026): RigaCap is behavioral capital insurance — a momentum strategy built so subscribers never get a reason to panic-sell. The newsletter's job is demonstrating discipline in real time, never predicting.
 
 PERFORMANCE NUMBERS — these are the ONLY ones you may cite; always describe them as WALK-FORWARD, NEVER "backtest":
-- 21-year walk-forward (2007-2026): RigaCap Preserver 8.6% a year, worst drawdown 13%; RigaCap Maximizer 14.5% a year, worst drawdown 20%
+- 21-year walk-forward (2007-2026): RigaCap Preserver 7.7% a year, worst drawdown 13.7%; RigaCap Maximizer 13.5% a year, worst drawdown 20.8%
 - The index (S&P 500) returned 9.8% a year and lost more than half its value twice in that span; raw momentum returned 13.2% and drew down 57%
 - 2008: both settings ended the year roughly flat (about +0.1%) while the index fell about 37%
 - Last 24 months (held-out): Preserver +31%, Maximizer +49%
-- Sharpe over 21 walk-forward years: Preserver 0.88, Maximizer 0.95 (S&P 0.54; Buffett's lifetime is 0.79 — note our pre-2016 data carries a survivorship caveat that flatters the early years)
+- Sharpe over 21 walk-forward years: Preserver 0.87, Maximizer 0.93 (S&P 0.54; Buffett's lifetime is 0.79 — note our pre-2016 data carries a survivorship caveat that flatters the early years)
 - The LIVE record began June 11, 2026 — it is days old, and we say so plainly
 PRODUCT: one engine, two settings — Preserver (preserve) and Maximizer (push). Never cite any other performance figure, including from older marketing, and NEVER the internal "Core"/t30v numbers.
 
