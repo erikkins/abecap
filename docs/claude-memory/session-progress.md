@@ -18,6 +18,17 @@ metadata:
 - **DAILY REPORT redesign (book-first) — SHIPPED + 6PM digest LIVE.** Blurb grounded in served list (no ghost tickers) + symbol-set cache key. Signal actionability: entry_status fresh/actionable/extended (Preserver=move-since-signal >8%=chase; Maximizer=days_left<10=Late). BOOK-FIRST everywhere (Erik's call: keep valid signals for self-directed subs = diversification): "Our Book" (mirror) leads → "Other Signals — not in our book". Email: _book_section + merged Other Signals; Maximizer always shows full book. Portal: "Other Signals" section under TierBookView. Today's Actions = today-dated fills only. Newsletter confirmation email wired.
 - **PRESERVER BOOK GAUGE WIDGET (Aug 6, just deployed 7cb2e69)** — mobile-first (76% mobile!). TierBookView.jsx: Preserver holdings now STACKED CARDS (was 7-col scroll table), each with HoldingGauge = stop→HWM band, green fill=cushion above trailing stop, entry tick + today marker. Data from build_tier_book (entry_price/price/high_water_mark/trailing_stop_level). Maximizer keeps its table+hold-clock. AWAITING ERIK phone review + tweak.
 
+## ✅ DONE Aug 6 (cont.)
+- **NUMBER ACCURACY fast-follows SHIPPED (commit e484c6d, deployed).** Backend customer text → overlay SSOT: email_service (welcome/onboarding/trial-ending/winback), newsletter_generator, ai_content, engagement_service. 7.7/0.87/−13.7 + 13.5/0.93/−20.8, 2019 idx +29%, "backtest"→"walk-forward". Pure value swaps (subagent did it, I reviewed diff — clean).
+- **MOBILE regime bar fix SHIPPED (commit e484c6d, deployed).** App.jsx advanced-mode regime bar (~3350-3429): header now flex-col on mobile/row on sm+, inline metrics + chips flex-wrap, outlook_detail forecast full-width left on mobile (was cramped right column = the "scrunch" from Erik's phone screenshot). Awaiting Erik phone re-check.
+- **MARKETING-PAGE mobile clipping = FALSE ALARM.** My headless screenshots (--window-size 390, headless=new) don't do true device emulation → rendered wide + clipped; Erik's real phone shows NO clipping. V2 pages ARE responsive (grid-cols-1, max-w, overflow-x-clip). Lesson: headless window-size ≠ mobile; trust Erik's phone. DON'T re-chase.
+
+## ▶ AWAITING ERIK DECISION (number-pass flags)
+1. Trailing-"last 2 yrs" +31%/+49% (ai_content/newsletter/email) — don't map to overlay 24-mo (+20.8/+57.5 cumulative). Keep/drop/replace?
+2. Portal Simulated-Portfolio card CERTIFIED_WF (tier_serving.py:38-49) — old 2021-26 totals + BANNED "Ensemble" label. = Gate B #13. Reconcile to overlay?
+3. Launch-card PNGs (design/brand/social-launch-cards.html L261-262 → launch-1..5.png) still 8.6/14.5 — regen needed.
+4. Email prose "quarter of rolling 3yr windows" → SSOT 17% (~a sixth). Reword?
+
 ## ▶ NEXT / OPEN
 - **Erik reviewing the gauge widget on his phone** → iterate on marker clarity/labels/colors at 360px. Task #20 (mirror-book actionability) largely SUBSUMED by the gauge (no separate "extended" tag unless Erik wants one).
 - 💡 gauge idea came from Erik Aug 5 EOD; now built.
