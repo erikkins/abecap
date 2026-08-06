@@ -1,5 +1,39 @@
 import React, { useState } from 'react';
 
+// Preserver holding gauge — MOBILE-FIRST. Visualizes the price journey on a
+// stop→high-water-mark band: the green fill is your CUSHION above the trailing
+// stop; the empty gap on the right is how far price has pulled back from its
+// high. Entry (thin tick) and today (solid marker) are placed within the band.
+// Full-width, no hover dependency (labels always visible), legible at 360px.
+function HoldingGauge({ entry, now, hwm, stop }) {
+  const lo = Number(stop) || 0;
+  const hi = Math.max(Number(hwm) || 0, lo + 0.01);
+  const range = (hi - lo) || 1;
+  const clamp = (x) => Math.max(0, Math.min(100, ((Number(x) || lo) - lo) / range * 100));
+  const nowPct = clamp(now);
+  const entryPct = clamp(entry);
+  const cushion = now > 0 ? Math.max(0, (now - lo) / now * 100) : 0;
+  return (
+    <div>
+      <div className="relative h-2.5 rounded-full bg-paper-deep">
+        {/* cushion fill: stop → today */}
+        <div className="absolute inset-y-0 left-0 rounded-full bg-positive/35" style={{ width: `${nowPct}%` }} />
+        {/* entry tick */}
+        <div className="absolute top-1/2 -translate-y-1/2 h-3.5 w-px bg-ink-mute/70"
+             style={{ left: `${entryPct}%` }} title={`Entry $${Number(entry).toFixed(2)}`} />
+        {/* today marker */}
+        <div className="absolute top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-ink"
+             style={{ left: `calc(${nowPct}% - 1.5px)` }} title={`Today $${Number(now).toFixed(2)}`} />
+      </div>
+      <div className="flex items-center justify-between mt-1.5 font-mono text-[0.58rem] leading-none text-ink-mute">
+        <span title="Trailing stop">stop ${Math.round(lo)}</span>
+        <span className="text-claret font-medium">{cushion.toFixed(0)}% cushion to stop</span>
+        <span title="High-water mark">high ${Math.round(hi)}</span>
+      </div>
+    </div>
+  );
+}
+
 // Capital-scaled MIRROR of a tier's model book. The user sets their capital once; we scale
 // the book's positions to it (implied_shares = book_shares x capital/book_value) so their
 // portfolio auto-mirrors the book with zero per-trade entry. Maximizer = breakout book
@@ -109,39 +143,41 @@ export default function TierBookView({ book, onSetCapital, onRowClick, radar, ac
         </div>
       </div>
 
-      {/* Holdings table */}
-      <div className="overflow-x-auto">
-        <table className="w-full" style={{ fontFeatureSettings: '"tnum"' }}>
-          <thead>
-            <tr className="text-[0.58rem] uppercase tracking-[0.16em] text-ink-mute border-b border-rule">
-              <th className="text-left py-2 px-3 sm:px-5">Symbol</th>
-              <th className="text-right py-2 px-3 hidden sm:table-cell">Weight</th>
-              <th className="text-right py-2 px-3">Price</th>
-              <th className="text-right py-2 px-3">Your shares</th>
-              <th className="text-right py-2 px-3">Your value</th>
-              <th className="text-left py-2 px-3">Exit</th>
-              <th className="text-right py-2 px-3 hidden sm:table-cell">P&L</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(book.holdings || []).map((h) => (
-              <tr
-                key={h.symbol}
-                onClick={() => onRowClick && onRowClick(h)}
-                className={`border-b border-rule/50 ${onRowClick ? 'cursor-pointer hover:bg-paper-deep transition-colors' : ''}`}
-              >
-                <td className="py-2.5 px-3 sm:px-5">
-                  <span className="font-display text-[1rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{h.symbol}</span>
-                  {h.is_new && (
-                    <span className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-claret border border-claret/40 px-1 py-0.5 ml-2 align-middle">New</span>
-                  )}
-                </td>
-                <td className="py-2.5 px-3 text-right font-mono text-[0.82rem] text-ink-mute hidden sm:table-cell">{h.weight_pct}%</td>
-                <td className="py-2.5 px-3 text-right font-mono text-[0.82rem]">${h.price?.toFixed(2)}</td>
-                <td className="py-2.5 px-3 text-right font-mono text-[0.9rem] text-ink">{sh(h.implied_shares)}</td>
-                <td className="py-2.5 px-3 text-right font-mono text-[0.9rem] text-ink">{usd0(h.implied_value)}</td>
-                <td className="py-2.5 px-3 font-mono text-[0.72rem] text-claret whitespace-nowrap">
-                  {h.exit_rule === 'hold' ? (
+      {/* Holdings — Maximizer keeps the table + 29-day hold-clock; Preserver gets the
+          MOBILE-FIRST gauge cards (entry ▸ today ▸ HWM, cushion to the trailing stop).
+          No horizontal scroll on a phone — 76% of traffic is mobile. */}
+      {isMax ? (
+        <div className="overflow-x-auto">
+          <table className="w-full" style={{ fontFeatureSettings: '"tnum"' }}>
+            <thead>
+              <tr className="text-[0.58rem] uppercase tracking-[0.16em] text-ink-mute border-b border-rule">
+                <th className="text-left py-2 px-3 sm:px-5">Symbol</th>
+                <th className="text-right py-2 px-3 hidden sm:table-cell">Weight</th>
+                <th className="text-right py-2 px-3">Price</th>
+                <th className="text-right py-2 px-3">Your shares</th>
+                <th className="text-right py-2 px-3">Your value</th>
+                <th className="text-left py-2 px-3">Exit</th>
+                <th className="text-right py-2 px-3 hidden sm:table-cell">P&L</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(book.holdings || []).map((h) => (
+                <tr
+                  key={h.symbol}
+                  onClick={() => onRowClick && onRowClick(h)}
+                  className={`border-b border-rule/50 ${onRowClick ? 'cursor-pointer hover:bg-paper-deep transition-colors' : ''}`}
+                >
+                  <td className="py-2.5 px-3 sm:px-5">
+                    <span className="font-display text-[1rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{h.symbol}</span>
+                    {h.is_new && (
+                      <span className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-claret border border-claret/40 px-1 py-0.5 ml-2 align-middle">New</span>
+                    )}
+                  </td>
+                  <td className="py-2.5 px-3 text-right font-mono text-[0.82rem] text-ink-mute hidden sm:table-cell">{h.weight_pct}%</td>
+                  <td className="py-2.5 px-3 text-right font-mono text-[0.82rem]">${h.price?.toFixed(2)}</td>
+                  <td className="py-2.5 px-3 text-right font-mono text-[0.9rem] text-ink">{sh(h.implied_shares)}</td>
+                  <td className="py-2.5 px-3 text-right font-mono text-[0.9rem] text-ink">{usd0(h.implied_value)}</td>
+                  <td className="py-2.5 px-3 font-mono text-[0.72rem] text-claret whitespace-nowrap">
                     <div className="min-w-[92px]">
                       <div className="mb-0.5">day {h.days_held}/{h.hold_days} · ~{h.days_left}d</div>
                       {/* Hold-clock: progress through the 29-day time-stop; near-exit turns solid claret */}
@@ -150,18 +186,44 @@ export default function TierBookView({ book, onSetCapital, onRowClick, radar, ac
                              style={{ width: `${Math.min(100, Math.round((h.days_held / (h.hold_days || 29)) * 100))}%` }} />
                       </div>
                     </div>
-                  ) : (
-                    `30% trail · $${h.trailing_stop_level?.toFixed(2)}`
-                  )}
-                </td>
-                <td className={`py-2.5 px-3 text-right font-mono text-[0.82rem] hidden sm:table-cell ${h.pnl_pct >= 0 ? 'text-positive' : 'text-negative'}`}>
-                  {h.pnl_pct >= 0 ? '+' : ''}{h.pnl_pct}%
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  </td>
+                  <td className={`py-2.5 px-3 text-right font-mono text-[0.82rem] hidden sm:table-cell ${h.pnl_pct >= 0 ? 'text-positive' : 'text-negative'}`}>
+                    {h.pnl_pct >= 0 ? '+' : ''}{h.pnl_pct}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div>
+          {(book.holdings || []).length === 0 ? (
+            <div className="px-4 sm:px-5 py-6 text-center font-display italic text-ink-mute text-[0.9rem]" style={{ fontVariationSettings: '"opsz" 24' }}>
+              The book is in cash right now — no positions held.
+            </div>
+          ) : (book.holdings || []).map((h) => (
+            <div
+              key={h.symbol}
+              onClick={() => onRowClick && onRowClick(h)}
+              className={`px-4 sm:px-5 py-4 border-b border-rule/60 ${onRowClick ? 'cursor-pointer hover:bg-paper-deep transition-colors' : ''}`}
+            >
+              <div className="flex items-baseline justify-between gap-2 mb-2.5">
+                <div className="flex items-baseline gap-2 min-w-0">
+                  <span className="font-display text-[1.1rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{h.symbol}</span>
+                  {h.is_new && <span className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-claret border border-claret/40 px-1 py-0.5">New</span>}
+                  <span className="font-mono text-[0.68rem] text-ink-mute whitespace-nowrap">{h.weight_pct}% of book</span>
+                </div>
+                <span className={`font-mono text-[0.95rem] whitespace-nowrap ${h.pnl_pct >= 0 ? 'text-positive' : 'text-negative'}`}>{h.pnl_pct >= 0 ? '+' : ''}{h.pnl_pct}%</span>
+              </div>
+              <HoldingGauge entry={h.entry_price} now={h.price} hwm={h.high_water_mark} stop={h.trailing_stop_level} />
+              <div className="flex items-center justify-between gap-2 mt-2.5 font-mono text-[0.7rem] text-ink-mute">
+                <span>entry ${h.entry_price?.toFixed(2)} → now ${h.price?.toFixed(2)}</span>
+                <span className="text-ink whitespace-nowrap">{sh(h.implied_shares)} sh · {usd0(h.implied_value)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Breakout Radar — names approaching a 50-day-high breakout (what the book is about to
           enter). Replaces the watchlist for Maximizer. */}
