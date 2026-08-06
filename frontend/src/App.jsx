@@ -4716,6 +4716,7 @@ function Dashboard() {
                 total_return_pct: tb.total_return_pct?.toFixed ? tb.total_return_pct.toFixed(1) : tb.total_return_pct,
                 sharpe_ratio: tb.sharpe_ratio, max_drawdown_pct: tb.max_drawdown_pct,
                 start_date: tb.start_date, end_date: tb.end_date, is_walk_forward: true,
+                return_label: tb.annualized ? 'Annualized' : 'Return',  // overlay card is per-year, not cumulative
                 subtitle: `${tb.label} · ${tb.rolling ? 'trailing 365d (rolling)' : (tb.window || 'walk-forward')}`,
                 hide_dates: !tb.rolling,  // full-cycle label already states the window
               } : backtest;
@@ -4737,9 +4738,9 @@ function Dashboard() {
                   </div>
                   <div className="flex gap-8">
                     <div>
-                      <div className="font-body text-[0.64rem] font-medium tracking-[0.22em] uppercase text-ink-mute mb-1">Return</div>
+                      <div className="font-body text-[0.64rem] font-medium tracking-[0.22em] uppercase text-ink-mute mb-1">{bt.return_label || 'Return'}</div>
                       <div className={`font-display text-[1.5rem] font-normal leading-none tracking-tight ${parseFloat(bt.total_return_pct) >= 0 ? 'text-positive' : 'text-negative'}`} style={{ fontVariationSettings: '"opsz" 72' }}>
-                        {parseFloat(bt.total_return_pct) >= 0 ? '+' : ''}{bt.total_return_pct}%
+                        {parseFloat(bt.total_return_pct) >= 0 ? '+' : ''}{bt.total_return_pct}%{bt.return_label === 'Annualized' ? <span className="text-[0.8rem] text-ink-mute">/yr</span> : ''}
                       </div>
                     </div>
                     <div>
@@ -4759,7 +4760,7 @@ function Dashboard() {
                     <span>Full cycle · {tb.full_cycle.window}</span>
                     <span>
                       <span className={parseFloat(tb.full_cycle.total_return_pct) >= 0 ? 'text-positive' : 'text-negative'}>
-                        {parseFloat(tb.full_cycle.total_return_pct) >= 0 ? '+' : ''}{tb.full_cycle.total_return_pct}%
+                        {parseFloat(tb.full_cycle.total_return_pct) >= 0 ? '+' : ''}{tb.full_cycle.total_return_pct}%{tb.full_cycle.annualized ? '/yr' : ''}
                       </span>
                       <span className="text-ink-light"> · Sharpe {tb.full_cycle.sharpe_ratio} · MaxDD {tb.full_cycle.max_drawdown_pct}%</span>
                     </span>

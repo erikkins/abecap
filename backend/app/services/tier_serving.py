@@ -24,6 +24,8 @@ from typing import Dict, List, Optional
 
 from sqlalchemy import select
 
+from app.services.perf_numbers import PERF as _PERF
+
 # Regimes where the Preserver overlay raises cash (exposure -> ~25%). Mirrors
 # preserver_service CAP / maximizer_blend_certify CAPIT.
 CAPITULATION = {"panic_crash", "recovery", "weak_bear"}
@@ -31,58 +33,40 @@ ROTATING = "rotating_bull"
 BREAKOUT_HOLD = 29  # trading days (maximizer_sleeves.BREAKOUT["hold"])
 CAP0 = 100_000.0    # book inception capital (matches maximizer/preserver book CAP0)
 
-# Certified walk-forward numbers per tier (2021-2026, survivorship-free PITFWU). Maximizer =
-# Option-B blend at the LOCKED N=15; Preserver = t30v + capitulation overlay. These are the
-# canonical/marketed figures — served for the "Simulated Portfolio (Walk-Forward)" card so a
-# tier subscriber sees their tier's real edge, not the ensemble/0%. SPY same period +105%.
-CERTIFIED_WF = {
-    "maximizer": {
-        "total_return_pct": 301.4, "sharpe_ratio": 1.47, "max_drawdown_pct": -15.5,
-        "benchmark_return_pct": 105.0, "start_date": "2021-01-01", "end_date": "2026-05-29",
-        "label": "Maximizer", "window": "2021–2026 full cycle", "rolling": False,
-    },
-    "preserver": {
-        "total_return_pct": 89.2, "sharpe_ratio": 0.97, "max_drawdown_pct": -20.2,
-        "benchmark_return_pct": 105.0, "start_date": "2021-01-01", "end_date": "2026-05-29",
-        "label": "Preserver", "window": "2021–2026 full cycle", "rolling": False,
-    },
-}
+# Served "Simulated Portfolio (Walk-Forward)" card — the SAME overlay figures shown publicly on
+# /track-record, sourced from the single SSOT (perf_numbers.PERF) so the portal and the marketing
+# site can NEVER disagree (Gate B reconciliation, Aug 6 2026). All ANNUALIZED: a 5-year modern-
+# market headline + the 21-year foundation as the full-cycle line. `total_return_pct` keeps its
+# name for frontend compat but carries the ANNUALIZED (CAGR) value; the card labels it "Annualized"
+# off the `annualized` flag. No rolling-cache path — the card must match the site exactly.
+def _tier_card(tier: str) -> dict:
+    p = _PERF.get(tier) or _PERF["preserver"]
+    name = p["label"].replace("RigaCap ", "")
+    return {
+        "total_return_pct": p["yr5"]["cagr"],   # ANNUALIZED (CAGR), NOT cumulative
+        "sharpe_ratio": p["yr5"]["sharpe"],
+        "max_drawdown_pct": p["yr5"]["maxdd"],
+        "benchmark_return_pct": _PERF["benchmarks"]["spy_5yr"]["cagr"],
+        "label": name, "window": "5-year · modern market",
+        "annualized": True, "rolling": False,
+        "full_cycle": {
+            "total_return_pct": p["yr21"]["cagr"],
+            "sharpe_ratio": p["yr21"]["sharpe"],
+            "max_drawdown_pct": p["yr21"]["maxdd"],
+            "window": "21-year foundation", "annualized": True,
+        },
+    }
+
+
+# Back-compat alias — now derived from the SSOT, not hardcoded.
+CERTIFIED_WF = {t: _tier_card(t) for t in ("maximizer", "preserver")}
 
 
 def tier_backtest(tier: str):
-    """Walk-forward summary for the served tier's Simulated Portfolio card. Prefers the daily
-    ROLLING trailing-365 cache (tier_wf_store); falls back to the certified full-cycle window
-    (honestly labeled) until the nightly job lands its first result.
-
-    Always carries the full-cycle certified numbers as `full_cycle` alongside the rolling window
-    — so a soft trailing year (e.g. Maximizer's vol-target trimming upside in a rip-bull year)
-    is shown next to the dominant long-term edge, not in isolation."""
-    full = CERTIFIED_WF.get(tier)
-    full_cycle = None
-    if full:
-        full_cycle = {
-            "total_return_pct": full["total_return_pct"], "sharpe_ratio": full["sharpe_ratio"],
-            "max_drawdown_pct": full["max_drawdown_pct"], "window": full.get("window", "2021–2026 full cycle"),
-        }
-    rolling = _read_rolling_wf(tier)
-    if rolling:
-        return {**rolling, "full_cycle": full_cycle}
-    return full  # no rolling cache yet — full-cycle only (honestly labeled)
-
-
-def _read_rolling_wf(tier: str):
-    """Read the nightly trailing-365 tier walk-forward from S3 cache (written by the worker
-    tier_walkforward job). Returns None if absent — caller falls back to the full-cycle numbers."""
-    try:
-        from app.services.data_export import data_export_service
-        cache = data_export_service.read_json("tier_walkforward.json") if hasattr(
-            data_export_service, "read_json") else None
-        row = (cache or {}).get(tier)
-        if row and row.get("total_return_pct") is not None:
-            return {**row, "rolling": True}
-    except Exception:
-        pass
-    return None
+    """Overlay SSOT numbers for the served tier's Simulated Portfolio card — identical to the
+    public /track-record figures (single source: perf_numbers.PERF). 5-year modern-market
+    headline (annualized) + the 21-year foundation as the full-cycle line."""
+    return _tier_card(tier)
 
 
 def tier_serving_enabled() -> bool:
