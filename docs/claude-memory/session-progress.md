@@ -32,7 +32,12 @@ metadata:
 ## ✅ GATE B #13 DONE (Erik chose Option A; "leave ssot typical" on item-1 held-out — no recompute)
 - Portal Simulated-Portfolio card now = public /track-record overlay, driven by SINGLE SSOT: tier_serving._tier_card()/tier_backtest() import perf_numbers.PERF → 5yr annualized headline (Pres 13.0/1.28/−12.9, Max 31.4/1.51/−14.9) + 21yr foundation full-cycle (Pres 7.7/0.87/−13.7, Max 13.5/0.93/−20.8). CERTIFIED_WF now a derived alias; dropped rolling-cache path. App.jsx: card labeled "Annualized" (+/yr), full-cycle marked /yr; legacy non-tier "Return" path untouched. Verified locally: py_compile OK, npm build OK, PERF resolves correct. Portal↔site↔emails now single-source, can't drift.
 
-## 🟡 DEPLOY STUCK — GH ACTIONS RUNNER BACKLOG (not a failure)
+## 🟡 DEPLOY BLOCKED BY GITHUB ACTIONS OUTAGE (Aug 6, confirmed via githubstatus — jobs failing/delayed/timing out, Actions API erroring; GH fix rolling out). NOT our code (verified locally). Erik: "wait it out."
+- Commit **43d6127** (cumulative: items 1/3/4 + Ensemble-label + PNGs + Gate B) can't deploy — test job never gets a runner → cancelled ~15min (no timeout/concurrency config; startedAt==createdAt). Runs 31117918919 (7ff33fb) + 31121908355 (43d6127) both cancelled this way.
+- **Background watcher bxdhyn1rf RUNNING** (bob1l0pmc died on zsh read-only `status` var → renamed vars): re-triggers the Deploy run every ~12min, exits+notifies ONLY on success (~6h max). When it fires success → VERIFY portal card shows "+13.0%/yr annualized" + confirm to Erik. If watcher gives up (still down after ~6h), re-trigger manually once githubstatus.com is green (gh run rerun <latest Deploy run id>).
+- Manual-deploy option (scripts/deploy-container.sh + frontend S3/CloudFront) REJECTED by Erik — non-urgent accuracy fixes, not worth deploy-footgun risk.
+
+## (history) DEPLOY STUCK — GH ACTIONS RUNNER BACKLOG (not a failure)
 - Commit **43d6127** (contains items 1/3/4 + Ensemble-label + PNGs + Gate B — git is cumulative) QUEUED ~15+min on GitHub runner availability. Earlier run 7ff33fb showed "test: cancelled / deploy: skipped" = concurrency-cancel by my newer push, NOT a real failure. Earlier today runs deployed fine → transient GH infra. Will deploy automatically when a runner frees. **VERIFY IT LANDS** (gh run list --workflow "Deploy RigaCap") + spot-check portal card shows +13.0%/yr annualized once live.
 
 ## ▶ NEXT / OPEN
