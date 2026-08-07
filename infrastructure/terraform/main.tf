@@ -912,6 +912,74 @@ resource "aws_iam_role_policy" "lambda_invoke_worker" {
   })
 }
 
+# DR blueprint variables (Aug 7 2026) — keys live had but main.tf didn't declare.
+# Values in terraform.tfvars (gitignored); "" defaults so plan never breaks if absent.
+# Secrets marked sensitive. Rotated tokens are best restored from the S3 env snapshot.
+variable "tier_serving" {
+  type    = string
+  default = ""
+}
+variable "price_source" {
+  type    = string
+  default = ""
+}
+variable "meta_fb_app_id" {
+  type    = string
+  default = ""
+}
+variable "meta_fb_app_secret" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+variable "meta_fb_page_id" {
+  type    = string
+  default = ""
+}
+variable "meta_long_lived_user_token" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+variable "threads_app_secret" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+variable "stripe_price_id_standard" {
+  type    = string
+  default = ""
+}
+variable "stripe_price_id_maxpp_annual" {
+  type    = string
+  default = ""
+}
+variable "stripe_price_id_maxpp_founding" {
+  type    = string
+  default = ""
+}
+variable "stripe_price_id_maxpp_standard" {
+  type    = string
+  default = ""
+}
+variable "maximizer_shadow" {
+  type    = string
+  default = ""
+}
+variable "preserver_shadow" {
+  type    = string
+  default = ""
+}
+variable "pitfwu_read" {
+  type    = string
+  default = ""
+}
+variable "ads_ingest_secret" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
 # Shared env vars for both API and Worker Lambdas (same image, different roles)
 locals {
   lambda_env_vars = {
@@ -951,6 +1019,21 @@ locals {
     HEYGEN_AVATAR_ROTATION        = var.heygen_avatar_rotation
     HEYGEN_DEFAULT_VOICE_ID       = var.heygen_default_voice_id
     WORKER_FUNCTION_NAME          = "${local.prefix}-worker"
+    # DR blueprint (Aug 7 2026): keys live had but main.tf didn't declare, so a
+    # from-scratch recreate seeds the full key set. Values in terraform.tfvars
+    # (gitignored); after any recreate, run scripts/restore-lambda-env.sh to
+    # repopulate exact live values (incl. rotated tokens) from the S3 snapshot.
+    TIER_SERVING                   = var.tier_serving
+    PRICE_SOURCE                   = var.price_source
+    META_FB_APP_ID                 = var.meta_fb_app_id
+    META_FB_APP_SECRET             = var.meta_fb_app_secret
+    META_FB_PAGE_ID                = var.meta_fb_page_id
+    META_LONG_LIVED_USER_TOKEN     = var.meta_long_lived_user_token
+    THREADS_APP_SECRET             = var.threads_app_secret
+    STRIPE_PRICE_ID_STANDARD       = var.stripe_price_id_standard
+    STRIPE_PRICE_ID_MAXPP_ANNUAL   = var.stripe_price_id_maxpp_annual
+    STRIPE_PRICE_ID_MAXPP_FOUNDING = var.stripe_price_id_maxpp_founding
+    STRIPE_PRICE_ID_MAXPP_STANDARD = var.stripe_price_id_maxpp_standard
   }
 }
 
@@ -981,6 +1064,8 @@ resource "aws_lambda_function" "api" {
       # carry a matching X-Origin-Verify header (injected by CloudFront).
       # Closes the direct-execute-api WAF bypass.
       CLOUDFRONT_ORIGIN_SECRET = random_password.cloudfront_origin_secret.result
+      # DR blueprint (api-only key live had; see locals note)
+      ADS_INGEST_SECRET = var.ads_ingest_secret
     })
   }
 
@@ -1044,6 +1129,10 @@ resource "aws_lambda_function" "worker" {
       # WF↔prod parity gap. CB fires when N same-day trailing stops occur,
       # then pauses new entries for N days. State persisted to S3.
       CIRCUIT_BREAKER_ENABLED = var.circuit_breaker_enabled
+      # DR blueprint (worker-only keys live had; see locals note)
+      MAXIMIZER_SHADOW = var.maximizer_shadow
+      PRESERVER_SHADOW = var.preserver_shadow
+      PITFWU_READ      = var.pitfwu_read
     })
   }
 
