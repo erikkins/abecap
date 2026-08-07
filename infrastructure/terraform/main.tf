@@ -1910,6 +1910,27 @@ resource "aws_lambda_permission" "autopost_social" {
   source_arn    = aws_cloudwatch_event_rule.autopost_social.arn
 }
 
+resource "aws_cloudwatch_event_rule" "backup_lambda_env" {
+  name                = "${local.prefix}-backup-lambda-env"
+  description         = "Weekly DR snapshot of both Lambdas' env to encrypted S3"
+  schedule_expression = "cron(0 7 ? * SUN *)"
+}
+
+resource "aws_cloudwatch_event_target" "backup_lambda_env" {
+  rule      = aws_cloudwatch_event_rule.backup_lambda_env.name
+  target_id = "worker"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ backup_lambda_env = true })
+}
+
+resource "aws_lambda_permission" "backup_lambda_env" {
+  statement_id  = "rigacap-prod-backup-lambda-env-invoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.backup_lambda_env.arn
+}
+
 # ============================================================================
 # Step Functions - Walk-Forward Simulation
 # ============================================================================
