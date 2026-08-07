@@ -1,5 +1,8 @@
 # Stocker App - Key Learnings
 
+## 🐦 X API can't auto-post REPLIES on Free tier (Aug 7) — deep-link workaround, not a bug
+- [X API 403 + deep-link fix](project_x_api_reply_403.md) — 403 not-authorized "can only reply where mentioned/author" = Free-tier restriction (why Erik copy-pasted). Reply approval email now DEEP-LINKS to X's pre-filled composer (compose-email endpoint → intent/tweet?in_reply_to). Our own posts still API-post fine. Basic tier fix UNVERIFIED — don't assume paying works.
+
 ## 🐢 SLOW DOWN, don't assume (Jul 21) — verify code/data before concluding
 - [Verify-first, guesses flagged as guesses](feedback_slow_down_verify.md) — chain of confident-wrong calls (survivorship ×2, universe breadth, "research data biased") all caught by Erik, root = MY buggy validation (wrong universe fn) + rushing. Read the actual path FIRST; suspect my own test before blaming strategy/data. Fast-wrong worse than slow-right.
 
