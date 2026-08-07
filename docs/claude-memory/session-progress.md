@@ -19,8 +19,9 @@ metadata:
 - **OWN-SOCIAL CADENCE (just shipped):** autopost + 1-click KILL, Mon/Wed/Fri, alternating Preserver/Maximizer. Handler {"autopost_own_social":{tier?,dry_run?,window_hours?}} → generate_research_insight(tier, avoid_texts=last 8 days) → status=scheduled +4h → send_autopost_notice heads-up+kill email (reuses cancel-email) → publish cron auto-posts unless killed (own-posts NOT 403-blocked). EventBridge rigacap-prod-autopost-social cron(0 13 ? * MON,WED,FRI) → worker (CLI-created, +lambda perm). Dry-run verified both voices excellent + forked.
 
 ## ▶ NEXT / IN FLIGHT
-- OFFER: fire one LIVE autopost now (schedules a real post +4h w/ kill link) so Erik tests the full flow end-to-end — his call (real post to X).
-- HEADER BANNER (x-banner.png 1500×500, the knob) still blurry + no numbers — separate asset, source generator not located. Options: re-sharpen knob at 2x, or rebuild growth-forward. Erik's call.
+- LIVE autopost FIRED (test): post 715 (preserver), scheduled ~7:27 PM ET Aug 7, heads-up+kill email sent. **BUG FIXED (b975447): guard `event.get("autopost_own_social")` treated empty `{}` as falsy → live invoke AND the M/W/F rule both silently no-op'd; now `if "autopost_own_social" in event:`.** Confirm first real M/W/F fire.
+- HEADER BANNER DONE: design/brand/profiles/x-banner.png now **1500×500** (X's native size — the blur was X downscaling our 3000×1000 with its own poor scaler; render 2x then Lanczos→1500×500 so X keeps it as-is). Background unified to single paper tone; kept the thin vertical divider framing the knob (Erik removed then said "leave that" → divider STAYS). Source: x-banner-source.html (reconstructed from knob SVG). Erik re-uploads to X header manually (brand asset, not app-served). Committed current + correct.
+- og-card = link-preview/unfurl (og:image/twitter:image → rigacap.com/og-card.png), NOT the header. Explained.
 - 20 stale research_insight drafts left in DB (won't post; harmless). Could cancel for tidiness.
 - TERRAFORM RECONCILE: import CLI-made rules (2 reply-scan + autopost-social); remove monthly_recap block (~1809).
 - Reply flow: after wk1 Erik still taps deep-link (approve-first by nature). Paid X tier for reply auto-post = OPEN, verify before paying.
