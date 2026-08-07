@@ -83,6 +83,7 @@ class AIContentService:
         post_type: str,
         platform: str,
         news_context: Optional[str] = None,
+        avoid_texts: Optional[List[str]] = None,
     ) -> Optional[SocialPost]:
         """
         Call Claude to generate a single social media post.
@@ -191,8 +192,20 @@ class AIContentService:
             ),
         }
 
+        # Anti-repetition: our posts from the last ~8 days so we don't echo an opening
+        # line / framing and sound like a machine (same lookback as replies + insights).
+        avoid_block = ""
+        if avoid_texts:
+            _recent = "\n".join(f"- {t.strip()}" for t in avoid_texts[:20] if t)
+            if _recent:
+                avoid_block = (
+                    "OUR RECENT POSTS (last ~8 days) — do NOT reuse their opening line, "
+                    "structure, or framing; take a genuinely different angle:\n" + _recent + "\n\n"
+                )
+
         user_prompt = (
             f"{type_instructions.get(post_type, type_instructions['trade_result'])}\n\n"
+            f"{avoid_block}"
             f"Platform: {platform.upper()} ONLY. Do NOT write for any other platform.\n"
             f"{platform_instruction}\n\n"
             "Do NOT include hashtags — those are added separately.\n"

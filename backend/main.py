@@ -5721,6 +5721,21 @@ def handler(event, context):
 
                 print(f"Found {len(positions)} winners + {len(loss_positions)} losses for social-post generation")
 
+                # 8-day anti-repeat: load our recent own-posts so the generator varies
+                # opening line / framing instead of sounding like a template.
+                from datetime import timedelta as _td8
+                _cut8 = datetime.utcnow() - _td8(days=8)
+                _recent_rows = (await db.execute(
+                    select(SocialPost.text_content).where(
+                        SocialPost.post_type.in_([
+                            "trade_result", "we_called_it", "missed_opportunity",
+                            "discipline_win", "loss_review", "research_insight",
+                        ]),
+                        SocialPost.created_at >= _cut8,
+                    ).order_by(SocialPost.created_at.desc()).limit(25)
+                )).scalars().all()
+                recent_posts = [r for r in _recent_rows if r]
+
                 # Generate posts for each trade x platform x post_type.
                 # Winners get the configured post_types (trade_result / we_called_it).
                 # Losses ONLY get loss_review — the other types assume a winner
@@ -5746,6 +5761,7 @@ def handler(event, context):
                                 trade=trade_data,
                                 post_type=post_type,
                                 platform=platform,
+                                avoid_texts=recent_posts,
                             )
                             if post:
                                 db.add(post)
