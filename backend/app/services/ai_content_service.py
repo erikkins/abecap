@@ -549,7 +549,13 @@ class AIContentService:
             f"only if it fits naturally.\n\n"
             f"WRITE ONE IDEA PER SENTENCE — short, declarative, easy to read aloud. NO nested "
             f"clauses: if a sentence needs a comma-clause to parse (e.g. 'the dip the data said "
-            f"was part of the plan'), split it into two sentences instead."
+            f"was part of the plan'), split it into two sentences instead.\n\n"
+            f"SENTIMENT: the net takeaway must land CONFIDENT and reassuring, never as a warning. "
+            f"NEVER frame a drawdown, a loss, or TIME SPENT RECOVERING as if it reassures — "
+            f"'recovered in about 2 years' reads as '2 years underwater,' which is a negative. "
+            f"Do NOT state recovery or underwater durations. If you mention a drawdown, the point "
+            f"is the DISCIPLINE that held through it and the shallow depth vs the market, not how "
+            f"long it took to come back."
         )
         # Anti-repetition: our posts from the last ~8 days — do NOT reuse their opening
         # line, structure, or angle (so the feed doesn't sound like a machine).
