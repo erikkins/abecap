@@ -10,28 +10,25 @@ metadata:
 # Session snapshot — Aug 7 2026
 
 ## Frozen spec (load-bearing)
-- Public copy: "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/sleeve/DWAP; steer Maximizer. Deploy = push main → "Deploy RigaCap" GHA (or `gh workflow run`). NEVER push+dispatch same commit (serialize). NEVER `aws lambda update-function-configuration --environment` casually (restore script is the guarded exception). Worker=rigacap-prod-worker, AWS_PROFILE=rigacap. `{"db_read":"SQL"}` (ts ::text); `{"run_migration":true,"sql":...}`.
-- OVERLAY SSOT = perf_numbers.js/.py. One-click links → api.rigacap.com. BRAND=claret/paper (Fraunces + IBM Plex; mono only for data). X banner=1500x500 native.
-- TERRAFORM SAFE NOW ([[project_terraform_apply_unsafe]] resolved): both Lambdas have `lifecycle{ignore_changes=[image_uri,environment]}`. Full plan = 0-add/0-destroy/1-cosmetic (monthly_recap target). Still review plans; keep ignore_changes. tfvars gitignored (secrets local only).
+- Public copy: "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/sleeve/DWAP; steer Maximizer. Deploy = push main → "Deploy RigaCap" GHA (or `gh workflow run`). NEVER push+dispatch same commit (serialize). NEVER `aws lambda update-function-configuration --environment` casually. **terraform apply SAFE now** (ignore_changes on both Lambdas; [[project_terraform_apply_unsafe]] resolved). Worker=rigacap-prod-worker, AWS_PROFILE=rigacap. `{"db_read":"SQL"}` (ts ::text); `{"run_migration":true,"sql":...}`.
+- OVERLAY SSOT = perf_numbers.js/.py. One-click links → api.rigacap.com. BRAND=claret/paper #F5F1E8/#7A2430, Fraunces (display) + IBM Plex Sans (body) + IBM Plex Mono (data/URLs). Bios canonical: design/brand/profiles/profile-bios.md.
 
 ## ✅ SHIPPED THIS SESSION (all live)
-- REPLY scanner: plain voice, 5-day anti-repeat, no-ellipsis, 2 tier forks; X 403 → deep-link to X pre-filled composer ([[project_x_api_reply_403]]). Deep-link double-post FIX: repeat click shows "already opened" interstitial (+&force=1 reopen).
-- CARDS: launch 1-5 growth-forward + 2x-crisp; og-card claret/paper centered/crop-safe (link-preview, auto-served); X banner knob rebuilt 1500x500. Anti-repeat extended to all own-post types (generate_post avoid_texts).
-- OWN-SOCIAL CADENCE: autopost + 1-click kill, M/W/F alternating Preserver/Maximizer ({"autopost_own_social":{}}, EventBridge rigacap-prod-autopost-social). Live test post 715 scheduled ~7:27PM ET Aug 7.
-- STALE DRAFTS cleaned (23 deleted; kept active reply history + 715).
-- DR HARDENING: scripts/backup-lambda-env.sh + restore-lambda-env.sh (SSE S3 dr/lambda-env/, baseline uploaded worker55/api52). Weekly worker handler {"backup_lambda_env":true} + EventBridge rigacap-prod-backup-lambda-env cron(0 7 ? * SUN). main.tf blueprint: 15 live-only keys declared (var refs + vars, secrets sensitive), tfvars populated from live (gitignored). All CLI EventBridge rules imported into terraform.
+- REPLY scanner: plain voice, anti-repeat, no-ellipsis, 2 tier forks; X 403 → deep-link to X composer ([[project_x_api_reply_403]]); repeat-click "already opened" guard.
+- CARDS: launch 1-5 + og-card growth-forward, 2x-crisp, paper/claret; X banner knob 1500×500.
+- OWN-SOCIAL CADENCE → **NOW ALL 3 PLATFORMS (X + Threads + Instagram)**, M/W/F, alternating Preserver/Maximizer, autopost + 1-click kill. IG posts an on-brand EDITORIAL QUOTE CARD (chart_card_generator.generate_text_card, rebuilt: bundled Fraunces+Plex TTFs in backend/app/assets/fonts/, centered wordmark, sentence-broken Plex body, pixel-wrap + widow pull-up + function-word break rule, box-centered text, mono url). publish_post auto-gens the IG card. Handler generates once → 1 post/platform (same scheduled_for); heads-up email names all 3; ONE kill cancels all (cancel-email cascades to same-time research_insight siblings). Insight prompt now enforces one-idea-per-sentence/no-nested-clauses. Anti-repeat on all own-post types. Dry-run verified (commit d2b3ce4 deployed).
+- DR: env backup scripts + weekly worker handler {"backup_lambda_env"} + EventBridge; terraform blueprint (15 live-only keys declared, tfvars populated). Bios refreshed. Stale drafts cleaned.
 
-## ▶ ACTIVE: MULTI-PLATFORM AUTOPOST (X + Threads + Instagram) — mid-build, NOT deployed/committed
-- Goal: M/W/F autopost fans out to all 3 (was twitter-only). Twitter+Threads = text; Instagram needs an image → publish_post ALREADY auto-generates a card via chart_card_generator.generate_text_card + uploads to S3 (so IG works once we create an IG post row).
-- ✅ DONE (uncommitted, backend/app/services/chart_card_generator.py + backend/app/assets/fonts/): rebuilt generate_text_card into an on-brand editorial card. Bundled Fraunces + IBM Plex Sans/Mono TTFs (OFL) + registered in matplotlib. Iterated on Erik's design notes (4 rounds): claret/paper, NO giant quote mark, wordmark "RigaCap." CENTERED as a unit (claret period overlaid at measured right edge), body = IBM Plex Sans (site body font; Fraunces=wordmark only), broken BY SENTENCE with gaps, PIXEL-MEASURED wrap w/ widow pull-up (absorb ≤2-word trailing lines within a hard edge-limit — no frame overrun), block vertically centered between equal+longer claret kicker rules, footer "Walk-forward tested — signals only" + rigacap.com. Previews /tmp/ig_{maximizer,preserver,short}.png look sharp. **Awaiting Erik's final OK, then commit.**
-- FONT NOTE: site uses Fraunces (font-display) medium/opsz-48 + IBM Plex Sans body; matplotlib renders Fraunces variable-default (heavier) — acceptable for the small wordmark. Card font measurement uses renderer.get_text_width_height_descent.
-- ⬜ TODO after Erik OKs card: (1) modify autopost handler (main.py ~5529) to generate insight ONCE then create 1 SocialPost per platform [twitter,threads,instagram] scheduled together; (2) send_autopost_notice → note all 3 platforms + ONE kill link; (3) cancel-email endpoint → cascade-cancel same-scheduled_for research_insight siblings (one click kills all 3); (4) compile+deploy; (5) dry-run/live verify. Files: backend/main.py, email_service.send_autopost_notice, app/api/social.py cancel_post_via_email.
+## ✅ LIVE TEST DONE + LAUNCH CARDS SCHEDULED (Aug 7 eve)
+- Fan-out LIVE-tested: IG (722) + Threads (721) POSTED — **IG card path PROVEN end-to-end** (render→S3→Graph API). X (720) failed = X API credits depleted → Erik enabled AUTO-RECHARGE (X works now, confirmed by 732). IG "can't share links" restriction → Erik verified-human, lifted.
+- COPY BUG caught live: generator produced net-negative "…13.7% drawdown. Recovered in about 2 years" (reads as 2yr underwater). FIXED (commit 5d34c45): sentiment guardrail in generate_research_insight prompt — never frame drawdown/recovery-duration as reassurance; frame depth-vs-market + discipline. Dry-runs now confident (e.g. "13.7%, a fraction of the market's 55%"). Cancelled bad X post 720; Erik deletes old Threads 721 + IG 722 manually.
+- TODAY'S post: inserted candidate-2 good copy to X/Threads/IG (732/733/734). X posted now; Threads+IG queued behind PLATFORM_COOLDOWN (threads 180min, ig 120min, twitter 30) from the test post → auto-publish tonight (~IG 8:15pm ET, Threads 9:15pm ET) via 15-min publish cron.
+- LAUNCH CARDS scheduled (9 posts): launch-1/2/3 → X+Threads+IG on Sun Aug9 / Tue Aug11 / Thu Aug13 16:00 UTC (noon ET). Staggered off the M/W/F autopost days. post_type='launch_card', image_s3_key=https://rigacap.com/launch-cards/launch-N.png (CDN, verified 200). Captions have NO url (bio /ig link carries it; keeps IG link-filter calm).
 
 ## ▶ NEXT / IN FLIGHT
-- Bios: canonical positioning-led copy in design/brand/profiles/profile-bios.md (Erik pastes to X/IG/Threads). Confirm 715 posted ~7:27PM ET.
-- OPTIONAL: already-replied-on-X interception (skip tweets @rigacap replied to manually).
-- GROWTH swings: testimonials/social-proof; churn prevention; ads recheck ~Aug 8.
-- Reply auto-post paid X tier = OPEN (verify before paying).
+- FAST-FOLLOW (Erik's idea): "Edit this" option in the autopost heads-up email — kill OR tweak-a-word-and-regen the card before it posts. Real little build (edit endpoint + regen). Offered; Erik to decide now-vs-next-session.
+- Confirm Threads/IG auto-post tonight after cooldown; first real M/W/F fan-out. Erik pastes new bios (design/brand/profiles/profile-bios.md).
+- GROWTH swings: testimonials/social-proof; churn prevention; ads recheck ~Aug 8. Reply paid-X-tier OPEN.
 
 ## Notes
 - Billing portal 400 = NOT a bug (erikkins@gmail.com orphan; don't touch billing w/o ask).
