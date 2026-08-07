@@ -5484,6 +5484,44 @@ def handler(event, context):
     # varying 1-4/week (never a fixed day). Each lands as a DRAFT in the Social
     # tab for Erik to approve -> schedule or post-now. {"prob": 0.4} overrides
     # the daily probability; {"force": true} always generates (for testing).
+    # DR: snapshot both Lambdas' live env to encrypted S3 (mirror of
+    # scripts/backup-lambda-env.sh, runnable on a schedule). Env is managed
+    # out-of-band + terraform-ignored, so this is the recovery artifact.
+    if event.get("backup_lambda_env"):
+        print("💾 DR: backing up Lambda env to S3")
+
+        def _backup_lambda_env():
+            import boto3, json as _json
+            from datetime import datetime as _dt
+            lam = boto3.client("lambda")
+            s3 = boto3.client("s3")
+            bucket = os.environ.get("PRICE_DATA_BUCKET")
+            if not bucket:
+                return {"status": "error", "error": "PRICE_DATA_BUCKET not set"}
+            worker_fn = os.environ.get("WORKER_FUNCTION_NAME", "rigacap-prod-worker")
+            api_fn = worker_fn.replace("-worker", "-api")
+            stamp = _dt.utcnow().strftime("%Y-%m-%dT%H%M%SZ")
+            out = {}
+            for fn in (worker_fn, api_fn):
+                cfg = lam.get_function_configuration(FunctionName=fn)
+                envv = (cfg.get("Environment") or {}).get("Variables") or {}
+                if len(envv) < 30:
+                    out[fn] = {"error": f"only {len(envv)} keys — refused (partial)"}
+                    continue
+                body = _json.dumps(envv, indent=2).encode()
+                for key in (f"dr/lambda-env/{fn}-{stamp}.json", f"dr/lambda-env/{fn}-latest.json"):
+                    s3.put_object(Bucket=bucket, Key=key, Body=body,
+                                  ServerSideEncryption="AES256", ContentType="application/json")
+                out[fn] = {"keys": len(envv), "snapshot": f"dr/lambda-env/{fn}-{stamp}.json"}
+            return {"status": "ok", "backed_up": out}
+
+        try:
+            return _backup_lambda_env()
+        except Exception as e:
+            import traceback
+            print(f"❌ backup_lambda_env failed: {e}\n{traceback.format_exc()}")
+            return {"status": "error", "error": str(e)}
+
     # AUTOPOST own-social cadence (Mon/Wed/Fri): generate ONE tier-forked research-insight,
     # schedule it a few hours out, and email Erik a heads-up with a one-click KILL link.
     # Auto-publishes unless killed (own-posts are not 403-blocked like replies). 8-day

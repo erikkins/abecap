@@ -661,12 +661,18 @@ async def approve_and_publish_via_email(
 async def compose_reply_via_email(
     post_id: int,
     token: str,
+    force: int = 0,
     db: AsyncSession = Depends(get_db),
 ):
     """One-tap from the approval email: mark the draft handled, then redirect to the X
     composer PRE-FILLED as a reply to the target tweet with our drafted text. No API write
     (avoids the Free-tier 'can only reply where mentioned/author' 403) — Erik just hits Post.
+
+    If the reply was already opened once (reviewed_by='deeplink_compose') or is already
+    published, a repeat click shows an "already opened" interstitial (with an explicit
+    force link) instead of silently reopening the composer — prevents accidental double-posts.
     """
+    import html as _html
     from fastapi.responses import RedirectResponse, HTMLResponse
     from urllib.parse import quote
     from app.services.post_scheduler_service import post_scheduler_service
@@ -691,6 +697,34 @@ async def compose_reply_via_email(
     text = post.text_content or ""
     target_id = post.reply_to_tweet_id or post.reply_to_thread_id
     platform = (post.platform or "twitter").lower()
+
+    # Already handled once? Don't silently reopen a fresh composer (double-post risk).
+    already = (post.reviewed_by == "deeplink_compose") or (post.status in ("published", "posted"))
+    if already and not force:
+        when = ""
+        if post.reviewed_at:
+            try:
+                from pytz import timezone as _tz
+                et = post.reviewed_at.replace(tzinfo=_tz("UTC")).astimezone(_tz("US/Eastern"))
+                when = et.strftime(" on %b %-d at %-I:%M %p ET")
+            except Exception:
+                when = ""
+        uname = getattr(post, "reply_to_username", "") or ""
+        again_url = f"https://api.rigacap.com/api/admin/social/posts/{post_id}/compose-email?token={token}&force=1"
+        return HTMLResponse(
+            content=(
+                "<html><body style=\"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"
+                "text-align:center;padding:60px 24px;color:#141210;background:#F5F1E8;\">"
+                "<h2 style='color:#7A2430;margin:0 0 10px;'>You already opened this reply</h2>"
+                f"<p style='color:#5A544E;font-size:15px;line-height:1.5;'>Reply to @{_html.escape(uname)}{when}. "
+                "If you already posted it on X, you're all set &mdash; just close this tab.</p>"
+                f"<p style='margin-top:28px;'><a href='{again_url}' style='display:inline-block;background:#7A2430;"
+                "color:#fff;padding:11px 24px;border-radius:8px;text-decoration:none;font-weight:600;'>"
+                "Open the composer again</a></p>"
+                "<p style='color:#8A8279;font-size:12px;margin-top:14px;'>Only do this if it didn't post the first time.</p>"
+                "</body></html>"
+            ),
+        )
 
     if platform == "twitter" and target_id:
         # X Web Intent: opens the composer as a reply to that tweet, text pre-filled.
