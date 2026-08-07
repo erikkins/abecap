@@ -2329,7 +2329,10 @@ function Dashboard() {
     if (!isAuthenticated || !user?.subscription?.is_valid) return;
     const fetchThisWeek = async () => {
       try {
-        const data = await api.get('/api/signals/this-week');
+        // Forward ?preview_tier= so admin tier-preview shows the SERVED tier's book here too
+        // (backend is tier-scoped; without this the panel always resolves to the real tier).
+        const _pt = new URLSearchParams(window.location.search).get('preview_tier');
+        const data = await api.get(`/api/signals/this-week${_pt ? `?preview_tier=${encodeURIComponent(_pt)}` : ''}`);
         if (!data?.error) setThisWeek(data);
       } catch (err) {
         console.log('This-week fetch failed:', err);
@@ -2596,8 +2599,10 @@ function Dashboard() {
   // Reload dashboard + positions after a buy/sell
   const reloadPositions = async () => {
     try {
-      // Reload full dashboard (signals + positions with guidance) for accurate data
-      const res = await fetch(`${API_BASE}/api/signals/dashboard`, {
+      // Reload full dashboard (signals + positions with guidance) for accurate data.
+      // Forward ?preview_tier= so an admin previewing a tier stays on it after a buy/sell.
+      const _pt = new URLSearchParams(window.location.search).get('preview_tier');
+      const res = await fetch(`${API_BASE}/api/signals/dashboard${_pt ? `?preview_tier=${encodeURIComponent(_pt)}` : ''}`, {
         headers: api._authHeaders(),
       });
       if (res.ok) {
