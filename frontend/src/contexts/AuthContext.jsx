@@ -147,6 +147,24 @@ export function AuthProvider({ children }) {
     loadUser();
   }, [getTokens, clearTokens, refreshAccessToken]);
 
+  // Proactively refresh the 15-min access token while the app is open. Without this,
+  // an idle tab's token silently expires; the dashboard's 60s poll then hits the
+  // optional-auth endpoint with a dead token and gets the PUBLIC payload (200, no
+  // tier_book), degrading the logged-in UI to the "sign up" / two-part view until a
+  // manual reload. Refresh on an interval shorter than the TTL + when the tab regains
+  // focus (covers sleep/wake). Failures are non-fatal — refreshAccessToken keeps the
+  // stale token and retries.
+  useEffect(() => {
+    if (!user) return;
+    const { refreshToken } = getTokens();
+    if (!refreshToken) return;
+    const REFRESH_EVERY_MS = 11 * 60 * 1000;  // < 15-min access-token TTL, with buffer
+    const id = setInterval(() => { refreshAccessToken(); }, REFRESH_EVERY_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshAccessToken(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
+  }, [user?.id, getTokens, refreshAccessToken]);
+
   // Helper: redirect users without a subscription to Stripe checkout
   const redirectToCheckoutIfNeeded = async (userData, accessToken) => {
     if (!userData.subscription) {
