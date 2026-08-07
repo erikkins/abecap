@@ -6130,6 +6130,23 @@ def handler(event, context):
             return {"status": "error", "error": str(e)}
 
     # Scan followed accounts for reply opportunities (direct Lambda invocation)
+    if event.get("resend_reply_approvals"):
+        print("✉️ Resending pending reply-approval email with corrected links")
+
+        async def _resend_approvals():
+            from app.services.reply_scanner_service import reply_scanner_service
+            async with async_session() as db:
+                n = await reply_scanner_service.resend_pending_approvals(db)
+                return {"status": "ok", "resent": n}
+
+        try:
+            return _run_async(_resend_approvals())
+        except Exception as e:
+            import traceback
+            print(f"❌ Resend approvals failed: {e}")
+            print(traceback.format_exc())
+            return {"status": "error", "error": str(e)}
+
     if event.get("scan_replies"):
         print("🔍 Scanning for reply opportunities")
         config = event["scan_replies"]

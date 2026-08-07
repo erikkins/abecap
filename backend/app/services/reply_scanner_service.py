@@ -976,7 +976,7 @@ class ReplyScannerService:
             if not post:
                 continue
             approve_token = post_scheduler_service.generate_approve_token(post.id)
-            approve_url = f"{settings.FRONTEND_URL}/api/admin/social/posts/{post.id}/approve-email?token={approve_token}"
+            approve_url = f"https://api.rigacap.com/api/admin/social/posts/{post.id}/approve-email?token={approve_token}"
             items.append({"post": post, "approve_url": approve_url})
 
         if not items:
@@ -989,6 +989,41 @@ class ReplyScannerService:
             return len(items) if ok else 0
         except Exception as e:
             logger.error(f"Failed to send batch approval email: {e}")
+            return 0
+
+    async def resend_pending_approvals(self, db, limit: int = 25) -> int:
+        """Re-send the batch approval email for all currently-pending reply drafts, with
+        freshly-minted approve links on the correct api.rigacap.com host. Used to recover
+        drafts whose original email carried a broken host (or an expired token)."""
+        from app.services.email_service import admin_email_service
+        from app.services.post_scheduler_service import post_scheduler_service
+        from app.core.database import SocialPost
+        from sqlalchemy import select, desc
+
+        result = await db.execute(
+            select(SocialPost).where(
+                SocialPost.post_type == "contextual_reply",
+                SocialPost.status == "draft",
+            ).order_by(desc(SocialPost.created_at)).limit(limit)
+        )
+        posts = result.scalars().all()
+
+        items = []
+        for post in posts:
+            approve_token = post_scheduler_service.generate_approve_token(post.id)
+            approve_url = f"https://api.rigacap.com/api/admin/social/posts/{post.id}/approve-email?token={approve_token}"
+            items.append({"post": post, "approve_url": approve_url})
+
+        if not items:
+            return 0
+        try:
+            ok = await admin_email_service.send_reply_approval_batch(
+                to_email="erik@rigacap.com",
+                items=items,
+            )
+            return len(items) if ok else 0
+        except Exception as e:
+            logger.error(f"Failed to resend batch approval email: {e}")
             return 0
 
     @staticmethod
