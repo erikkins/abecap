@@ -11,7 +11,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, delete
@@ -758,10 +758,16 @@ async def edit_post_form(post_id: int, token: str, db: AsyncSession = Depends(ge
 
 
 @router.post("/posts/{post_id}/edit-email")
-async def edit_post_submit(post_id: int, token: str, text: str = Form(...), db: AsyncSession = Depends(get_db)):
+async def edit_post_submit(post_id: int, token: str, request: Request, db: AsyncSession = Depends(get_db)):
     """Save the tweaked copy to the post + all its platform siblings (IG card regenerates
-    from this text at publish time, so no manual card rebuild needed)."""
+    from this text at publish time, so no manual card rebuild needed).
+
+    Parses the urlencoded form body manually (avoids the python-multipart dependency that
+    fastapi.Form requires — not in the Lambda image)."""
     from fastapi.responses import HTMLResponse
+    from urllib.parse import parse_qs
+    raw = (await request.body()).decode("utf-8", "ignore")
+    text = (parse_qs(raw).get("text", [""]) or [""])[0]
     post, sibs = await _edit_load(post_id, token, db)
     if not post:
         return HTMLResponse("<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
