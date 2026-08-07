@@ -546,7 +546,10 @@ class AIContentService:
             f"{self._TIER_INSIGHT_ANGLE.get(tier, '')}\n\n"
             f"Any number you use is WALK-FORWARD tested — say 'walk-forward' near it. Hard max "
             f"{char_limit - 30} characters (room for a link). End with rigacap.com/track-record "
-            f"only if it fits naturally."
+            f"only if it fits naturally.\n\n"
+            f"WRITE ONE IDEA PER SENTENCE — short, declarative, easy to read aloud. NO nested "
+            f"clauses: if a sentence needs a comma-clause to parse (e.g. 'the dip the data said "
+            f"was part of the plan'), split it into two sentences instead."
         )
         # Anti-repetition: our posts from the last ~8 days — do NOT reuse their opening
         # line, structure, or angle (so the feed doesn't sound like a machine).

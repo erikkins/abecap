@@ -4264,14 +4264,19 @@ The link expires in 72 hours."""
         return await self.send_email(to_email=to_email, subject=subject, html_content=html, text_content="\n".join(text_lines))
 
 
-    async def send_autopost_notice(self, to_email: str, post, kill_url: str, tier: str, post_when: str) -> bool:
+    async def send_autopost_notice(self, to_email: str, post, kill_url: str, tier: str, post_when: str, platforms=None) -> bool:
         """Heads-up that an own-social post is scheduled to AUTO-PUBLISH, with a one-click
         KILL link. Autopost + kill model — the feed stays alive with zero effort; Erik only
-        acts if he wants to stop one."""
+        acts if he wants to stop one. `platforms` lists all targets (kill cancels all)."""
         import html as _html
         text = (getattr(post, "text_content", None) or "")
         text_html = _html.escape(text).replace("\n", "<br>")
-        plat = (getattr(post, "platform", "") or "twitter").title()
+        _names = {"twitter": "X", "threads": "Threads", "instagram": "Instagram"}
+        if platforms:
+            labs = [_names.get(p, p.title()) for p in platforms]
+            plat = " & ".join([", ".join(labs[:-1]), labs[-1]]) if len(labs) > 1 else labs[0]
+        else:
+            plat = _names.get((getattr(post, "platform", "") or "twitter"), "X")
         tier = (tier or "preserver").lower()
         if tier == "maximizer":
             chip = '<span style="display:inline-block;background:#ecfdf5;color:#047857;font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;">Maximizer angle</span>'

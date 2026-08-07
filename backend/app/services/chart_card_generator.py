@@ -25,13 +25,29 @@ import matplotlib.dates as mdates
 from matplotlib.patches import FancyBboxPatch
 
 
-# Brand colors — editorial paper/ink/claret palette
+# Brand colors — editorial paper/ink/claret palette (NOT navy/gold — retired)
 BRAND_GREEN = '#2D5F3F'
 BRAND_RED = '#8F2D3D'
 BRAND_DARK = '#141210'
 BRAND_LIGHT = '#F5F1E8'
-BRAND_ACCENT = '#7A2430'
+BRAND_ACCENT = '#7A2430'   # claret
 BRAND_GRAY = '#5A544E'
+BRAND_HAIRLINE = '#DDD5C7'
+
+# Bundled brand fonts (Fraunces display + IBM Plex Sans/Mono) so Lambda-rendered cards
+# match the site + launch cards instead of generic matplotlib sans. OFL-licensed.
+from matplotlib import font_manager as _fm
+_FONT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "assets", "fonts"))
+def _fp(fname):
+    path = os.path.join(_FONT_DIR, fname)
+    try:
+        _fm.fontManager.addfont(path)
+        return _fm.FontProperties(fname=path)
+    except Exception:
+        return None
+FRAUNCES = _fp("Fraunces.ttf")
+PLEX = _fp("IBMPlexSans.ttf")
+PLEX_MONO = _fp("IBMPlexMono.ttf")
 
 
 class ChartCardGenerator:
@@ -353,102 +369,148 @@ class ChartCardGenerator:
         headline: str = "",
     ) -> bytes:
         """
-        Generate a 1080x1350 branded text card for Instagram posts without trade data.
-        Used for regime updates, we_called_it posts, etc.
-
-        Returns PNG bytes.
+        Generate a 1080x1350 editorial QUOTE card for Instagram text posts (insights,
+        we_called_it, regime notes). Claret/paper brand, Fraunces pull-quote, hairline
+        frame — matches the launch cards. Returns PNG bytes.
         """
         import textwrap
 
+        import re as _re
+        serif = FRAUNCES or _fm.FontProperties(family="serif")
+        sans = PLEX or _fm.FontProperties(family="sans-serif")
+        mono = PLEX_MONO or _fm.FontProperties(family="monospace")
+
+        W_PX, H_PX = 1080, 1350
         fig, ax = plt.subplots(1, 1, figsize=(10.8, 13.5), dpi=100)
         fig.patch.set_facecolor(BRAND_LIGHT)
-
         ax.set_position([0, 0, 1, 1])
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.axis('off')
 
-        # --- Header ---
-        ax.text(0.05, 0.97, 'RigaCap', fontsize=22, fontweight='bold',
-                color=BRAND_DARK, va='top', ha='left', fontfamily='sans-serif')
-        ax.text(0.95, 0.97, 'Signal Intelligence', fontsize=15,
-                color=BRAND_GRAY, va='top', ha='right', fontfamily='sans-serif')
+        renderer = fig.canvas.get_renderer()
 
-        # --- Top gold divider ---
-        ax.plot([0.08, 0.92], [0.935, 0.935], color=BRAND_ACCENT, lw=1.5, alpha=0.6)
+        def _sized(fp, size):
+            f = fp.copy()
+            f.set_size(size)
+            return f
 
-        # --- Prepare body text lines ---
-        clean_text = text.split('#')[0].strip() if '#' in text else text
-        paragraphs = clean_text.split('\n')
-        all_lines = []
-        for para in paragraphs:
-            para = para.strip()
-            if not para:
-                all_lines.append('')  # blank line between paragraphs
-            else:
-                all_lines.extend(textwrap.fill(para, width=36).split('\n'))
-        # Trim trailing/leading blanks, cap at 18 lines
-        while all_lines and not all_lines[0]:
-            all_lines.pop(0)
-        while all_lines and not all_lines[-1]:
-            all_lines.pop()
-        all_lines = all_lines[:18]
+        def _wpx(s, fp):
+            return renderer.get_text_width_height_descent(s, fp, False)[0]
 
-        # --- Compute vertical layout ---
-        # Content zone: y=0.14 (above footer divider) to y=0.92 (below header divider)
-        content_top = 0.90
-        content_bottom = 0.16
-        content_height = content_top - content_bottom
+        # Hairline print frame (editorial border, like the launch cards)
+        ax.add_patch(plt.Rectangle((0.035, 0.028), 0.93, 0.944, fill=False,
+                                   edgecolor=BRAND_HAIRLINE, lw=1.4))
 
-        # Calculate total height needed for headline + body
-        line_spacing = 0.034
-        headline_height = 0.08 if headline else 0
-        gap_after_headline = 0.04 if headline else 0
-        # Count effective lines (blanks = 0.5 line height)
-        body_height = 0
-        for line in all_lines:
-            body_height += line_spacing * (0.5 if not line else 1.0)
-        total_height = headline_height + gap_after_headline + body_height
+        # Wordmark "RigaCap." — Fraunces, centered as ONE unit, with a claret period.
+        serif_wm = _sized(serif, 30)
+        wm_y = 0.905
+        ax.text(0.5, wm_y, 'RigaCap.', color=BRAND_DARK,
+                va='center', ha='center', fontproperties=serif_wm)
+        right_x = 0.5 + (_wpx('RigaCap.', serif_wm) / 2.0) / W_PX  # right edge of centered string
+        ax.text(right_x, wm_y, '.', color=BRAND_ACCENT,
+                va='center', ha='right', fontproperties=serif_wm)  # claret period overlays the ink one
 
-        # Center the text block vertically in the content zone
-        top_y = content_bottom + (content_height + total_height) / 2
+        # claret kicker under the wordmark — same length as the closing rule below
+        KICK = (0.41, 0.59)
+        ax.plot(list(KICK), [0.86, 0.86], color=BRAND_ACCENT, lw=2.4)
 
-        # --- Headline ---
-        cursor_y = top_y
-        if headline:
-            ax.text(0.5, cursor_y, headline, fontsize=34, fontweight='bold',
-                    color=BRAND_ACCENT, va='top', ha='center',
-                    fontfamily='sans-serif')
-            # Small gold accent line under headline
-            accent_y = cursor_y - headline_height + 0.005
-            ax.plot([0.35, 0.65], [accent_y, accent_y],
-                    color=BRAND_ACCENT, lw=1.5, alpha=0.35)
-            cursor_y = accent_y - gap_after_headline
+        # --- Body: break by SENTENCE, wrap by MEASURED pixel width (proportional font),
+        #     and pull 1-2 word widows up into the prior line when they fit (guarded so a
+        #     merged line never overruns the frame). IBM Plex Sans (site body font). ---
+        clean = (text.split('http')[0]).strip()
+        clean = clean.split('#')[0].strip() if '#' in clean else clean
+        sentences = [s.strip() for s in _re.split(r'(?<=[.!?])\s+', clean) if s.strip()]
 
-        # --- Body text ---
-        for line in all_lines:
-            if not line:
-                cursor_y -= line_spacing * 0.5
-                continue
-            ax.text(0.5, cursor_y, line,
-                    fontsize=18, color=BRAND_DARK, va='top', ha='center',
-                    fontfamily='sans-serif', linespacing=1.3)
-            cursor_y -= line_spacing
+        COMFORTABLE = 0.76 * W_PX   # normal max line width
+        HARD = 0.86 * W_PX          # absolute max when pulling a widow up (still inside frame)
 
-        # --- Bottom gold divider ---
-        ax.plot([0.08, 0.92], [0.12, 0.12], color=BRAND_ACCENT, lw=1.5, alpha=0.6)
+        # Function words that shouldn't be stranded at the END of a line — an article/
+        # preposition/conjunction belongs with the word that follows it ("...the weeks /
+        # the system..." not "...the weeks the / system..."). Break BEFORE them instead.
+        FUNCTION_WORDS = {
+            "a", "an", "the", "and", "or", "but", "nor", "for", "yet", "so",
+            "of", "to", "in", "on", "at", "by", "as", "with", "from", "into",
+            "than", "then", "is", "are", "was", "were", "be", "your", "our",
+            "its", "their", "his", "her", "my", "that", "this", "these", "those",
+        }
 
-        # --- Footer ---
-        ax.text(0.05, 0.03, 'rigacap.com', fontsize=14,
-                color=BRAND_ACCENT, va='bottom', ha='left',
-                fontfamily='sans-serif', fontweight='bold')
-        ax.text(0.95, 0.03, 'Walk-Forward Verified', fontsize=14,
-                color=BRAND_GRAY, va='bottom', ha='right',
-                fontfamily='sans-serif', style='italic')
+        def _is_fn(w):
+            return w.strip(".,;:!?—-\"'()").lower() in FUNCTION_WORDS
+
+        def _wrap(sentence, fp):
+            words = sentence.split()
+            lines, cur = [], []
+            for w in words:
+                trial = " ".join(cur + [w])
+                if not cur or _wpx(trial, fp) <= COMFORTABLE:
+                    cur.append(w)
+                else:
+                    # Don't end a line on a function word — carry any trailing ones down
+                    # with the new word so "the" stays attached to its noun.
+                    carry = []
+                    while len(cur) > 1 and _is_fn(cur[-1]):
+                        carry.insert(0, cur.pop())
+                    lines.append(" ".join(cur))
+                    cur = carry + [w]
+            if cur:
+                lines.append(" ".join(cur))
+            # widow pull-up: absorb a trailing 1-2 word line into the previous one if it fits
+            while len(lines) >= 2 and len(lines[-1].split()) <= 2:
+                merged = lines[-2] + " " + lines[-1]
+                if _wpx(merged, fp) <= HARD:
+                    lines[-2] = merged
+                    lines.pop()
+                else:
+                    break
+            return lines
+
+        # Fixed "box" between the two claret rules; text is centered WITHIN it (so short
+        # quotes sit in the middle of the box, not pinned to the bottom rule).
+        TOP_RULE_Y, BOTTOM_RULE_Y = 0.86, 0.205
+        band_top, band_bottom = 0.815, 0.25   # small insets from the rules, center = 0.5325
+        band_h = band_top - band_bottom
+        chosen = None
+        for fs in (32, 30, 28, 26, 24, 22, 20, 18):
+            fp = _sized(sans, fs)
+            blocks = [_wrap(s, fp) for s in sentences]
+            n_lines = sum(len(b) for b in blocks)
+            line_step = (fs * (100.0 / 72.0) * 1.42) / H_PX   # line height in axes fraction
+            gap = line_step * 0.62                            # space between sentences
+            total = n_lines * line_step + max(0, len(blocks) - 1) * gap
+            if total <= band_h:
+                chosen = (fp, fs, blocks, line_step, gap, total)
+                break
+        if not chosen:
+            fp = _sized(sans, 18)
+            blocks = [_wrap(s, fp) for s in sentences]
+            line_step = (18 * (100.0 / 72.0) * 1.42) / H_PX
+            gap = line_step * 0.62
+            total = sum(len(b) for b in blocks) * line_step + max(0, len(blocks) - 1) * gap
+            chosen = (fp, 18, blocks, line_step, gap, total)
+        fp, fs, blocks, line_step, gap, total = chosen
+
+        cursor = band_bottom + (band_h + total) / 2  # center the block between the rules
+        for block in blocks:
+            for ln in block:
+                ax.text(0.5, cursor, ln, fontsize=fs, color=BRAND_DARK,
+                        va='top', ha='center', fontproperties=fp)
+                cursor -= line_step
+            cursor -= gap
+
+        # closing claret kicker — FIXED position (defines the bottom of the box; text is
+        # centered within it above, rather than the rule hugging the text)
+        ax.plot(list(KICK), [BOTTOM_RULE_Y, BOTTOM_RULE_Y], color=BRAND_ACCENT, lw=2.4)
+
+        # --- Footer: walk-forward note + url ---
+        ax.plot([0.08, 0.92], [0.115, 0.115], color=BRAND_HAIRLINE, lw=1.2)
+        ax.text(0.5, 0.075, 'Walk-forward tested — signals only, you execute.',
+                fontsize=15, color=BRAND_GRAY, va='center', ha='center', fontproperties=sans)
+        ax.text(0.5, 0.045, 'rigacap.com', fontsize=17, color=BRAND_ACCENT,
+                va='center', ha='center', fontproperties=mono)
 
         buf = io.BytesIO()
-        fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0,
-                    facecolor=BRAND_LIGHT, edgecolor='none')
+        fig.savefig(buf, format='png', facecolor=BRAND_LIGHT, edgecolor='none')
         plt.close(fig)
         buf.seek(0)
         return buf.read()

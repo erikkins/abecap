@@ -556,11 +556,35 @@ async def cancel_post_via_email(
         )
 
     success = await post_scheduler_service.cancel_post(post_id, db)
+
+    # Autopost fans one insight out to X + Threads + Instagram as sibling rows sharing a
+    # scheduled_for — cancel them all so one kill click stops the whole insight everywhere.
+    siblings_cancelled = 0
+    try:
+        target = (await db.execute(select(SocialPost).where(SocialPost.id == post_id))).scalar_one_or_none()
+        if target and target.post_type == "research_insight" and target.scheduled_for:
+            sibs = (await db.execute(
+                select(SocialPost).where(
+                    SocialPost.post_type == "research_insight",
+                    SocialPost.scheduled_for == target.scheduled_for,
+                    SocialPost.id != post_id,
+                    SocialPost.status.in_(["scheduled", "approved", "draft"]),
+                )
+            )).scalars().all()
+            for s in sibs:
+                s.status = "cancelled"
+                siblings_cancelled += 1
+            if siblings_cancelled:
+                await db.commit()
+    except Exception:
+        pass
+
     if success:
+        extra = f" (plus {siblings_cancelled} on the other platform{'s' if siblings_cancelled != 1 else ''})" if siblings_cancelled else ""
         return HTMLResponse(
             content="<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
             "<h2 style='color:#059669;'>Post Cancelled</h2>"
-            "<p>The scheduled post has been cancelled and will not be published.</p>"
+            f"<p>The scheduled post has been cancelled and will not be published{extra}.</p>"
             f"<p><a href='{settings.FRONTEND_URL}/app'>Return to Dashboard</a></p></body></html>",
         )
     else:

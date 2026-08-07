@@ -5550,39 +5550,51 @@ def handler(event, context):
                 occ = now.isocalendar()[1] * 3 + slot
                 tier = "preserver" if occ % 2 == 0 else "maximizer"
 
-            platform = _acfg.get("platform", "twitter")
+            platforms = _acfg.get("platforms", ["twitter", "threads", "instagram"])
             window_hours = _acfg.get("window_hours", 4)
             dry_run = _acfg.get("dry_run", False)
 
             async with async_session() as db:
-                # 8-day anti-repeat lookback (our own posts, any status).
+                # 8-day anti-repeat lookback (dedup identical cross-posts across platforms).
                 cutoff = now - timedelta(days=8)
                 recent = (await db.execute(
                     select(_SP.text_content).where(
                         _SP.post_type == "research_insight",
                         _SP.created_at >= cutoff,
-                    ).order_by(desc(_SP.created_at)).limit(20)
+                    ).order_by(desc(_SP.created_at)).limit(40)
                 )).scalars().all()
-                avoid_texts = [r for r in recent if r]
+                avoid_texts = list(dict.fromkeys([r for r in recent if r]))
 
                 seed_idx = now.timetuple().tm_yday  # rotate material day to day
-                post = await ai_content_service.generate_research_insight(
-                    platform=platform, seed_idx=seed_idx, tier=tier, avoid_texts=avoid_texts,
+                # Generate ONCE at Twitter's tightest limit so identical copy fits all 3.
+                base = await ai_content_service.generate_research_insight(
+                    platform="twitter", seed_idx=seed_idx, tier=tier, avoid_texts=avoid_texts,
                 )
-                if not post:
+                if not base or not base.text_content:
                     return {"status": "error", "error": "generation failed"}
+                text = base.text_content
 
                 if dry_run:
-                    return {"status": "ok", "dry_run": True, "tier": tier,
-                            "text": post.text_content, "chars": len(post.text_content or "")}
+                    return {"status": "ok", "dry_run": True, "tier": tier, "platforms": platforms,
+                            "text": text, "chars": len(text)}
 
-                # Schedule to auto-publish a few hours out (kill window).
+                # Schedule to auto-publish a few hours out (kill window). One post per
+                # platform, identical copy, same scheduled_for (so one kill cancels all).
                 publish_at = now + timedelta(hours=window_hours)
-                post.status = "scheduled"
-                post.scheduled_for = publish_at
-                db.add(post)
+                created, primary = [], None
+                for p in platforms:
+                    sp = _SP(
+                        post_type="research_insight", platform=p, status="scheduled",
+                        text_content=text, scheduled_for=publish_at,
+                        ai_generated=True, ai_model=base.ai_model,
+                    )
+                    db.add(sp)
+                    created.append(sp)
                 await db.commit()
-                await db.refresh(post)
+                for sp in created:
+                    await db.refresh(sp)
+                    if sp.platform == "twitter" or primary is None:
+                        primary = sp
 
                 # Human "today at 1:00 PM ET" for the heads-up.
                 if _pytz:
@@ -5591,18 +5603,19 @@ def handler(event, context):
                 else:
                     post_when = f"in {window_hours}h"
 
-                kill_token = post_scheduler_service.generate_cancel_token(post.id)
-                kill_url = f"https://api.rigacap.com/api/admin/social/posts/{post.id}/cancel-email?token={kill_token}"
+                # One kill link (cancels the primary + same-time research_insight siblings).
+                kill_token = post_scheduler_service.generate_cancel_token(primary.id)
+                kill_url = f"https://api.rigacap.com/api/admin/social/posts/{primary.id}/cancel-email?token={kill_token}"
                 try:
                     await admin_email_service.send_autopost_notice(
-                        to_email="erik@rigacap.com", post=post, kill_url=kill_url,
-                        tier=tier, post_when=post_when,
+                        to_email="erik@rigacap.com", post=primary, kill_url=kill_url,
+                        tier=tier, post_when=post_when, platforms=platforms,
                     )
                 except Exception as _e:
                     print(f"⚠️ autopost heads-up email failed: {_e}")
 
-                return {"status": "ok", "post_id": post.id, "tier": tier,
-                        "scheduled_for": str(publish_at), "platform": platform}
+                return {"status": "ok", "tier": tier, "platforms": platforms,
+                        "post_ids": [sp.id for sp in created], "scheduled_for": str(publish_at)}
 
         try:
             return _run_async(_autopost_own_social())
