@@ -1,5 +1,8 @@
 # Stocker App - Key Learnings
 
+## 🚨 NEVER `terraform apply` (Aug 7) — worker/api Lambda state drifted, apply = prod outage
+- [Terraform apply unsafe](project_terraform_apply_unsafe.md) — plan shows worker Lambda would revert image_uri + env (SIGNAL_UNIVERSE_SIZE 100→200, STRIPE prices→old, META_IG_APP_ID→blank, tokens). import/plan safe; apply is NOT until main.tf Lambda env+image reconciled to live. CI/CD uses container path, not terraform.
+
 ## 🐦 X API can't auto-post REPLIES on Free tier (Aug 7) — deep-link workaround, not a bug
 - [X API 403 + deep-link fix](project_x_api_reply_403.md) — 403 not-authorized "can only reply where mentioned/author" = Free-tier restriction (why Erik copy-pasted). Reply approval email now DEEP-LINKS to X's pre-filled composer (compose-email endpoint → intent/tweet?in_reply_to). Our own posts still API-post fine. Basic tier fix UNVERIFIED — don't assume paying works.
 

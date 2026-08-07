@@ -10,21 +10,23 @@ metadata:
 # Session snapshot — Aug 7 2026
 
 ## Frozen spec (load-bearing)
-- Public copy: "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/sleeve/DWAP; steer toward Maximizer. Deploy = push main → "Deploy RigaCap" GHA (or `gh workflow run "Deploy RigaCap" --ref main`). **NEVER push + dispatch same commit → Lambda ResourceConflictException; serialize.** NEVER `aws lambda update-function-configuration --environment`. Worker=rigacap-prod-worker (ARN arn:aws:lambda:us-east-1:149218244179:function:rigacap-prod-worker), AWS_PROFILE=rigacap. `{"db_read":"SQL"}` (cast ts ::text); `{"run_migration":true,"sql":...}`.
-- OVERLAY SSOT = perf_numbers.js/.py: Maximizer 5yr 31.4/1.51/−14.9, 21yr 13.5/0.93/−20.8; Preserver 5yr 13.0/1.28/−12.9, 21yr 7.7/0.87/−13.7; SPY 5yr 14.2/−25.4, 21yr 9.8/−55; 2008 both ~flat vs SPY −37.7; down-mo capture ~−0.97 vs SPY −3.85. One-click links MUST use api.rigacap.com. Admin email → erik@rigacap.com. BRAND=claret/paper (Fraunces + IBM Plex); mono ONLY for data/tables, never prose.
+- Public copy: "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/sleeve/DWAP; steer toward Maximizer. Deploy = push main → "Deploy RigaCap" GHA (or `gh workflow run "Deploy RigaCap" --ref main`). NEVER push+dispatch same commit (ResourceConflictException; serialize). NEVER `aws lambda update-function-configuration --environment`. **NEVER `terraform apply`** (worker/api Lambda drifted → apply reverts env+image = outage; [[project_terraform_apply_unsafe]]). Worker=rigacap-prod-worker, AWS_PROFILE=rigacap. `{"db_read":"SQL"}` (ts ::text); `{"run_migration":true,"sql":...}`.
+- OVERLAY SSOT = perf_numbers.js/.py. One-click links → api.rigacap.com. Admin email → erik@rigacap.com. BRAND=claret/paper (Fraunces + IBM Plex); mono only for data, never prose.
 
 ## ✅ SHIPPED THIS SESSION (all live)
-- REPLY SCANNER: plain-voice, discipline-first, 5-reply-day anti-repeat, NO ellipsis (rejects '...' any length), 2 tier FORKS (classify_tier by thread register). **X 403: Free tier can't API-reply to 3rd parties → approval email is a DEEP LINK to X pre-filled composer (compose-email→intent/tweet); Erik taps+Posts. Erik LOVES it.** See [[project_x_api_reply_403]].
-- CARDS: launch 1-5 refreshed GROWTH-FORWARD (1=+31%/−15% hook, 2=bear defense, 3=21yr long-game w/ DD circled — NOT return, so it doesn't clash w/ card1's 31%, 4=how-it-works, 5=teaser). Fixed mono-on-prose fonts. Rendered 2x (crisp when X downscales). og-card rebuilt claret/paper, CENTERED+crop-safe, growth-forward; meta tags backtested/19%→walk-forward+SSOT. Generators: design/brand/social-launch-cards.html + design/og-card-source.html. Cards use SAME Google Fonts as site.
-- **OWN-SOCIAL CADENCE (just shipped):** autopost + 1-click KILL, Mon/Wed/Fri, alternating Preserver/Maximizer. Handler {"autopost_own_social":{tier?,dry_run?,window_hours?}} → generate_research_insight(tier, avoid_texts=last 8 days) → status=scheduled +4h → send_autopost_notice heads-up+kill email (reuses cancel-email) → publish cron auto-posts unless killed (own-posts NOT 403-blocked). EventBridge rigacap-prod-autopost-social cron(0 13 ? * MON,WED,FRI) → worker (CLI-created, +lambda perm). Dry-run verified both voices excellent + forked.
+- REPLY SCANNER: plain voice, 5-reply-day anti-repeat, no-ellipsis, 2 tier forks. X 403 → deep-link to X pre-filled composer ([[project_x_api_reply_403]]); Erik posts via 1 tap.
+- CARDS: launch 1-5 growth-forward, fonts fixed (mono→serif/sans), 2x-crisp; og-card rebuilt claret/paper CENTERED+crop-safe (link-preview at rigacap.com/og-card.png, NOT header). Meta tags → walk-forward+SSOT.
+- OWN-SOCIAL CADENCE: autopost + 1-click kill, Mon/Wed/Fri, alternating Preserver/Maximizer. Handler {"autopost_own_social":{}} (guard fixed b975447: empty-dict was falsy). EventBridge rigacap-prod-autopost-social. Live TEST post 715 scheduled 23:27 UTC (~7:27PM ET Aug 7) — confirm it posts.
+- X BANNER: 1500×500 (3:1 — X zoom-crops other ratios), single-tone bg, divider stops at frame, native-size sharp (blur was X compression, unavoidable). design/brand/profiles/x-banner.png + x-banner-source.html. Erik uploaded, accepted.
+- TERRAFORM: imported 3 CLI rules (reply-scan day/eve + autopost) into state + main.tf; nothing deleted. **Plan surfaced worker Lambda drift → apply unsafe (see frozen spec).**
+- ANTI-REPEAT extended: generate_post (trade_result/we_called_it/loss_review) now takes avoid_texts 8-day lookback like replies + research_insight; generate_social_posts feeds it.
 
 ## ▶ NEXT / IN FLIGHT
-- LIVE autopost FIRED (test): post 715 (preserver), scheduled ~7:27 PM ET Aug 7, heads-up+kill email sent. **BUG FIXED (b975447): guard `event.get("autopost_own_social")` treated empty `{}` as falsy → live invoke AND the M/W/F rule both silently no-op'd; now `if "autopost_own_social" in event:`.** Confirm first real M/W/F fire.
-- HEADER BANNER DONE: design/brand/profiles/x-banner.png now **1500×500** (X's native size — the blur was X downscaling our 3000×1000 with its own poor scaler; render 2x then Lanczos→1500×500 so X keeps it as-is). Background unified to single paper tone; kept the thin vertical divider framing the knob (Erik removed then said "leave that" → divider STAYS). Source: x-banner-source.html (reconstructed from knob SVG). Erik re-uploads to X header manually (brand asset, not app-served). Committed current + correct.
-- og-card = link-preview/unfurl (og:image/twitter:image → rigacap.com/og-card.png), NOT the header. Explained.
-- 20 stale research_insight drafts left in DB (won't post; harmless). Could cancel for tidiness.
-- TERRAFORM RECONCILE: import CLI-made rules (2 reply-scan + autopost-social); remove monthly_recap block (~1809).
-- Reply flow: after wk1 Erik still taps deep-link (approve-first by nature). Paid X tier for reply auto-post = OPEN, verify before paying.
+- Confirm 715 posts ~7:27PM ET + first real M/W/F autopost fires clean.
+- RECONCILE worker+api Lambda env+image in main.tf → makes `terraform apply` safe again (pull live via get-function-configuration). Until then: import/plan OK, never apply.
+- Clean up 20 stale research_insight drafts (optional).
+- GROWTH swings: testimonials/social-proof section; churn prevention (cancel survey + win-back); ads recheck search terms ~Aug 8.
+- Reply auto-post paid X tier = OPEN (verify before paying).
 
 ## Notes
-- Billing portal 400 = NOT a bug (erikkins@gmail.com orphan; don't touch billing w/o ask). Ads: rigacap-signals-2tier live, recheck search terms ~Aug 8.
+- Billing portal 400 = NOT a bug (erikkins@gmail.com orphan; don't touch billing w/o ask).
