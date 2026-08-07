@@ -21,10 +21,16 @@ metadata:
 - STALE DRAFTS cleaned (23 deleted; kept active reply history + 715).
 - DR HARDENING: scripts/backup-lambda-env.sh + restore-lambda-env.sh (SSE S3 dr/lambda-env/, baseline uploaded worker55/api52). Weekly worker handler {"backup_lambda_env":true} + EventBridge rigacap-prod-backup-lambda-env cron(0 7 ? * SUN). main.tf blueprint: 15 live-only keys declared (var refs + vars, secrets sensitive), tfvars populated from live (gitignored). All CLI EventBridge rules imported into terraform.
 
+## ▶ ACTIVE: MULTI-PLATFORM AUTOPOST (X + Threads + Instagram) — mid-build, NOT deployed/committed
+- Goal: M/W/F autopost fans out to all 3 (was twitter-only). Twitter+Threads = text; Instagram needs an image → publish_post ALREADY auto-generates a card via chart_card_generator.generate_text_card + uploads to S3 (so IG works once we create an IG post row).
+- ✅ DONE (uncommitted, backend/app/services/chart_card_generator.py + backend/app/assets/fonts/): rebuilt generate_text_card into an on-brand editorial card. Bundled Fraunces + IBM Plex Sans/Mono TTFs (OFL) + registered in matplotlib. Iterated on Erik's design notes (4 rounds): claret/paper, NO giant quote mark, wordmark "RigaCap." CENTERED as a unit (claret period overlaid at measured right edge), body = IBM Plex Sans (site body font; Fraunces=wordmark only), broken BY SENTENCE with gaps, PIXEL-MEASURED wrap w/ widow pull-up (absorb ≤2-word trailing lines within a hard edge-limit — no frame overrun), block vertically centered between equal+longer claret kicker rules, footer "Walk-forward tested — signals only" + rigacap.com. Previews /tmp/ig_{maximizer,preserver,short}.png look sharp. **Awaiting Erik's final OK, then commit.**
+- FONT NOTE: site uses Fraunces (font-display) medium/opsz-48 + IBM Plex Sans body; matplotlib renders Fraunces variable-default (heavier) — acceptable for the small wordmark. Card font measurement uses renderer.get_text_width_height_descent.
+- ⬜ TODO after Erik OKs card: (1) modify autopost handler (main.py ~5529) to generate insight ONCE then create 1 SocialPost per platform [twitter,threads,instagram] scheduled together; (2) send_autopost_notice → note all 3 platforms + ONE kill link; (3) cancel-email endpoint → cascade-cancel same-scheduled_for research_insight siblings (one click kills all 3); (4) compile+deploy; (5) dry-run/live verify. Files: backend/main.py, email_service.send_autopost_notice, app/api/social.py cancel_post_via_email.
+
 ## ▶ NEXT / IN FLIGHT
-- Confirm 715 posted ~7:27PM ET + first real M/W/F autopost fires clean.
-- OPTIONAL: already-replied-on-X interception (skip tweets @rigacap replied to manually) — reply tidiness, not built.
-- GROWTH swings (north star 1→…→500 subs): testimonials/social-proof section; churn prevention (cancel survey + win-back); ads recheck search terms ~Aug 8.
+- Bios: canonical positioning-led copy in design/brand/profiles/profile-bios.md (Erik pastes to X/IG/Threads). Confirm 715 posted ~7:27PM ET.
+- OPTIONAL: already-replied-on-X interception (skip tweets @rigacap replied to manually).
+- GROWTH swings: testimonials/social-proof; churn prevention; ads recheck ~Aug 8.
 - Reply auto-post paid X tier = OPEN (verify before paying).
 
 ## Notes
