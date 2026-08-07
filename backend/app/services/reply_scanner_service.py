@@ -929,26 +929,28 @@ class ReplyScannerService:
         posts = result.scalars().all()
         post_by_tweet = {p.reply_to_tweet_id: p for p in posts}
 
-        sent = 0
+        # Batch into ONE digest email (a card + one-click approve per draft) so a
+        # 4x/day scan cadence doesn't spam N separate emails per run.
+        items = []
         for detail in details:
             post = post_by_tweet.get(detail.get("tweet_id"))
             if not post:
                 continue
-            try:
-                approve_token = post_scheduler_service.generate_approve_token(post.id)
-                approve_url = f"{settings.FRONTEND_URL}/api/admin/social/posts/{post.id}/approve-email?token={approve_token}"
+            approve_token = post_scheduler_service.generate_approve_token(post.id)
+            approve_url = f"{settings.FRONTEND_URL}/api/admin/social/posts/{post.id}/approve-email?token={approve_token}"
+            items.append({"post": post, "approve_url": approve_url})
 
-                success = await admin_email_service.send_reply_approval_email(
-                    to_email="erik@rigacap.com",
-                    post=post,
-                    approve_url=approve_url,
-                )
-                if success:
-                    sent += 1
-            except Exception as e:
-                logger.error(f"Failed to send approval email for post {post.id}: {e}")
-
-        return sent
+        if not items:
+            return 0
+        try:
+            ok = await admin_email_service.send_reply_approval_batch(
+                to_email="erik@rigacap.com",
+                items=items,
+            )
+            return len(items) if ok else 0
+        except Exception as e:
+            logger.error(f"Failed to send batch approval email: {e}")
+            return 0
 
     @staticmethod
     def _strip_markdown(text: str) -> str:

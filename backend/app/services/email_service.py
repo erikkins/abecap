@@ -4199,6 +4199,64 @@ The link expires in 72 hours."""
             text_content=text,
         )
 
+    async def send_reply_approval_batch(self, to_email: str, items: list) -> bool:
+        """ONE digest email with all of a scan's contextual-reply drafts, each with its own
+        one-click Approve & Post button. items = [{"post": SocialPost, "approve_url": str}].
+        Batched so a 4x/day scan cadence doesn't spam N separate emails per run."""
+        import html as _html, json as _json
+        if not items:
+            return False
+        cards = []
+        for it in items:
+            post = it.get("post")
+            approve_url = it.get("approve_url", "")
+            if not post:
+                continue
+            username = getattr(post, "reply_to_username", None) or "unknown"
+            source_text = getattr(post, "source_tweet_text", None) or ""
+            reply_text = (post.text_content or "")
+            source_html = _html.escape(source_text[:240]).replace("\n", "<br>")
+            reply_html = _html.escape(reply_text[:400]).replace("\n", "<br>")
+            flag = ""
+            try:
+                trade = _json.loads(post.source_trade_json) if post.source_trade_json else {}
+                pnl = trade.get("pnl_pct", 0)
+                symbol = trade.get("symbol", "")
+                if symbol:
+                    flag = f'<span style="display:inline-block;background:#eef2f7;color:#334155;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;margin-left:6px;">${symbol} {pnl:+.1f}%</span>'
+            except Exception:
+                pass
+            plat = (getattr(post, "platform", "") or "twitter").title()
+            cards.append(f"""
+                <div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:16px;">
+                    <div style="font-size:12px;color:#64748b;margin-bottom:8px;">Reply to <strong>@{_html.escape(username)}</strong> &middot; {plat}{flag}</div>
+                    <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:13px;color:#475569;line-height:1.5;">{source_html or '<em style="color:#94a3b8;">(their post)</em>'}</div>
+                    <div style="font-size:14px;color:#141210;line-height:1.55;margin-bottom:14px;">{reply_html}</div>
+                    <a href="{approve_url}" style="display:inline-block;background:#059669;color:#ffffff;font-size:14px;font-weight:600;padding:10px 22px;border-radius:8px;text-decoration:none;">Approve &amp; Post</a>
+                </div>""")
+        n = len([c for c in cards])
+        cards_html = "".join(cards)
+        html = f"""<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;">
+        <tr><td style="padding:28px 24px 8px;">
+            <h1 style="margin:0;font-size:20px;color:#141210;">{n} reply draft{'s' if n != 1 else ''} ready</h1>
+            <p style="margin:6px 0 0;font-size:13px;color:#64748b;">Approve the ones that sound like you. Nothing posts unless you click. Links expire in 72h.</p>
+        </td></tr>
+        <tr><td style="padding:16px 24px 24px;">{cards_html}</td></tr>
+        <tr><td style="background:#f9fafb;padding:20px 24px;text-align:center;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;font-size:12px;color:#9ca3af;">RigaCap Reply Scanner</p>
+        </td></tr>
+    </table></body></html>"""
+        text_lines = [f"{n} reply draft{'s' if n != 1 else ''} ready — approve the ones that sound like you (nothing posts unless you click):", ""]
+        for it in items:
+            p = it.get("post")
+            if not p:
+                continue
+            u = getattr(p, "reply_to_username", None) or "unknown"
+            text_lines += [f"@{u}: {(p.text_content or '').strip()}", f"Approve: {it.get('approve_url','')}", ""]
+        subject = f"{n} reply draft{'s' if n != 1 else ''} ready to approve"
+        return await self.send_email(to_email=to_email, subject=subject, html_content=html, text_content="\n".join(text_lines))
+
 
     async def send_email_failure_report(self, to_email: str, failures: list[dict]) -> bool:
         """Send a summary report of email delivery failures to an admin."""
