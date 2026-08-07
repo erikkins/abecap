@@ -57,6 +57,7 @@ WHAT CONVERTS: the reader should think "huh, that's a healthier way to think abo
 - Em-dashes welcome. Sound like you typed it on your phone — real, not polished.
 
 FORMAT: Under {char_limit} chars. Plain text only. No markdown. No emojis at start.
+End on a COMPLETE sentence that lands a real point. NEVER use an ellipsis ('...' or '…') and NEVER trail off unfinished.
 Include rigacap.com/track-record only if it fits naturally (rarely)."""
 
 
@@ -947,7 +948,18 @@ class ReplyScannerService:
                     )
                     continue
 
-                # NEVER post an ellipsis-truncated reply — regenerate shorter instead.
+                # NEVER trail off. Reject ANY ellipsis (regardless of length) — the model
+                # sometimes ends on "..." as a rhetorical trail-off, which reads unfinished.
+                if "..." in text or "…" in text:
+                    logger.warning(f"[reply-scanner] @{username}/{symbol} attempt {attempt + 1}: ellipsis / trailed off, regenerating")
+                    retry_note = (
+                        "YOUR PRIOR DRAFT USED AN ELLIPSIS or trailed off unfinished. NEVER use '...' or '…' "
+                        "anywhere. Every sentence must be COMPLETE and land on a real point — no trailing off, "
+                        "no implied 'you know what I mean' ending. Finish the thought."
+                    )
+                    continue
+
+                # NEVER post an over-length (would-be-truncated) reply — regenerate shorter.
                 if len(text) > char_limit:
                     logger.warning(f"[reply-scanner] @{username}/{symbol} attempt {attempt + 1}: {len(text)}>{char_limit} chars, regenerating shorter")
                     retry_note = (
