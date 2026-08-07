@@ -1828,6 +1828,72 @@ resource "aws_lambda_permission" "monthly_recap" {
 }
 
 # ============================================================================
+# Reply scanner (contextual reply drafts) + own-social autopost
+# Created via CLI first, then imported into state so main.tf tracks them.
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "reply_scan_day" {
+  name                = "${local.prefix}-reply-scan-day"
+  schedule_expression = "cron(30 13,16,20 ? * MON-FRI *)"
+}
+
+resource "aws_cloudwatch_event_target" "reply_scan_day" {
+  rule      = aws_cloudwatch_event_rule.reply_scan_day.name
+  target_id = "worker"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ scan_replies = { since_hours = 8 } })
+}
+
+resource "aws_lambda_permission" "reply_scan_day" {
+  statement_id  = "reply-scan-day-eb"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.reply_scan_day.arn
+}
+
+resource "aws_cloudwatch_event_rule" "reply_scan_eve" {
+  name                = "${local.prefix}-reply-scan-eve"
+  schedule_expression = "cron(0 0 ? * TUE-SAT *)"
+}
+
+resource "aws_cloudwatch_event_target" "reply_scan_eve" {
+  rule      = aws_cloudwatch_event_rule.reply_scan_eve.name
+  target_id = "worker"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ scan_replies = { since_hours = 10 } })
+}
+
+resource "aws_lambda_permission" "reply_scan_eve" {
+  statement_id  = "reply-scan-eve-eb"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.reply_scan_eve.arn
+}
+
+resource "aws_cloudwatch_event_rule" "autopost_social" {
+  name                = "${local.prefix}-autopost-social"
+  description         = "Autopost tier-forked own-social insight (Mon/Wed/Fri), heads-up + 1-click kill"
+  schedule_expression = "cron(0 13 ? * MON,WED,FRI *)"
+}
+
+resource "aws_cloudwatch_event_target" "autopost_social" {
+  rule      = aws_cloudwatch_event_rule.autopost_social.name
+  target_id = "worker"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ autopost_own_social = {} })
+}
+
+resource "aws_lambda_permission" "autopost_social" {
+  statement_id  = "rigacap-prod-autopost-social-invoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.autopost_social.arn
+}
+
+# ============================================================================
 # Step Functions - Walk-Forward Simulation
 # ============================================================================
 
