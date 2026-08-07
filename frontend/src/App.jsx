@@ -2210,9 +2210,9 @@ function Dashboard() {
           const data = await res.json();
           updateEffectiveTrail(data);
           setDashboardData(data);
-          if (data.missed_opportunities?.length > 0) {
-            setMissedOpportunities(data.missed_opportunities);
-          }
+          // Always reflect the payload (incl. empty) so switching tier/date CLEARS a prior
+          // tier's list instead of leaving it stuck (e.g. Maximizer has no missed-opps yet).
+          setMissedOpportunities(data.missed_opportunities || []);
         } catch (err) {
           if (err.name === 'AbortError') return; // Expected on cleanup
           console.error('Dashboard time-travel fetch failed:', err);
@@ -2232,9 +2232,7 @@ function Dashboard() {
       if (cached && !signal.aborted) {
         updateEffectiveTrail(cached);
         setDashboardData(cached);
-        if (cached.missed_opportunities?.length > 0) {
-          setMissedOpportunities(cached.missed_opportunities);
-        }
+        setMissedOpportunities(cached.missed_opportunities || []);
         setTimeTravelPresets(buildTimeTravelPresets(cached));
       }
 
@@ -2255,9 +2253,7 @@ function Dashboard() {
         if (signal.aborted) return;
         updateEffectiveTrail(data);
         setDashboardData(data);
-        if (data.missed_opportunities?.length > 0) {
-          setMissedOpportunities(data.missed_opportunities);
-        }
+        setMissedOpportunities(data.missed_opportunities || []);
         setCache(CACHE_KEYS.DASHBOARD, data);
         setTimeTravelPresets(buildTimeTravelPresets(data));
       } catch (err) {
