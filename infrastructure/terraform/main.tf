@@ -989,6 +989,15 @@ resource "aws_lambda_function" "api" {
   }
 
   depends_on = [aws_ecr_repository.api]
+
+  # image_uri is deployed by CI/CD (container path), and env vars are managed
+  # out-of-band (token-refresh cron + occasional CLI edits) — terraform's view of
+  # both drifts by design. Ignore them so `terraform apply` can never revert the
+  # live image or DROP env keys it doesn't know about (would be a prod outage).
+  # main.tf's env map is the *seed* for a fresh create; runtime is source of truth.
+  lifecycle {
+    ignore_changes = [image_uri, environment]
+  }
 }
 
 # Lambda Function — Worker (background jobs: scans, WF simulations, emails, social)
@@ -1043,6 +1052,14 @@ resource "aws_lambda_function" "worker" {
   }
 
   depends_on = [aws_ecr_repository.api]
+
+  # See the API Lambda note: image_uri is CI-deployed and env is managed
+  # out-of-band, so both drift by design. Ignore them so `terraform apply` can
+  # never revert the image or drop env keys (e.g. TIER_SERVING, the MAXPP price
+  # IDs, META_FB_* tokens) that live has but this config doesn't declare.
+  lifecycle {
+    ignore_changes = [image_uri, environment]
+  }
 }
 
 # ============================================================================
