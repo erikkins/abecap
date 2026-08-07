@@ -7,7 +7,11 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-**`terraform apply` is currently UNSAFE and would cause a production outage.** (Discovered Aug 7 2026 during EventBridge-rule reconcile.)
+**RESOLVED Aug 7 2026** — added `lifecycle { ignore_changes = [image_uri, environment] }` to BOTH `aws_lambda_function.api` and `.worker`. Full plan is now `0 add / 0 destroy / 1 cosmetic` (monthly_recap target input normalization; recap stays disabled). `terraform apply` no longer clobbers the Lambdas. Still: review any plan before apply, and keep the ignore_changes blocks (removing them re-arms the landmine). Below is the original finding for context.
+
+---
+
+**(original) `terraform apply` was UNSAFE and would have caused a production outage.** (Discovered Aug 7 2026 during EventBridge-rule reconcile.)
 
 A targeted `terraform plan` showed `aws_lambda_function.worker` badly drifted from live — apply would REVERT:
 - `image_uri` → an older ECR image (undoing CI/CD deploys)
