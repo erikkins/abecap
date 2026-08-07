@@ -210,23 +210,25 @@ function drawAllCards() {
     { text: ' a year', font: 'bold 92px ' + SERIF, color: INK },
   ], w / 2, 500, 'center');
 
-  // Second stat — a small drawdown is a feature, so it's forest (positive)
+  // Second stat — a small drawdown is a feature, so it's forest (positive).
+  // Serif to match the hook (mono here read as clunky typewriter on the words).
   ctx.fillStyle = FOREST;
-  ctx.font = 'bold 58px ' + MONO;
+  ctx.font = '600 60px ' + SERIF;
   ctx.textAlign = 'center';
-  ctx.fillText('−15% worst drawdown', w / 2, 600);
+  ctx.fillText('−15% worst drawdown', w / 2, 604);
 
   hairline(ctx, 160, w - 160, 690);
 
-  // Comparison — we beat the index on BOTH return and pain
+  // Comparison — we beat the index on BOTH return and pain.
+  // All sans (numbers included) so prose numbers don't look monospaced.
   ctx.fillStyle = INK;
   ctx.textAlign = 'center';
   fitText(ctx, 'Over the same five years, the S&P 500', w / 2, 772, 900, '34px ' + SANS);
   drawSegments(ctx, [
     { text: 'returned ', font: '34px ' + SANS, color: INK },
-    { text: '+14% a year', font: 'bold 34px ' + MONO, color: INK },
+    { text: '+14% a year', font: '600 34px ' + SANS, color: INK },
     { text: ' — and fell ', font: '34px ' + SANS, color: INK },
-    { text: '−25%', font: 'bold 34px ' + MONO, color: OXBLOOD },
+    { text: '−25%', font: '600 34px ' + SANS, color: OXBLOOD },
     { text: '.', font: '34px ' + SANS, color: INK },
   ], w / 2, 828, 'center');
 
@@ -261,7 +263,7 @@ function drawAllCards() {
 
   drawSegments(ctx, [
     { text: 'The market fell ', font: '44px ' + SERIF, color: INK },
-    { text: '−38%', font: 'bold 44px ' + MONO, color: OXBLOOD },
+    { text: '−38%', font: 'bold 44px ' + SERIF, color: OXBLOOD },
     { text: '.', font: '44px ' + SERIF, color: INK },
   ], w / 2, 516, 'center');
   drawSegments(ctx, [
@@ -337,7 +339,7 @@ function drawAllCards() {
 
   // Maximizer leads (growth-forward); Preserver next; index last.
   const rows = [
-    { name: 'RigaCap Maximizer', ann: '13.5%', sharpe: '0.93', dd: '−20.8%', ddColor: FOREST, highlight: true, circleAnn: true },
+    { name: 'RigaCap Maximizer', ann: '13.5%', sharpe: '0.93', dd: '−20.8%', ddColor: FOREST, highlight: true, circleDd: true },
     { name: 'RigaCap Preserver', ann: '7.7%', sharpe: '0.87', dd: '−13.7%', ddColor: FOREST, highlight: true },
     { name: 'S&P 500', ann: '9.8%', sharpe: '—', dd: '−55%', ddColor: OXBLOOD, highlight: false },
   ];
@@ -364,9 +366,10 @@ function drawAllCards() {
     ctx.font = (row.highlight ? 'bold ' : '') + '30px ' + MONO;
     ctx.fillText(row.dd, ddX, y);
 
-    // Circle the return that beats the index — the growth-forward point
-    if (row.circleAnn) {
-      sharpieEllipse(ctx, annX - 42, y - 10, 82, 40);
+    // Circle the drawdown — unambiguously "good" (tiny loss vs the index's −55%),
+    // and it doesn't visually compete with card 1's +31% return headline.
+    if (row.circleDd) {
+      sharpieEllipse(ctx, ddX - 58, y - 10, 98, 42);
     }
     hairline(ctx, 100, w - 100, y + 32);
     y += 96;

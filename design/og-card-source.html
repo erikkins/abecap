@@ -2,117 +2,71 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,144,400;0,144,600;0,144,700;1,144,600;1,144,700&family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 1200px; height: 675px; overflow: hidden;
-    background: #0b153d;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; background: #F5F1E8; }
+  /* RigaCap PAPER editorial system — matches the site + launch cards */
+  :root {
+    --paper: #F5F1E8; --ink: #141210; --muted: #5A544E; --faint: #8A8279;
+    --claret: #7A2430; --oxblood: #8F2D3D; --forest: #2D5F3F; --hairline: #DDD5C7;
+    --serif: "Fraunces", Georgia, serif;
+    --sans: "IBM Plex Sans", -apple-system, Helvetica, sans-serif;
+  }
+  /* Everything critical lives inside a centered safe zone so X's link-card crop
+     only ever eats the outer margins — never the wordmark or the numbers. */
   .card {
-    width: 1200px; height: 675px;
-    background: radial-gradient(ellipse at 30% 25%, #1e40af 0%, #172554 50%, #0b153d 100%);
+    width: 1200px; height: 630px; background: var(--paper); color: var(--ink);
     position: relative;
-    overflow: hidden;
-    color: #fff;
-    display: flex; flex-direction: column;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 0 140px;
   }
-  .grid {
-    position: absolute; inset: 0;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-    background-size: 48px 48px;
-  }
-  .glow {
-    position: absolute; top: -200px; right: -150px;
-    width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(251,191,36,0.12) 0%, transparent 65%);
-    pointer-events: none;
-  }
-  .header {
-    display: flex; align-items: center; gap: 36px;
-    padding: 60px 80px 0;
-    position: relative;
-  }
-  .logo { width: 140px; height: 140px; flex-shrink: 0; }
-  .brand { display: flex; flex-direction: column; }
-  .wordmark {
-    font-size: 92px; font-weight: 800; letter-spacing: -3px;
-    line-height: 1; color: #ffffff;
-  }
-  .tagline {
-    margin-top: 10px;
-    font-size: 26px; font-weight: 600;
-    color: #fbbf24;
-  }
-  .divider {
-    margin: 36px 80px 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #fbbf24 30%, #fbbf24 70%, transparent);
-  }
-  .pillars {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
-    padding: 32px 80px 0;
-  }
-  .pillar {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(251,191,36,0.3);
-    border-radius: 14px;
-    padding: 22px 24px;
-  }
-  .pillar-title {
-    font-size: 26px; font-weight: 800;
-    color: #fbbf24;
-    margin-bottom: 6px;
-  }
-  .pillar-body {
-    font-size: 18px; font-weight: 600;
-    color: #e2e8f0;
-  }
+  .frame { position: absolute; inset: 24px; border: 1.5px solid var(--hairline); pointer-events: none; }
+
+  .wordmark { font-family: var(--serif); font-weight: 600; font-size: 50px; letter-spacing: -1px; line-height: 1; }
+  .wordmark .dot { color: var(--claret); }
+  .kicker { width: 52px; height: 3px; background: var(--claret); margin: 20px 0 26px; }
+
+  .headline { font-family: var(--serif); font-weight: 600; font-size: 52px; line-height: 1.06; }
+  .headline em { font-style: italic; color: var(--claret); }
+
+  .hero { font-family: var(--serif); font-weight: 700; font-size: 96px; line-height: 1; margin-top: 34px; color: var(--claret); }
+  .hero .big { font-style: italic; }
+  .hero .unit { font-style: normal; font-weight: 600; font-size: 58px; color: var(--ink); }
+  .dd { font-family: var(--serif); font-weight: 600; font-size: 44px; color: var(--forest); margin-top: 14px; }
+
+  .compare { font-family: var(--sans); font-weight: 500; font-size: 23px; color: var(--muted); margin-top: 22px; }
+  .compare b { color: var(--ink); font-weight: 600; }
+  .compare .neg { color: var(--oxblood); font-weight: 600; }
+
   .footer {
-    margin-top: auto;
-    padding: 0 80px 36px;
+    position: absolute; left: 64px; right: 64px; bottom: 44px;
     display: flex; justify-content: space-between; align-items: center;
-    position: relative;
+    font-family: var(--sans); font-size: 18px;
   }
-  .disclaimer {
-    font-size: 17px; font-weight: 500;
-    color: #94a3b8; letter-spacing: 0.3px;
-  }
-  .url {
-    font-size: 22px; font-weight: 700;
-    color: #ffffff; letter-spacing: 0.5px;
-  }
+  .footer .disc { color: var(--faint); font-weight: 500; }
+  .footer .url { color: var(--muted); font-weight: 600; font-size: 20px; }
 </style>
 </head>
 <body>
 <div class="card">
-  <div class="grid"></div>
-  <div class="glow"></div>
-  <div class="header">
-    <img class="logo" src="file:///Users/erikkins/CODE/stocker-app/design/brand/rigacap-icon-halo.png">
-    <div class="brand">
-      <div class="wordmark">RigaCap</div>
-      <div class="tagline">Algorithmic Trading Signals</div>
-    </div>
+  <div class="frame"></div>
+
+  <div class="wordmark">RigaCap<span class="dot">.</span></div>
+  <div class="kicker"></div>
+  <div class="headline">Momentum, built around the <em>drawdown.</em></div>
+
+  <div class="hero"><span class="big">+31%</span><span class="unit"> a year</span></div>
+  <div class="dd">−15% worst drawdown</div>
+
+  <div class="compare">
+    Maximizer, 2021–2026 walk-forward. The S&amp;P returned <b>+14% a year</b> and fell <span class="neg">−25%</span>.
   </div>
-  <div class="divider"></div>
-  <div class="pillars">
-    <div class="pillar">
-      <div class="pillar-title">Timing</div>
-      <div class="pillar-body">Breakout Detection</div>
-    </div>
-    <div class="pillar">
-      <div class="pillar-title">Quality</div>
-      <div class="pillar-body">Momentum Ranking</div>
-    </div>
-    <div class="pillar">
-      <div class="pillar-title">Protection</div>
-      <div class="pillar-body">Regime Intelligence</div>
-    </div>
-  </div>
+
   <div class="footer">
-    <div class="disclaimer">Signals only — execute via your broker</div>
+    <div class="disc">Signals only — execute via your broker</div>
     <div class="url">rigacap.com</div>
   </div>
 </div>
