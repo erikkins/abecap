@@ -5488,7 +5488,7 @@ def handler(event, context):
     # schedule it a few hours out, and email Erik a heads-up with a one-click KILL link.
     # Auto-publishes unless killed (own-posts are not 403-blocked like replies). 8-day
     # anti-repeat lookback so the feed doesn't sound like a machine.
-    if event.get("autopost_own_social"):
+    if "autopost_own_social" in event:
         _acfg = event.get("autopost_own_social") if isinstance(event.get("autopost_own_social"), dict) else {}
         print(f"📣 Autopost own-social: {_acfg}")
 
