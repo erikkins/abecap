@@ -483,15 +483,44 @@ class AIContentService:
             logger.error(f"Dynamic insight generation failed: {e}")
             return None
 
-    async def generate_research_insight(self, platform: str = "twitter", seed_idx: Optional[int] = None) -> Optional[SocialPost]:
+    # Tier angle for own-social forks (public copy — never names an internal strategy;
+    # 'preservation setting' / 'aggressive setting' are the approved public labels).
+    _TIER_INSIGHT_ANGLE = {
+        "preserver": (
+            "\n\nAUDIENCE ANGLE — the investor who fears giving back gains or panic-selling at "
+            "the bottom. Emphasize protecting what you've built, staying disciplined through a "
+            "drawdown, and the path you can actually hold. Calm and reassuring, not hype."
+        ),
+        "maximizer": (
+            "\n\nAUDIENCE ANGLE — the growth-seeker who's been burned watching a big winner "
+            "round-trip to nothing. Emphasize riding a strong trend with a hard exit rule — "
+            "growth with a seatbelt; the edge is the exit, not calling the top. Confident, not reckless."
+        ),
+    }
+    # Seeds skew by tier so the two forks pull from different material.
+    _TIER_SEED_POOL = {
+        "preserver": [0, 1, 2, 4, 6],   # behavioral gap, path-you-hold, preservation, worst-case, the-person
+        "maximizer": [3, 5, 7],         # 2008-flat, published-worse, aggressive-beat-momentum
+    }
+
+    async def generate_research_insight(self, platform: str = "twitter", seed_idx: Optional[int] = None, tier: Optional[str] = None, avoid_texts: Optional[List[str]] = None) -> Optional[SocialPost]:
         """Generate ONE standalone research-insight post — a curiosity hook from
         the canon, not a trade result. Additive, never refuting: the reader should
-        think 'wow, I hadn't considered that,' then click through."""
+        think 'wow, I hadn't considered that,' then click through.
+
+        tier ('preserver'|'maximizer') forks the audience angle (two buyers) and biases
+        which seeds are drawn from — without naming an internal strategy in the output.
+        avoid_texts = our recent posts (last ~8 days) so we don't repeat an opening line
+        or angle and sound like a machine."""
         if not self.enabled:
             return None
         import re as _re
         seeds = self.INSIGHT_SEEDS
-        idx = (seed_idx if seed_idx is not None else 0) % len(seeds)
+        if tier in self._TIER_SEED_POOL:
+            pool = self._TIER_SEED_POOL[tier]
+            idx = pool[(seed_idx if seed_idx is not None else 0) % len(pool)]
+        else:
+            idx = (seed_idx if seed_idx is not None else 0) % len(seeds)
         seed = seeds[idx]
         char_limit = 270 if platform == "twitter" else 500  # Threads caps at 500
         prompt = (
@@ -500,11 +529,22 @@ class AIContentService:
             f"hadn't considered that' and want to know who wrote it. NOT a pitch, NOT a trade "
             f"result, NOT advice. Calm, honest, first-person, a little wry. Lead with the idea. "
             f"No one is being corrected or refuted — there's no other person here.\n\n"
-            f"The insight to convey (rephrase in Erik's voice, don't quote it verbatim):\n{seed}\n\n"
+            f"The insight to convey (rephrase in Erik's voice, don't quote it verbatim):\n{seed}"
+            f"{self._TIER_INSIGHT_ANGLE.get(tier, '')}\n\n"
             f"Any number you use is WALK-FORWARD tested — say 'walk-forward' near it. Hard max "
             f"{char_limit - 30} characters (room for a link). End with rigacap.com/track-record "
             f"only if it fits naturally."
         )
+        # Anti-repetition: our posts from the last ~8 days — do NOT reuse their opening
+        # line, structure, or angle (so the feed doesn't sound like a machine).
+        if avoid_texts:
+            _recent = "\n".join(f"- {t.strip()}" for t in avoid_texts[:20] if t)
+            if _recent:
+                prompt += (
+                    "\n\nOUR RECENT POSTS (last ~8 days) — do NOT echo their opening line, "
+                    "sentence structure, or the same framing; pick a genuinely different angle "
+                    "and phrasing:\n" + _recent
+                )
         try:
             text = await self._call_claude(prompt)
             if not text:

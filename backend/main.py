@@ -5484,6 +5484,95 @@ def handler(event, context):
     # varying 1-4/week (never a fixed day). Each lands as a DRAFT in the Social
     # tab for Erik to approve -> schedule or post-now. {"prob": 0.4} overrides
     # the daily probability; {"force": true} always generates (for testing).
+    # AUTOPOST own-social cadence (Mon/Wed/Fri): generate ONE tier-forked research-insight,
+    # schedule it a few hours out, and email Erik a heads-up with a one-click KILL link.
+    # Auto-publishes unless killed (own-posts are not 403-blocked like replies). 8-day
+    # anti-repeat lookback so the feed doesn't sound like a machine.
+    if event.get("autopost_own_social"):
+        _acfg = event.get("autopost_own_social") if isinstance(event.get("autopost_own_social"), dict) else {}
+        print(f"📣 Autopost own-social: {_acfg}")
+
+        async def _autopost_own_social():
+            from datetime import datetime, timedelta
+            from sqlalchemy import select, desc
+            from app.services.ai_content_service import ai_content_service
+            from app.services.post_scheduler_service import post_scheduler_service
+            from app.services.email_service import admin_email_service
+            from app.core.database import SocialPost as _SP
+            try:
+                import pytz as _pytz
+            except Exception:
+                _pytz = None
+
+            now = datetime.utcnow()
+            # Alternate Preserver/Maximizer across posting days (iso-week * 3 + M/W/F slot).
+            tier = _acfg.get("tier")
+            if tier not in ("preserver", "maximizer"):
+                slot = {0: 0, 2: 1, 4: 2}.get(now.weekday(), 0)
+                occ = now.isocalendar()[1] * 3 + slot
+                tier = "preserver" if occ % 2 == 0 else "maximizer"
+
+            platform = _acfg.get("platform", "twitter")
+            window_hours = _acfg.get("window_hours", 4)
+            dry_run = _acfg.get("dry_run", False)
+
+            async with async_session() as db:
+                # 8-day anti-repeat lookback (our own posts, any status).
+                cutoff = now - timedelta(days=8)
+                recent = (await db.execute(
+                    select(_SP.text_content).where(
+                        _SP.post_type == "research_insight",
+                        _SP.created_at >= cutoff,
+                    ).order_by(desc(_SP.created_at)).limit(20)
+                )).scalars().all()
+                avoid_texts = [r for r in recent if r]
+
+                seed_idx = now.timetuple().tm_yday  # rotate material day to day
+                post = await ai_content_service.generate_research_insight(
+                    platform=platform, seed_idx=seed_idx, tier=tier, avoid_texts=avoid_texts,
+                )
+                if not post:
+                    return {"status": "error", "error": "generation failed"}
+
+                if dry_run:
+                    return {"status": "ok", "dry_run": True, "tier": tier,
+                            "text": post.text_content, "chars": len(post.text_content or "")}
+
+                # Schedule to auto-publish a few hours out (kill window).
+                publish_at = now + timedelta(hours=window_hours)
+                post.status = "scheduled"
+                post.scheduled_for = publish_at
+                db.add(post)
+                await db.commit()
+                await db.refresh(post)
+
+                # Human "today at 1:00 PM ET" for the heads-up.
+                if _pytz:
+                    et = publish_at.replace(tzinfo=_pytz.UTC).astimezone(_pytz.timezone("US/Eastern"))
+                    post_when = et.strftime("today at %-I:%M %p ET") if et.date() == datetime.now(_pytz.timezone("US/Eastern")).date() else et.strftime("%a %-I:%M %p ET")
+                else:
+                    post_when = f"in {window_hours}h"
+
+                kill_token = post_scheduler_service.generate_cancel_token(post.id)
+                kill_url = f"https://api.rigacap.com/api/admin/social/posts/{post.id}/cancel-email?token={kill_token}"
+                try:
+                    await admin_email_service.send_autopost_notice(
+                        to_email="erik@rigacap.com", post=post, kill_url=kill_url,
+                        tier=tier, post_when=post_when,
+                    )
+                except Exception as _e:
+                    print(f"⚠️ autopost heads-up email failed: {_e}")
+
+                return {"status": "ok", "post_id": post.id, "tier": tier,
+                        "scheduled_for": str(publish_at), "platform": platform}
+
+        try:
+            return _run_async(_autopost_own_social())
+        except Exception as e:
+            import traceback
+            print(f"❌ autopost_own_social failed: {e}\n{traceback.format_exc()}")
+            return {"status": "error", "error": str(e)}
+
     if event.get("generate_research_insight"):
         _cfg = event.get("generate_research_insight") if isinstance(event.get("generate_research_insight"), dict) else {}
         async def _gen_insight():

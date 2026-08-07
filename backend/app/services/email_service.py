@@ -4264,6 +4264,45 @@ The link expires in 72 hours."""
         return await self.send_email(to_email=to_email, subject=subject, html_content=html, text_content="\n".join(text_lines))
 
 
+    async def send_autopost_notice(self, to_email: str, post, kill_url: str, tier: str, post_when: str) -> bool:
+        """Heads-up that an own-social post is scheduled to AUTO-PUBLISH, with a one-click
+        KILL link. Autopost + kill model — the feed stays alive with zero effort; Erik only
+        acts if he wants to stop one."""
+        import html as _html
+        text = (getattr(post, "text_content", None) or "")
+        text_html = _html.escape(text).replace("\n", "<br>")
+        plat = (getattr(post, "platform", "") or "twitter").title()
+        tier = (tier or "preserver").lower()
+        if tier == "maximizer":
+            chip = '<span style="display:inline-block;background:#ecfdf5;color:#047857;font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;">Maximizer angle</span>'
+        else:
+            chip = '<span style="display:inline-block;background:#fbeaec;color:#7A2430;font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;">Preserver angle</span>'
+        html = f"""<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;">
+        <tr><td style="padding:28px 24px 8px;">
+            <h1 style="margin:0;font-size:20px;color:#141210;">Posting to {plat} {post_when}</h1>
+            <p style="margin:6px 0 0;font-size:13px;color:#64748b;">This auto-publishes unless you kill it. {chip}</p>
+        </td></tr>
+        <tr><td style="padding:14px 24px 6px;">
+            <div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;">
+                <div style="font-size:15px;color:#141210;line-height:1.6;">{text_html}</div>
+            </div>
+        </td></tr>
+        <tr><td style="padding:12px 24px 26px;">
+            <a href="{kill_url}" style="display:inline-block;background:#8F2D3D;color:#ffffff;font-size:14px;font-weight:600;padding:10px 22px;border-radius:8px;text-decoration:none;">Kill this post</a>
+            <div style="font-size:11px;color:#9ca3af;margin-top:8px;">Do nothing and it posts as scheduled. Link expires in 48h.</div>
+        </td></tr>
+        <tr><td style="background:#f9fafb;padding:18px 24px;text-align:center;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;font-size:12px;color:#9ca3af;">RigaCap Auto-Social</p>
+        </td></tr>
+    </table></body></html>"""
+        text_body = (
+            f"Posting to {plat} {post_when} ({tier} angle) — auto-publishes unless you kill it:\n\n"
+            f"{text.strip()}\n\nKill it: {kill_url}\n\n(Do nothing and it posts as scheduled.)"
+        )
+        subject = f"Posting {post_when}: {text.strip()[:48]}{'…' if len(text.strip()) > 48 else ''}"
+        return await self.send_email(to_email=to_email, subject=subject, html_content=html, text_content=text_body)
+
     async def send_email_failure_report(self, to_email: str, failures: list[dict]) -> bool:
         """Send a summary report of email delivery failures to an admin."""
         if not failures:
