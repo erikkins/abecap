@@ -3,9 +3,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:1500px;height:500px;overflow:hidden;background:#F5F1E8}
+html,body{width:1500px;height:421px;overflow:hidden;background:#F5F1E8}
 :root{--paper:#F5F1E8;--paper-deep:#EDE7D8;--ink:#141210;--mute:#5A544E;--light:#8A8279;--claret:#7A2430;--rule:#DDD5C7;--rule-dk:#C9BFAC;--pos:#2D5F3F}
-.banner{width:1500px;height:500px;background:var(--paper);position:relative;overflow:hidden;display:flex;align-items:stretch;font-family:'IBM Plex Sans',sans-serif}
+.banner{width:1500px;height:421px;background:var(--paper);position:relative;overflow:hidden;display:flex;align-items:stretch;font-family:'IBM Plex Sans',sans-serif}
 .frame{position:absolute;inset:14px;border:1.5px solid var(--rule);pointer-events:none}
 .left{width:60%;padding:52px 0 0 72px;position:relative}
 .wordmark{font-family:'Fraunces',serif;font-weight:600;font-size:40px;letter-spacing:-1px;color:var(--ink)}
@@ -16,7 +16,8 @@ html,body{width:1500px;height:500px;overflow:hidden;background:#F5F1E8}
 .sub{margin-top:22px;font-size:21px;color:var(--mute);line-height:1.45;max-width:560px}
 .sub b{color:var(--ink);font-weight:600}
 .url{position:absolute;top:52px;right:44px;z-index:5;font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:500;color:var(--claret)}
-.viz{position:absolute;right:0;top:0;width:40%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:transparent;border-left:1px solid var(--rule)}
+.viz{position:absolute;right:0;top:0;width:40%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:transparent}
+.divider{position:absolute;left:60%;top:14px;bottom:14px;width:1px;background:var(--rule)}
 .ends{display:flex;justify-content:space-between;width:330px;margin-top:14px}
 .ends .t{font-family:'Fraunces',serif;font-size:21px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
 .ends .l .t{color:var(--pos)}.ends .r .t{color:var(--claret)}
@@ -24,6 +25,7 @@ html,body{width:1500px;height:500px;overflow:hidden;background:#F5F1E8}
 </style></head>
 <body><div class="banner">
 <div class="frame"></div>
+<div class="divider"></div>
 <div class="url">rigacap.com</div>
 <div class="left">
   <div class="wordmark">RigaCap<span class="d">.</span></div>
