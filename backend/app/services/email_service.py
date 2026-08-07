@@ -4215,8 +4215,8 @@ The link expires in 72 hours."""
             username = getattr(post, "reply_to_username", None) or "unknown"
             source_text = getattr(post, "source_tweet_text", None) or ""
             reply_text = (post.text_content or "")
-            source_html = _html.escape(source_text[:240]).replace("\n", "<br>")
-            reply_html = _html.escape(reply_text[:400]).replace("\n", "<br>")
+            source_html = _html.escape(source_text).replace("\n", "<br>")
+            reply_html = _html.escape(reply_text).replace("\n", "<br>")
             flag = ""
             try:
                 trade = _json.loads(post.source_trade_json) if post.source_trade_json else {}

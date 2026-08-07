@@ -207,6 +207,26 @@ class ReplyScannerService:
     def __init__(self):
         self.enabled = bool(settings.ANTHROPIC_API_KEY) and bool(settings.TWITTER_API_KEY)
         self._user_id_cache: Dict[str, str] = {}
+        self._recent_replies: List[str] = []
+
+    async def _load_recent_replies(self, db, days: int = 8, limit: int = 30) -> List[str]:
+        """Reply drafts from roughly the last 5 reply-days (an ~8-day window spans weekday
+        gaps) — fed to the generator so it varies opening line + discipline angle for
+        versatility, not just avoiding today's repeats. Anti-repetition."""
+        try:
+            from sqlalchemy import select, desc
+            cutoff = datetime.utcnow() - timedelta(days=days)
+            rows = (await db.execute(
+                select(SocialPost.text_content)
+                .where(
+                    SocialPost.post_type == "contextual_reply",
+                    SocialPost.created_at >= cutoff,
+                )
+                .order_by(desc(SocialPost.created_at)).limit(limit)
+            )).scalars().all()
+            return [r for r in rows if r]
+        except Exception:
+            return []
 
     async def scan_and_generate(
         self,
@@ -236,6 +256,10 @@ class ReplyScannerService:
             platforms = ["twitter"]
             if settings.THREADS_ACCESS_TOKEN:
                 platforms.append("threads")
+
+        # Anti-repetition: load our recent replies so the generator varies its opening
+        # line + discipline angle instead of sounding like a template every scan.
+        self._recent_replies = await self._load_recent_replies(db)
 
         target_accounts = accounts or list(FOLLOWED_ACCOUNTS.keys())
         results = {
@@ -810,23 +834,29 @@ class ReplyScannerService:
             else REPLY_SYSTEM_PROMPT
         )
 
-        # Voice filter: regenerate up to 2x if banned vocabulary leaks through
         from app.services.voice_filters import contains_banned
 
-        for attempt in range(3):
-            extra_directive = None
-            if attempt > 0:
-                # Stronger reminder on retry
-                extra_directive = (
-                    "YOUR PRIOR DRAFT CONTAINED BANNED WORDS. Regenerate from scratch "
-                    "without ANY trader jargon, SaaS-speak, or proprietary indicator names. "
-                    "If you previously used 'tape', 'printing', 'ripping', 'AI-powered', "
-                    "'hedge fund returns', 'unlock', 'autonomous', 'guaranteed', or 'DWAP', "
-                    "find different words. Do not paraphrase by adding 'so-called' or quotes."
-                )
+        # Anti-repetition: feed our recent replies (last ~5 reply-days) so the model varies
+        # its opening line + discipline angle for versatility, not a template every scan.
+        avoid_block = ""
+        if self._recent_replies:
+            _joined = "\n".join(f"- {r.strip()}" for r in self._recent_replies[:25])
+            avoid_block = (
+                "\n\nYOUR RECENT REPLIES (last few days) — do NOT reuse their opening line, "
+                "sentence structure, or the same discipline angle (sizing / staying-in / boring-name / "
+                "cutting-on-the-rule). Pick a DIFFERENT angle and phrasing so a reader seeing these in "
+                "sequence hears a real person with range, not a template:\n" + _joined
+            )
 
+        # Regenerate up to 3x on banned vocab OR over-length. NEVER ship an ellipsis-
+        # truncated reply — regenerate shorter, or skip.
+        retry_note = None
+        for attempt in range(3):
+            directives = avoid_block
+            if retry_note:
+                directives += "\n\n" + retry_note
             try:
-                full_system = system_prompt + (("\n\n" + extra_directive) if extra_directive else "")
+                full_system = system_prompt + directives
                 text = await self._call_claude(user_prompt, system_prompt=full_system)
                 if not text:
                     return None
@@ -838,16 +868,25 @@ class ReplyScannerService:
                     logger.info(f"[reply-scanner] @{username}/{symbol}: model SKIPPED (no discipline-led angle)")
                     return None
 
-                # Voice filter check
                 violations = contains_banned(text)
                 if violations:
                     terms = ", ".join(t for t, _ in violations)
                     logger.warning(f"[reply-scanner] @{username}/{symbol} attempt {attempt + 1}: banned terms: {terms}")
+                    retry_note = (
+                        "YOUR PRIOR DRAFT CONTAINED BANNED WORDS. Regenerate without ANY trader jargon, "
+                        "SaaS-speak, or proprietary indicator names ('tape','printing','ripping','AI-powered', "
+                        "'unlock','autonomous','guaranteed','DWAP'). Do not paraphrase with 'so-called' or quotes."
+                    )
                     continue
 
-                # Enforce char limit
+                # NEVER post an ellipsis-truncated reply — regenerate shorter instead.
                 if len(text) > char_limit:
-                    text = text[:char_limit - 3].rsplit(" ", 1)[0] + "..."
+                    logger.warning(f"[reply-scanner] @{username}/{symbol} attempt {attempt + 1}: {len(text)}>{char_limit} chars, regenerating shorter")
+                    retry_note = (
+                        f"Your draft was {len(text)} characters — HARD MAX {char_limit}. Rewrite it SHORTER, "
+                        f"end on a COMPLETE sentence, and NEVER use an ellipsis or '...'. Cut a whole idea if needed."
+                    )
+                    continue
 
                 return text
 
@@ -855,8 +894,8 @@ class ReplyScannerService:
                 logger.error(f"Reply generation failed for @{username}/{symbol}: {e}")
                 return None
 
-        # All 3 attempts contained banned terms — give up on auto-draft
-        logger.warning(f"[reply-scanner] @{username}/{symbol}: voice filter rejected all 3 attempts")
+        # 3 attempts still failed voice/length — skip rather than post a bad or truncated reply.
+        logger.warning(f"[reply-scanner] @{username}/{symbol}: rejected all 3 attempts (voice/length)")
         return None
 
     async def _find_we_called_it_url(self, symbol: str, db) -> Optional[str]:
