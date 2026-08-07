@@ -4144,6 +4144,58 @@ function Dashboard() {
                             </div>
                           )}
 
+                          {/* Winding Down — positions still held from a PREVIOUS tier setting
+                              (e.g. breakout names after toggling Maximizer off). Kept visible with
+                              their own source-scoped exit guidance until they siphon off; new entries
+                              follow the mirror book above. Without this, served tiers hide the user's
+                              real positions and these would vanish (Erik requirement Aug 6). */}
+                          {dashboardData?.tier_book && (() => {
+                            const servedSource = dashboardData?.signal_source || 'preserver';
+                            const posBook = (p) => (p.source === 'breakout' || p.exit_rule === 'hold' || p.days_left != null || p.hold_days != null) ? 'breakout' : 'preserver';
+                            const windingDown = (guidanceWithLiveQuotes || []).filter(p => posBook(p) !== servedSource);
+                            if (windingDown.length === 0) return null;
+                            const otherLabel = servedSource === 'preserver' ? 'their 29-day breakout exit' : 'the 30% trailing stop';
+                            return (
+                              <div className="px-4 pt-4">
+                                <div className="border border-claret/30 rounded bg-paper-card">
+                                  <div className="px-4 sm:px-5 py-3 border-b border-rule">
+                                    <h3 className="font-display text-[1.05rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 48' }}>
+                                      Winding Down <span className="font-mono text-[0.6rem] tracking-[0.16em] uppercase text-ink-mute align-middle ml-1">from your previous setting</span>
+                                    </h3>
+                                    <p className="font-display italic text-[0.82rem] text-ink-mute mt-1 leading-snug" style={{ fontVariationSettings: '"opsz" 24' }}>
+                                      {windingDown.length} position{windingDown.length !== 1 ? 's' : ''} you still hold from before &mdash; keep {windingDown.length !== 1 ? 'them' : 'it'} to {otherLabel}. Not in your current book; new entries follow the book above.
+                                    </p>
+                                  </div>
+                                  <div className="divide-y divide-rule">
+                                    {windingDown.map((p) => {
+                                      const pnl = (p.pnl_pct ?? ((p.current_price - p.entry_price) / p.entry_price * 100)) || 0;
+                                      const isBreakout = posBook(p) === 'breakout';
+                                      const exitTxt = isBreakout
+                                        ? `day ${p.days_held ?? '—'}/${p.hold_days ?? 29}${p.days_left != null ? ` · ${p.days_left}d left` : ''}`
+                                        : `30% trail${p.trailing_stop_level != null ? ` · $${Number(p.trailing_stop_level).toFixed(2)}` : ''}`;
+                                      return (
+                                        <div
+                                          key={p.id || p.symbol}
+                                          onClick={() => setChartModal({ type: 'position', data: p, symbol: p.symbol })}
+                                          className="px-4 sm:px-5 py-3 flex items-center justify-between cursor-pointer hover:bg-paper-deep transition-colors"
+                                        >
+                                          <div className="flex items-baseline gap-2 min-w-0">
+                                            <span className="font-display text-[1.05rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{p.symbol}</span>
+                                            <span className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-claret border border-claret/40 px-1.5 py-0.5 whitespace-nowrap">{isBreakout ? 'Breakout' : 'Preserver'}</span>
+                                          </div>
+                                          <div className="flex items-center gap-4 whitespace-nowrap">
+                                            <span className="font-mono text-[0.7rem] text-ink-mute">{exitTxt}</span>
+                                            <span className={`font-mono text-[0.9rem] ${pnl >= 0 ? 'text-positive' : 'text-negative'}`}>{pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%</span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
                           {/* Other Signals — served tiers: ensemble names that pass our
                               screen but are NOT in our book. Kept (not discarded) so a
                               subscriber running their OWN book off our signals — different
