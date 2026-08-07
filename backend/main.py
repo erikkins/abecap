@@ -5603,13 +5603,16 @@ def handler(event, context):
                 else:
                     post_when = f"in {window_hours}h"
 
-                # One kill link (cancels the primary + same-time research_insight siblings).
+                # One kill link (cancels all siblings) + one edit link (tweak copy on all
+                # platforms) — both authorized by the same 48h token.
                 kill_token = post_scheduler_service.generate_cancel_token(primary.id)
-                kill_url = f"https://api.rigacap.com/api/admin/social/posts/{primary.id}/cancel-email?token={kill_token}"
+                base = f"https://api.rigacap.com/api/admin/social/posts/{primary.id}"
+                kill_url = f"{base}/cancel-email?token={kill_token}"
+                edit_url = f"{base}/edit-email?token={kill_token}"
                 try:
                     await admin_email_service.send_autopost_notice(
                         to_email="erik@rigacap.com", post=primary, kill_url=kill_url,
-                        tier=tier, post_when=post_when, platforms=platforms,
+                        tier=tier, post_when=post_when, platforms=platforms, edit_url=edit_url,
                     )
                 except Exception as _e:
                     print(f"⚠️ autopost heads-up email failed: {_e}")

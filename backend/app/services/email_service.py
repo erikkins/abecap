@@ -4264,7 +4264,7 @@ The link expires in 72 hours."""
         return await self.send_email(to_email=to_email, subject=subject, html_content=html, text_content="\n".join(text_lines))
 
 
-    async def send_autopost_notice(self, to_email: str, post, kill_url: str, tier: str, post_when: str, platforms=None) -> bool:
+    async def send_autopost_notice(self, to_email: str, post, kill_url: str, tier: str, post_when: str, platforms=None, edit_url: str = None) -> bool:
         """Heads-up that an own-social post is scheduled to AUTO-PUBLISH, with a one-click
         KILL link. Autopost + kill model — the feed stays alive with zero effort; Erik only
         acts if he wants to stop one. `platforms` lists all targets (kill cancels all)."""
@@ -4295,7 +4295,8 @@ The link expires in 72 hours."""
         </td></tr>
         <tr><td style="padding:12px 24px 26px;">
             <a href="{kill_url}" style="display:inline-block;background:#8F2D3D;color:#ffffff;font-size:14px;font-weight:600;padding:10px 22px;border-radius:8px;text-decoration:none;">Kill this post</a>
-            <div style="font-size:11px;color:#9ca3af;margin-top:8px;">Do nothing and it posts as scheduled. Link expires in 48h.</div>
+            {f'<a href="{edit_url}" style="display:inline-block;background:#FAF7F0;color:#7A2430;border:1px solid #DDD5C7;font-size:14px;font-weight:600;padding:10px 22px;border-radius:8px;text-decoration:none;margin-left:10px;">Edit &amp; tweak</a>' if edit_url else ''}
+            <div style="font-size:11px;color:#9ca3af;margin-top:8px;">Do nothing and it posts as scheduled. Kill or edit any time before then. Links expire in 48h.</div>
         </td></tr>
         <tr><td style="background:#f9fafb;padding:18px 24px;text-align:center;border-top:1px solid #e5e7eb;">
             <p style="margin:0;font-size:12px;color:#9ca3af;">RigaCap Auto-Social</p>

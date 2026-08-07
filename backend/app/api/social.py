@@ -11,7 +11,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Form
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, delete
@@ -679,6 +679,112 @@ async def approve_and_publish_via_email(
             f"<p><a href='{settings.FRONTEND_URL}/app'>Return to Dashboard</a></p></body></html>",
             status_code=500,
         )
+
+
+def _edit_page_html(post_id: int, token: str, text: str, platforms_note: str, when_note: str, err: str = "") -> str:
+    """The tokenized edit form (no login) — tweak an autopost's copy before it publishes."""
+    import html as _h
+    action = f"https://api.rigacap.com/api/admin/social/posts/{post_id}/edit-email?token={token}"
+    err_html = (f"<p style='color:#8F2D3D;font-size:14px;margin:0 0 10px;'>{_h.escape(err)}</p>" if err else "")
+    return (
+        "<html><body style=\"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"
+        "background:#F5F1E8;color:#141210;padding:40px 20px;max-width:640px;margin:0 auto;\">"
+        "<h2 style='color:#7A2430;margin:0 0 6px;'>Edit this post</h2>"
+        f"<p style='color:#5A544E;font-size:14px;margin:0 0 4px;'>Posts to {platforms_note} {when_note}.</p>"
+        "<p style='color:#5A544E;font-size:14px;margin:0 0 16px;'>Tweak the wording and save — the copy "
+        "(and the Instagram card) update on every platform. X caps at 280 characters.</p>"
+        f"{err_html}"
+        f"<form method='post' action='{action}'>"
+        f"<textarea name='text' rows='9' style='width:100%;font-size:16px;line-height:1.5;padding:14px;"
+        "border:1px solid #DDD5C7;border-radius:10px;background:#FAF7F0;color:#141210;box-sizing:border-box;'>"
+        f"{_h.escape(text)}</textarea>"
+        "<button type='submit' style='background:#7A2430;color:#fff;padding:11px 24px;border:none;"
+        "border-radius:8px;font-size:15px;font-weight:600;margin-top:14px;cursor:pointer;'>Save changes</button>"
+        "</form></body></html>"
+    )
+
+
+async def _edit_load(post_id, token, db):
+    """Shared: verify token + load the target post + its same-scheduled_for siblings."""
+    from app.services.post_scheduler_service import post_scheduler_service
+    if post_scheduler_service.verify_cancel_token(token) != post_id:
+        return None, None
+    post = (await db.execute(select(SocialPost).where(SocialPost.id == post_id))).scalar_one_or_none()
+    if not post:
+        return None, None
+    sibs = []
+    if post.post_type == "research_insight" and post.scheduled_for:
+        sibs = (await db.execute(
+            select(SocialPost).where(
+                SocialPost.post_type == "research_insight",
+                SocialPost.scheduled_for == post.scheduled_for,
+                SocialPost.status.in_(["scheduled", "approved", "draft"]),
+            )
+        )).scalars().all()
+    if post not in sibs:
+        sibs = list(sibs) + [post]
+    return post, sibs
+
+
+def _when_platforms(post, sibs):
+    names = {"twitter": "X", "threads": "Threads", "instagram": "Instagram"}
+    plats = sorted({s.platform for s in sibs}, key=lambda p: ["twitter", "threads", "instagram"].index(p) if p in ("twitter", "threads", "instagram") else 9)
+    labs = [names.get(p, p.title()) for p in plats]
+    plat_note = " & ".join([", ".join(labs[:-1]), labs[-1]]) if len(labs) > 1 else (labs[0] if labs else "your feed")
+    when_note = ""
+    if post.scheduled_for:
+        try:
+            from pytz import timezone as _tz
+            et = post.scheduled_for.replace(tzinfo=_tz("UTC")).astimezone(_tz("US/Eastern"))
+            when_note = et.strftime("at %-I:%M %p ET on %b %-d")
+        except Exception:
+            when_note = "as scheduled"
+    return plat_note, when_note
+
+
+@router.get("/posts/{post_id}/edit-email")
+async def edit_post_form(post_id: int, token: str, db: AsyncSession = Depends(get_db)):
+    """One-tap from the heads-up email: show a form to tweak the autopost copy before it posts."""
+    from fastapi.responses import HTMLResponse
+    post, sibs = await _edit_load(post_id, token, db)
+    if not post:
+        return HTMLResponse("<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+                            "<h2 style='color:#dc2626;'>Invalid or expired link.</h2></body></html>", status_code=400)
+    if post.status not in ("scheduled", "approved", "draft"):
+        return HTMLResponse("<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+                            "<h2>This post already went out (or was cancelled) — nothing to edit.</h2></body></html>")
+    plat_note, when_note = _when_platforms(post, sibs)
+    return HTMLResponse(_edit_page_html(post_id, token, post.text_content or "", plat_note, when_note))
+
+
+@router.post("/posts/{post_id}/edit-email")
+async def edit_post_submit(post_id: int, token: str, text: str = Form(...), db: AsyncSession = Depends(get_db)):
+    """Save the tweaked copy to the post + all its platform siblings (IG card regenerates
+    from this text at publish time, so no manual card rebuild needed)."""
+    from fastapi.responses import HTMLResponse
+    post, sibs = await _edit_load(post_id, token, db)
+    if not post:
+        return HTMLResponse("<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+                            "<h2 style='color:#dc2626;'>Invalid or expired link.</h2></body></html>", status_code=400)
+    plat_note, when_note = _when_platforms(post, sibs)
+    new_text = (text or "").strip()
+    if len(new_text) < 15:
+        return HTMLResponse(_edit_page_html(post_id, token, new_text, plat_note, when_note,
+                                            err="Too short — give it at least a sentence."), status_code=400)
+    if len(new_text) > 280:
+        return HTMLResponse(_edit_page_html(post_id, token, new_text, plat_note, when_note,
+                                            err=f"That's {len(new_text)} characters — X caps at 280. Trim a little."), status_code=400)
+    for s in sibs:
+        if s.status in ("scheduled", "approved", "draft"):
+            s.text_content = new_text
+            s.image_s3_key = None  # force the IG card to regenerate from the new text at publish
+    await db.commit()
+    return HTMLResponse(
+        "<html><body style=\"font-family:-apple-system,sans-serif;text-align:center;padding:60px 24px;"
+        "background:#F5F1E8;color:#141210;\"><h2 style='color:#059669;'>Saved</h2>"
+        f"<p style='color:#5A544E;'>Updated on {plat_note}. It’ll post {when_note} with your new wording.</p>"
+        "</body></html>"
+    )
 
 
 @router.get("/posts/{post_id}/compose-email")
