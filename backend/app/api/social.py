@@ -657,6 +657,61 @@ async def approve_and_publish_via_email(
         )
 
 
+@router.get("/posts/{post_id}/compose-email")
+async def compose_reply_via_email(
+    post_id: int,
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """One-tap from the approval email: mark the draft handled, then redirect to the X
+    composer PRE-FILLED as a reply to the target tweet with our drafted text. No API write
+    (avoids the Free-tier 'can only reply where mentioned/author' 403) — Erik just hits Post.
+    """
+    from fastapi.responses import RedirectResponse, HTMLResponse
+    from urllib.parse import quote
+    from app.services.post_scheduler_service import post_scheduler_service
+
+    verified_post_id = post_scheduler_service.verify_approve_token(token)
+    if verified_post_id is None or verified_post_id != post_id:
+        return HTMLResponse(
+            content="<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+            "<h2 style='color:#dc2626;'>Invalid or expired link.</h2></body></html>",
+            status_code=400,
+        )
+
+    result = await db.execute(select(SocialPost).where(SocialPost.id == post_id))
+    post = result.scalar_one_or_none()
+    if not post:
+        return HTMLResponse(
+            content="<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+            "<h2>Post not found.</h2></body></html>",
+            status_code=404,
+        )
+
+    text = post.text_content or ""
+    target_id = post.reply_to_tweet_id or post.reply_to_thread_id
+    platform = (post.platform or "twitter").lower()
+
+    if platform == "twitter" and target_id:
+        # X Web Intent: opens the composer as a reply to that tweet, text pre-filled.
+        intent_url = f"https://twitter.com/intent/tweet?in_reply_to={target_id}&text={quote(text)}"
+    elif platform == "threads":
+        # Threads has no reliable pre-filled-reply intent; open the composer with our text
+        # so Erik can attach it to the thread manually.
+        intent_url = f"https://www.threads.net/intent/post?text={quote(text)}"
+    else:
+        intent_url = f"https://twitter.com/intent/tweet?text={quote(text)}"
+
+    # Record that Erik acted on it (not "published" — the actual Post happens in the X app).
+    if post.status in ("draft", "approved"):
+        post.status = "approved"
+        post.reviewed_at = datetime.utcnow()
+        post.reviewed_by = "deeplink_compose"
+        await db.commit()
+
+    return RedirectResponse(url=intent_url, status_code=302)
+
+
 @router.post("/posts/{post_id}/regenerate-ai")
 async def regenerate_post_ai(
     post_id: int,

@@ -4237,7 +4237,8 @@ The link expires in 72 hours."""
                     <div style="font-size:12px;color:#64748b;margin-bottom:8px;">Reply to <strong>@{_html.escape(username)}</strong> &middot; {plat}{tier_chip}{flag}</div>
                     <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:13px;color:#475569;line-height:1.5;">{source_html or '<em style="color:#94a3b8;">(their post)</em>'}</div>
                     <div style="font-size:14px;color:#141210;line-height:1.55;margin-bottom:14px;">{reply_html}</div>
-                    <a href="{approve_url}" style="display:inline-block;background:#059669;color:#ffffff;font-size:14px;font-weight:600;padding:10px 22px;border-radius:8px;text-decoration:none;">Approve &amp; Post</a>
+                    <a href="{approve_url}" style="display:inline-block;background:#059669;color:#ffffff;font-size:14px;font-weight:600;padding:10px 22px;border-radius:8px;text-decoration:none;">Open in X &mdash; reply ready &rarr;</a>
+                    <div style="font-size:11px;color:#9ca3af;margin-top:8px;">Opens the X composer as a reply, text pre-filled. Review, then hit Post.</div>
                 </div>""")
         n = len([c for c in cards])
         cards_html = "".join(cards)
@@ -4245,20 +4246,20 @@ The link expires in 72 hours."""
     <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;">
         <tr><td style="padding:28px 24px 8px;">
             <h1 style="margin:0;font-size:20px;color:#141210;">{n} reply draft{'s' if n != 1 else ''} ready</h1>
-            <p style="margin:6px 0 0;font-size:13px;color:#64748b;">Approve the ones that sound like you. Nothing posts unless you click. Links expire in 72h.</p>
+            <p style="margin:6px 0 0;font-size:13px;color:#64748b;">Tap the ones that sound like you &mdash; each opens X with the reply pre-filled, you just hit Post. Nothing posts on its own. Links expire in 72h.</p>
         </td></tr>
         <tr><td style="padding:16px 24px 24px;">{cards_html}</td></tr>
         <tr><td style="background:#f9fafb;padding:20px 24px;text-align:center;border-top:1px solid #e5e7eb;">
             <p style="margin:0;font-size:12px;color:#9ca3af;">RigaCap Reply Scanner</p>
         </td></tr>
     </table></body></html>"""
-        text_lines = [f"{n} reply draft{'s' if n != 1 else ''} ready — approve the ones that sound like you (nothing posts unless you click):", ""]
+        text_lines = [f"{n} reply draft{'s' if n != 1 else ''} ready — tap to open X with the reply pre-filled, then hit Post:", ""]
         for it in items:
             p = it.get("post")
             if not p:
                 continue
             u = getattr(p, "reply_to_username", None) or "unknown"
-            text_lines += [f"@{u}: {(p.text_content or '').strip()}", f"Approve: {it.get('approve_url','')}", ""]
+            text_lines += [f"@{u}: {(p.text_content or '').strip()}", f"Open in X: {it.get('approve_url','')}", ""]
         subject = f"{n} reply draft{'s' if n != 1 else ''} ready to approve"
         return await self.send_email(to_email=to_email, subject=subject, html_content=html, text_content="\n".join(text_lines))
 

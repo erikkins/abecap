@@ -1044,8 +1044,8 @@ class ReplyScannerService:
             if not post:
                 continue
             approve_token = post_scheduler_service.generate_approve_token(post.id)
-            approve_url = f"https://api.rigacap.com/api/admin/social/posts/{post.id}/approve-email?token={approve_token}"
-            items.append({"post": post, "approve_url": approve_url, "tier": detail.get("tier")})
+            compose_url = f"https://api.rigacap.com/api/admin/social/posts/{post.id}/compose-email?token={approve_token}"
+            items.append({"post": post, "approve_url": compose_url, "tier": detail.get("tier")})
 
         if not items:
             return 0
@@ -1079,13 +1079,13 @@ class ReplyScannerService:
         items = []
         for post in posts:
             approve_token = post_scheduler_service.generate_approve_token(post.id)
-            approve_url = f"https://api.rigacap.com/api/admin/social/posts/{post.id}/approve-email?token={approve_token}"
+            compose_url = f"https://api.rigacap.com/api/admin/social/posts/{post.id}/compose-email?token={approve_token}"
             try:
                 _trade = json.loads(post.source_trade_json) if post.source_trade_json else None
             except (ValueError, TypeError):
                 _trade = None
             tier = self.classify_tier(post.source_tweet_text or "", _trade)
-            items.append({"post": post, "approve_url": approve_url, "tier": tier})
+            items.append({"post": post, "approve_url": compose_url, "tier": tier})
 
         if not items:
             return 0

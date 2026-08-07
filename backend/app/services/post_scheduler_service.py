@@ -87,6 +87,9 @@ class PostSchedulerService:
                 and_(
                     SocialPost.status == "draft",
                     SocialPost.scheduled_for.is_(None),
+                    # Contextual replies are deep-link/manual (X blocks API replies to
+                    # third parties on our tier) — never auto-schedule them for API posting.
+                    SocialPost.post_type != "contextual_reply",
                 )
             ).order_by(SocialPost.created_at)
         )
