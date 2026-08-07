@@ -231,8 +231,8 @@ These are the numbers every surface must converge on. Any divergence from this t
 |---|---|---|---|---|
 | Social launch cards (canvas) | `design/brand/social-launch-cards.html` | "+384% / ~37% / 1.19 Sharpe" | **STALE** | Card art needs regen with new numbers; PNG outputs in `frontend/public/launch-cards/` will need replacing |
 | AI content generator prompts | `backend/app/services/ai_content_service.py` | _no hardcoded aggregate numbers (good)_ | **OK** | Pulls trade-by-trade info from DB |
-| OG / Twitter card meta | `frontend/index.html` (or equivalent) | _verify whether og:description carries any perf claim_ | **REVIEW** | Grep for og:description and twitter:description |
-| Social profile bios (Twitter / Instagram) | _external — manually maintained_ | _likely +384% / ~37%_ | **REVIEW** | Out-of-repo; user must check live profiles |
+| OG / Twitter card meta | `frontend/index.html` | Maximizer +31%/yr, −15% DD vs SPY +14%/−25% (walk-forward) | **OK** | Updated 2026-08-07: was "backtested"/"19%" → walk-forward + overlay SSOT |
+| Social profile bios (Twitter / Instagram / Threads) | `design/brand/profiles/profile-bios.md` (canonical) — pasted manually | positioning-led, NO perf numbers in bio | **OK** | Updated 2026-08-07: "momentum built around the drawdown · two settings · signals only". User pastes into each platform. |
 | Already-published social posts | DB `social_posts` table | _likely cite +384% / +603% / ~37%_ | **DEFER** | Past posts are immutable; only ensure future scheduled queue is clean |
 
 ---
@@ -241,8 +241,8 @@ These are the numbers every surface must converge on. Any divergence from this t
 
 These can't be grep'd; must be checked manually before next external comms push.
 
-- [ ] Twitter/X profile bio
-- [ ] Instagram profile bio
+- [x] Twitter/X profile bio — canonical copy in design/brand/profiles/profile-bios.md (2026-08-07); paste to update live
+- [x] Instagram profile bio — same doc
 - [ ] LinkedIn page (if applicable)
 - [ ] Stripe product description (if numbers appear)
 - [ ] Any podcast/interview writeups Erik has done
