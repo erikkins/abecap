@@ -25,24 +25,24 @@
 <p class="subtitle">Right-click any card and "Save Image As..." to download. All cards are 1080x1350 (4:5 ratio for Instagram).</p>
 <div class="grid">
   <div class="card-wrapper">
-    <h3>1. Launch Announcement</h3>
+    <h3>1. The Numbers</h3>
     <canvas id="card1" width="1080" height="1350"></canvas>
-    <p class="hint">We're Live</p>
+    <p class="hint">+31% a year, −15% drawdown</p>
   </div>
   <div class="card-wrapper">
-    <h3>2. 21-Year Results</h3>
+    <h3>2. Built for Bad Months</h3>
     <canvas id="card2" width="1080" height="1350"></canvas>
-    <p class="hint">Twenty-one years, walk-forward</p>
+    <p class="hint">Bear-market defense</p>
   </div>
   <div class="card-wrapper">
-    <h3>3. How the System Works</h3>
+    <h3>3. Twenty-One-Year Record</h3>
     <canvas id="card3" width="1080" height="1350"></canvas>
-    <p class="hint">3-Factor Entry + Exits</p>
+    <p class="hint">The long game, walk-forward</p>
   </div>
   <div class="card-wrapper">
-    <h3>4. The Months That Matter</h3>
+    <h3>4. How the System Works</h3>
     <canvas id="card4" width="1080" height="1350"></canvas>
-    <p class="hint">Worst months vs the system</p>
+    <p class="hint">3-Factor Entry + Exits</p>
   </div>
   <div class="card-wrapper">
     <h3>5. Signal Teaser</h3>
@@ -154,7 +154,7 @@ function drawFooter(ctx, w, h, note) {
   ctx.fillText('rigacap.com', w / 2, h - 56);
 }
 
-// Draw text, shrinking the font size until it fits maxWidth.
+// Hand-drawn sharpie ellipse — circles the number that is the product.
 function sharpieEllipse(ctx, cx, cy, rx, ry) {
   ctx.save();
   ctx.strokeStyle = CLARET;
@@ -175,6 +175,7 @@ function sharpieEllipse(ctx, cx, cy, rx, ry) {
   ctx.restore();
 }
 
+// Draw text, shrinking the font size until it fits maxWidth.
 function fitText(ctx, text, x, y, maxWidth, font) {
   ctx.font = font;
   let size = parseInt(font.match(/(\d+)px/)[1], 10);
@@ -186,7 +187,7 @@ function fitText(ctx, text, x, y, maxWidth, font) {
 }
 
 function drawAllCards() {
-// ── Card 1: Launch Announcement ──
+// ── Card 1: The Numbers (growth-forward hook) ──
 (function() {
   const c = document.getElementById('card1');
   const ctx = c.getContext('2d');
@@ -194,53 +195,130 @@ function drawAllCards() {
   fillPaper(ctx, w, h);
 
   // Wordmark, centered, with a short claret kicker beneath
-  drawWordmark(ctx, w / 2, 195, 48, 'center');
-  claretRule(ctx, w / 2 - 24, 238, 48);
+  drawWordmark(ctx, w / 2, 190, 46, 'center');
+  claretRule(ctx, w / 2 - 24, 234, 48);
 
-  // Headline — serif display, claret italic on the emphasis word
-  drawSegments(ctx, [
-    { text: "We're ", font: 'bold 130px ' + SERIF, color: INK },
-    { text: 'Live.', font: 'bold italic 130px ' + SERIF, color: CLARET },
-  ], w / 2, 565, 'center');
-
-  ctx.fillStyle = MUTED;
+  // Eyebrow — what this number is, so the headline can't be misread
+  ctx.fillStyle = FAINT;
+  ctx.font = '600 26px ' + SANS;
   ctx.textAlign = 'center';
-  fitText(ctx, 'RigaCap — fifteen years of building, live since June 2026', w / 2, 660, 900,
-    'italic 32px ' + SERIF);
+  drawTracked(ctx, 'RigaCap Maximizer · 2021–2026 · walk-forward', w / 2, 312, 2);
 
-  hairline(ctx, 160, w - 160, 738);
+  // Big headline number — the hook
+  drawSegments(ctx, [
+    { text: '+31%', font: 'bold italic 152px ' + SERIF, color: CLARET },
+    { text: ' a year', font: 'bold 92px ' + SERIF, color: INK },
+  ], w / 2, 500, 'center');
 
-  // Lead: behavioral-insurance framing + the recent held-out window;
-  // the 21-year foundation grounds it (8.3 alone reads 'meh' — analyst feedback)
-  ctx.fillStyle = INK;
-  fitText(ctx, 'Behavioral capital insurance for your portfolio.', w / 2, 808, 920,
-    'bold italic 36px ' + SERIF);
+  // Second stat — a small drawdown is a feature, so it's forest (positive)
   ctx.fillStyle = FOREST;
-  fitText(ctx, 'A typical 2 years, walk-forward: Preserver +20.8% · Maximizer +57.5%', w / 2, 872, 920,
-    'bold 27px ' + MONO);
-  ctx.fillStyle = INK;
-  fitText(ctx, '21-year foundation: 13.7% worst drawdown — the index lost half, twice', w / 2, 920, 920,
-    '26px ' + MONO);
-  ctx.fillStyle = MUTED;
-  fitText(ctx, 'Through 2008, COVID, and 2022. Every number labeled. Losers posted too.', w / 2, 985, 900,
-    '26px ' + SANS);
+  ctx.font = 'bold 58px ' + MONO;
+  ctx.textAlign = 'center';
+  ctx.fillText('−15% worst drawdown', w / 2, 600);
 
-  drawFooter(ctx, w, h, null);
+  hairline(ctx, 160, w - 160, 690);
+
+  // Comparison — we beat the index on BOTH return and pain
+  ctx.fillStyle = INK;
+  ctx.textAlign = 'center';
+  fitText(ctx, 'Over the same five years, the S&P 500', w / 2, 772, 900, '34px ' + SANS);
+  drawSegments(ctx, [
+    { text: 'returned ', font: '34px ' + SANS, color: INK },
+    { text: '+14% a year', font: 'bold 34px ' + MONO, color: INK },
+    { text: ' — and fell ', font: '34px ' + SANS, color: INK },
+    { text: '−25%', font: 'bold 34px ' + MONO, color: OXBLOOD },
+    { text: '.', font: '34px ' + SANS, color: INK },
+  ], w / 2, 828, 'center');
+
+  // Pull line — the editorial claim
+  ctx.fillStyle = CLARET;
+  ctx.textAlign = 'center';
+  fitText(ctx, 'More than double the return. Less of the fall.', w / 2, 928, 900, 'bold italic 42px ' + SERIF);
+
+  drawFooter(ctx, w, h, 'Walk-forward — no future data used. Past performance is not indicative of future results.');
 })();
 
-// ── Card 2: Twenty-one Years, Walk-Forward ──
+// ── Card 2: Built for the Bad Months (bear defense) ──
 (function() {
   const c = document.getElementById('card2');
   const ctx = c.getContext('2d');
   const w = 1080, h = 1350;
   fillPaper(ctx, w, h);
 
+  drawWordmark(ctx, 100, 122, 36);
+  drawEyebrow(ctx, 100, 190, 'What happens when the market breaks');
+  drawSegments(ctx, [
+    { text: 'Built for the ', font: '54px ' + SERIF, color: INK },
+    { text: 'bad months.', font: 'italic 54px ' + SERIF, color: CLARET },
+  ], 100, 272, 'left');
+  hairline(ctx, 100, w - 100, 318);
+
+  // 2008 headline block
+  ctx.textAlign = 'center';
+  ctx.fillStyle = FAINT;
+  ctx.font = '600 26px ' + SANS;
+  drawTracked(ctx, '2008 — the worst year in a generation', w / 2, 432, 2);
+
+  drawSegments(ctx, [
+    { text: 'The market fell ', font: '44px ' + SERIF, color: INK },
+    { text: '−38%', font: 'bold 44px ' + MONO, color: OXBLOOD },
+    { text: '.', font: '44px ' + SERIF, color: INK },
+  ], w / 2, 516, 'center');
+  drawSegments(ctx, [
+    { text: 'RigaCap finished ', font: '44px ' + SERIF, color: INK },
+    { text: 'flat', font: 'bold italic 44px ' + SERIF, color: FOREST },
+    { text: '.', font: '44px ' + SERIF, color: INK },
+  ], w / 2, 584, 'center');
+
+  hairline(ctx, 160, w - 160, 662);
+
+  // Down-month capture bars
+  drawEyebrow(ctx, 100, 748, "In the market's down months");
+  const barX = 360, barMaxW = 500, barH = 42, capMax = 3.85;
+  const capBars = [
+    { name: 'S&P 500', v: 3.85, color: OXBLOOD, label: '−3.85%' },
+    { name: 'RigaCap', v: 0.97, color: FOREST, label: '−0.97%' },
+  ];
+  let by = 806;
+  capBars.forEach(b => {
+    ctx.fillStyle = MUTED;
+    ctx.font = '26px ' + SANS;
+    ctx.textAlign = 'left';
+    ctx.fillText(b.name, 110, by + barH / 2 + 9);
+    const bw = Math.max(30, barMaxW * b.v / capMax);
+    ctx.fillStyle = b.color;
+    ctx.fillRect(barX, by, bw, barH);
+    ctx.fillStyle = INK;
+    ctx.font = 'bold 26px ' + MONO;
+    ctx.fillText(b.label, barX + bw + 16, by + barH / 2 + 9);
+    by += barH + 48;
+  });
+
+  ctx.fillStyle = MUTED;
+  ctx.textAlign = 'center';
+  fitText(ctx, 'Average return in the months the S&P 500 fell.', w / 2, by + 18, 900, '26px ' + SANS);
+
+  // Pull line
+  ctx.fillStyle = CLARET;
+  ctx.textAlign = 'center';
+  fitText(ctx, "About a quarter of the market's downside.", w / 2, by + 118, 900, 'bold italic 42px ' + SERIF);
+
+  drawFooter(ctx, w, h, 'Walk-forward, 2007–2026. Not investment advice.');
+})();
+
+// ── Card 3: Twenty-one Years, Walk-Forward (the long game) ──
+(function() {
+  const c = document.getElementById('card3');
+  const ctx = c.getContext('2d');
+  const w = 1080, h = 1350;
+  fillPaper(ctx, w, h);
+
   // Header
   drawWordmark(ctx, 100, 122, 36);
-  drawEyebrow(ctx, 100, 190, '2007–2026 · walk-forward · price returns · no hindsight');
+  drawEyebrow(ctx, 100, 190, '2007–2026 · walk-forward · no hindsight');
   drawSegments(ctx, [
-    { text: 'Twenty-one years, ', font: '54px ' + SERIF, color: INK },
-    { text: 'walk-forward.', font: 'italic 54px ' + SERIF, color: CLARET },
+    { text: 'The ', font: '54px ' + SERIF, color: INK },
+    { text: 'long game.', font: 'italic 54px ' + SERIF, color: CLARET },
   ], 100, 272, 'left');
   hairline(ctx, 100, w - 100, 318);
 
@@ -257,16 +335,16 @@ function drawAllCards() {
   drawTracked(ctx, 'Worst DD', ddX, y, 3);
   hairline(ctx, 100, w - 100, y + 22);
 
+  // Maximizer leads (growth-forward); Preserver next; index last.
   const rows = [
+    { name: 'RigaCap Maximizer', ann: '13.5%', sharpe: '0.93', dd: '−20.8%', ddColor: FOREST, highlight: true, circleAnn: true },
     { name: 'RigaCap Preserver', ann: '7.7%', sharpe: '0.87', dd: '−13.7%', ddColor: FOREST, highlight: true },
-    { name: 'RigaCap Maximizer', ann: '13.5%', sharpe: '0.93', dd: '−20.8%', ddColor: FOREST, highlight: true },
     { name: 'S&P 500', ann: '9.8%', sharpe: '—', dd: '−55%', ddColor: OXBLOOD, highlight: false },
   ];
 
   y += 100;
   rows.forEach(row => {
     if (row.highlight) {
-      // Claret inset bar — same device as the live performance table
       ctx.fillStyle = CLARET;
       ctx.fillRect(100, y - 38, 3, 54);
     }
@@ -286,21 +364,21 @@ function drawAllCards() {
     ctx.font = (row.highlight ? 'bold ' : '') + '30px ' + MONO;
     ctx.fillText(row.dd, ddX, y);
 
-    if (row.highlight) {
-      // hand-drawn sharpie circle around the number that is the product
-      sharpieEllipse(ctx, ddX - 58, y - 10, 98, 42);
+    // Circle the return that beats the index — the growth-forward point
+    if (row.circleAnn) {
+      sharpieEllipse(ctx, annX - 42, y - 10, 82, 40);
     }
     hairline(ctx, 100, w - 100, y + 32);
     y += 96;
   });
 
-  // Drawdown bar comparison — the point of the card
+  // Drawdown bar comparison
   let by = y + 60;
   drawEyebrow(ctx, 100, by, 'Worst drawdown, visualized');
 
   const bars = [
-    { name: 'Preserver', dd: 13.7, color: FOREST, label: '−13.7%' },
     { name: 'Maximizer', dd: 20.8, color: FOREST, label: '−20.8%' },
+    { name: 'Preserver', dd: 13.7, color: FOREST, label: '−13.7%' },
     { name: 'S&P 500', dd: 55, color: OXBLOOD, label: '−55%' },
   ];
   const barX = 350, barMaxW = 500, barH = 26, ddMax = 57;
@@ -322,18 +400,18 @@ function drawAllCards() {
     by += barH + 38;
   });
 
-  // Pull line — serif italic claret, the editorial voice
+  // Pull line — growth AND resilience
   ctx.fillStyle = CLARET;
   ctx.textAlign = 'center';
-  fitText(ctx, 'The return you can hold through is the one you collect.', w / 2, by + 90, 900,
+  fitText(ctx, 'More return than the index — at a fraction of the fall.', w / 2, by + 90, 900,
     'italic 34px ' + SERIF);
 
   drawFooter(ctx, w, h, 'Walk-forward tested: no future data used in any period.');
 })();
 
-// ── Card 3: How the System Works (3-Factor) ──
+// ── Card 4: How the System Works (3-Factor) ──
 (function() {
-  const c = document.getElementById('card3');
+  const c = document.getElementById('card4');
   const ctx = c.getContext('2d');
   const w = 1080, h = 1350;
   fillPaper(ctx, w, h);
@@ -419,86 +497,6 @@ function drawAllCards() {
     '26px ' + SANS);
 
   drawFooter(ctx, w, h, 'Walk-forward tested: no future data used in any period.');
-})();
-
-// ── Card 4: The Months That Matter ──
-(function() {
-  const c = document.getElementById('card4');
-  const ctx = c.getContext('2d');
-  const w = 1080, h = 1350;
-  fillPaper(ctx, w, h);
-
-  // Header
-  drawWordmark(ctx, 100, 122, 36);
-  claretRule(ctx, 100, 176, 44);
-  drawSegments(ctx, [
-    { text: 'The months that ', font: '54px ' + SERIF, color: INK },
-    { text: 'matter.', font: 'italic 54px ' + SERIF, color: CLARET },
-  ], 100, 256, 'left');
-
-  ctx.fillStyle = MUTED;
-  ctx.textAlign = 'left';
-  fitText(ctx, "The index's six worst months in 21 years — and where Preserver was (walk-forward)", 100, 308, 880,
-    '23px ' + SANS);
-
-  hairline(ctx, 100, w - 100, 348);
-
-  // Table header — tracked uppercase, numbers right-aligned mono
-  const monthX = 110, spyX = 620, rigaX = 860;
-  let y = 428;
-  ctx.fillStyle = FAINT;
-  ctx.font = '600 24px ' + SANS;
-  ctx.textAlign = 'left';
-  drawTracked(ctx, 'Month', monthX, y, 3);
-  ctx.textAlign = 'right';
-  drawTracked(ctx, 'S&P 500', spyX, y, 3);
-  drawTracked(ctx, 'Preserver', rigaX, y, 3);
-  hairline(ctx, 100, w - 100, y + 22);
-
-  const rows = [
-    { month: 'Oct 2008', spy: '−16.5%', riga: '0.0%', cash: true },
-    { month: 'Mar 2020', spy: '−13.0%', riga: '0.0%', cash: true },
-    { month: 'Feb 2009', spy: '−10.7%', riga: '0.0%', cash: true },
-    { month: 'Sep 2008', spy: '−9.9%', riga: '0.0%', cash: true },
-    { month: 'Sep 2022', spy: '−9.6%', riga: '0.0%', cash: true },
-    { month: 'Dec 2018', spy: '−9.3%', riga: '−1.0%', cash: false },
-  ];
-
-  const rowStep = 92;
-  y += 92;
-  rows.forEach(r => {
-    ctx.textAlign = 'left';
-    ctx.fillStyle = INK;
-    ctx.font = '30px ' + SANS;
-    ctx.fillText(r.month, monthX, y);
-
-    ctx.textAlign = 'right';
-    ctx.fillStyle = OXBLOOD;
-    ctx.font = '30px ' + MONO;
-    ctx.fillText(r.spy, spyX, y);
-
-    ctx.fillStyle = r.cash ? FOREST : INK;
-    ctx.font = (r.cash ? 'bold ' : '') + '30px ' + MONO;
-    ctx.fillText(r.riga, rigaX, y);
-
-    if (r.cash) {
-      ctx.textAlign = 'left';
-      ctx.fillStyle = CLARET;
-      ctx.font = 'italic 24px ' + SERIF;
-      ctx.fillText('— in cash', 895, y);
-    }
-
-    hairline(ctx, 100, w - 100, y + 30);
-    y += rowStep;
-  });
-
-  // Punch line — serif italic claret
-  ctx.fillStyle = CLARET;
-  ctx.textAlign = 'center';
-  fitText(ctx, 'Five of the six, it had already gone to cash.', w / 2, y + 70, 900,
-    'italic 37px ' + SERIF);
-
-  drawFooter(ctx, w, h, 'Walk-forward monthly returns, 2007–2026. Not investment advice.');
 })();
 
 // ── Card 5: Signal Teaser ──
