@@ -4227,9 +4227,14 @@ The link expires in 72 hours."""
             except Exception:
                 pass
             plat = (getattr(post, "platform", "") or "twitter").title()
+            tier = (it.get("tier") or "preserver").lower()
+            if tier == "maximizer":
+                tier_chip = '<span style="display:inline-block;background:#ecfdf5;color:#047857;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:6px;">Maximizer angle</span>'
+            else:
+                tier_chip = '<span style="display:inline-block;background:#fbeaec;color:#7A2430;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:6px;">Preserver angle</span>'
             cards.append(f"""
                 <div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:16px;">
-                    <div style="font-size:12px;color:#64748b;margin-bottom:8px;">Reply to <strong>@{_html.escape(username)}</strong> &middot; {plat}{flag}</div>
+                    <div style="font-size:12px;color:#64748b;margin-bottom:8px;">Reply to <strong>@{_html.escape(username)}</strong> &middot; {plat}{tier_chip}{flag}</div>
                     <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:13px;color:#475569;line-height:1.5;">{source_html or '<em style="color:#94a3b8;">(their post)</em>'}</div>
                     <div style="font-size:14px;color:#141210;line-height:1.55;margin-bottom:14px;">{reply_html}</div>
                     <a href="{approve_url}" style="display:inline-block;background:#059669;color:#ffffff;font-size:14px;font-weight:600;padding:10px 22px;border-radius:8px;text-decoration:none;">Approve &amp; Post</a>

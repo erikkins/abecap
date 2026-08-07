@@ -64,6 +64,44 @@ Include rigacap.com/track-record only if it fits naturally (rarely)."""
 REPLY_SYSTEM_PROMPT = _build_reply_system_prompt(260, "Twitter")
 THREADS_REPLY_SYSTEM_PROMPT = _build_reply_system_prompt(350, "Threads")
 
+# ── Tier voice forks ─────────────────────────────────────────────────────────
+# We serve two buyers. A thread's emotional register tells us which one is reading,
+# so we fork the ANGLE of the reply (never the base voice, never naming a product).
+# One reply per thread — the classifier picks ONE tier; dedup keeps it to one draft.
+PRESERVER_VOICE_OVERLAY = """
+THIS THREAD'S ANGLE — PROTECT (the reader is anxious: a loss, a scary dip, the urge to sell / panic / capitulate / "just get out"):
+- Speak to the investor fighting the urge to bail. The edge here is behavioral: not giving back what you've made, exiting on a rule instead of a story, sitting still when it's uncomfortable.
+- Lean into lived experience — holding through fear, or cutting on the rule not the story ("the loss that finally hits your account is the same number regardless of the story you told along the way").
+- The "win" isn't a big number, it's not blowing up. Calm, protective, been-there. Do NOT cheerlead a rally in this thread."""
+
+MAXIMIZER_VOICE_OVERLAY = """
+THIS THREAD'S ANGLE — RIDE IT WITHOUT GIVING IT BACK (the reader is chasing momentum, afraid of missing a runner, or watching a name go vertical):
+- Speak to the investor who's been burned letting a big gain round-trip to nothing. The edge is the EXIT, not the entry: you can ride a strong trend AND still have a hard rule that gets you out before the giveback.
+- Growth with a seatbelt — the point isn't to call the top, it's to not need to. Let a winner run on a trailing rule, not on hope.
+- Owning a big move is fine; the discipline is a pre-decided way out so one reversal doesn't erase the year."""
+
+# Do NOT name a product/plan/tier in the OUTPUT — these overlays only set the angle.
+_TIER_OVERLAY = {"preserver": PRESERVER_VOICE_OVERLAY, "maximizer": MAXIMIZER_VOICE_OVERLAY}
+
+# Register keywords. A thread leans MAXIMIZER when it's about chasing a runner / FOMO /
+# breakouts; PRESERVER when it's about fear / loss / drawdown / the urge to capitulate.
+# Preserver is the default for neutral/ambiguous threads — it's the brand-core calm voice.
+_MAXIMIZER_CUES = (
+    "breakout", "break out", "all-time high", "all time high", "52-week high", "52 week high",
+    "new high", "parabolic", "squeeze", "momentum", "ripping", "running", "rally", "rallying",
+    "moon", "moonshot", "10x", "multibagger", "how high", "how much higher", "chasing", "chase",
+    "fomo", "missed the", "did i miss", "too late to buy", "get in", "buy the breakout",
+    "leaders", "hypergrowth", "going vertical", "loading up", "adding here", "up big", "up huge",
+)
+_PRESERVER_CUES = (
+    "should i sell", "sell everything", "crash", "correction", "drawdown", "underwater",
+    "bag hold", "bagholder", "holding the bag", "panic", "capitulate", "capitulation",
+    "bear market", "cut losses", "cut my losses", "stop loss", "protect", "preserve",
+    "defensive", "hedge", "sleep at night", "scared", " fear", "thesis hold", "average down",
+    "averaging down", "buy the dip", "volatile", "volatility", "risk off", "recession",
+    "get out", "should i hold", "down " , "keeps dropping", "falling knife", "bleeding",
+)
+
 # Twitter API v2 endpoint for user tweets
 TWITTER_USER_TWEETS_URL = "https://api.twitter.com/2/users/{user_id}/tweets"
 
@@ -310,8 +348,9 @@ class ReplyScannerService:
                         results["skipped_dedup"] += 1
                         continue
 
+                    tier = self.classify_tier(tweet_text, trade)
                     reply_text = await self._generate_reply(
-                        tweet_text, username, trade, symbol
+                        tweet_text, username, trade, symbol, tier=tier
                     )
                     if not reply_text:
                         continue
@@ -321,6 +360,7 @@ class ReplyScannerService:
                         "username": username,
                         "tweet_id": tweet_id,
                         "symbol": symbol,
+                        "tier": tier,
                         "trade_return": f"{trade.get('pnl_pct', 0):+.1f}%",
                         "reply_text": reply_text,
                         "reply_chars": len(reply_text),
@@ -373,9 +413,10 @@ class ReplyScannerService:
                     results["skipped_dedup"] += 1
                     continue
 
+                tier = self.classify_tier(thread_text, best_trade)
                 reply_text = await self._generate_reply(
                     thread_text, thread_username, best_trade, best_symbol,
-                    platform="threads"
+                    platform="threads", tier=tier
                 )
                 if not reply_text:
                     continue
@@ -385,6 +426,7 @@ class ReplyScannerService:
                     "username": thread_username,
                     "tweet_id": thread_id,
                     "symbol": best_symbol,
+                    "tier": tier,
                     "trade_return": f"{best_trade.get('pnl_pct', 0):+.1f}%",
                     "reply_text": reply_text,
                     "reply_chars": len(reply_text),
@@ -802,11 +844,35 @@ class ReplyScannerService:
 
         return False
 
+    @staticmethod
+    def classify_tier(tweet_text: str, trade: Optional[dict] = None) -> str:
+        """Pick which buyer is reading this thread by its emotional register.
+
+        MAXIMIZER when it's about chasing a runner / FOMO / breakouts; PRESERVER when
+        it's about fear / loss / drawdown / the urge to capitulate. Neutral/ambiguous →
+        PRESERVER (the brand-core calm voice). Register drives it; a big winner only
+        breaks a tie toward maximizer.
+        """
+        t = (tweet_text or "").lower()
+        max_score = sum(1 for cue in _MAXIMIZER_CUES if cue in t)
+        pre_score = sum(1 for cue in _PRESERVER_CUES if cue in t)
+        if max_score > pre_score:
+            return "maximizer"
+        if pre_score > max_score:
+            return "preserver"
+        # Tie: lean maximizer only if the matched trade is a strong runner, else preserve.
+        try:
+            if float((trade or {}).get("pnl_pct", 0) or 0) >= 25.0:
+                return "maximizer"
+        except (TypeError, ValueError):
+            pass
+        return "preserver"
+
     async def _generate_reply(
         self, tweet_text: str, username: str, trade: dict, symbol: str,
-        platform: str = "twitter",
+        platform: str = "twitter", tier: str = "preserver",
     ) -> Optional[str]:
-        """Generate a contextual reply using Claude API."""
+        """Generate a contextual reply using Claude API, forked to the thread's tier voice."""
         if not settings.ANTHROPIC_API_KEY:
             return None
 
@@ -822,7 +888,7 @@ class ReplyScannerService:
         char_limit = 260 if platform == "twitter" else 350
 
         user_prompt = (
-            f"@{username} {platform_label}:\n\"{tweet_text[:300]}\"\n\n"
+            f"@{username} {platform_label}:\n\"{tweet_text[:600]}\"\n\n"
             f"Trade data: {trade_context}\n\n"
             f"Write a reply to this post. The reply should feel like a natural addition "
             f"to the conversation, not a cold sales pitch. Reference the specific stock "
@@ -833,6 +899,8 @@ class ReplyScannerService:
             THREADS_REPLY_SYSTEM_PROMPT if platform == "threads"
             else REPLY_SYSTEM_PROMPT
         )
+        # Fork the ANGLE to the thread's tier (never name a product in the output).
+        system_prompt = system_prompt + "\n" + _TIER_OVERLAY.get(tier, PRESERVER_VOICE_OVERLAY)
 
         from app.services.voice_filters import contains_banned
 
@@ -977,7 +1045,7 @@ class ReplyScannerService:
                 continue
             approve_token = post_scheduler_service.generate_approve_token(post.id)
             approve_url = f"https://api.rigacap.com/api/admin/social/posts/{post.id}/approve-email?token={approve_token}"
-            items.append({"post": post, "approve_url": approve_url})
+            items.append({"post": post, "approve_url": approve_url, "tier": detail.get("tier")})
 
         if not items:
             return 0
@@ -1012,7 +1080,12 @@ class ReplyScannerService:
         for post in posts:
             approve_token = post_scheduler_service.generate_approve_token(post.id)
             approve_url = f"https://api.rigacap.com/api/admin/social/posts/{post.id}/approve-email?token={approve_token}"
-            items.append({"post": post, "approve_url": approve_url})
+            try:
+                _trade = json.loads(post.source_trade_json) if post.source_trade_json else None
+            except (ValueError, TypeError):
+                _trade = None
+            tier = self.classify_tier(post.source_tweet_text or "", _trade)
+            items.append({"post": post, "approve_url": approve_url, "tier": tier})
 
         if not items:
             return 0
