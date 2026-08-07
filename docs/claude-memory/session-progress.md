@@ -25,9 +25,16 @@ metadata:
 - TODAY'S post: inserted candidate-2 good copy to X/Threads/IG (732/733/734). X posted now; Threads+IG queued behind PLATFORM_COOLDOWN (threads 180min, ig 120min, twitter 30) from the test post → auto-publish tonight (~IG 8:15pm ET, Threads 9:15pm ET) via 15-min publish cron.
 - LAUNCH CARDS scheduled (9 posts): launch-1/2/3 → X+Threads+IG on Sun Aug9 / Tue Aug11 / Thu Aug13 16:00 UTC (noon ET). Staggered off the M/W/F autopost days. post_type='launch_card', image_s3_key=https://rigacap.com/launch-cards/launch-N.png (CDN, verified 200). Captions have NO url (bio /ig link carries it; keeps IG link-filter calm).
 
+## ✅ EDIT FEATURE + 🚨 OUTAGE (self-inflicted, resolved)
+- "Edit & tweak" added to autopost heads-up email (alongside Kill): tokenized GET /posts/{id}/edit-email form (no login) → POST saves new copy to post + all same-scheduled siblings, clears image_s3_key so IG card regenerates from new text at publish. 15-char min / 280 (X) max guard.
+- 🚨 **OUTAGE ~8-10 min (Fri Aug 7 ~3:30pm ET)**: `fastapi.Form(...)` needs python-multipart (NOT in Lambda image) → fails at ROUTE REGISTRATION → main.py import fails → API+worker BOTH down on deploy of 265d2b9. py_compile passes syntax, NOT runtime import. HOTFIX e44686c: dropped Form, parse urlencoded body manually via request.body()+parse_qs. **Verified back up** (API /api/market-data-status 200, worker db_read ok). No stray posts (import died before handler ran).
+- **NEW RULE (told Erik): smoke-test a live endpoint after EVERY deploy — "GHA green" ≠ "app imports". Extra care on import/dependency-touching changes; no risky late-day deploys w/o endpoint check.** Erik upset re: Friday crash; owned it.
+- LESSON for future Form/File endpoints: python-multipart is NOT in the image — parse bodies manually or add the dep first.
+
 ## ▶ NEXT / IN FLIGHT
-- FAST-FOLLOW (Erik's idea): "Edit this" option in the autopost heads-up email — kill OR tweak-a-word-and-regen the card before it posts. Real little build (edit endpoint + regen). Offered; Erik to decide now-vs-next-session.
-- Confirm Threads/IG auto-post tonight after cooldown; first real M/W/F fan-out. Erik pastes new bios (design/brand/profiles/profile-bios.md).
+- Threads 733 + IG 734 (good-copy insight) auto-post tonight after cooldown (~IG 8:15pm ET, Threads 9:15pm). Confirm they land.
+- Edit feature deployed+fixed but NOT re-tested live (no more test posts tonight); exercised on next real heads-up email. Optional: verify GET edit form renders (harmless).
+- Launch cards 1/2/3 → X+Threads+IG Sun/Tue/Thu (scheduled). Erik pastes new bios.
 - GROWTH swings: testimonials/social-proof; churn prevention; ads recheck ~Aug 8. Reply paid-X-tier OPEN.
 
 ## Notes
