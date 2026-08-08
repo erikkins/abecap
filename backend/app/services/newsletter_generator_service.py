@@ -119,6 +119,7 @@ ABSOLUTE RULES:
 - Never start paragraphs with "Interesting" or "It's worth noting" or "Let me explain."
 - Keep it tight. Each section should be 150-250 words. Total newsletter under 1000 words.
 - CRITICAL: Every number you cite MUST come from the data provided. If the data says 0 stops, say 0. If it says 1, say 1. NEVER invent, round, or estimate numbers. If you don't have data for something, don't mention it. Getting a number wrong destroys trust instantly.
+- NEVER INVENT NEWS. You may reference a current event ONLY if it appears verbatim in a "RECENT HEADLINES" block provided in the prompt. If no headlines are provided, do NOT reference any specific dated event, vote, Fed meeting, earnings, or "this week X happened" — you have no way to know it occurred, and fabricating one (e.g. "the Senate stopgap cleared Thursday and the system re-evaluated within the hour") invents both the event and a causal claim. When you do cite a provided headline, never claim the system "reacted within the hour" or imply causation you can't observe — just note the backdrop.
 
 THE SEVEN REGIMES (these are the EXACT names — never substitute or invent others):
   1. Strong Bull       — broad rally, high participation
@@ -182,7 +183,7 @@ class NewsletterGeneratorService:
                 "content-type": "application/json",
             },
             json={
-                "model": "claude-sonnet-4-6",
+                "model": "claude-opus-4-8",  # weekly + quality-critical → most capable model
                 "max_tokens": max_tokens,
                 # Prompt-cache the static newsletter system prompt — an issue
                 # generates several sections back-to-back within the cache window.
