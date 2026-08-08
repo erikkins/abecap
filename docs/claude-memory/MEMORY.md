@@ -1,5 +1,8 @@
 # Stocker App - Key Learnings
 
+## 📄 NEXT-WEEK TASK (Aug 7) — refresh ALL design/documents to current posture
+- [Docs refresh plan](project_docs_refresh.md) — investor report, market pricing (verify), marketing + sales playbooks, signal intelligence (internal), technical architecture. All drifted (navy/gold + "backtest" still present). Erik: reuse layout/thought-blocks, WRITE FRESH not line-edit. Must reflect 2-tier + growth-forward + claret/paper + walk-forward + overlay SSOT. Edit HTML → re-export PDF.
+
 ## ✅ Terraform apply SAFE again (Aug 7) — was a Lambda-clobber landmine, fixed via ignore_changes
 - [Terraform apply safety](project_terraform_apply_unsafe.md) — worker/api Lambda env+image drifted (live 55/52 keys vs main.tf 41/39); blind apply would drop keys + revert values = outage. FIXED: `lifecycle{ignore_changes=[image_uri,environment]}` on both Lambdas. Plan now 0/0/1-cosmetic. KEEP those blocks; still review plans before apply. CI/CD = container path, not terraform.
 

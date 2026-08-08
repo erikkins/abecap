@@ -26,9 +26,10 @@ metadata:
 - **BOTH were ADMIN-PREVIEW-ONLY. Real subscribers were NOT affected** (their tier resolves from subscription, not the URL param; single-tier users never had a cross-tier stale cache). Confirmed to Erik.
 
 ## ▶ MONDAY / NEXT
-- DISCUSS: is "A holding week" the right label for Maximizer? It holds each name ~29 days, so a weekly "this week" frame may not fit the hold model. (Erik's ask.)
+- **DOCS REFRESH (big, [[project_docs_refresh]]):** update all design/documents (investor report, market pricing[verify], marketing + sales playbooks, signal-intelligence[internal/confidential], technical architecture) to current posture — reuse layout/thought-blocks, WRITE FRESH. All drifted (navy/gold + "backtest"). Good workflow fan-out candidate (1 agent/doc) if Erik opts in.
+- DISCUSS: is "A holding week" the right label for Maximizer? (~29-day holds, weekly frame may not fit.)
 - Tonight: good-copy insight auto-posts Threads(733)/IG(734) after cooldown. Launch cards fire Sun/Tue/Thu.
-- Optional: make missed-opps genuinely per-tier (Preserver trailing-stop catches vs Maximizer breakout), not the generic shared backtest.
+- Optional: make missed-opps genuinely per-tier (not the generic shared backtest).
 - GROWTH: testimonials/social-proof; churn prevention; ads recheck ~Aug 8. Reply paid-X-tier OPEN.
 
 ## KEY LESSON TODAY: fastapi.Form broke prod import (~10min outage) → NEW RULE: smoke-test a live endpoint after EVERY deploy; frontend changes build-verified locally first. Both now habit.
