@@ -7,29 +7,20 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 7 2026 (EOD)
+# Session snapshot — Sat Aug 8 2026
 
 ## Frozen spec (load-bearing)
-- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/sleeve/DWAP; steer Maximizer. Deploy=push main→"Deploy RigaCap" GHA. NEVER push+dispatch same commit. NEVER `terraform apply` w/o reviewing plan (ignore_changes protects Lambdas now). **NEW RULE: smoke-test a live endpoint after EVERY deploy — GHA-green ≠ app-imports (a fastapi.Form import broke prod ~10min today).** fastapi.Form/File NOT usable (no python-multipart in image) — parse bodies manually.
-- Worker=rigacap-prod-worker, AWS_PROFILE=rigacap. `{"db_read":"SQL"}`, `{"run_migration":true,"sql":...}`. OVERLAY SSOT=perf_numbers. BRAND claret/paper, Fraunces+IBM Plex (bundled TTFs in backend/app/assets/fonts/).
+- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP. Deploy=push main→"Deploy RigaCap" GHA. NEVER `terraform apply` w/o plan review (ignore_changes protects Lambdas). **SMOKE-TEST a live endpoint after EVERY deploy** (fastapi.Form broke prod Fri ~10min; fastapi.Form/File unusable — no python-multipart; parse bodies manually). Worker=rigacap-prod-worker, AWS_PROFILE=rigacap. `{"db_read":"SQL"}`, `{"run_migration":true,"sql":...}`.
+- MODELS: latest = Claude 5 family + Opus 4.8 (claude-opus-4-8), Sonnet 5 (claude-sonnet-5), Haiku 4.5. Newsletter now on claude-opus-4-8; ai_content on claude-sonnet-5; reply_scanner still claude-sonnet-4-6.
 
-## ✅ SHIPPED TODAY (huge session)
-- Reply scanner: plain voice, forks, anti-repeat, X-403 deep-link workaround, repeat-click guard.
-- Cards: launch 1-5 + og + X banner growth-forward, on-brand, 2x-crisp.
-- OWN-SOCIAL AUTOPOST → X+Threads+IG M/W/F, alternating tiers, autopost+kill+EDIT email. IG posts an editorial quote card (chart_card_generator.generate_text_card — Fraunces/Plex, sentence-broken, widow+function-word line rules, centered box). Sentiment guardrail (no "recovered in 2yrs"). Anti-repeat all post types. LIVE-PROVEN: IG+Threads posted end-to-end.
-- Launch cards 1/2/3 scheduled X+Threads+IG Sun/Tue/Thu (off the M/W/F days).
-- DR: env backup scripts + weekly worker handler + terraform blueprint (15 keys). Terraform apply now SAFE (ignore_changes). Bios canonical (design/brand/profiles/profile-bios.md). Edit-email feature (hotfixed the Form outage).
+## ✅ TODAY: NEWSLETTER "Market, Measured" REWORK (this Sunday's draft = world-class)
+- Was: Preserver-only, repetitive, no Maximizer, no tiers story; §04 HALLUCINATED "Senate stopgap cleared Thursday, system re-evaluated within the hour". Root causes: prompt POSITIONING was June-Preserver-only; §04 fed real Google-News RSS but model embellished (fake date + causal claim); §01/§03 lifted unverifiable specifics ("gold +2.3%", "14 signals from 9", "a ride-hailing name") from the AI market briefing; §04 invented trades ("tech stock jumped 20% Wed").
+- FIXED (many deploys, latest b632d95): 2-tier growth-forward POSITIONING + growth topics; news guardrail (cite provided headlines only, never fabricate date/causation); market COLOR (gold/sectors) allowed from real-data briefing but COUNTS authoritative only from structured data; counts=CORE book (Maximizer is a SEPARATE book — don't attribute); global "aggregate-data-only, never invent per-stock/per-day anecdote"; §04 no-invented-trades; §03 bold ENTIRE first sentence; Opus 4.8.
+- Regenerated w/ tiers LEAD STORY (via {"generate_newsletter":{"lead_story":...,"force":true}}). v6 draft (newsletter/drafts/2026-08-09.json) verified clean: correct counts, real color, both tiers, no fabrication. UNLOCKED — Erik reviews/locks; publishes Sunday.
 
-## ✅ TIER-PREVIEW FIXES SHIPPED (end of day, all deployed + smoke-tested 200)
-- MISSED-OPPS (a08a197): frontend only set missedOpportunities `if length>0` → never cleared → admin switching tiers saw stale Preserver "$16,855" on Maximizer. Fixed: 3 sites `|| []`.
-- THIS-WEEK + post-trade dashboard (ef3c3a8): frontend didn't forward ?preview_tier= → admin preview showed real tier's book. Fixed: forward preview_tier (backend was already tier-scoped + admin-gated).
-- **BOTH were ADMIN-PREVIEW-ONLY. Real subscribers were NOT affected** (their tier resolves from subscription, not the URL param; single-tier users never had a cross-tier stale cache). Confirmed to Erik.
-
-## ▶ MONDAY / NEXT
-- **DOCS REFRESH (big, [[project_docs_refresh]]):** update all design/documents (investor report, market pricing[verify], marketing + sales playbooks, signal-intelligence[internal/confidential], technical architecture) to current posture — reuse layout/thought-blocks, WRITE FRESH. All drifted (navy/gold + "backtest"). Good workflow fan-out candidate (1 agent/doc) if Erik opts in.
-- DISCUSS: is "A holding week" the right label for Maximizer? (~29-day holds, weekly frame may not fit.)
-- Tonight: good-copy insight auto-posts Threads(733)/IG(734) after cooldown. Launch cards fire Sun/Tue/Thu.
-- Optional: make missed-opps genuinely per-tier (not the generic shared backtest).
-- GROWTH: testimonials/social-proof; churn prevention; ads recheck ~Aug 8. Reply paid-X-tier OPEN.
-
-## KEY LESSON TODAY: fastapi.Form broke prod import (~10min outage) → NEW RULE: smoke-test a live endpoint after EVERY deploy; frontend changes build-verified locally first. Both now habit.
+## ▶ IN FLIGHT / NEXT (asked Erik)
+- **REAL-WINS FEED (Erik green-lighting):** feed the generator this week's ACTUAL closed winners (ModelPosition closed <7d, pnl>0, generic no-ticker + real %) so §04/§01 can tell a TRUE win story instead of a banned anecdote. Same pattern as the news feed. Not built yet.
+- §04 opens "A reader emailed asking…" = framing device (flagged; Erik may want changed).
+- **STILL OPEN (Fri):** "post went live" confirmation emails don't render the chart-card image — needs a chase (email img/presigned-URL handling).
+- MONDAY: docs refresh ([[project_docs_refresh]]); "A holding week" label for Maximizer.
+- Fri autoposts/launch cards live; tier-preview fixes shipped (real subs unaffected).
