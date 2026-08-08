@@ -425,7 +425,13 @@ Market data:
 
 Write 2-3 paragraphs explaining what the system is seeing in plain English. Translate the regime and data into something a smart non-trader would understand. Don't just list numbers — interpret them. What does this regime mean for how the system is behaving?
 
-You may reference: number of fresh signals, watchlist count, open positions, stops triggered, profit exits — but ONLY the exact numbers from the data above. Do NOT make up any numbers. If the data says 1 stop was triggered, say 1. If it says 0, say 0.
+You may reference: number of fresh signals, watchlist count, open positions, stops triggered, profit exits — but ONLY the exact numbers from the "Market data" block above, and the S&P move + VIX. Do NOT make up any numbers. If the data says 1 stop, say 1; if 0, say 0.
+
+HARD NUMBER DISCIPLINE (this is where trust is won or lost):
+- The structured counts + the S&P/VIX line are the ONLY authoritative facts. The "AI market briefing" is BACKGROUND for tone only — do NOT lift any number, comparison, commodity (e.g. gold), sector move, or individual-security detail from it.
+- Do NOT invent a prior-week comparison ("up from 9 to 14"). You are not given last week's counts.
+- Do NOT state anything specific that isn't in the structured data: no gold/oil/bond moves, no "small caps gained", no "tech gained", no named sectors, no describing individual holdings by industry ("a ride-hailing name"). If it's not an exact figure in the data block, it does not go in.
+- If you catch yourself reaching for a specific that isn't in the data, cut it — interpret the REGIME and the counts you DO have, not invented color.
 
 CRITICAL: Do NOT use any specific ticker symbols anywhere (no AAPL, NVDA, RIOT, etc.). This newsletter goes to free readers. Refer to stocks generically: "a name," "one position," "a tech stock." Subscribers who want tickers get them in the daily digest.
 
