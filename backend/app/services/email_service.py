@@ -3979,13 +3979,19 @@ class AdminEmailService(EmailService):
         if getattr(post, "ai_generated", False):
             ai_badge = '<span style="display:inline-block;background:#8b5cf6;color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;margin-left:8px;">AI Generated</span>'
 
-        # Chart card image (if post has one)
+        # Chart card image (if post has one). image_s3_key may be a full public URL
+        # (launch cards on CloudFront) OR an S3 key (generated cards) — mirror publish_post:
+        # use full URLs directly, presign only real keys. (Presigning a full URL mangled it,
+        # which is why the launch-card previews showed a broken image.)
         chart_img_html = ""
         image_s3_key = getattr(post, "image_s3_key", None)
         if image_s3_key:
             try:
-                from app.services.chart_card_generator import chart_card_generator
-                img_url = chart_card_generator.get_presigned_url(image_s3_key, expires_in=86400)
+                if image_s3_key.startswith("http://") or image_s3_key.startswith("https://"):
+                    img_url = image_s3_key
+                else:
+                    from app.services.chart_card_generator import chart_card_generator
+                    img_url = chart_card_generator.get_presigned_url(image_s3_key, expires_in=86400)
                 if img_url:
                     chart_img_html = f'<img src="{img_url}" alt="Chart card" style="width:100%; border-radius:8px; margin-bottom:16px;" />'
             except Exception:
