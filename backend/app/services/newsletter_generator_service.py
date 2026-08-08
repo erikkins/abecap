@@ -404,8 +404,11 @@ class NewsletterGeneratorService:
         market_summary += f"\nStops triggered this week: {stops_count}."
         if profit_exits_count:
             market_summary += f"\nProfit exits this week: {profit_exits_count}."
-        if market_context:
-            market_summary += f"\n\nAI market briefing from the system: {market_context}"
+        # NOTE: the free-text AI market briefing (market_context) is intentionally NOT fed to
+        # the sections. It carries unverifiable specifics (gold/sector moves, individual-name
+        # color) that the model repeatedly lifted into §01/§03 as if they were our data — a
+        # trust risk. Sections build only from the verified structured counts + S&P/VIX +
+        # regime above. (If we want verified market color later, add it as structured fields.)
 
         # Operator-set lead story: explicit param wins, else the pending S3 concept
         lead_story = lead_story or self.get_pending_lead_story()
