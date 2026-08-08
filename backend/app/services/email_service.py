@@ -3964,8 +3964,10 @@ class AdminEmailService(EmailService):
             cancel_url: JWT-signed one-click cancel link
             publish_url: JWT-signed one-click publish link
         """
-        platform_display = "Twitter/X" if post.platform == "twitter" else "Instagram"
-        platform_color = "#1DA1F2" if post.platform == "twitter" else "#E4405F"
+        _pnames = {"twitter": "Twitter/X", "instagram": "Instagram", "threads": "Threads", "tiktok": "TikTok"}
+        _pcolors = {"twitter": "#1DA1F2", "instagram": "#E4405F", "threads": "#000000", "tiktok": "#000000"}
+        platform_display = _pnames.get(post.platform, (post.platform or "Post").title())
+        platform_color = _pcolors.get(post.platform, "#141210")
         scheduled_str = post.scheduled_for.strftime('%B %d at %I:%M %p UTC') if post.scheduled_for else "Soon"
         urgency = "in 1 hour" if hours_before <= 1 else f"in ~{hours_before} hours"
         header_bg = "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)" if hours_before <= 1 else "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
