@@ -10,17 +10,18 @@ metadata:
 # Session snapshot — Sat Aug 8 2026
 
 ## Frozen spec (load-bearing)
-- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP. Deploy=push main→"Deploy RigaCap" GHA. NEVER `terraform apply` w/o plan review (ignore_changes protects Lambdas). **SMOKE-TEST a live endpoint after EVERY deploy** (fastapi.Form broke prod Fri ~10min; fastapi.Form/File unusable — no python-multipart; parse bodies manually). Worker=rigacap-prod-worker, AWS_PROFILE=rigacap. `{"db_read":"SQL"}`, `{"run_migration":true,"sql":...}`.
-- MODELS: latest = Claude 5 family + Opus 4.8 (claude-opus-4-8), Sonnet 5 (claude-sonnet-5), Haiku 4.5. Newsletter now on claude-opus-4-8; ai_content on claude-sonnet-5; reply_scanner still claude-sonnet-4-6.
+- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP. Deploy=push main→"Deploy RigaCap" GHA. **SMOKE-TEST a live endpoint after EVERY deploy** (Fri Form outage). fastapi.Form/File unusable (no python-multipart; parse bodies manually). NEVER `terraform apply` w/o plan review (ignore_changes protects Lambdas). Worker=rigacap-prod-worker, AWS_PROFILE=rigacap. `{"db_read":"SQL"}`, `{"run_migration":true,"sql":...}`.
+- MODELS: latest=Claude 5 family + Opus 4.8. Newsletter=claude-opus-4-8; ai_content=claude-sonnet-5; reply_scanner=claude-sonnet-4-6. Default new AI work to latest/most-capable.
+- Two post types differ: LAUNCH CARDS post the image on ALL 3 (X/Threads/IG). INSIGHT autoposts = TEXT on X/Threads, generated quote-card only on IG.
 
-## ✅ TODAY: NEWSLETTER "Market, Measured" REWORK (this Sunday's draft = world-class)
-- Was: Preserver-only, repetitive, no Maximizer, no tiers story; §04 HALLUCINATED "Senate stopgap cleared Thursday, system re-evaluated within the hour". Root causes: prompt POSITIONING was June-Preserver-only; §04 fed real Google-News RSS but model embellished (fake date + causal claim); §01/§03 lifted unverifiable specifics ("gold +2.3%", "14 signals from 9", "a ride-hailing name") from the AI market briefing; §04 invented trades ("tech stock jumped 20% Wed").
-- FIXED (many deploys, latest b632d95): 2-tier growth-forward POSITIONING + growth topics; news guardrail (cite provided headlines only, never fabricate date/causation); market COLOR (gold/sectors) allowed from real-data briefing but COUNTS authoritative only from structured data; counts=CORE book (Maximizer is a SEPARATE book — don't attribute); global "aggregate-data-only, never invent per-stock/per-day anecdote"; §04 no-invented-trades; §03 bold ENTIRE first sentence; Opus 4.8.
-- Regenerated w/ tiers LEAD STORY (via {"generate_newsletter":{"lead_story":...,"force":true}}). v6 draft (newsletter/drafts/2026-08-09.json) verified clean: correct counts, real color, both tiers, no fabrication. UNLOCKED — Erik reviews/locks; publishes Sunday.
+## ✅ SHIPPED TODAY (Sat)
+- NEWSLETTER "Market, Measured" world-class rework + Erik LOCKED it → sends Sunday. 2-tier growth-forward voice, tiers LEAD STORY (§02), Opus 4.8, real market color (gold) from briefing but COUNTS authoritative from structured data, §03 bold full first sentence, §04 no invented trades. Anti-hallucination: never fabricate news/dates/causation/per-stock-per-day anecdotes/sub-counts; only cite provided headlines + REAL-WINS feed.
+- REAL-WINS FEED: generator now pulls this week's actual closed winners (model_positions, no ticker, real %) → §04 cites a TRUE win or stays principle-based (0 wins this week yet).
+- DB DEADLOCK-RETRY middleware (main.py DeadlockRetryMiddleware): retries request up to 2x on Postgres DeadlockDetectedError → no more 500/alarm from transient lock contention (root: post-deploy API-Gateway flush into cold Lambdas hitting same write path; exact query in RDS log). Verified 0 deadlocks post-deploy.
+- Admin social preview avatar: /icon-halo.svg (navy, retired) → /icon-bitone.png (claret). 
+- "Post Goes Live" email chart card: presigned a full CloudFront URL (launch cards) → mangled/broken; now uses full http URLs directly. Fixed.
 
-## ▶ IN FLIGHT / NEXT (asked Erik)
-- **REAL-WINS FEED (Erik green-lighting):** feed the generator this week's ACTUAL closed winners (ModelPosition closed <7d, pnl>0, generic no-ticker + real %) so §04/§01 can tell a TRUE win story instead of a banned anecdote. Same pattern as the news feed. Not built yet.
-- §04 opens "A reader emailed asking…" = framing device (flagged; Erik may want changed).
-- **STILL OPEN (Fri):** "post went live" confirmation emails don't render the chart-card image — needs a chase (email img/presigned-URL handling).
+## ▶ NEXT / OPEN
 - MONDAY: docs refresh ([[project_docs_refresh]]); "A holding week" label for Maximizer.
-- Fri autoposts/launch cards live; tier-preview fixes shipped (real subs unaffected).
+- Fri/earlier: tier-preview fixes shipped (real subs unaffected); launch cards scheduled Sun/Tue/Thu; autopost cadence live.
+- Deadlock exact-query root cause = RDS Postgres log (not chased; retry masks it safely). GROWTH: testimonials/social-proof; churn; ads recheck.
