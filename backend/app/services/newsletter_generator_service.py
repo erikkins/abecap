@@ -476,8 +476,8 @@ Market context:
 
 Based on the current regime and market conditions, write EXACTLY 3 items — things the system is NOT doing right now, and why.
 
-Format: Each item starts with **Bold lead-in.** followed by 1-2 sentences. Example:
-**Not chasing the AI rally.** The momentum scores have diverged from price in ways that historically precede pullbacks. We might miss more upside. That's fine.
+Format: Wrap the ENTIRE first sentence of each item in **...** (the whole sentence bold, not just a lead-in phrase), then 1-2 more sentences unbolded. Example:
+**The system isn't chasing the extended tech names this week.** The momentum scores have diverged from price in ways that historically precede pullbacks. We might miss more upside. That's fine.
 
 Choose from ideas like:
 - Not chasing a specific hot sector
@@ -600,6 +600,7 @@ THIS WEEK'S THEME (mandatory — stay on this theme, do not drift):
 {prev_s4_block}{headlines_block}
 HARD RULES:
 - 2-3 sentences. 50 words max.
+- NO INVENTED TRADES OR EVENTS. You have NO per-stock or per-day trade data and no verified news beyond the headlines block. Do NOT reference a specific stock's move, a specific day, or how a named position behaved ("a tech stock jumped 20% Wednesday," "a stock we sold tore higher this week"). Reflect on the craft, a principle, or the week's regime in the aggregate — or a provided headline, used as backdrop only.
 - Personal, informal, not pitch-y. Invite replies. Don't be cheesy or motivational.
 - BANNED themes (these have been overused — DO NOT touch them this week):
   * "waiting / not acting / sitting on hands / watching the data"
