@@ -334,20 +334,21 @@ class NewsletterGeneratorService:
         open_count = 0
         stops_count = 0
         profit_exits_count = 0
+        week_wins = []  # real closed WINNERS this week: (pnl_pct, days_held) — no tickers
         try:
             import asyncio
             from app.core.database import async_session
             from sqlalchemy import text as sa_text
 
             async def _fetch_portfolio():
-                nonlocal open_count, stops_count, profit_exits_count
+                nonlocal open_count, stops_count, profit_exits_count, week_wins
                 async with async_session() as db:
                     row = await db.execute(sa_text(
                         "SELECT COUNT(*) FROM model_positions WHERE status = 'open' AND portfolio_type = 'live'"
                     ))
                     open_count = row.scalar() or 0
                     rows = await db.execute(sa_text(
-                        "SELECT exit_reason, pnl_pct FROM model_positions "
+                        "SELECT exit_reason, pnl_pct, entry_date, exit_date FROM model_positions "
                         "WHERE status = 'closed' AND portfolio_type = 'live' "
                         "AND exit_date >= CURRENT_DATE - INTERVAL '7 days'"
                     ))
@@ -358,6 +359,15 @@ class NewsletterGeneratorService:
                             stops_count += 1
                         elif pnl > 0:
                             profit_exits_count += 1
+                        if pnl and pnl > 0:
+                            days = None
+                            try:
+                                if r[2] and r[3]:
+                                    days = (r[3] - r[2]).days
+                            except Exception:
+                                days = None
+                            week_wins.append((round(float(pnl), 1), days))
+                    week_wins.sort(key=lambda w: w[0], reverse=True)
 
             loop = asyncio.get_event_loop()
             if loop.is_running():
@@ -374,6 +384,19 @@ class NewsletterGeneratorService:
             recent_sells = dashboard.get("recent_sells", [])
             stops_count = len([s for s in recent_sells if s.get("exit_reason", "").lower() in ("trailing_stop", "stop_loss", "regime_exit")])
             profit_exits_count = len([s for s in recent_sells if s.get("exit_reason", "").lower() not in ("trailing_stop", "stop_loss", "regime_exit") and s.get("pnl_pct", 0) > 0])
+
+        # Real closed-win block — TRUE figures the sections may cite (no fabrication).
+        wins_block = ""
+        if week_wins:
+            def _fmt_win(w):
+                pnl, days = w
+                return f"+{pnl:.1f}%" + (f" ({days} days)" if days else "")
+            wins_block = (
+                "\nREAL CLOSED WINS THIS WEEK (exact, true figures from the core model book — you MAY "
+                "cite ONE generically, e.g. 'one position the system exited this week locked in +X%', "
+                "NEVER a ticker, NEVER a rounded/invented number): "
+                + "; ".join(_fmt_win(w) for w in week_wins[:3]) + "\n"
+            )
 
         # Load previous week's newsletter for continuity
         prev_week_context = ""
@@ -597,10 +620,10 @@ CRITICAL RULES:
 
 THIS WEEK'S THEME (mandatory — stay on this theme, do not drift):
 {theme['name'].upper()}: {theme['guidance']}
-{prev_s4_block}{headlines_block}
+{prev_s4_block}{headlines_block}{wins_block}
 HARD RULES:
 - 2-3 sentences. 50 words max.
-- NO INVENTED TRADES OR EVENTS. You have NO per-stock or per-day trade data and no verified news beyond the headlines block. Do NOT reference a specific stock's move, a specific day, or how a named position behaved ("a tech stock jumped 20% Wednesday," "a stock we sold tore higher this week"). Reflect on the craft, a principle, or the week's regime in the aggregate — or a provided headline, used as backdrop only.
+- NO INVENTED TRADES. Your ONLY real trade facts are in a "REAL CLOSED WINS THIS WEEK" block if one is present above. You MAY cite ONE of those wins generically (no ticker, exact %, e.g. "one position the system exited this week locked in +18%") — it's a true figure and a great concrete note. If NO wins block is present, do NOT reference any specific trade, stock move, day, or named position ("a tech stock jumped 20% Wednesday," "a stock we sold tore higher") — stay on craft, a principle, or the week's regime in the aggregate. Never fabricate or round a number.
 - Personal, informal, not pitch-y. Invite replies. Don't be cheesy or motivational.
 - BANNED themes (these have been overused — DO NOT touch them this week):
   * "waiting / not acting / sitting on hands / watching the data"
