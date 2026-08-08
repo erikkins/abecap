@@ -404,11 +404,11 @@ class NewsletterGeneratorService:
         market_summary += f"\nStops triggered this week: {stops_count}."
         if profit_exits_count:
             market_summary += f"\nProfit exits this week: {profit_exits_count}."
-        # NOTE: the free-text AI market briefing (market_context) is intentionally NOT fed to
-        # the sections. It carries unverifiable specifics (gold/sector moves, individual-name
-        # color) that the model repeatedly lifted into §01/§03 as if they were our data — a
-        # trust risk. Sections build only from the verified structured counts + S&P/VIX +
-        # regime above. (If we want verified market color later, add it as structured fields.)
+        if market_context:
+            # Market COLOR only (index/sector/commodity moves from real market data). The
+            # COUNTS above are authoritative — never take a signal/position/stop number from
+            # this briefing, and never infer a prior-week comparison from it.
+            market_summary += f"\n\nMARKET COLOR (from the system's real-data briefing — use for texture like index/sector/commodity moves; do NOT take any signal/position/stop COUNT from here, those come only from the structured data above): {market_context}"
 
         # Operator-set lead story: explicit param wins, else the pending S3 concept
         lead_story = lead_story or self.get_pending_lead_story()
@@ -431,10 +431,9 @@ Write 2-3 paragraphs explaining what the system is seeing in plain English. Tran
 You may reference: number of fresh signals, watchlist count, open positions, stops triggered, profit exits — but ONLY the exact numbers from the "Market data" block above, and the S&P move + VIX. Do NOT make up any numbers. If the data says 1 stop, say 1; if 0, say 0.
 
 HARD NUMBER DISCIPLINE (this is where trust is won or lost):
-- The structured counts + the S&P/VIX line are the ONLY authoritative facts. The "AI market briefing" is BACKGROUND for tone only — do NOT lift any number, comparison, commodity (e.g. gold), sector move, or individual-security detail from it.
-- Do NOT invent a prior-week comparison ("up from 9 to 14"). You are not given last week's counts.
-- Do NOT state anything specific that isn't in the structured data: no gold/oil/bond moves, no "small caps gained", no "tech gained", no named sectors, no describing individual holdings by industry ("a ride-hailing name"). If it's not an exact figure in the data block, it does not go in.
-- If you catch yourself reaching for a specific that isn't in the data, cut it — interpret the REGIME and the counts you DO have, not invented color.
+- COUNTS are authoritative ONLY from the structured data (fresh signals, watchlist, open positions, stops). NEVER take a count from the MARKET COLOR briefing, and NEVER invent a prior-week comparison ("up from 9 to 14") — you are not given last week's counts.
+- MARKET COLOR is allowed: index/sector/commodity moves that appear in the MARKET COLOR briefing (e.g. "gold up 2.3%") ARE real data — you may use them for texture. But do NOT invent color that isn't in the briefing, and never describe an individual holding by a specific industry ("a ride-hailing name") — the counts are all we know about the book's composition.
+- WHICH BOOK: the position/signal counts describe the CORE model book. Maximizer runs a SEPARATE breakout book with its own holdings — do NOT imply the core counts ("20 positions", "these 8 signals") are Maximizer's. When you contrast the two settings, keep Maximizer's behavior conceptual (hunts breakouts, holds on a clock, sells on a hard exit) unless given its own numbers.
 
 CRITICAL: Do NOT use any specific ticker symbols anywhere (no AAPL, NVDA, RIOT, etc.). This newsletter goes to free readers. Refer to stocks generically: "a name," "one position," "a tech stock." Subscribers who want tickers get them in the daily digest.
 
