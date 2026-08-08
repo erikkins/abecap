@@ -340,6 +340,50 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+
+def _is_deadlock_exc(exc) -> bool:
+    """True if this exception (or its chain) is a Postgres deadlock / serialization abort —
+    transient DB lock contention that succeeds on retry."""
+    seen = set()
+    e = exc
+    while e is not None and id(e) not in seen:
+        seen.add(id(e))
+        if type(e).__name__ in ("DeadlockDetectedError", "SerializationError"):
+            return True
+        msg = str(e).lower()
+        if "deadlock detected" in msg or "could not serialize" in msg:
+            return True
+        e = getattr(e, "__cause__", None) or getattr(e, "__context__", None)
+    return False
+
+
+class DeadlockRetryMiddleware(BaseHTTPMiddleware):
+    """Postgres can abort a transaction when two collide (deadlock) — a transient error that
+    succeeds on retry. Without this, the victim request 500s (and pages us). The aborted
+    transaction never committed, so re-running the request is data-safe. Buffer the body so a
+    POST can be re-read on retry. Happy path adds only a tiny body-read; retries fire only on
+    an actual deadlock (cap 2, brief backoff)."""
+    async def dispatch(self, request: StarletteRequest, call_next):
+        try:
+            await request.body()  # cache body so a retry can re-read it
+        except Exception:
+            pass
+        import asyncio as _aio
+        for attempt in range(3):
+            try:
+                return await call_next(request)
+            except Exception as e:
+                if _is_deadlock_exc(e) and attempt < 2:
+                    try:
+                        print(f"⚠️ DB deadlock on {request.method} {request.url.path} — retry {attempt + 1}/2")
+                    except Exception:
+                        pass
+                    await _aio.sleep(0.05 * (attempt + 1))
+                    continue
+                raise
+
+app.add_middleware(DeadlockRetryMiddleware)
+
 # Reject requests that didn't come through CloudFront. Disabled when the
 # env var is empty (so local dev doesn't need the header). See
 # app/core/origin_guard.py for full rationale.
