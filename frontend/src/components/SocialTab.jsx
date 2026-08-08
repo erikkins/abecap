@@ -66,7 +66,9 @@ const TYPE_LABELS = {
 };
 
 function RigaCapLogo({ size = 40, className = '' }) {
-  return <img src="/icon-halo.svg" alt="RigaCap" width={size} height={size} className={className} />;
+  // Current claret/ink brand avatar (matches the live X/IG profile). Was the retired
+  // navy/gold /icon-halo.svg, which is why the admin preview showed a blue logo.
+  return <img src="/icon-bitone.png" alt="RigaCap" width={size} height={size} className={`rounded-full ${className}`} />;
 }
 
 export default function SocialTab({ fetchWithAuth }) {
