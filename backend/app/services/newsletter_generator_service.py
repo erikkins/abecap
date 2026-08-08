@@ -87,6 +87,21 @@ EDUCATIONAL_TOPICS = [
         "title": "We trail the index most years. On purpose. Here's the deal.",
         "seed": "Explain the structural trade: a defensive momentum strategy behaves like insurance — it pays its premium in bull-run underperformance and collects in crashes. In our 21-year walk-forward Preserver beat the index in only about a quarter of rolling 3-year windows; its wins concentrate almost entirely in periods containing a crash. If you need to beat the market every year, this is the wrong product — and saying so up front is the point.",
     },
+    {
+        "slug": "the-exit-is-the-edge",
+        "title": "Everyone obsesses over the entry. The exit is where the money is kept.",
+        "seed": "Explain the Maximizer side: in momentum, picking a winner is the easy part — the hard part is not giving it back. The real edge is a pre-decided exit rule that fires whether or not you feel brave, so a big gain never round-trips to zero. 'Growth with a seatbelt.' Contrast with the human instinct to hold a winner 'just a little longer' and watch it reverse. Structure only, no specific hold windows or thresholds.",
+    },
+    {
+        "slug": "two-settings",
+        "title": "Protect and grow are two different jobs. So we stopped forcing one dial to do both.",
+        "seed": "Explain why one engine now has two settings — Preserver (protect) and Maximizer (grow). A single dial tuned to protect gives the growth-seeker a compromise, and vice versa. Same discipline underneath (momentum, regime awareness, a hard exit); the reader picks the temperament. The point isn't which number is bigger — it's that neither setting asks you to be a hero at the worst possible moment. Numbers walk-forward only.",
+    },
+    {
+        "slug": "riding-winners",
+        "title": "Why we buy strength, not dips — and hold on a clock, not a feeling.",
+        "seed": "Explain buying into strength near recent highs (never catching a falling knife) and holding on a predetermined schedule rather than on conviction or mood. Feelings are the enemy of a momentum book: they make you sell winners early and marry losers. A clock doesn't have feelings. Structure/principle only — no specific hold lengths or entry thresholds.",
+    },
 ]
 
 SYSTEM_PROMPT = """You write sections of a weekly financial newsletter called "Market, Measured." by Erik Kins, founder of RigaCap.
@@ -115,7 +130,10 @@ THE SEVEN REGIMES (these are the EXACT names — never substitute or invent othe
   7. Recovery          — turning up off a panic low; early signs of a base
 NEVER use generic substitutes like "Bull," "Bear," "Strong Bear," "Neutral." Use the seven names above verbatim. If you must compress, "panic_crash" can be written "Panic Crash" but never just "Bear."
 
-POSITIONING (June 2026): RigaCap is behavioral capital insurance — a momentum strategy built so subscribers never get a reason to panic-sell. The newsletter's job is demonstrating discipline in real time, never predicting.
+POSITIONING (Aug 2026): RigaCap is ONE engine with TWO settings, and the newsletter must speak to both temperaments — never Preserver-only.
+- PRESERVER (protect): shallow drawdowns, sleep-at-night; built so you never get a reason to sell at the bottom.
+- MAXIMIZER (grow): the same engine pushed for offense — hunts breakouts and rides winners, but the edge is the EXIT, not the entry: every name sells on a hard rule so a big gain never round-trips to zero. "Growth with a seatbelt."
+The connective tissue is DISCIPLINE, not defense — the reader chooses how hard to push. Write with range and energy: confident about the upside (Maximizer), honest about the tradeoffs, never doom or hype, never predicting. If a section only ever talks about protecting/trailing/sitting-out, it has drifted Preserver-only — pull in the growth side.
 
 PERFORMANCE NUMBERS — these are the ONLY ones you may cite; always describe them as WALK-FORWARD, NEVER "backtest":
 - 21-year walk-forward (2007-2026): RigaCap Preserver 7.7% a year, worst drawdown 13.7%; RigaCap Maximizer 13.5% a year, worst drawdown 20.8%
