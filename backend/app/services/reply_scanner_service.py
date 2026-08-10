@@ -100,6 +100,15 @@ TONE: confident and a little contrarian — a take worth clicking over to read, 
 # Do NOT name a product/plan/tier in the OUTPUT — these overlays only set the angle.
 _TIER_OVERLAY = {"preserver": PRESERVER_VOICE_OVERLAY, "maximizer": MAXIMIZER_VOICE_OVERLAY}
 
+# Applied to EVERY reply — the guard against fabricating or overstating a result.
+FACTUAL_ACCURACY_RULES = """
+FACTUAL ACCURACY — non-negotiable, a wrong claim here is worse than no reply:
+- Use ONLY the exact return figure in Trade data. Never change, round up, or inflate it.
+- NEVER invent, approximate, or shift a date. Do not say "mid-May", "back in spring", "in April" unless that EXACT date is in Trade data. If you are not stating the exact given date, state NO date at all.
+- If Trade data is a WALK-FORWARD TEST RESULT: you MUST frame it as walk-forward testing (e.g. "in our walk-forward testing, the system caught ..." / "tested over that period, it would have ..."). NEVER imply we personally held it or bought it live, and NEVER give it a specific entry date.
+- If Trade data is a REAL TRACKED TRADE: you may say our system caught/held it.
+- If you cannot make an honest point within these limits, output SKIP."""
+
 # Register keywords. A thread leans MAXIMIZER when it's about chasing a runner / FOMO /
 # breakouts; PRESERVER when it's about fear / loss / drawdown / the urge to capitulate.
 # Preserver is the default for neutral/ambiguous threads — it's the brand-core calm voice.
@@ -794,8 +803,17 @@ class ReplyScannerService:
         except Exception:
             pass  # Model tables may not exist yet
 
-        # Fallback: WF simulation trades for unmatched symbols
+        # Real tracked matches are framed as trades we actually caught/held.
+        for m in matches.values():
+            m["is_walkforward"] = False
+
+        # Fallback: WALK-FORWARD simulation trades for unmatched symbols. These are NOT
+        # positions we personally held — they get framed as walk-forward testing, and we
+        # HARD-BLOCK any name the live/STR book contradicts (a real closed loss, or a
+        # currently-underwater open position) so we never claim a win on a name we actually
+        # lost money on (e.g. SNDK: sim +34% vs live -23%).
         unmatched = [s for s in symbols if s not in matches]
+        wf_candidates = {}
         if unmatched:
             result = await db.execute(
                 select(WalkForwardSimulation)
@@ -814,16 +832,92 @@ class ReplyScannerService:
 
                 for trade in trades:
                     sym = trade.get("symbol", "")
-                    if sym not in unmatched:
+                    if sym not in unmatched or sym in wf_candidates:
                         continue
-                    if sym in matches:
-                        continue
+                    # Only genuinely CLOSED-on-a-rule trades. A `rebalance_exit` on the
+                    # sim's latest rebalance is an OPEN position marked-to-market at the
+                    # window edge (not a completed win) — and those batches include losers
+                    # sitting next to the flashy names. Cite only decisive rule exits.
+                    reason = (trade.get("exit_reason") or "").lower()
+                    closed_on_rule = reason in (
+                        "trailing_stop", "market_regime", "profit_target",
+                        "stop_loss", "stop", "target",
+                    )
+                    if trade.get("pnl_pct", 0) >= 5 and closed_on_rule:
+                        trade["is_walkforward"] = True
+                        trade["source"] = "walkforward"
+                        wf_candidates[sym] = trade
 
-                    pnl = trade.get("pnl_pct", 0)
-                    if pnl >= 5:
-                        matches[sym] = trade
+        if wf_candidates:
+            contradicted = await self._contradicted_symbols(set(wf_candidates), db)
+            for sym, trade in wf_candidates.items():
+                if sym in contradicted:
+                    logger.info(
+                        f"[reply-scanner] WF cite for {sym} BLOCKED — live/STR book "
+                        f"contradicts (real loss or currently underwater)"
+                    )
+                    continue
+                matches[sym] = trade
 
         return matches
+
+    async def _contradicted_symbols(self, symbols: set, db) -> set:
+        """Symbols whose walk-forward 'win' the LIVE/STR book would contradict.
+
+        Blocks a WF cite when our real book shows that same name as either a CLOSED
+        LOSS (pnl <= 0) or an OPEN position that's currently underwater (latest close
+        below entry). Never claim a win on a name we actually lost on / are down on.
+        Symbols with no real position at all are NOT contradicted (nothing to conflict).
+        """
+        from sqlalchemy import select
+        from collections import defaultdict
+        from app.core.database import ModelPosition
+
+        bad: set = set()
+        if not symbols:
+            return bad
+
+        rows = (await db.execute(
+            select(ModelPosition).where(
+                ModelPosition.symbol.in_(list(symbols)),
+                ModelPosition.portfolio_type.in_(["live", "signal_track_record"]),
+            )
+        )).scalars().all()
+
+        by_sym = defaultdict(list)
+        for r in rows:
+            by_sym[r.symbol].append(r)
+
+        try:
+            from app.services.model_portfolio_service import _fetch_latest_close_from_s3
+        except Exception:
+            _fetch_latest_close_from_s3 = None
+
+        price_cache: Dict[str, Optional[float]] = {}
+
+        def _close(sym: str) -> Optional[float]:
+            if _fetch_latest_close_from_s3 is None:
+                return None
+            if sym not in price_cache:
+                try:
+                    c = _fetch_latest_close_from_s3(sym)
+                    price_cache[sym] = float(c) if c is not None else None
+                except Exception:
+                    price_cache[sym] = None
+            return price_cache[sym]
+
+        for sym, poss in by_sym.items():
+            for p in poss:
+                if p.status == "closed":
+                    if (p.pnl_pct or 0) <= 0:
+                        bad.add(sym)
+                        break
+                else:  # open — block only if we can confirm it's underwater right now
+                    cur = _close(sym)
+                    if cur is not None and p.entry_price and cur < float(p.entry_price):
+                        bad.add(sym)
+                        break
+        return bad
 
     async def _check_deduplication(
         self, post_id: str, username: str, symbol: str, db
@@ -901,11 +995,23 @@ class ReplyScannerService:
 
         pnl_pct = trade.get("pnl_pct", 0)
         entry_date = str(trade.get("entry_date", ""))[:10]
+        is_wf = bool(trade.get("is_walkforward"))
 
-        trade_context = (
-            f"Our ensemble system caught ${symbol}: entered {entry_date}, "
-            f"returned {pnl_pct:+.1f}%."
-        )
+        if is_wf:
+            # Walk-forward test trade (NOT a position we personally held). No precise entry
+            # date — WF entries land on rebalance boundaries, so a specific day would be a
+            # misleading artifact. Frame as walk-forward testing, return only.
+            trade_context = (
+                f"WALK-FORWARD TEST RESULT (this is NOT a position we personally held — it is "
+                f"what the system would have done in walk-forward testing): the system caught "
+                f"${symbol} for {pnl_pct:+.1f}%. Do NOT state a specific entry/buy date for this "
+                f"one. You MUST frame it as walk-forward testing, never as a live trade we held."
+            )
+        else:
+            trade_context = (
+                f"REAL TRACKED TRADE (our system actually caught this in the tracked book): "
+                f"${symbol}, entered {entry_date}, {pnl_pct:+.1f}%."
+            )
 
         platform_label = "tweeted" if platform == "twitter" else "posted on Threads"
         char_limit = 260 if platform == "twitter" else 350
@@ -924,6 +1030,7 @@ class ReplyScannerService:
         )
         # Fork the ANGLE to the thread's tier (never name a product in the output).
         system_prompt = system_prompt + "\n" + _TIER_OVERLAY.get(tier, PRESERVER_VOICE_OVERLAY)
+        system_prompt = system_prompt + "\n" + FACTUAL_ACCURACY_RULES
 
         from app.services.voice_filters import contains_banned
 
