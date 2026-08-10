@@ -4879,6 +4879,26 @@ async def get_tier_books(limit: int = 40, admin: User = Depends(get_admin_user),
             r["realized_pnl"] = round((cur - entry) * shares, 0) if entry else None
             r["unrealized"] = True
 
+    # Self-healing: a held breakout position with NO logged buy fill (e.g. it entered
+    # before STR logging existed) would silently drop from the log — the book would show
+    # N held but the STR only M<N. Synthesize a display row from the snapshot for any such
+    # position so the STR log always reconciles to what the book actually holds.
+    _logged_buys = {r["symbol"] for r in maximizer_fills if r["side"] == "buy"}
+    for sym, pos in max_open.items():
+        if sym in _logged_buys:
+            continue
+        entry = float(pos.get("entry") or 0)
+        shares = float(pos.get("shares") or 0)
+        cur = _eod(sym)
+        cur = float(cur) if cur is not None else entry
+        maximizer_fills.append({
+            "fill_date": None, "symbol": sym, "side": "buy", "shares": shares,
+            "price": entry, "gross": round(shares * entry, 2), "source": "breakout",
+            "regime": None, "reason": "entry", "days_held": pos.get("days_held"),
+            "realized_pnl": round((cur - entry) * shares, 0) if entry else None,
+            "vol_scale": None, "unrealized": True,
+        })
+
     fills = {
         "core": core_fills,
         "preserver": preserver_fills,
