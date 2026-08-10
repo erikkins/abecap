@@ -364,6 +364,10 @@ class ReplyScannerService:
                     )
                     if not reply_text:
                         continue
+                    # Feed this reply into the avoid-set so the NEXT one in the same scan
+                    # takes a different shape/angle. (Repeating a hot ticker across threads is
+                    # fine + human — the point is each reply is its own take, not a clone.)
+                    self._recent_replies.insert(0, reply_text)
 
                     detail = {
                         "platform": "twitter",
@@ -430,6 +434,7 @@ class ReplyScannerService:
                 )
                 if not reply_text:
                     continue
+                self._recent_replies.insert(0, reply_text)
 
                 detail = {
                     "platform": "threads",
@@ -502,6 +507,7 @@ class ReplyScannerService:
                     )
                     if not reply_text:
                         continue
+                    self._recent_replies.insert(0, reply_text)
 
                     detail = {
                         "platform": "threads",
