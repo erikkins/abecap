@@ -10,14 +10,17 @@ metadata:
 # Session snapshot — Mon Aug 10 2026
 
 ## Frozen spec (load-bearing)
-- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP. Deploy=push main→"Deploy RigaCap" GHA (deploy.yml builds BACKEND Lambda container + FRONTEND S3/CloudFront in one run). **SMOKE-TEST curl api.rigacap.com/api/market-data-status→200 after EVERY deploy.** NEVER terraform apply w/o plan / NEVER lambda update-function-configuration --environment. Worker=rigacap-prod-worker, AWS_PROFILE=rigacap. Worker events: `{"db_read":"SQL"}`(::text), `{"run_migration":true,"sql":...}`(commits), `{"scan_replies":{...}}`. Mass prod DELETE = auto-mode blocked w/o explicit Erik consent.
+- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP/sleeve in PUBLIC (signal-intelligence dossier = the ONE internal exception; "sleeve" IS sanctioned as public ADVISER-CHANNEL term). Deploy=push main→GHA (backend Lambda + frontend S3/CF); SMOKE-TEST api.rigacap.com/api/market-data-status→200 after each. Worker=rigacap-prod-worker AWS_PROFILE=rigacap.
+- **PRINT DOCS = INK-ON-WHITE** (Erik: no paper #F5F1E8 page/section bg — burns ink; chips only). claret #7A2430 accent + ink #141210 + hairline #DDD5C7; Fraunces/IBM Plex Sans/IBM Plex Mono. perf_numbers SSOT (backend/app/services/perf_numbers.py + frontend/src/perf_numbers.js): Preserver 5yr 13.0/1.28/-12.9, 21yr 7.7/0.87/-13.7; Maximizer 5yr 31.4/1.51/-14.9, 21yr 13.5/0.93/-20.8; SPY 5yr 14.2/-25.4, 21yr 9.8/-55.
 
-## ✅ THIS SESSION (Aug 10) — reply engine + tier-book data/UX
-- Reply engine de-mechanized (VARY-SHAPE + intra-batch anti-repeat + Maximizer thesis-rotation + anti-judgy). Repeat tickers OK, each a distinct take.
-- **Reply engine ANTI-FABRICATION (506dd21):** Erik caught it posting fake wins — all were WalkForwardSimulation rows, not live book (SNDK sim +34% but live LOST -23%; AMD/AMZN were rebalance_exit OPEN-MARKS at sim edge, batch also held -15% losers). Fix: prefer real live/STR closed wins; WF only if CLOSED-ON-A-RULE (not rebalance_exit); `_contradicted_symbols()` hard-blocks names the live/STR book lost/is-underwater on; FACTUAL_ACCURACY_RULES (exact #s, no invented dates, WF must say "in walk-forward testing", else SKIP). Dry-run: 7 fabrications→1 honest cite. **7 bad drafts DELETED.**
-- **BUG2 Maximizer STR 8 vs 15 (5a9d2d6):** logging went live Jul 24; 7 pre-Jul-24 breakout entries (S/ERAS/BNY/XYZ/CFG/CSX/VG) never logged. Backfilled from snapshot → tier_fills 15/15. Endpoint (admin.py:4752 get_tier_books) now self-heals (synth display row for any held position missing a fill).
-- **Tier-books admin UI (d03cc75):** Core STR collapsed by default (show/hide toggle); endpoint adds current_price+pnl_pct per open row; TierBooksTab.jsx row now shows Entry + Current (live-quote first, EOD fallback, live dot) + P&L %. TierBookView.jsx = the SUBSCRIBER mirror (different file).
-- Erik morale note: books flat/down = duration not algo (oldest maximizer pos 18 trading days; live Core since ~Jun 15). Walk-forward = multi-year proof; live record = months/years build (Paul canon). Reassured, grounded in data.
+## ✅ EARLIER TODAY (all shipped+deployed)
+- Reply engine de-mechanized + ANTI-FABRICATION (was posting fake WF-sim wins; now real/guarded, PANW+STX drafts sent, Erik posting). Bug2 Maximizer STR 8→15 backfilled + self-heal. Tier-books admin UI: Core collapsed + Current price/P&L%.
 
-## ▶ NEXT (queued, none started)
-- DOCS REFRESH ([[project_docs_refresh]]) — the main planned task. plan unified-sauteeing-whale.md (verify+centralize public return #s → perf_numbers SSOT, Gate A read-only first). "A holding week" Maximizer label. GROWTH: testimonials/churn/ads.
+## ▶ IN FLIGHT — DOCS REFRESH (workflow DONE, awaiting Erik HTML review)
+- Workflow wf_71c0e9a8-b1c COMPLETE. All 6 docs in design/documents/ rewritten ink-on-white, VERIFIED: no navy/gold, numbers match SSOT exactly, 2-tier, all fonts, well-formed. Post-verify fixes done: investor "backtest"→"curve"; tech job-list wording; market-pricing base bg→white + date Jun→Aug.
+- **Just OPENED all 6 in browser for Erik's review. Files MODIFIED on disk but NOT committed, NO PDFs exported yet.**
+- 3 OPEN QUESTIONS for Erik: (1) confirm pricing figures in market-pricing doc (retail $129/$1099/$59-founding, +future $149-179 step; adviser $449/$899/enterprise, founding-firm $299) — verify-only, unchanged; (2) BacktesterService class name in tech doc — keep or rename in doc; (3) investor logo = type-only wordmark now (navy SVGs dropped) — want claret logo mark?
+- **NEXT after Erik OK:** re-export all 6 PDFs via headless Chrome (CLAUDE.md cmd) + git commit the doc set. Script: workflows/scripts/docs-refresh-wf_d83c0917-512.js (reusable).
+
+## ▶ QUEUED
+- "A holding week" Maximizer label; GROWTH testimonials/churn/ads; plan unified-sauteeing-whale.md (public-number consistency audit).
