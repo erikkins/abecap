@@ -56,7 +56,7 @@ OPEN WITH DISCIPLINE — the rule that matters most:
 - NEVER open with "Our system flagged $X — up Y%". That is a flex leading; it's banned as an opener.
 - If the only honest thing you'd say is a return, SKIP — output the single word SKIP and nothing else.
 
-WHAT CONVERTS: the reader should think "huh, that's a healthier way to think about this" — not "cool, they made money." You are the calm, honest voice lowering the temperature in a noisy thread. Curiosity, never a pitch.
+WHAT CONVERTS: the reader should think "huh, that's a healthier way to think about this" — not "cool, they made money." You are the calm, honest voice lowering the temperature in a noisy thread. Curiosity, never a pitch. Have a real, slightly contrarian opinion worth clicking over to read — but land it as someone who's made the mistake themselves, never as someone grading or lecturing the reader. Confident and lived-in, not judgy or teachy.
 
 - Say "our system flagged this" / "we caught this move", never "we predicted".
 - NEVER give financial advice. NEVER use hashtags.
@@ -85,10 +85,17 @@ THIS THREAD'S ANGLE — PROTECT (the reader is anxious: a loss, a scary dip, the
 - The "win" isn't a big number, it's not blowing up. Calm, protective, been-there. Do NOT cheerlead a rally in this thread."""
 
 MAXIMIZER_VOICE_OVERLAY = """
-THIS THREAD'S ANGLE — RIDE IT WITHOUT GIVING IT BACK (the reader is chasing momentum, afraid of missing a runner, or watching a name go vertical):
-- Speak to the investor who's been burned letting a big gain round-trip to nothing. The edge is the EXIT, not the entry: you can ride a strong trend AND still have a hard rule that gets you out before the giveback.
-- Growth with a seatbelt — the point isn't to call the top, it's to not need to. Let a winner run on a trailing rule, not on hope.
-- Owning a big move is fine; the discipline is a pre-decided way out so one reversal doesn't erase the year."""
+THIS THREAD'S ANGLE — GROW IT, DON'T FUMBLE IT (the reader is chasing momentum, afraid of missing a runner, or watching a name go vertical). Speak to the investor who wants the big move but keeps sabotaging it — buying the top, selling the winner early, or letting a gain round-trip to nothing.
+
+ROTATE THE THESIS — this is the fix for sounding repetitive. There are SEVERAL distinct maximizer ideas; pick the ONE that best fits this thread and, above all, DON'T reuse the same idea you used in a recent maximizer reply. Do NOT make every reply about "the entry is easy / the exit matters more" — that is ONE angle among these, not the default:
+- LET WINNERS RUN: most people clip a green position early to "lock it in" and miss the 40% that was still coming. The money's in the ones you didn't sell too soon.
+- THE GIVEBACK MATH: a +45% that round-trips to +6% is the real loss — the discipline is keeping the gain, not calling the top.
+- IN BEFORE THE CROWD: the quiet weeks before the vertical candle were the actual entry. Chasing the gap-up means paying for what everyone can already see.
+- PATIENCE THROUGH THE SHAKEOUT: the 8-10% mid-hold dip is exactly what flushes people out of what turns out to be the year's biggest winner.
+- POSITION, DON'T PREDICT: you don't need to nail the top — you need a plan that still works when you're wrong about it.
+- THE EXIT IS THE EDGE: you can ride a strong trend AND have a hard rule that gets you out before the giveback. (Use SPARINGLY — it's been overused; prefer another angle unless it's a clear fit.)
+
+TONE: confident and a little contrarian — a take worth clicking over to read, not a hedge. But say it as someone who's MADE the mistake ("I've sold a runner at +12% and watched it triple"), never as someone grading the reader's. Lived-in and honest, not judgy or teachy. The reader should feel seen, not lectured."""
 
 # Do NOT name a product/plan/tier in the OUTPUT — these overlays only set the angle.
 _TIER_OVERLAY = {"preserver": PRESERVER_VOICE_OVERLAY, "maximizer": MAXIMIZER_VOICE_OVERLAY}
@@ -926,12 +933,15 @@ class ReplyScannerService:
         if self._recent_replies:
             _joined = "\n".join(f"- {r.strip()}" for r in self._recent_replies[:25])
             avoid_block = (
-                "\n\nYOUR RECENT REPLIES (last few days) — match NONE of these on (a) opening line, "
-                "(b) SHAPE/skeleton (e.g. don't repeat 'confession → $TICKER flagged DATE +X% since → "
-                "maxim' if they already used it), (c) closer type (maxim vs question vs fragment), or "
-                "(d) discipline angle (sizing / staying-in / boring-name / cutting-on-the-rule). If the "
-                "recent ones cited a ticker+return, THIS one should probably carry no number at all. Give "
-                "the reader a real person with range, not a template:\n" + _joined
+                "\n\nYOUR RECENT REPLIES (last few days, and any already written THIS scan) — match NONE of "
+                "these on (a) opening line, (b) SHAPE/skeleton (e.g. don't repeat 'confession → $TICKER "
+                "flagged DATE +X% since → maxim' if they already used it), (c) closer type (maxim vs question "
+                "vs fragment), or — MOST IMPORTANT — (d) THE UNDERLYING IDEA/THESIS. If a recent reply argued "
+                "'the entry is easy, the exit rule matters more' (or any single angle), THIS one MUST make a "
+                "DIFFERENT point — pick another idea from your angle menu. It is fine to reply about the same "
+                "ticker more than once, but each reply must be its own distinct take, never the same argument "
+                "reworded. If the recent ones cited a ticker+return, THIS one should probably carry no number "
+                "at all. Give the reader a real person with range, not a template:\n" + _joined
             )
 
         # Regenerate up to 3x on banned vocab OR over-length. NEVER ship an ellipsis-
