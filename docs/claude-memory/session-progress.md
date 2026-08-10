@@ -7,21 +7,20 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Sat Aug 8 2026
+# Session snapshot — Sun/Mon Aug 10 2026
 
 ## Frozen spec (load-bearing)
-- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP. Deploy=push main→"Deploy RigaCap" GHA. **SMOKE-TEST a live endpoint after EVERY deploy** (Fri Form outage). fastapi.Form/File unusable (no python-multipart; parse bodies manually). NEVER `terraform apply` w/o plan review (ignore_changes protects Lambdas). Worker=rigacap-prod-worker, AWS_PROFILE=rigacap. `{"db_read":"SQL"}`, `{"run_migration":true,"sql":...}`.
-- MODELS: latest=Claude 5 family + Opus 4.8. Newsletter=claude-opus-4-8; ai_content=claude-sonnet-5; reply_scanner=claude-sonnet-4-6. Default new AI work to latest/most-capable.
-- Two post types differ: LAUNCH CARDS post the image on ALL 3 (X/Threads/IG). INSIGHT autoposts = TEXT on X/Threads, generated quote-card only on IG.
+- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP. Deploy=push main→"Deploy RigaCap" GHA. **SMOKE-TEST a live endpoint after EVERY deploy.** fastapi.Form/File unusable (no python-multipart; parse bodies manually). NEVER `terraform apply` w/o plan review. Worker=rigacap-prod-worker, AWS_PROFILE=rigacap. `{"db_read":"SQL"}`, `{"run_migration":true,"sql":...}`.
+- MODELS latest = Claude 5 family + Opus 4.8. newsletter=opus-4-8, ai_content=sonnet-5, reply_scanner=sonnet-4-6.
+- Post types: LAUNCH CARDS = image on ALL 3 (X/Threads/IG). INSIGHT autoposts = text on X/Threads, generated card on IG only.
 
-## ✅ SHIPPED TODAY (Sat)
-- NEWSLETTER "Market, Measured" world-class rework + Erik LOCKED it → sends Sunday. 2-tier growth-forward voice, tiers LEAD STORY (§02), Opus 4.8, real market color (gold) from briefing but COUNTS authoritative from structured data, §03 bold full first sentence, §04 no invented trades. Anti-hallucination: never fabricate news/dates/causation/per-stock-per-day anecdotes/sub-counts; only cite provided headlines + REAL-WINS feed.
-- REAL-WINS FEED: generator now pulls this week's actual closed winners (model_positions, no ticker, real %) → §04 cites a TRUE win or stays principle-based (0 wins this week yet).
-- DB DEADLOCK-RETRY middleware (main.py DeadlockRetryMiddleware): retries request up to 2x on Postgres DeadlockDetectedError → no more 500/alarm from transient lock contention (root: post-deploy API-Gateway flush into cold Lambdas hitting same write path; exact query in RDS log). Verified 0 deadlocks post-deploy.
-- Admin social preview avatar: /icon-halo.svg (navy, retired) → /icon-bitone.png (claret). 
-- "Post Goes Live" email chart card: presigned a full CloudFront URL (launch cards) → mangled/broken; now uses full http URLs directly. Fixed.
+## ✅ THIS SESSION (Aug 10)
+- REPLY ENGINE de-mechanized (commit 04626f9): drafts all cloned ONE skeleton (confession → "$TICKER flagged DATE, +X% since" → terse maxim) b/c single KO few-shot + fixed ordering; anti-repeat varied words not SHAPE. Added "VARY THE SHAPE" section (3 on-voice examples w/ different structures incl one with NO ticker/number), anti-template rules (rotate opener/result-placement/closer; often drop the ticker), + structural anti-repeat in avoid_block. Dry-run confirmed: shapes now vary, no flag/date/% template.
+- (Sat, still relevant) newsletter LOCKED for Sunday; DB deadlock-retry middleware live; admin avatar→claret; "Post Goes Live" email fixed twice (card image full-URL render + platform mislabel Threads-as-Instagram); real-wins feed wired.
 
-## ▶ NEXT / OPEN
-- MONDAY: docs refresh ([[project_docs_refresh]]); "A holding week" label for Maximizer.
-- Fri/earlier: tier-preview fixes shipped (real subs unaffected); launch cards scheduled Sun/Tue/Thu; autopost cadence live.
-- Deadlock exact-query root cause = RDS Postgres log (not chased; retry masks it safely). GROWTH: testimonials/social-proof; churn; ads recheck.
+## ▶ IN FLIGHT / DECISION (asked Erik)
+- Reply engine residual: a single scan batch can CLUSTER (today's dry-run = all 3 Maximizer/"exit is the edge", 2× the same stock $TSM diff accounts). Cause: within one scan, replies only anti-repeat vs PRIOR DAYS, not vs EACH OTHER (recent_replies loaded once at scan start). OFFERED intra-batch de-dup (no 2 replies same symbol / not 3 same angle per scan). Erik deciding: add it, or leave clustering to sort across the day's scans. Shape fix itself is done + good.
+
+## ▶ NEXT (queued)
+- DOCS REFRESH ([[project_docs_refresh]]) — the main planned task, not started. Reuse layout, write fresh, 2-tier/growth-forward/claret/walk-forward/SSOT.
+- "A holding week" label for Maximizer (discuss). GROWTH: testimonials/social-proof; churn; ads recheck.
