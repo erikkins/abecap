@@ -10,18 +10,17 @@ metadata:
 # Session snapshot — Mon Aug 10 2026
 
 ## Frozen spec (load-bearing)
-- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP in PUBLIC (signal-intelligence = internal exception; "sleeve"/"Cascade Guard" OK public). PRINT DOCS = INK-ON-WHITE (no paper #F5F1E8 page/section bg). perf_numbers SSOT: Preserver 5yr 13.0/1.28/-12.9, 21yr 7.7/0.87/-13.7; Maximizer 5yr 31.4/1.51/-14.9, 21yr 13.5/0.93/-20.8; SPY 5yr 14.2/-25.4, 21yr 9.8/-55. Deploy=push main→GHA + smoke-test. Worker=rigacap-prod-worker AWS_PROFILE=rigacap.
-- CASCADE GUARD real+live in BOTH prod (worker CIRCUIT_BREAKER_ENABLED=true) AND walk-forward (circuit_breaker_stops=3 default in StrategyParams+backtester; only off via _disable_cb ablation). 3 same-day trailing-stops→10d entry pause. ON live book, OFF for STR. Fired 7/7 (SNDK/WULF/NBIS). Docs accurate to include it.
-- **MAXIMIZER ARCHITECTURE (verified maximizer_service.py):** Maximizer = Preserver layer + a SEPARATE full-notional gated-BREAKOUT standing book (MaximizerBook): own breakout entries (fire ONLY in rotating_bull regime = the gate), ~29-trading-day HOLD-TO-EXIT time-stop, continuous Barroso VOL-TARGET (target/trailing-vol, lagged, cap 1.0), ~15 slots, NO t30v leg inside. NOT "same book + overlay knob."
+- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP in PUBLIC (signal-intelligence = internal exception; "sleeve"/"Cascade Guard" OK public). PRINT DOCS = INK-ON-WHITE (no paper #F5F1E8 page/section bg). perf_numbers SSOT: Preserver 5yr 13.0/1.28/-12.9, 21yr 7.7/0.87/-13.7; Maximizer 5yr 31.4/1.51/-14.9, 21yr 13.5/0.93/-20.8; SPY 5yr 14.2/-25.4, 21yr 9.8/-55. Deploy=push main→GHA+smoke-test. Worker=rigacap-prod-worker AWS_PROFILE=rigacap.
+- CASCADE GUARD real+live in prod (worker CIRCUIT_BREAKER_ENABLED=true) AND walk-forward (circuit_breaker_stops=3 default). 3 same-day trailing-stops→10d pause. ON live, OFF STR. Fired 7/7.
+- MAXIMIZER ARCH: Preserver layer + SEPARATE gated-breakout book (maximizer_service.py): rotating_bull-gated entries, ~29d hold-to-exit, Barroso vol-target, ~15 full-notional slots, NO t30v leg. NOT "same book + overlay."
 
 ## ✅ TODAY (shipped)
-- Reply engine anti-fabrication (fake WF-sim wins killed; PANW/STX drafts posted). Bug2 Maximizer STR 8→15 backfill+self-heal. Tier-books admin UI Core-collapsed + Current price/P&L%.
+- Reply engine anti-fabrication (fake WF-sim wins killed; PANW/STX posted). Bug2 Maximizer STR 8→15 backfill+self-heal. Tier-books admin UI Core-collapsed + Current price/P&L%.
 
-## ▶ IN FLIGHT — DOCS REFRESH review
-- 6 docs rewritten ink-on-white + verified + PDFs exported/opened. NOT committed. Erik marking up w/ pen.
-- **ACTIVE FIX PENDING ERIK OK:** signal-intelligence.html WRONGLY says Preserver/Maximizer are "same book, only diff = capitulation overlay" (lines 763,796,1144) and OMITS the breakout hunter. Proposed: add "The Maximizer breakout book" section + correct the 3 statements + fix Maximizer tier-card. Asked Erik to confirm framing (breakout as 2nd delineated layer) before I write. WAITING on his go/framing.
-- 3 other open Qs: market-pricing figures confirm; BacktesterService name keep/rename; investor logo (type-only now, want claret mark).
-- After edits: re-export affected PDFs + git commit doc set.
+## ▶ IN FLIGHT — DOCS REFRESH review (6 docs rewritten ink-on-white, verified, PDFs exported/open; NOT committed; Erik pen-marking)
+- **JUST DONE:** signal-intelligence.html — added dedicated Section 08 "The Maximizer breakout book" (2nd delineated layer: regime-gated breakout entries, ~29d hold-to-exit, Barroso vol-target seatbelt, ~15 slots, no double-count) + corrected 3 wrong "only diff = overlay" claims (intro/tier-card-caption/Section-04) + fixed Maximizer tier card + Section 07 lead/callout. Renumbered old 08-14→09-15 (kickers/banners/TOC/2 body xrefs), verified 01-15 clean, div-balanced, PDF re-exported (1.5MB) + opened.
+- 3 OPEN Qs for Erik (fold into markup): (1) market-pricing figures confirm (retail $129/$1099/$59-founding +future $149-179; adviser $449/$899/enterprise, founding-firm $299); (2) BacktesterService name in tech doc keep/rename; (3) investor logo = type-only wordmark now — want claret mark?
+- After Erik's markups: revise HTML → re-export affected PDFs → git commit the doc set (NOTHING committed yet).
 
 ## ▶ QUEUED
-- "A holding week" Maximizer label; GROWTH testimonials/churn/ads; plan unified-sauteeing-whale.md.
+- "A holding week" Maximizer label; GROWTH testimonials/churn/ads; plan unified-sauteeing-whale.md (public-number audit).
