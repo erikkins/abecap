@@ -10,16 +10,14 @@ metadata:
 # Session snapshot — Mon Aug 10 2026
 
 ## Frozen spec (load-bearing)
-- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP. Deploy=push main→"Deploy RigaCap" GHA. **SMOKE-TEST a live endpoint (curl api.rigacap.com/api/market-data-status → 200) after EVERY deploy.** fastapi.Form/File unusable (no python-multipart). NEVER `terraform apply` w/o plan review. NEVER `lambda update-function-configuration --environment`. Worker=rigacap-prod-worker, AWS_PROFILE=rigacap. Reply scan: `{"scan_replies":{"since_hours":24,"dry_run":false,"clear_existing":true}}` → drafts + approval emails to erik@rigacap.com. Payload at /tmp/scan_payload.json.
-- MODELS latest = Claude 5 + Opus 4.8. newsletter=opus-4-8, ai_content=sonnet-5, reply_scanner=sonnet-4-6.
+- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP. Deploy=push main→"Deploy RigaCap" GHA (deploy.yml builds BACKEND Lambda container + FRONTEND S3/CloudFront in one run). **SMOKE-TEST curl api.rigacap.com/api/market-data-status→200 after EVERY deploy.** NEVER terraform apply w/o plan / NEVER lambda update-function-configuration --environment. Worker=rigacap-prod-worker, AWS_PROFILE=rigacap. Worker events: `{"db_read":"SQL"}`(::text), `{"run_migration":true,"sql":...}`(commits), `{"scan_replies":{...}}`. Mass prod DELETE = auto-mode blocked w/o explicit Erik consent.
 
-## ✅ THIS SESSION (Aug 10) — REPLY ENGINE fully de-mechanized + DONE
-- 04626f9: VARY THE SHAPE (broke the single-skeleton template).
-- 530044a: intra-batch anti-repeat (each accepted draft → `_recent_replies` so next reply in same scan differs). Repeat tickers ALLOWED per Erik — just each reply a distinct take, NOT a same-symbol block.
-- c2b3026: MAXIMIZER thesis-rotation (was 4/4 converging on "exit>entry"; now 6-angle menu: let-winners-run / giveback-math / in-before-crowd / patience-through-shakeout / position-don't-predict / exit-is-edge[sparingly]) + avoid_block fights THESIS-level repeat + global anti-judgy/teachy tone ("confident+contrarian worth-the-click, said as someone who made the mistake, not grading the reader"). All 3 DEPLOYED+smoke-tested.
-- Re-ran scan twice → final batch (7 drafts, 7 emails to Erik): maximizer now 2 distinct theses, tone un-preachy, 3× AMZN each a distinct take. Erik reviewing inbox. If good, reply engine is DONE.
+## ✅ THIS SESSION (Aug 10) — reply engine + tier-book data/UX
+- Reply engine de-mechanized (VARY-SHAPE + intra-batch anti-repeat + Maximizer thesis-rotation + anti-judgy). Repeat tickers OK, each a distinct take.
+- **Reply engine ANTI-FABRICATION (506dd21):** Erik caught it posting fake wins — all were WalkForwardSimulation rows, not live book (SNDK sim +34% but live LOST -23%; AMD/AMZN were rebalance_exit OPEN-MARKS at sim edge, batch also held -15% losers). Fix: prefer real live/STR closed wins; WF only if CLOSED-ON-A-RULE (not rebalance_exit); `_contradicted_symbols()` hard-blocks names the live/STR book lost/is-underwater on; FACTUAL_ACCURACY_RULES (exact #s, no invented dates, WF must say "in walk-forward testing", else SKIP). Dry-run: 7 fabrications→1 honest cite. **7 bad drafts DELETED.**
+- **BUG2 Maximizer STR 8 vs 15 (5a9d2d6):** logging went live Jul 24; 7 pre-Jul-24 breakout entries (S/ERAS/BNY/XYZ/CFG/CSX/VG) never logged. Backfilled from snapshot → tier_fills 15/15. Endpoint (admin.py:4752 get_tier_books) now self-heals (synth display row for any held position missing a fill).
+- **Tier-books admin UI (d03cc75):** Core STR collapsed by default (show/hide toggle); endpoint adds current_price+pnl_pct per open row; TierBooksTab.jsx row now shows Entry + Current (live-quote first, EOD fallback, live dot) + P&L %. TierBookView.jsx = the SUBSCRIBER mirror (different file).
+- Erik morale note: books flat/down = duration not algo (oldest maximizer pos 18 trading days; live Core since ~Jun 15). Walk-forward = multi-year proof; live record = months/years build (Paul canon). Reassured, grounded in data.
 
-## ▶ NEXT (queued, in order)
-- DOCS REFRESH ([[project_docs_refresh]]) — Erik's stated next task. Reuse layout, write fresh, 2-tier/growth-forward/claret/walk-forward/SSOT. Signal-intelligence stays confidential.
-- Plan unified-sauteeing-whale.md: verify public return numbers (consistency+correctness) → centralize into perf_numbers.* SSOT. Gate A read-only, STOP for sign-off.
-- "A holding week" label for Maximizer (~29-day holds) — discuss. GROWTH: testimonials; churn; ads recheck.
+## ▶ NEXT (queued, none started)
+- DOCS REFRESH ([[project_docs_refresh]]) — the main planned task. plan unified-sauteeing-whale.md (verify+centralize public return #s → perf_numbers SSOT, Gate A read-only first). "A holding week" Maximizer label. GROWTH: testimonials/churn/ads.
