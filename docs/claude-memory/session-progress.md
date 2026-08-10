@@ -10,16 +10,18 @@ metadata:
 # Session snapshot — Mon Aug 10 2026
 
 ## Frozen spec (load-bearing)
-- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP in PUBLIC (signal-intelligence dossier = internal exception; "sleeve" & "Cascade Guard" are OK public terms). PRINT DOCS = INK-ON-WHITE (no paper #F5F1E8 page/section bg — chips only). perf_numbers SSOT: Preserver 5yr 13.0/1.28/-12.9, 21yr 7.7/0.87/-13.7; Maximizer 5yr 31.4/1.51/-14.9, 21yr 13.5/0.93/-20.8; SPY 5yr 14.2/-25.4, 21yr 9.8/-55. Deploy=push main→GHA; smoke-test after. Worker=rigacap-prod-worker AWS_PROFILE=rigacap.
-- **CASCADE GUARD = REAL + LIVE** (verified today): production circuit breaker (circuit_breaker_state.py), CIRCUIT_BREAKER_ENABLED=true on WORKER (unset on api, correct). 3 same-day trailing-stops → pause new entries 10d. Mirrors WF CB (~+3.7pp/yr). ON for live book, OFF for STR (same-day cascades = noise there). Actually FIRED 2026-07-07 (SNDK/WULF/NBIS) → paused to 7/17. S3 cb-state/live.json.
+- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP in PUBLIC (signal-intelligence = internal exception; "sleeve"/"Cascade Guard" OK public). PRINT DOCS = INK-ON-WHITE (no paper #F5F1E8 page/section bg). perf_numbers SSOT: Preserver 5yr 13.0/1.28/-12.9, 21yr 7.7/0.87/-13.7; Maximizer 5yr 31.4/1.51/-14.9, 21yr 13.5/0.93/-20.8; SPY 5yr 14.2/-25.4, 21yr 9.8/-55. Deploy=push main→GHA + smoke-test. Worker=rigacap-prod-worker AWS_PROFILE=rigacap.
+- CASCADE GUARD real+live in BOTH prod (worker CIRCUIT_BREAKER_ENABLED=true) AND walk-forward (circuit_breaker_stops=3 default in StrategyParams+backtester; only off via _disable_cb ablation). 3 same-day trailing-stops→10d entry pause. ON live book, OFF for STR. Fired 7/7 (SNDK/WULF/NBIS). Docs accurate to include it.
+- **MAXIMIZER ARCHITECTURE (verified maximizer_service.py):** Maximizer = Preserver layer + a SEPARATE full-notional gated-BREAKOUT standing book (MaximizerBook): own breakout entries (fire ONLY in rotating_bull regime = the gate), ~29-trading-day HOLD-TO-EXIT time-stop, continuous Barroso VOL-TARGET (target/trailing-vol, lagged, cap 1.0), ~15 slots, NO t30v leg inside. NOT "same book + overlay knob."
 
-## ✅ EARLIER TODAY (shipped+deployed)
-- Reply engine de-mech + ANTI-FABRICATION (fake WF-sim wins killed; PANW/STX drafts sent, Erik posting). Bug2 Maximizer STR 8→15 backfill+self-heal. Tier-books admin UI: Core collapsed + Current price/P&L%.
+## ✅ TODAY (shipped)
+- Reply engine anti-fabrication (fake WF-sim wins killed; PANW/STX drafts posted). Bug2 Maximizer STR 8→15 backfill+self-heal. Tier-books admin UI Core-collapsed + Current price/P&L%.
 
-## ▶ IN FLIGHT — DOCS REFRESH (awaiting Erik pen markup)
-- All 6 design/documents/ rewritten ink-on-white via workflow, VERIFIED (no navy/gold, numbers=SSOT, 2-tier, well-formed). Post-verify fixes applied. **6 PDFs EXPORTED** (headless Chrome, white bg) + opened — Erik printing to mark up with a pen.
-- **NOT committed yet** (files modified on disk). Await Erik's markup → revise HTML → re-export PDFs → THEN git commit the set.
-- 3 OPEN Qs for Erik (fold into markup): (1) confirm market-pricing figures (retail $129/$1099/$59-founding +future $149-179; adviser $449/$899/enterprise, founding-firm $299) — verify-only, unchanged; (2) BacktesterService class name in tech doc — keep/rename in doc; (3) investor logo = type-only wordmark now (navy SVG dropped) — want claret logo? Cascade Guard confirmed real → docs are accurate to include it.
+## ▶ IN FLIGHT — DOCS REFRESH review
+- 6 docs rewritten ink-on-white + verified + PDFs exported/opened. NOT committed. Erik marking up w/ pen.
+- **ACTIVE FIX PENDING ERIK OK:** signal-intelligence.html WRONGLY says Preserver/Maximizer are "same book, only diff = capitulation overlay" (lines 763,796,1144) and OMITS the breakout hunter. Proposed: add "The Maximizer breakout book" section + correct the 3 statements + fix Maximizer tier-card. Asked Erik to confirm framing (breakout as 2nd delineated layer) before I write. WAITING on his go/framing.
+- 3 other open Qs: market-pricing figures confirm; BacktesterService name keep/rename; investor logo (type-only now, want claret mark).
+- After edits: re-export affected PDFs + git commit doc set.
 
 ## ▶ QUEUED
-- "A holding week" Maximizer label; GROWTH testimonials/churn/ads; plan unified-sauteeing-whale.md (public-number consistency audit).
+- "A holding week" Maximizer label; GROWTH testimonials/churn/ads; plan unified-sauteeing-whale.md.
