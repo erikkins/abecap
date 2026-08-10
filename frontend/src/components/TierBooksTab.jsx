@@ -16,6 +16,7 @@ export default function TierBooksTab({ fetchWithAuth }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quotes, setQuotes] = useState({});
+  const [showCore, setShowCore] = useState(false);  // Core STR collapsed by default
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -109,16 +110,27 @@ export default function TierBooksTab({ fetchWithAuth }) {
         })}
       </div>
 
-      {/* STR fill logs per tier */}
+      {/* STR fill logs per tier. Core is collapsed by default — Preserver + Maximizer are
+          the books of interest. */}
       {TIERS.map((t) => {
         const rows = fills[t.id] || [];
+        const collapsed = t.id === 'core' && !showCore;
         return (
           <div key={t.id}>
             <div className="flex items-baseline justify-between border-b border-rule pb-2 mb-2">
               <h3 className="font-semibold text-ink">{t.label} — transaction log (STR)</h3>
-              <span className="text-xs text-ink-mute">{rows.length} fills</span>
+              <div className="flex items-baseline gap-3">
+                <span className="text-xs text-ink-mute">{rows.length} fills</span>
+                {t.id === 'core' && (
+                  <button onClick={() => setShowCore(v => !v)} className="text-xs text-ink-mute hover:text-ink underline">
+                    {showCore ? 'hide' : 'show'}
+                  </button>
+                )}
+              </div>
             </div>
-            {rows.length === 0 ? (
+            {collapsed ? (
+              <div className="text-xs text-ink-mute py-1.5 italic">Collapsed — click “show” to view the Core log.</div>
+            ) : rows.length === 0 ? (
               <div className="text-sm text-ink-mute py-3">
                 No fills logged yet{t.id === 'core' ? ' (Core trades live in the model portfolio).' : '.'}
               </div>
@@ -131,7 +143,8 @@ export default function TierBooksTab({ fetchWithAuth }) {
                       <th className="text-left py-1.5 px-2">Symbol</th>
                       <th className="text-left py-1.5 px-2">Side</th>
                       <th className="text-right py-1.5 px-2">Shares</th>
-                      <th className="text-right py-1.5 px-2">Price</th>
+                      <th className="text-right py-1.5 px-2">Entry</th>
+                      <th className="text-right py-1.5 px-2">Current</th>
                       <th className="text-right py-1.5 px-2 hidden sm:table-cell">Gross</th>
                       <th className="text-left py-1.5 px-2 hidden md:table-cell">Reason</th>
                       <th className="text-right py-1.5 px-2 hidden md:table-cell">Days</th>
@@ -139,30 +152,42 @@ export default function TierBooksTab({ fetchWithAuth }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r, i) => (
-                      <tr key={`${r.symbol}-${r.fill_date}-${r.side}-${i}`} className="border-b border-rule/50">
-                        <td className="py-1.5 px-2 font-mono text-xs text-ink-mute">{r.fill_date}</td>
-                        <td className="py-1.5 px-2 font-medium text-ink">{r.symbol}</td>
-                        <td className={`py-1.5 px-2 uppercase text-xs font-medium ${r.side === 'buy' ? 'text-positive' : 'text-claret'}`}>{r.side}</td>
-                        <td className="py-1.5 px-2 text-right font-mono">{r.shares != null ? Number(r.shares).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}</td>
-                        <td className="py-1.5 px-2 text-right font-mono">{r.price != null ? `$${Number(r.price).toFixed(2)}` : '—'}</td>
-                        <td className="py-1.5 px-2 text-right font-mono hidden sm:table-cell">{usd(r.gross)}</td>
-                        <td className="py-1.5 px-2 text-xs text-ink-mute hidden md:table-cell">
-                          {r.reason}{r.source ? ` · ${r.source}` : ''}{r.vol_scale != null ? ` · vs ${Number(r.vol_scale).toFixed(2)}` : ''}
-                        </td>
-                        <td className="py-1.5 px-2 text-right font-mono text-xs text-ink-mute hidden md:table-cell">{r.days_held != null ? `${r.days_held}d` : '—'}</td>
-                        {(() => {
-                          // Open rows: reprice P&L off the live quote when we have one; else the EOD mark.
-                          let v = r.realized_pnl;
-                          if (r.unrealized && r.side === 'buy' && quotes[r.symbol]?.price && r.price) {
-                            v = r.shares * (quotes[r.symbol].price - r.price);
-                          }
-                          return (
-                            <td className={`py-1.5 px-2 text-right font-mono ${v >= 0 ? 'text-positive' : 'text-claret'}`} title={r.unrealized ? 'Unrealized (live/EOD mark)' : 'Realized'}>{v != null ? `${r.unrealized ? '~' : ''}${pnl(v)}` : '—'}</td>
-                          );
-                        })()}
-                      </tr>
-                    ))}
+                    {rows.map((r, i) => {
+                      // Live-first current price + P&L for open rows; else server EOD mark; closed = realized.
+                      const isOpenBuy = r.unrealized && r.side === 'buy';
+                      const live = quotes[r.symbol]?.price || null;
+                      const cur = isOpenBuy ? (live || r.current_price) : null;
+                      let v = r.realized_pnl;
+                      let pct = r.pnl_pct;
+                      if (isOpenBuy && cur != null && r.price) {
+                        v = r.shares * (cur - r.price);
+                        pct = (cur - r.price) / r.price * 100;
+                      }
+                      return (
+                        <tr key={`${r.symbol}-${r.fill_date}-${r.side}-${i}`} className="border-b border-rule/50">
+                          <td className="py-1.5 px-2 font-mono text-xs text-ink-mute">{r.fill_date || '—'}</td>
+                          <td className="py-1.5 px-2 font-medium text-ink">{r.symbol}</td>
+                          <td className={`py-1.5 px-2 uppercase text-xs font-medium ${r.side === 'buy' ? 'text-positive' : 'text-claret'}`}>{r.side}</td>
+                          <td className="py-1.5 px-2 text-right font-mono">{r.shares != null ? Number(r.shares).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}</td>
+                          <td className="py-1.5 px-2 text-right font-mono">{r.price != null ? `$${Number(r.price).toFixed(2)}` : '—'}</td>
+                          <td className="py-1.5 px-2 text-right font-mono">
+                            {cur != null ? (
+                              <span>${Number(cur).toFixed(2)}{live && <span title="Live intraday" className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-positive align-middle" />}</span>
+                            ) : '—'}
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-mono hidden sm:table-cell">{usd(r.gross)}</td>
+                          <td className="py-1.5 px-2 text-xs text-ink-mute hidden md:table-cell">
+                            {r.reason}{r.source ? ` · ${r.source}` : ''}{r.vol_scale != null ? ` · vs ${Number(r.vol_scale).toFixed(2)}` : ''}
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-mono text-xs text-ink-mute hidden md:table-cell">{r.days_held != null ? `${r.days_held}d` : '—'}</td>
+                          <td className={`py-1.5 px-2 text-right font-mono ${(v ?? 0) >= 0 ? 'text-positive' : 'text-claret'}`} title={r.unrealized ? 'Unrealized (live/EOD mark)' : 'Realized'}>
+                            {v != null ? (
+                              <span>{r.unrealized ? '~' : ''}{pnl(v)}{pct != null && <span className="text-xs ml-1">({pct >= 0 ? '+' : ''}{Number(pct).toFixed(1)}%)</span>}</span>
+                            ) : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

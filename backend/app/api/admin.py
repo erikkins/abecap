@@ -4899,6 +4899,25 @@ async def get_tier_books(limit: int = 40, admin: User = Depends(get_admin_user),
             "vol_scale": None, "unrealized": True,
         })
 
+    # Current price + current P&L % per open row (server EOD mark; client overrides with a
+    # live quote when the market's open). Closed trades keep their realized $ P&L.
+    def _enrich_current(rows):
+        for r in rows:
+            r.setdefault("current_price", None)
+            r.setdefault("pnl_pct", None)
+            if r.get("side") == "buy" and r.get("unrealized"):
+                entry = float(r.get("price") or 0)
+                cur = _eod(r["symbol"])
+                cur = float(cur) if cur is not None else entry
+                r["current_price"] = round(cur, 2)
+                if entry:
+                    r["pnl_pct"] = round((cur - entry) / entry * 100, 1)
+        return rows
+
+    _enrich_current(core_fills)
+    _enrich_current(preserver_fills)
+    _enrich_current(maximizer_fills)
+
     fills = {
         "core": core_fills,
         "preserver": preserver_fills,
