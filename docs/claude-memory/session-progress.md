@@ -10,17 +10,16 @@ metadata:
 # Session snapshot — Mon Aug 10 2026
 
 ## Frozen spec (load-bearing)
-- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP/sleeve in PUBLIC (signal-intelligence dossier = the ONE internal exception; "sleeve" IS sanctioned as public ADVISER-CHANNEL term). Deploy=push main→GHA (backend Lambda + frontend S3/CF); SMOKE-TEST api.rigacap.com/api/market-data-status→200 after each. Worker=rigacap-prod-worker AWS_PROFILE=rigacap.
-- **PRINT DOCS = INK-ON-WHITE** (Erik: no paper #F5F1E8 page/section bg — burns ink; chips only). claret #7A2430 accent + ink #141210 + hairline #DDD5C7; Fraunces/IBM Plex Sans/IBM Plex Mono. perf_numbers SSOT (backend/app/services/perf_numbers.py + frontend/src/perf_numbers.js): Preserver 5yr 13.0/1.28/-12.9, 21yr 7.7/0.87/-13.7; Maximizer 5yr 31.4/1.51/-14.9, 21yr 13.5/0.93/-20.8; SPY 5yr 14.2/-25.4, 21yr 9.8/-55.
+- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP in PUBLIC (signal-intelligence dossier = internal exception; "sleeve" & "Cascade Guard" are OK public terms). PRINT DOCS = INK-ON-WHITE (no paper #F5F1E8 page/section bg — chips only). perf_numbers SSOT: Preserver 5yr 13.0/1.28/-12.9, 21yr 7.7/0.87/-13.7; Maximizer 5yr 31.4/1.51/-14.9, 21yr 13.5/0.93/-20.8; SPY 5yr 14.2/-25.4, 21yr 9.8/-55. Deploy=push main→GHA; smoke-test after. Worker=rigacap-prod-worker AWS_PROFILE=rigacap.
+- **CASCADE GUARD = REAL + LIVE** (verified today): production circuit breaker (circuit_breaker_state.py), CIRCUIT_BREAKER_ENABLED=true on WORKER (unset on api, correct). 3 same-day trailing-stops → pause new entries 10d. Mirrors WF CB (~+3.7pp/yr). ON for live book, OFF for STR (same-day cascades = noise there). Actually FIRED 2026-07-07 (SNDK/WULF/NBIS) → paused to 7/17. S3 cb-state/live.json.
 
-## ✅ EARLIER TODAY (all shipped+deployed)
-- Reply engine de-mechanized + ANTI-FABRICATION (was posting fake WF-sim wins; now real/guarded, PANW+STX drafts sent, Erik posting). Bug2 Maximizer STR 8→15 backfilled + self-heal. Tier-books admin UI: Core collapsed + Current price/P&L%.
+## ✅ EARLIER TODAY (shipped+deployed)
+- Reply engine de-mech + ANTI-FABRICATION (fake WF-sim wins killed; PANW/STX drafts sent, Erik posting). Bug2 Maximizer STR 8→15 backfill+self-heal. Tier-books admin UI: Core collapsed + Current price/P&L%.
 
-## ▶ IN FLIGHT — DOCS REFRESH (workflow DONE, awaiting Erik HTML review)
-- Workflow wf_71c0e9a8-b1c COMPLETE. All 6 docs in design/documents/ rewritten ink-on-white, VERIFIED: no navy/gold, numbers match SSOT exactly, 2-tier, all fonts, well-formed. Post-verify fixes done: investor "backtest"→"curve"; tech job-list wording; market-pricing base bg→white + date Jun→Aug.
-- **Just OPENED all 6 in browser for Erik's review. Files MODIFIED on disk but NOT committed, NO PDFs exported yet.**
-- 3 OPEN QUESTIONS for Erik: (1) confirm pricing figures in market-pricing doc (retail $129/$1099/$59-founding, +future $149-179 step; adviser $449/$899/enterprise, founding-firm $299) — verify-only, unchanged; (2) BacktesterService class name in tech doc — keep or rename in doc; (3) investor logo = type-only wordmark now (navy SVGs dropped) — want claret logo mark?
-- **NEXT after Erik OK:** re-export all 6 PDFs via headless Chrome (CLAUDE.md cmd) + git commit the doc set. Script: workflows/scripts/docs-refresh-wf_d83c0917-512.js (reusable).
+## ▶ IN FLIGHT — DOCS REFRESH (awaiting Erik pen markup)
+- All 6 design/documents/ rewritten ink-on-white via workflow, VERIFIED (no navy/gold, numbers=SSOT, 2-tier, well-formed). Post-verify fixes applied. **6 PDFs EXPORTED** (headless Chrome, white bg) + opened — Erik printing to mark up with a pen.
+- **NOT committed yet** (files modified on disk). Await Erik's markup → revise HTML → re-export PDFs → THEN git commit the set.
+- 3 OPEN Qs for Erik (fold into markup): (1) confirm market-pricing figures (retail $129/$1099/$59-founding +future $149-179; adviser $449/$899/enterprise, founding-firm $299) — verify-only, unchanged; (2) BacktesterService class name in tech doc — keep/rename in doc; (3) investor logo = type-only wordmark now (navy SVG dropped) — want claret logo? Cascade Guard confirmed real → docs are accurate to include it.
 
 ## ▶ QUEUED
 - "A holding week" Maximizer label; GROWTH testimonials/churn/ads; plan unified-sauteeing-whale.md (public-number consistency audit).
