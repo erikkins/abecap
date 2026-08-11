@@ -42,6 +42,13 @@ const ROUTES = [
     priority: 0.9, changefreq: 'weekly',
   },
   {
+    path: '/should-i-sell',
+    title: 'Should I Sell My Stocks? — RigaCap',
+    description: 'Thinking of selling in a downturn? The urge to sell fear is the most expensive instinct in investing. A rules-based way through the drawdown — Preserver held +0.1% in 2008 while the market lost 37%.',
+    source: 'src/ShouldISellPage.jsx',
+    priority: 0.9, changefreq: 'weekly',
+  },
+  {
     path: '/track-record-v1',
     title: 'Track Record (v1) — RigaCap',
     description: 'Earlier track-record format. Walk-forward results, 2021–2026.',

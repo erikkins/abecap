@@ -19,6 +19,7 @@ import {
 // payload from ~1.3MB to roughly the router shell + LandingPageV2 +
 // shared deps. Wrapped in <Suspense> below.
 const LandingPageV2 = lazy(() => import('./LandingPageV2'));
+const ShouldISellPage = lazy(() => import('./ShouldISellPage'));
 const MethodologyPageV2 = lazy(() => import('./MethodologyPageV2'));
 const TrackRecordPageV2 = lazy(() => import('./TrackRecordPageV2'));
 const AboutPage = lazy(() => import('./AboutPage'));
@@ -5203,6 +5204,7 @@ export default function App() {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/track-record" element={<TrackRecordPageV2 />} />
+        <Route path="/should-i-sell" element={<ShouldISellPage />} />
         <Route path="/for-advisers" element={<ForAdvisersPage />} />
         <Route path="/track-record-v1" element={<TrackRecordPage />} />
         <Route path="/track-record-10y" element={<TrackRecord10YPage />} />
