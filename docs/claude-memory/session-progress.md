@@ -10,19 +10,19 @@ metadata:
 # Session snapshot — Aug 10–11 2026
 
 ## Frozen spec
-- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP PUBLIC (signal-intel dossier=internal exception). PRINT DOCS=ink-on-white+US-English; WEB=claret/paper OK. perf_numbers SSOT (frontend/src/perf_numbers.js): Pres 5yr 13.0/-12.9, 21yr 7.7; Max 5yr 31.4/-14.9; SPY 5yr 14.2/-25.4; 2008 Pres+0.1 vs SPY-37.7; 2022 -11.2 vs -19.9. Deploy=push main→GHA+smoke-test. Google Ads = screenshot-based, NO API. Internal cookieless traffic report exists (captures consent-decliners = GA4 blind spot) — TRUST it over GA4.
+- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP PUBLIC (signal-intel dossier=internal exception). PRINT DOCS=ink-on-white+US-English; WEB=claret/paper OK. perf_numbers SSOT (frontend/src/perf_numbers.js). Deploy=push main→GHA+smoke-test. Google Ads=screenshots, NO API. COOKIELESS traffic report (/api/admin/pageviews/summary ← page_views table) = TRUST over GA4. Migration-first for DB columns.
 
-## ✅ SHIPPED (Aug 10)
+## ✅ SHIPPED (Aug 10–11)
 - Reply anti-fabrication; Bug2 Maximizer STR 8→15+self-heal; tier-books admin UI.
-- **/should-i-sell landing page LIVE** (6ee4b1e). Preserve-tier panic conversion page.
+- **/should-i-sell landing page LIVE** (Preserve panic conversion page).
+- **ADS full pass applied+ELIGIBLE + CONFIRMED WORKING:** Preserve→/should-i-sell (panic copy), Maximize→homepage (growth copy, numeric perf claims pulled). Negatives fixed, signal-shopper positives paused, event-ready anxiety kws. /should-i-sell = #2 landing, absorbs paid clicks. Preserve ad-strength POOR→offered keyword-rich headline swaps (Erik deciding).
+- **COOKIELESS FUNNEL TELEMETRY LIVE (483d9ea + 0e51513, verified):** page_views.event column (migration-first). publicEvent.js posts funnel events via /api/public/hit (consent-free). /should-i-sell fires scroll_50/reach_cta/cta_hero/cta_trial/signup_open/newsletter_submit/bounce; AuthContext fires checkout_redirect at Stripe (attributed via stashAdOrigin/sessionStorage). Aggregate-only (no per-visitor ID). Admin Traffic tab shows /should-i-sell FUNNEL ladder. Fixed mobile CTA orphan wrap. Fixed 0-count funnel bars (were showing phantom 2% sliver → now empty). Deleted the /telemetry-selftest test row.
+- Funnel is WARMING FROM CLEAN SLATE: the current 10-landed/1-scroll/1-saw was mostly PRE-telemetry landings + Erik's own phone test (told him). Real data reads in a few days.
 
-## ▶ ADS — LIVE, RUNNING 1–2 WEEKS (Erik observing, not tuning)
-- Both ad groups rebuilt+applied+ELIGIBLE: Preserve→/should-i-sell?utm..preserve (panic copy); Maximize→homepage?utm..maximize (growth copy). Numeric perf claims pulled from all ad copy (Google policy); proof only on landing pages. Negatives fixed, signal-shopper positives paused, event-ready anxiety kws added.
-- **CONFIRMED WORKING IN WILD (Aug 11, 24h internal report):** /should-i-sell = #2 landing (8 views), ≈ the 8 google/10 gclid paid clicks → ad→page wiring verified, panic traffic now hits panic page. BUT conversion still UNKNOWN — need drop-off/next-hop for those 8 (did they progress to signup or bounce?). /app=7 is likely existing-user logins, not signups. Sample tiny + hours old.
-- OPEN: Preserve Ad Strength still POOR after unpin — offered swap of redundant headlines (Stop Panic-Selling dup/Regime-Aware/Risk-Managed Momentum) for keyword-rich ones ("Market Crash Protection","Downside Protection Built In","A Calmer Way Through a Selloff","Rules Beat Fear in a Downturn","Take Panic Out of Investing"). Erik deciding. NOTE: strength = guidance metric, still serves, don't obsess.
-- STRATEGY: be established/on-message to catch panickers at a market event; judge by cost-per-signup + presence during volatility, NOT clicks in calm markets.
+## ▶ NOW: LET ADS RUN 1–2 WEEKS + watch the funnel
+- Read Traffic tab in a few days: Landed → Clicked trial / Reached Stripe vs Bounced = answers "click to pay or nav away." Judge by cost-per-signup + presence during volatility, NOT clicks in calm market. STRATEGY: be established to catch panickers at a market event.
 
 ## ▶ DOCS REFRESH — PARKED, NOT COMMITTED (Erik pen-marking; 6 html+pdf modified; scratch scripts/ untracked — do NOT commit)
-- signal-intelligence fully swept (Maximizer completeness, ghost removed, Venn labels-inside, US English, exit-paths hold_exit, parity Maximizer rows, regime-breakout callout). tech-arch ghost removed. OPEN: same sweep on investor/marketing/sales; 3 Qs (market-pricing figures, BacktesterService name, investor logo). After markups→re-export PDFs+git commit.
+- signal-intelligence fully swept (Maximizer completeness, ghost removed, Venn labels-inside, US English). tech-arch ghost removed. OPEN: same sweep on investor/marketing/sales; 3 Qs (market-pricing figures, BacktesterService name, investor logo). After markups→re-export PDFs+git commit.
 
-## ▶ QUEUED: Maximize recovery landing page; "A holding week" Maximizer label; testimonials/churn; unified-sauteeing-whale.md.
+## ▶ QUEUED: Maximize recovery landing page; "A holding week" label; testimonials/churn; unified-sauteeing-whale.md; (known-stale AuthContext begin_checkout GA4 value $39/$349 — deferred).
