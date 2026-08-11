@@ -133,7 +133,7 @@ export default function TrafficTab({ fetchWithAuth }) {
                     <div key={s.step} className="flex items-center gap-3">
                       <div className="w-40 text-sm text-gray-700 shrink-0">{s.label}</div>
                       <div className="flex-1 bg-gray-100 rounded h-5 overflow-hidden">
-                        <div className="h-full bg-gray-800 rounded" style={{ width: landed ? `${Math.max(2, (s.count / landed) * 100)}%` : '0%' }} />
+                        <div className="h-full bg-gray-800 rounded" style={{ width: (landed && s.count > 0) ? `${Math.max(2, (s.count / landed) * 100)}%` : '0%' }} />
                       </div>
                       <div className="w-24 text-right font-mono text-sm text-gray-900 shrink-0">{s.count} <span className="text-gray-400">{fpct(s.count)}</span></div>
                     </div>
