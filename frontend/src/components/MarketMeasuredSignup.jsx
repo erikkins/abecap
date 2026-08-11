@@ -4,7 +4,7 @@ import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
-export default function MarketMeasuredSignup({ source = 'landing', variant = 'light' }) {
+export default function MarketMeasuredSignup({ source = 'landing', variant = 'light', onSubscribed = null }) {
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
@@ -83,6 +83,7 @@ export default function MarketMeasuredSignup({ source = 'landing', variant = 'li
       if (res.ok) {
         setResult({ success: true, message: data.message });
         setEmail('');
+        if (typeof onSubscribed === 'function') { try { onSubscribed(); } catch { /* ignore */ } }
       } else {
         setResult({ success: false, message: data.detail || 'Something went wrong.' });
         resetTurnstile();

@@ -4657,29 +4657,54 @@ async def pageviews_summary(
 
     since = datetime.utcnow() - timedelta(days=days)
     where = PageView.created_at >= since
+    # Pageview rows only for the top-line traffic metrics; funnel/engagement events
+    # (cta_*, signup_open, checkout_redirect, scroll_50, reach_cta, bounce, …) are
+    # counted separately below so they don't inflate the pageview totals.
+    is_pv = PageView.event == "pageview"
 
     async def _count(*extra):
         return (await db.execute(
             select(func.count()).select_from(PageView).where(where, *extra)
         )).scalar() or 0
 
-    total = await _count()
-    paid = await _count(PageView.gclid.isnot(None))
-    mobile = await _count(PageView.is_mobile.is_(True))
+    total = await _count(is_pv)
+    paid = await _count(is_pv, PageView.gclid.isnot(None))
+    mobile = await _count(is_pv, PageView.is_mobile.is_(True))
 
     by_path = (await db.execute(
-        select(PageView.path, func.count().label("n")).where(where)
+        select(PageView.path, func.count().label("n")).where(where, is_pv)
         .group_by(PageView.path).order_by(func.count().desc()).limit(25)
     )).all()
     src = func.coalesce(PageView.utm_source, "direct / organic")
     by_source = (await db.execute(
-        select(src, func.count()).where(where)
+        select(src, func.count()).where(where, is_pv)
         .group_by(src).order_by(func.count().desc()).limit(15)
     )).all()
     by_day = (await db.execute(
-        select(func.date(PageView.created_at), func.count()).where(where)
+        select(func.date(PageView.created_at), func.count()).where(where, is_pv)
         .group_by(func.date(PageView.created_at)).order_by(func.date(PageView.created_at))
     )).all()
+
+    # Funnel + engagement events (non-pageview), all paths.
+    ev_rows = (await db.execute(
+        select(PageView.event, func.count()).where(where, PageView.event != "pageview")
+        .group_by(PageView.event).order_by(func.count().desc())
+    )).all()
+    by_event = [{"event": e, "count": int(n)} for e, n in ev_rows]
+
+    # Ordered conversion funnel for the /should-i-sell ad landing page.
+    SIS = "/should-i-sell"
+    sis_counts = dict((await db.execute(
+        select(PageView.event, func.count()).where(where, PageView.path == SIS)
+        .group_by(PageView.event)
+    )).all())
+    _funnel_order = [
+        ("pageview", "Landed"), ("scroll_50", "Read past fold"), ("reach_cta", "Saw the offer"),
+        ("cta_hero", "Clicked hero CTA"), ("cta_trial", "Clicked trial CTA"),
+        ("signup_open", "Opened signup"), ("checkout_redirect", "Reached Stripe"),
+        ("newsletter_submit", "Newsletter (soft)"), ("bounce", "Bounced (no engage)"),
+    ]
+    sis_funnel = [{"step": k, "label": lbl, "count": int(sis_counts.get(k, 0))} for k, lbl in _funnel_order]
 
     return {
         "days": days,
@@ -4689,6 +4714,8 @@ async def pageviews_summary(
         "by_path": [{"path": p, "count": int(n)} for p, n in by_path],
         "by_source": [{"source": s, "count": int(n)} for s, n in by_source],
         "by_day": [{"date": str(d), "count": int(n)} for d, n in by_day],
+        "by_event": by_event,
+        "sis_funnel": sis_funnel,
     }
 
 

@@ -3663,6 +3663,7 @@ class PageHitRequest(BaseModel):
     utm_medium: Optional[str] = None
     utm_campaign: Optional[str] = None
     gclid: Optional[str] = None
+    event: Optional[str] = None  # None/'pageview' = landing; else a funnel/engagement event
 
 
 _BOT_UA = ("bot", "spider", "crawl", "slurp", "preview", "headless",
@@ -3700,6 +3701,7 @@ async def public_page_hit(
             gclid=_t(req.gclid, 200),
             country=country,
             is_mobile=is_mobile,
+            event=_t(req.event, 40) or "pageview",
         ))
         await db.commit()
     except Exception:

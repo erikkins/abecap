@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { logPublicEvent, consumeAdOrigin } from '../lib/publicEvent';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -187,6 +188,14 @@ export function AuthProvider({ children }) {
           // GA4: track begin_checkout conversion
           if (window.gtag) {
             window.gtag('event', 'begin_checkout', { value: plan === 'annual' ? 349 : 39, currency: 'USD' });
+          }
+          // Cookieless "reached the pay page" event — attributed back to the ad
+          // landing page that drove it (stashed at signup-intent on the landing).
+          const origin = consumeAdOrigin();
+          if (origin && origin.path) {
+            logPublicEvent('checkout_redirect', origin);
+          } else {
+            logPublicEvent('checkout_redirect');
           }
           window.location.href = data.checkout_url;
           return true;

@@ -682,6 +682,12 @@ class PageView(Base):
     gclid = Column(String(200), nullable=True)        # Google click id → attributes paid
     country = Column(String(2), nullable=True)          # coarse, from CloudFront header
     is_mobile = Column(Boolean, nullable=True)
+    # 'pageview' for a landing, or a funnel/engagement event name (cta_hero,
+    # cta_trial, signup_open, checkout_redirect, newsletter_submit, scroll_50,
+    # reach_cta, bounce). Same cookieless model — aggregate counts only, no per-
+    # visitor ID. Column added DB-first via run_migration; server_default keeps
+    # existing inserts valid.
+    event = Column(String(40), nullable=True, server_default="pageview")
     created_at = Column(DateTime, default=func.now(), index=True)
 
 

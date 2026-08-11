@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PERF } from './perf_numbers';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import { logPublicEvent, stashAdOrigin } from './lib/publicEvent';
 import LoginModal from './components/LoginModal';
 import MarketMeasuredSignup from './components/MarketMeasuredSignup';
 import TopNav from './components/TopNav';
@@ -29,6 +30,9 @@ export default function ShouldISellPage() {
   const { isAuthenticated, loading } = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [isReturningVisitor] = useState(() => localStorage.getItem('rigacap_returning') === 'true');
+  const ctaRef = useRef(null);
+  const interacted = useRef(false);   // scrolled deep or clicked a CTA
+  const exitFired = useRef(false);    // bounce/exit event already sent
 
   useEffect(() => {
     document.title = 'Should I sell my stocks? | RigaCap';
@@ -38,10 +42,57 @@ export default function ShouldISellPage() {
     if (!loading && isAuthenticated) navigate('/app', { replace: true });
   }, [isAuthenticated, loading, navigate]);
 
+  // Cookieless funnel/engagement telemetry (aggregate counts only, no per-visitor ID).
+  // scroll_50 = read past the fold; reach_cta = the offer was seen; bounce = left
+  // without engaging. The landing ('pageview') is fired by the global PageViewBeacon.
+  useEffect(() => {
+    const onScroll = () => {
+      const doc = document.documentElement;
+      const depth = (window.scrollY + window.innerHeight) / (doc.scrollHeight || 1);
+      if (!interacted.current && depth >= 0.5) {
+        interacted.current = true;
+        logPublicEvent('scroll_50');
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    let observer;
+    if (ctaRef.current && 'IntersectionObserver' in window) {
+      let seen = false;
+      observer = new IntersectionObserver((entries) => {
+        if (!seen && entries.some((e) => e.isIntersecting)) {
+          seen = true;
+          interacted.current = true;
+          logPublicEvent('reach_cta');
+        }
+      }, { threshold: 0.4 });
+      observer.observe(ctaRef.current);
+    }
+
+    const onHide = () => {
+      if (document.visibilityState === 'hidden' && !interacted.current && !exitFired.current) {
+        exitFired.current = true;
+        logPublicEvent('bounce');  // landed, never engaged, left
+      }
+    };
+    document.addEventListener('visibilitychange', onHide);
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('visibilitychange', onHide);
+      if (observer) observer.disconnect();
+    };
+  }, []);
+
   const handleGetStarted = () => {
+    interacted.current = true;
     if (window.gtag) window.gtag('event', 'begin_checkout', { currency: 'USD', item_variant: 'founding' });
     try { localStorage.removeItem('rigacap_want_maximizer'); } catch { /* ignore */ }
     if (isAuthenticated) { navigate('/app', { replace: true }); return; }
+    // Committed intent-to-pay: log it, and stash the ad origin so the Stripe
+    // redirect (which fires later, on /app, after signup) attributes back here.
+    logPublicEvent('signup_open');
+    stashAdOrigin();
     setShowLoginModal(true);
   };
 
@@ -68,7 +119,7 @@ export default function ShouldISellPage() {
         </p>
         <div className="mt-9 flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <button
-            onClick={handleGetStarted}
+            onClick={() => { logPublicEvent('cta_hero'); handleGetStarted(); }}
             className="bg-claret text-paper font-body font-medium text-[1.02rem] px-7 py-3.5 rounded hover:bg-claret-light transition-colors"
           >
             See what a rules-based system says to do
@@ -220,14 +271,15 @@ export default function ShouldISellPage() {
       </section>
 
       {/* ⑥ CTA — primary trial + soft catch */}
-      <section className="bg-ink text-paper py-16">
+      <section ref={ctaRef} className="bg-ink text-paper py-16">
         <div className="max-w-3xl mx-auto px-4 sm:px-8 text-center">
-          <h2 className="font-display text-[2rem] sm:text-[2.5rem] font-medium leading-[1.1] tracking-tight"
+          <h2 className="font-display text-[1.7rem] sm:text-[2.5rem] font-medium leading-[1.14] tracking-tight [text-wrap:balance]"
               style={{ fontVariationSettings: '"opsz" 72' }}>
-            Your money doesn&rsquo;t need a hero.<br />It needs a rule.
+            <span className="block">Your money doesn&rsquo;t need a hero.</span>
+            <span className="block mt-1">It needs a rule.</span>
           </h2>
           <button
-            onClick={handleGetStarted}
+            onClick={() => { logPublicEvent('cta_trial'); handleGetStarted(); }}
             className="mt-8 bg-claret text-paper font-body font-medium text-[1.05rem] px-8 py-4 rounded hover:bg-claret-light transition-colors"
           >
             Start your 7-day trial
@@ -243,7 +295,7 @@ export default function ShouldISellPage() {
              style={{ fontVariationSettings: '"opsz" 28' }}>
             Not ready to commit? See where the system stands right now &mdash; free, no card.
           </p>
-          <MarketMeasuredSignup source="should_i_sell" />
+          <MarketMeasuredSignup source="should_i_sell" onSubscribed={() => logPublicEvent('newsletter_submit')} />
         </div>
       </section>
 

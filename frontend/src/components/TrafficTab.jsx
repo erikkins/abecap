@@ -118,6 +118,38 @@ export default function TrafficTab({ fetchWithAuth }) {
             </div>
           )}
 
+          {data.sis_funnel && (() => {
+            const landed = data.sis_funnel.find((s) => s.step === 'pageview')?.count || 0;
+            // Funnel steps (exclude the soft/bounce rows from the main ladder; show them separately).
+            const ladder = data.sis_funnel.filter((s) => !['newsletter_submit', 'bounce'].includes(s.step));
+            const aside = data.sis_funnel.filter((s) => ['newsletter_submit', 'bounce'].includes(s.step));
+            const fpct = (n) => (landed ? `${Math.round((n / landed) * 100)}%` : '—');
+            return (
+              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <div className="text-sm font-medium text-gray-900 mb-1">/should-i-sell — conversion funnel</div>
+                <div className="text-xs text-gray-400 mb-3">Cookieless aggregate steps (no per-visitor ID). % is of Landed.</div>
+                <div className="space-y-1.5">
+                  {ladder.map((s) => (
+                    <div key={s.step} className="flex items-center gap-3">
+                      <div className="w-40 text-sm text-gray-700 shrink-0">{s.label}</div>
+                      <div className="flex-1 bg-gray-100 rounded h-5 overflow-hidden">
+                        <div className="h-full bg-gray-800 rounded" style={{ width: landed ? `${Math.max(2, (s.count / landed) * 100)}%` : '0%' }} />
+                      </div>
+                      <div className="w-24 text-right font-mono text-sm text-gray-900 shrink-0">{s.count} <span className="text-gray-400">{fpct(s.count)}</span></div>
+                    </div>
+                  ))}
+                </div>
+                {aside.length > 0 && (
+                  <div className="flex gap-6 mt-3 pt-3 border-t border-gray-100 text-sm">
+                    {aside.map((s) => (
+                      <div key={s.step} className="text-gray-500">{s.label}: <span className="font-mono text-gray-900">{s.count}</span></div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           <p className="text-xs text-gray-400">
             Cookieless first-party beacon — no cookie, no stored IP, no consent banner required. Bots filtered by user-agent.
           </p>
