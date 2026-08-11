@@ -14,13 +14,15 @@ metadata:
 
 ## ✅ SHIPPED (Aug 10)
 - Reply anti-fabrication; Bug2 Maximizer STR 8→15+self-heal; tier-books admin UI.
-- **/should-i-sell landing page LIVE** (6ee4b1e). Preserve-tier panic conversion page.
-- **ADS FULL PASS DONE + APPLIED by Erik:** Preserve (panic headlines, Final URL→/should-i-sell) + Maximize (pulled 31%/beat-S&P/2022 numeric claims, Final URL=homepage). Negatives fixed, signal-shopper positives paused, event-ready anxiety kws added. New kws confirmed ELIGIBLE Aug 11. ALL hard-number perf claims off ad copy (Google policy). Strategy: be established to catch panickers when a market event hits.
+- **/should-i-sell landing page LIVE** (6ee4b1e). Preserve-tier panic conversion page (SSOT numbers, real trial flow, soft newsletter catch, prerendered+sitemap).
 
-## ▶ ADS — NOW LETTING IT RUN 1–2 WEEKS (Erik's call, Aug 11)
-- Erik will observe, not tune. WATCH-LIST for check-back: (1) confirm ADS show Eligible/approved (separate from keyword Eligible — told Erik to glance Ads tab); (2) any signups via /should-i-sell path (even 1-2 = flow works, vs old 0); (3) CPC should drift down (Quality Score); (4) search-terms report — drift stopped?; (5) impression share on anxiety terms. MINDSET: low clicks in calm market = success by design; anxiety terms may show "Low search volume" (normal, wake on volatility).
+## ▶ ADS — LIVE, LETTING IT RUN 1–2 WEEKS (Erik's call)
+- Both ad groups rebuilt + APPLIED + confirmed ELIGIBLE (serving): Preserve (panic copy: "Should You Sell Your Stocks?"/"Don't Panic-Sell"/etc, Final URL→/should-i-sell?utm..preserve), Maximize (growth copy, pulled 31%/beat-S&P/2022 numeric claims, Final URL=homepage?utm..maximize). Negatives fixed, signal-shopper positives paused, event-ready anxiety kws added (ELIGIBLE). ALL hard-number perf claims OFF ad copy (Google policy) — proof only on landing pages.
+- Ad-copy numbers shown in Ads tab (Preserve 81clk/$200/0conv, Max 32clk/$73/0conv) = OLD Jul28-Aug10 window, NOT the new copy — fresh clock starts now.
+- **IN FLIGHT: Preserve Ad Strength = POOR** even after unpinning to 1 headline. Cause = near-duplicate/short headlines + light keyword coverage (NOT pinning). Told Erik to SWAP redundant ones (Stop Panic-Selling[dup], Regime-Aware Investing, Risk-Managed Momentum) for distinct keyword-rich ones: "Market Crash Protection"(kw match), "Downside Protection, Built In", "A Calmer Way Through a Selloff", "Rules Beat Fear in a Downturn", "Take Panic Out of Investing". Note: ad strength = guidance metric, still serves; don't obsess. Erik deciding whether to apply.
+- STRATEGY: be established/on-message to catch panickers when a market event hits (midterms/war). Judge by cost-per-signup + presence during volatility, NOT clicks in calm markets.
 
-## ▶ DOCS REFRESH — PARKED, NOT COMMITTED (Erik pen-marking; 6 html+pdf modified in working tree; scratch scripts/ untracked — do NOT commit those)
-- signal-intelligence fully swept (Maximizer completeness, ghost removed, Venn labels-inside, US English, exit-paths hold_exit, parity Maximizer rows, regime-breakout callout). tech-arch ghost removed. OPEN: same Maximizer sweep on investor/marketing/sales; 3 Qs (market-pricing figures confirm, BacktesterService name keep/rename, investor logo type-only vs claret mark). After markups → re-export PDFs + git commit doc set.
+## ▶ DOCS REFRESH — PARKED, NOT COMMITTED (Erik pen-marking; 6 html+pdf modified; scratch scripts/ untracked — do NOT commit those)
+- signal-intelligence fully swept (Maximizer completeness, ghost removed, Venn labels-inside, US English, exit-paths hold_exit, parity Maximizer rows, regime-breakout callout). tech-arch ghost removed. OPEN: same sweep on investor/marketing/sales; 3 Qs (market-pricing figures, BacktesterService name, investor logo). After markups → re-export PDFs + git commit doc set.
 
-## ▶ QUEUED: Maximize recovery landing page (later); "A holding week" Maximizer label; testimonials/churn; unified-sauteeing-whale.md public-number audit.
+## ▶ QUEUED: Maximize recovery landing page (later); "A holding week" Maximizer label; testimonials/churn; unified-sauteeing-whale.md.
