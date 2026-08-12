@@ -10,19 +10,17 @@ metadata:
 # Session snapshot — Aug 10–12 2026
 
 ## Frozen spec
-- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP PUBLIC (signal-intel dossier=internal exception). PRINT DOCS=ink-on-white+US-English; WEB=claret/paper OK. perf_numbers SSOT. Deploy=push main→GHA+smoke-test. Google Ads=screenshots, NO API. COOKIELESS traffic report (/api/admin/pageviews/summary ← page_views table) = TRUST over GA4. Migration-first for DB columns. Negative keywords: BROAD single-word to kill brand/category variants (phrase only blocks the exact phrase).
+- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP PUBLIC (signal-intel dossier=internal exception). PRINT DOCS=ink-on-white+US-English; WEB=claret/paper OK. perf_numbers SSOT. Deploy=push main→GHA+smoke-test. Google Ads=screenshots, NO API. COOKIELESS traffic report (/api/admin/pageviews/summary ← page_views.event col) = TRUST over GA4. Migration-first DB cols. Ads negatives: BROAD single-word for brand/category (phrase only blocks exact phrase — that's why "trendspider ai" missed trendspider app/chart/indicators).
 
 ## ✅ SHIPPED (Aug 10–12)
 - Reply anti-fabrication; Bug2 Maximizer STR 8→15+self-heal; tier-books admin UI.
-- **/should-i-sell landing page LIVE** + **COOKIELESS FUNNEL TELEMETRY** (page_views.event col; publicEvent.js; /should-i-sell fires scroll_50/reach_cta/cta_hero/cta_trial/signup_open/newsletter_submit/bounce; AuthContext checkout_redirect at Stripe via stashAdOrigin). Admin Traffic tab funnel ladder (0-count bars empty). Mobile CTA wrap fixed. Test row deleted.
-- ADS rebuilt: Preserve→/should-i-sell (panic copy), Maximize→homepage (growth, numeric claims pulled). Signal-shopper positives PAUSED. Preserve headlines diversified + keyword-rich + 6 sitelinks + survivorship-free scrubbed from Track Record sitelink (to clear "Poor" — 2 flags: more-keywords + 2-more-sitelinks, both addressed, awaiting recalc).
+- **/should-i-sell landing LIVE + COOKIELESS FUNNEL TELEMETRY** (page_views.event; publicEvent.js; scroll_50/reach_cta/cta_hero/cta_trial/signup_open/newsletter_submit/bounce + AuthContext checkout_redirect via stashAdOrigin). Admin Traffic tab funnel ladder (0-count bars empty). Mobile CTA wrap fixed. Test row deleted.
+- ADS: Preserve→/should-i-sell (panic copy), Maximize→homepage (growth; numeric perf claims pulled). Signal-shopper positives PAUSED. Preserve headlines diversified+keyword-rich, 6 sitelinks, survivorship-free scrubbed from sitelink (to clear "Poor": both flags = more-keywords + 2-sitelinks addressed).
 
-## ▶ ADS — SEARCH-TERMS AUDIT (Aug 12, 14-day Jul29-Aug11: 119 clk/$291/0 conv)
-- **$291/0conv is the "before"** — window mostly = PAUSED signal-shopper keywords + pre-negative. Drains going forward.
-- WINS (on-thesis buyer appearing): "chances of stock market crash", "when will the stock market collapse".
-- Junk = TECHNICAL-ANALYSIS/CHARTING-TOOL category slipping via close-variants. KEY: "trendspider ai" phrase negative missed trendspider app/chart/indicators → **brand negatives must be BROAD**.
-- GAVE ERIK paste-ready BROAD negatives: trendspider, luxalgo, stockcharts, chartink, marketbeat, wyckoff, wavetrend, "warrior trading", macd, ema, sma, oscillator, crossover, candle, "moving average", indicators(plural), "signal generator", algo, "trading signals". (Left "prediction" OFF — clips on-thesis "crash prediction".) Also: VERIFY negative list attached to Preserve campaign (quotex signal live=None vs quotex signal software=Excluded inconsistency). Erik applying.
-- STRATEGY unchanged: be established for a market event; judge cost-per-signup + presence during volatility, not calm-market clicks.
+## ▶ ADS — running, watching (Aug 12)
+- Search-terms audit (14d Jul29-Aug11: 119clk/$291/0conv) = the "BEFORE" (paused signal-shopper kws + pre-negative). On-thesis buyer APPEARING: "chances of stock market crash","when will the stock market collapse". Junk = TA/charting-tool category via close-variants.
+- Erik ADDED broad negatives (all applied): trendspider,luxalgo,stockcharts,chartink,marketbeat,wyckoff,wavetrend,"warrior trading",macd,ema,sma,oscillator,crossover,candle,"moving average",indicators,"signal generator","trading signals",algo,tradersignal. (dma/rsi already broad; tradersignal added.)
+- **NEXT CHECK (the real tell):** re-run Search terms for LAST 1-2 DAYS only (post-attachment). If TA/trendspider terms gone → negatives + list firing on Preserve. If still present → list NOT attached to campaign, chase that. Also watch funnel fill with post-fix traffic. Judge cost-per-signup + presence during volatility, not calm clicks. Preserve ad-strength "Poor" awaiting recalc (both flags fixed; if still Poor, ignore).
 
 ## ▶ DOCS REFRESH — PARKED, NOT COMMITTED (Erik pen-marking; 6 html+pdf modified; scratch scripts/ untracked — do NOT commit)
 - signal-intelligence fully swept; tech-arch ghost removed. OPEN: same sweep on investor/marketing/sales; 3 Qs (market-pricing figures, BacktesterService name, investor logo). After markups→re-export PDFs+git commit.
