@@ -1571,6 +1571,39 @@ const SignalCard = ({ signal, onClick }) => {
   );
 };
 
+// Maximizer breakout-book card — the breakout book shown beside the Preserver base
+// (additive serving). Fields come from build_maximizer_breakout_view: status ('new'|
+// 'holding'), day X/29 countdown (days_held/hold_days/days_left), price, pnl_pct.
+const BreakoutBookCard = ({ card, onClick }) => {
+  const isNew = card.status === 'new';
+  const pnl = card.pnl_pct ?? 0;
+  const hold = card.hold_days || 29;
+  const pct = Math.min(100, Math.round(((card.days_held || 0) / hold) * 100));
+  return (
+    <div onClick={() => onClick && onClick(card)} className="p-4 hover:bg-paper-deep transition-colors cursor-pointer">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-bold text-ink">{card.symbol}</span>
+          <span className={`px-2 py-0.5 text-[0.58rem] font-semibold rounded-full uppercase tracking-wide ${isNew ? 'bg-claret/10 text-claret' : 'bg-ink/5 text-ink-mute'}`}>
+            {isNew ? 'New breakout' : 'Holding'}
+          </span>
+        </div>
+        <div className="text-right whitespace-nowrap">
+          <span className="text-base font-semibold text-ink">${card.price?.toFixed(2)}</span>
+          <span className={`ml-2 text-sm ${pnl >= 0 ? 'text-positive' : 'text-negative'}`}>{pnl >= 0 ? '+' : ''}{pnl?.toFixed(1)}%</span>
+        </div>
+      </div>
+      <div className="mt-2 flex items-center justify-between text-[0.72rem] text-ink-mute font-mono">
+        <span>day {card.days_held}/{hold} &middot; ~{card.days_left}d left</span>
+        <span className="text-ink-light">sells on time (no stop)</span>
+      </div>
+      <div className="mt-1.5 h-1 bg-paper-deep rounded overflow-hidden">
+        <div className={`h-full ${(card.days_left ?? 29) <= 5 ? 'bg-claret' : 'bg-claret/50'}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+};
+
 // Position Row
 const PositionRow = ({ position, onClick }) => {
   const pnlColor = position.pnl_pct >= 0 ? 'text-positive' : 'text-negative';
@@ -4097,10 +4130,62 @@ function Dashboard() {
                             </div>
                           )}
 
+                          {/* ADDITIVE MAXIMIZER (signal_source === 'both'): show BOTH books
+                              side-by-side (stacks on mobile) — Preserver base signals on the
+                              left, the Maximizer breakout book on the right. Replaces the
+                              standalone mirror book below in this mode. */}
+                          {dashboardData?.signal_source === 'both' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-4 pt-4">
+                              {/* LEFT — Preserver base */}
+                              <div className="border border-rule rounded-lg overflow-hidden">
+                                <div className="px-4 py-2.5 border-b border-rule bg-paper-card">
+                                  <span className="font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute">Preserver &middot; Protect</span>
+                                  <div className="font-display italic text-[0.8rem] text-ink-light" style={{ fontVariationSettings: '"opsz" 24' }}>New signals &middot; 30% trailing stop</div>
+                                </div>
+                                {(freshSignals.length + monitoringSignals.length) > 0 ? (
+                                  <div className="divide-y divide-rule">
+                                    {freshSignals.map(renderSimpleSignal)}
+                                    {monitoringSignals.map(renderSimpleSignal)}
+                                  </div>
+                                ) : (
+                                  <div className="px-4 py-6 text-center text-ink-mute font-display italic text-sm" style={{ fontVariationSettings: '"opsz" 24' }}>No fresh Preserver signals today. The system is watching.</div>
+                                )}
+                              </div>
+                              {/* RIGHT — Maximizer breakout book */}
+                              <div className="border border-claret/30 rounded-lg overflow-hidden">
+                                <div className="px-4 py-2.5 border-b border-claret/30 bg-claret/5">
+                                  <span className="font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-claret">&#9670; Maximizer breakout book &middot; Grow</span>
+                                  <div className="font-display italic text-[0.8rem] text-ink-light" style={{ fontVariationSettings: '"opsz" 24' }}>Held ~29 days &middot; rotating-bull hunts</div>
+                                </div>
+                                {(dashboardData?.breakout_book || []).length > 0 ? (
+                                  <div className="divide-y divide-rule">
+                                    {dashboardData.breakout_book.map((c) => (
+                                      <BreakoutBookCard key={c.symbol} card={c} onClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })} />
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="px-4 py-6 text-center text-ink-mute font-display italic text-sm" style={{ fontVariationSettings: '"opsz" 24' }}>Breakout hunting is paused — no open breakout positions. Resumes in a rotating-bull regime.</div>
+                                )}
+                                {(dashboardData?.breakout_radar || []).length > 0 && (
+                                  <div className="px-4 py-3 border-t border-rule">
+                                    <div className="font-body text-[0.56rem] uppercase tracking-[0.16em] text-ink-mute mb-1.5">Breakout radar &middot; approaching trigger</div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {dashboardData.breakout_radar.slice(0, 6).map((r) => (
+                                        <span key={r.symbol} className="text-[0.7rem] font-mono border border-rule rounded px-2 py-1 text-ink">{r.symbol} <span className="text-ink-light">{r.pct_below_50d_high}%</span></span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Capital-scaled MIRROR book — the primary portfolio view for a
                               served tier (implied holdings scaled to portfolio_size). Renders
-                              above the signal list; when present it IS the portfolio. */}
-                          {dashboardData?.tier_book && (
+                              above the signal list; when present it IS the portfolio.
+                              Suppressed in additive 'both' mode (the 2-col section above shows
+                              the breakout book instead). */}
+                          {dashboardData?.tier_book && dashboardData?.signal_source !== 'both' && (
                             <div className="px-4 pt-4">
                               <TierBookView
                                 book={tierBookLive || dashboardData.tier_book}

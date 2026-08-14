@@ -2151,6 +2151,7 @@ async def get_dashboard_data(
     tier_book = None
     breakout_radar = None
     todays_actions = None
+    breakout_book = None  # additive Maximizer serving: the breakout book shown beside the Preserver base
     try:
         from app.services import tier_serving
         if tier_serving.tier_serving_enabled():
@@ -2169,6 +2170,11 @@ async def get_dashboard_data(
                 served.append(annotated)
             buy_signals = served
             tier_meta = {k: overlay.get(k) for k in ('tier', 'signal_source', 'exit_rule', 'tier_note')}
+            # Additive: the Maximizer breakout book, shown beside the Preserver base list.
+            breakout_book = overlay.get('breakout_book')
+            if breakout_book:
+                for c in breakout_book:
+                    c['in_user_position'] = c.get('symbol', '') in open_syms
             # Per-tier sentiment: Maximizer overrides the market briefing with its book-posture
             # voice; Preserver keeps the measured t30v market_context from the cache.
             if overlay.get('market_context'):
@@ -2216,6 +2222,7 @@ async def get_dashboard_data(
         'regime_forecast': cached.get('regime_forecast'),
         'regime_adjustments': cached.get('regime_adjustments'),
         'buy_signals': buy_signals,
+        'breakout_book': breakout_book,
         'tier': tier_meta['tier'],
         'signal_source': tier_meta['signal_source'],
         'exit_rule': tier_meta['exit_rule'],

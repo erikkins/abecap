@@ -1840,19 +1840,24 @@ class SchedulerService:
                 # recipients get the t30v digest (held-symbol filtered) + base briefing.
                 # force_tier (admin sample sends) overrides the recipient's real entitlement.
                 _eff_max = (force_tier == 'maximizer') if force_tier else sub.get('is_maximizer')
+                held = user_open_symbols.get(sub['user_id'], set())
+                base_signals = [s for s in buy_signals if s['symbol'] not in held] if held else buy_signals
                 if _eff_max and max_signals is not None:
-                    user_signals = max_signals
+                    # ADDITIVE: Maximizer sees the Preserver base (book + signals) AND a
+                    # delineated breakout book — not the old swap.
+                    user_signals = base_signals
                     user_context = max_context or market_context
-                    user_watchlist = []  # breakout book has no t30v watchlist
+                    user_watchlist = watchlist
                     user_tier = 'maximizer'
-                    user_book = None  # Maximizer's signals ARE its breakout book
+                    user_book = preserver_book
+                    user_breakout = max_signals
                 else:
-                    held = user_open_symbols.get(sub['user_id'], set())
-                    user_signals = [s for s in buy_signals if s['symbol'] not in held] if held else buy_signals
+                    user_signals = base_signals
                     user_context = market_context
                     user_watchlist = watchlist
                     user_tier = 'preserver'
                     user_book = preserver_book  # "Our Book" leads; signals follow as "Other Signals"
+                    user_breakout = None
                 user_fresh_count = len([s for s in user_signals if s.get('is_fresh')])
 
                 try:
@@ -1865,6 +1870,7 @@ class SchedulerService:
                         market_context=user_context,
                         tier=user_tier,
                         book=user_book,
+                        breakout_book=user_breakout,
                     )
                     if success:
                         sent += 1

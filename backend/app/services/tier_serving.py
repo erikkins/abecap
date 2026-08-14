@@ -521,50 +521,56 @@ async def apply_tier_serving(
                 ai_brief = _bsnap.positions_json.get("briefing")
         except Exception:
             ai_brief = None
+        # ADDITIVE serving (Aug 2026): a Maximizer subscriber sees BOTH books, delineated —
+        # the Preserver base signals (`buy_signals`) AND the breakout book (`breakout_book`) —
+        # rather than a regime swap. The breakout book is always returned (held names counting
+        # down + any fresh breakouts); outside rotating_bull it simply holds/ages with no new
+        # entries. This matches the price story (base + breakout add-on) and keeps the add-on's
+        # value visible in every regime.
+        breakout = await build_maximizer_breakout_view(db, data_cache) or []
+        held = sum(1 for c in breakout if c.get("status") == "holding")
+        fresh = sum(1 for c in breakout if c.get("status") == "new")
         if regime == ROTATING:
-            breakout = await build_maximizer_breakout_view(db, data_cache)
-            # Faithful only if the shadow book has data; otherwise fall back to the Preserver
-            # base rather than showing an empty screen.
-            if breakout:
-                held = sum(1 for c in breakout if c.get("status") == "holding")
-                fresh = sum(1 for c in breakout if c.get("status") == "new")
-                return {
-                    "buy_signals": breakout,
-                    "tier": "maximizer",
-                    "signal_source": "breakout",
-                    "exit_rule": "hold",
-                    "missed_opportunities": missed,
-                    "market_context": ai_brief or (
-                        f"Rotating-bull momentum is broad — your Maximizer book is riding "
-                        f"{held} breakout name{'s' if held != 1 else ''} into their hold windows"
-                        f"{f' and added {fresh} today' if fresh else ''}. Aggressive by design; "
-                        f"each name sells on time at day 29, no trailing stop. Expect chop."
-                    ),
-                    "tier_note": (
-                        "Rotating-bull regime: your Maximizer book is hunting breakouts. Each "
-                        "name is a same-day entry held ~29 trading days, then sold on time (no "
-                        "trailing stop). Held names show their day X/29 countdown."
-                    ),
-                }
-        # Maximizer OUTSIDE rotating_bull: breakout hunting is off. Serve the Preserver base for
-        # new buys; existing breakout positions wind down on their own 29-day clocks (positions
-        # panel). No wholesale swap.
+            ctx = (
+                f"Rotating-bull momentum is broad — your Maximizer breakout book is riding "
+                f"{held} name{'s' if held != 1 else ''} into their hold windows"
+                f"{f' and added {fresh} today' if fresh else ''}, shown alongside the Preserver "
+                f"base signals. Each breakout sells on time at day 29, no trailing stop."
+            )
+            note = (
+                "Rotating-bull: you're seeing both books — the Preserver base signals (30% "
+                "trailing) and your Maximizer breakout book (same-day entries held ~29 trading "
+                "days; each card shows its day X/29 countdown). Breakouts sell on time, not on a stop."
+            )
+        elif held:
+            ctx = (
+                f"Out of rotating-bull — breakout hunting is paused, so no new breakout entries. "
+                f"Your breakout book holds {held} name{'s' if held != 1 else ''} winding down to "
+                f"their day-29 exits, shown alongside the Preserver base signals (30% trailing)."
+            )
+            note = (
+                "Not a rotating-bull regime: breakout hunting is paused. Your breakout book winds "
+                "down to its day-29 exits; new buys follow the Preserver base (30% trailing). Both "
+                "books are shown."
+            )
+        else:
+            ctx = (
+                "Out of rotating-bull — breakout hunting is paused and the breakout book is empty. "
+                "You're on the Preserver base signals (30% trailing) until momentum broadens."
+            )
+            note = (
+                "Not a rotating-bull regime: breakout hunting is paused and your breakout book is "
+                "empty. New buys follow the Preserver base (30% trailing) until momentum broadens."
+            )
         return {
             "buy_signals": preserver_signals,
+            "breakout_book": breakout,
             "tier": "maximizer",
-            "signal_source": "preserver",
+            "signal_source": "both",
             "exit_rule": "trailing",
             "missed_opportunities": missed,
-            "market_context": ai_brief or (
-                "Out of rotating-bull — the Maximizer book has paused breakout hunting and is "
-                "in Preserver mode. Any breakout names you hold wind down on their exit dates; "
-                "new buys follow the Preserver book (30% trailing)."
-            ),
-            "tier_note": (
-                "Not a rotating-bull regime: breakout hunting is paused. Hold your existing "
-                "breakout names to their day-29 exits (see your positions); new buys follow "
-                "Preserver until momentum broadens again."
-            ),
+            "market_context": ai_brief or ctx,
+            "tier_note": note,
         }
     note = None
     if regime in CAPITULATION:

@@ -428,10 +428,15 @@ class EmailService:
         user_id: str = None,
         market_context: str = None,
         tier: str = 'preserver',
-        book: Dict = None
+        book: Dict = None,
+        breakout_book: List[Dict] = None
     ) -> str:
         """
         Generate beautiful HTML for daily summary email
+
+        breakout_book: additive Maximizer serving — when provided, the recipient sees the
+        Preserver base (book + signals) AND a delineated breakout-book section. None = legacy
+        (Preserver, or the old Maximizer swap where signals ARE the book).
 
         Args:
             signals: List of today's signals
@@ -475,9 +480,12 @@ class EmailService:
         # them, without ever reading as a book holding. Maximizer's signals ARE its
         # breakout book, so that section stays the book. Legacy (no book) keeps the
         # historical "New Today / Consider adding".
-        served_preserver = (tier != 'maximizer' and book is not None)
+        # Additive Maximizer (breakout_book provided): render the Preserver base like a served
+        # Preserver (book + "Other Signals"), then append the breakout book as its own section.
+        # Legacy Maximizer (no breakout_book): signals ARE the breakout book (the old swap).
+        served_preserver = ((tier != 'maximizer' or breakout_book is not None) and book is not None)
         book_section = self._book_section(book, market_regime) if served_preserver else ''
-        if tier == 'maximizer':
+        if tier == 'maximizer' and not breakout_book:
             sig_header, sig_subhead = 'Your Maximizer Book', 'Held ~29 days'
             sig_framing = ("Mirror at today&rsquo;s price. Each breakout is held ~29 trading days then "
                            "sold on time &mdash; a late entry just gets fewer of those days, so favor the fresh names.")
@@ -516,9 +524,9 @@ class EmailService:
         def _count(n):
             return f'<span style="font-style: italic; color: #8A8279; font-weight: 400;">({n})</span>'
 
-        if tier == 'maximizer':
-            # The breakout book IS the content — show ALL cards (new first, then holdings),
-            # always, no truncation, no "no new entries" headline. Posture line up top.
+        if tier == 'maximizer' and not breakout_book:
+            # LEGACY swap: the breakout book IS the content — show ALL cards (new first, then
+            # holdings), always, no truncation, no "no new entries" headline. Posture line up top.
             book_cards = signals  # already new-first from build_maximizer_breakout_view
             _new_ct = len([s for s in book_cards if s.get('status') == 'new' or s.get('is_fresh')])
             _held_ct = len(book_cards) - _new_ct
@@ -639,6 +647,9 @@ class EmailService:
              when fresh, slim one-liner when only Open exists, centered notice when empty) -->
         {new_today_section}
 
+        <!-- Maximizer breakout book (additive) — delineated, below the Preserver base -->
+        {self._breakout_book_section(breakout_book) if breakout_book is not None else ''}
+
         <!-- Open Section (non-fresh signals still in buy zone — dashboard "Monitoring" bucket) -->
         {self._open_signals_section(open_signals) if (open_signals and tier != 'maximizer' and not served_preserver) else ''}
 
@@ -692,6 +703,38 @@ class EmailService:
         if ages:
             return min(ages) <= 5
         return bool(sig.get('is_fresh'))
+
+    def _breakout_book_section(self, breakout_book: List[Dict]) -> str:
+        """Delineated Maximizer breakout-book block for the additive digest — rendered below
+        the Preserver base. Held names (day X/29) + any fresh breakouts; empty => a one-line
+        'paused' note. Claret top-border to set it apart from the Preserver sections."""
+        cards = breakout_book or []
+        new_ct = len([c for c in cards if c.get('status') == 'new' or c.get('is_fresh')])
+        held_ct = len(cards) - new_ct
+        if cards:
+            body = "".join(self._signal_row(c) for c in cards)
+            posture = (f"{held_ct} breakout{'s' if held_ct != 1 else ''} in play"
+                       + (f" &middot; {new_ct} entered today" if new_ct else " &middot; none entered today")
+                       + ". Each is held ~29 trading days then sold on time &mdash; no trailing stop.")
+        else:
+            body = ''
+            posture = ("Breakout hunting is paused &mdash; not a rotating-bull regime. "
+                       "Your breakout book resumes when momentum broadens.")
+        return f'''
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <div style="padding-bottom: 8px; border-bottom: 2px solid #7A2430; margin-bottom: 12px;">
+                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                        <tr>
+                            <td style="font-family: Georgia, serif; font-size: 16px; font-weight: 500; color: #7A2430;">&#9670; Maximizer Breakout Book</td>
+                            <td align="right" style="font-family: Georgia, serif; font-style: italic; font-size: 13px; color: #7A2430;">Grow &middot; held ~29d</td>
+                        </tr>
+                    </table>
+                </div>
+                <div style="font-family: Georgia, serif; font-style: italic; font-size: 12px; color: #8A8279; line-height: 1.5; margin-bottom: 12px;">{posture}</div>
+                {body}
+            </td>
+        </tr>'''
 
     def _breakout_signal_row(self, signal: Dict) -> str:
         """Breakout (Maximizer) row — NO ensemble score / "% above trend" (those are t30v
@@ -1119,7 +1162,8 @@ class EmailService:
         user_id: str = None,
         market_context: str = None,
         tier: str = 'preserver',
-        book: Dict = None
+        book: Dict = None,
+        breakout_book: List[Dict] = None
     ) -> bool:
         """
         Send daily summary email to a subscriber
@@ -1164,9 +1208,11 @@ class EmailService:
             subject = f"📊 RigaCap Daily{date_label}: watching the market · {approaching_count} approaching"
 
         # Maximizer subscribers get a book-posture subject (breakouts in play + new today).
+        # Additive mode: counts come from the breakout_book (signals are now the Preserver base).
         if tier == 'maximizer':
-            new_ct = len([s for s in signals if s.get('status') == 'new' or s.get('is_fresh')])
-            held_ct = len([s for s in signals if s.get('status') == 'holding'])
+            _bk = breakout_book if breakout_book is not None else signals
+            new_ct = len([s for s in _bk if s.get('status') == 'new' or s.get('is_fresh')])
+            held_ct = len([s for s in _bk if s.get('status') == 'holding'])
             if new_ct > 0:
                 subject = f"◆ RigaCap Maximizer{date_label}: {new_ct} new breakout{'s' if new_ct != 1 else ''} · {held_ct} in play"
             else:
@@ -1183,7 +1229,8 @@ class EmailService:
             user_id=user_id,
             market_context=market_context,
             tier=tier,
-            book=book
+            book=book,
+            breakout_book=breakout_book
         )
 
         text = self.generate_plain_text(signals, market_regime, date=date, watchlist=watchlist)
