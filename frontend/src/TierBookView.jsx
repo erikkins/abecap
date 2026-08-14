@@ -38,7 +38,7 @@ function HoldingGauge({ entry, now, hwm, stop }) {
 // the book's positions to it (implied_shares = book_shares x capital/book_value) so their
 // portfolio auto-mirrors the book with zero per-trade entry. Maximizer = breakout book
 // (day-X/29 exits); Preserver = t30v book (30% trailing). (Jul 24 2026)
-export default function TierBookView({ book, onSetCapital, onRowClick, radar, actions, hideCapitalEditor = false, compact = false }) {
+export default function TierBookView({ book, onSetCapital, onRowClick, radar, actions, hideCapitalEditor = false, compact = false, marketNote = null }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(book?.capital ?? 100000));
   const [saving, setSaving] = useState(false);
@@ -77,6 +77,15 @@ export default function TierBookView({ book, onSetCapital, onRowClick, radar, ac
           {book.regime && <span className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-ink-mute">{book.regime}</span>}
         </div>
       </div>
+
+      {/* Market read — this book's own view (Preserver = measured regime read; Maximizer =
+          breakout-posture briefing). Shown under the header in the two-book side-by-side. */}
+      {marketNote && (
+        <div className="px-4 sm:px-5 py-2.5 border-b border-rule bg-paper-deep/40">
+          <span className="font-body text-[0.56rem] font-medium tracking-[0.18em] uppercase text-ink-mute">Market read</span>
+          <p className="font-display italic text-[0.82rem] text-ink-mute mt-0.5 leading-snug" style={{ fontVariationSettings: '"opsz" 24' }}>{marketNote}</p>
+        </div>
+      )}
 
       {/* Today's Actions — the "sync your broker" ribbon (Maximizer). */}
       {actions && ((actions.buys || []).length > 0 || (actions.sells || []).length > 0) && (

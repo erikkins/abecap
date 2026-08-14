@@ -4150,13 +4150,14 @@ function Dashboard() {
                                   <TierBookView
                                     book={dashboardData.preserver_book}
                                     compact
+                                    marketNote={dashboardData.preserver_market_context}
                                     onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
                                     onSetCapital={setSharedCapital}
                                   />
                                   <TierBookView
                                     book={dashboardData.tier_book}
-                                    radar={dashboardData.breakout_radar}
                                     actions={dashboardData.todays_actions}
+                                    marketNote={dashboardData.maximizer_market_context}
                                     hideCapitalEditor
                                     onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
                                   />
@@ -4280,12 +4281,12 @@ function Dashboard() {
                             return (
                               <div className="mt-2">
                                 <div className="px-4 py-2.5 border-t border-rule flex items-center justify-between">
-                                  <span className="font-display text-[0.95rem] font-medium tracking-tight">Other Signals <em className="font-display italic text-ink-light font-normal">({other.length})</em></span>
-                                  <span className="font-display italic text-[0.85rem] text-ink-mute" style={{ fontVariationSettings: '"opsz" 24' }}>Not in our book &mdash; but could be in yours.</span>
+                                  <span className="font-display text-[0.95rem] font-medium tracking-tight">Preserver signals <em className="font-display italic text-ink-light font-normal">({other.length})</em></span>
+                                  <span className="font-display italic text-[0.85rem] text-ink-mute" style={{ fontVariationSettings: '"opsz" 24' }}>Not in the Preserver book &mdash; but could be in yours.</span>
                                 </div>
                                 <div className="px-4 pt-2 pb-1">
                                   <p className="font-body text-[0.78rem] text-ink-mute leading-[1.5]">
-                                    These pass our screen but aren&rsquo;t in our book right now &mdash; shown for your own allocation. Running your own entries is its own diversification; the tags show whether each is still near its entry.
+                                    Momentum names that pass our screen but aren&rsquo;t in the Preserver book right now &mdash; shown for your own allocation.
                                   </p>
                                 </div>
                                 {viewMode === 'simple' ? (
@@ -4315,11 +4316,35 @@ function Dashboard() {
                             );
                           })()}
 
+                          {/* Maximizer breakout candidates — names approaching a 50-day-high
+                              breakout (the radar). Not yet in the Maximizer book; the second book's
+                              opportunity layer, so the Signals area shows BOTH books' deviations. */}
+                          {dashboardData?.tier_book && (dashboardData?.breakout_radar || []).length > 0 && (
+                            <div className="mt-2">
+                              <div className="px-4 py-2.5 border-t border-rule flex items-center justify-between">
+                                <span className="font-display text-[0.95rem] font-medium tracking-tight text-claret">&#9670; Maximizer breakout candidates <em className="font-display italic text-ink-light font-normal">({dashboardData.breakout_radar.length})</em></span>
+                                <span className="font-display italic text-[0.85rem] text-ink-mute" style={{ fontVariationSettings: '"opsz" 24' }}>Approaching a breakout trigger.</span>
+                              </div>
+                              <div className="divide-y divide-rule">
+                                {dashboardData.breakout_radar.map((r) => (
+                                  <div key={r.symbol}
+                                       onClick={() => setChartModal({ type: 'signal', data: { symbol: r.symbol, price: r.price, source: 'breakout' }, symbol: r.symbol })}
+                                       className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-paper-deep transition-colors">
+                                    <span className="font-display text-[1rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{r.symbol}</span>
+                                    <span className="font-mono text-[0.72rem] text-ink-mute">{r.pct_below_50d_high}% below high &middot; vol {r.vol_ratio}&times;</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Served tiers: calm signals empty-state on a quiet day. The books
                               above always render now (redesign: books-on-top, unconditional for a
-                              served user), so when there are no deviation signals we say so here
+                              served user), so when BOTH deviation groups are empty we say so here
                               instead of leaving a blank gap. */}
-                          {dashboardData?.tier_book && [...freshSignals, ...monitoringSignals].filter(s => s.source !== 'breakout').length === 0 && (
+                          {dashboardData?.tier_book
+                            && [...freshSignals, ...monitoringSignals].filter(s => s.source !== 'breakout').length === 0
+                            && (dashboardData?.breakout_radar || []).length === 0 && (
                             <div className="px-4 py-6 mt-2 border-t border-rule text-center font-display italic text-ink-mute text-sm" style={{ fontVariationSettings: '"opsz" 24' }}>
                               No new signals today &mdash; the system is watching.
                             </div>

@@ -2153,6 +2153,8 @@ async def get_dashboard_data(
     todays_actions = None
     breakout_book = None  # additive Maximizer serving: the breakout book shown beside the Preserver base
     preserver_book = None  # additive "both books": the Preserver mirror book shown beside the Maximizer breakout book
+    preserver_market_context = None  # measured t30v read — shown under the Preserver book (both-books view)
+    maximizer_market_context = None  # breakout-posture briefing — shown under the Maximizer book
     try:
         from app.services import tier_serving
         if tier_serving.tier_serving_enabled():
@@ -2176,9 +2178,13 @@ async def get_dashboard_data(
             if breakout_book:
                 for c in breakout_book:
                     c['in_user_position'] = c.get('symbol', '') in open_syms
-            # Per-tier sentiment: Maximizer overrides the market briefing with its book-posture
-            # voice; Preserver keeps the measured t30v market_context from the cache.
+            # Per-tier sentiment. Additive "both books" view shows a market read under EACH
+            # book: the Preserver read = the measured t30v market_context from the cache; the
+            # Maximizer read = the breakout-posture briefing (overlay.market_context). Capture
+            # the measured read BEFORE the override so both survive.
+            preserver_market_context = cached.get('market_context')
             if overlay.get('market_context'):
+                maximizer_market_context = overlay['market_context']
                 cached = {**cached, 'market_context': overlay['market_context']}
             # Recompute fresh counts from the SERVED list — otherwise the swapped breakout
             # view inherits the t30v cache's total_fresh_count and the empty-state falsely
@@ -2242,6 +2248,8 @@ async def get_dashboard_data(
         'upsell_missed': upsell_missed,
         'tier_book': tier_book,
         'preserver_book': preserver_book,
+        'preserver_market_context': preserver_market_context,
+        'maximizer_market_context': maximizer_market_context,
         'tier_backtest': (tier_serving.tier_backtest(tier_meta['tier']) if tier_meta['tier'] else None),
         'breakout_radar': breakout_radar,
         'todays_actions': todays_actions,
