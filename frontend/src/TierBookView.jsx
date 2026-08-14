@@ -74,7 +74,9 @@ export default function TierBookView({ book, onSetCapital, onRowClick, radar, ac
               {book.new_today} new today
             </span>
           )}
-          {book.regime && <span className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-ink-mute">{book.regime}</span>}
+          {/* Regime chip removed from the book header — it lives in the top regime bar, and the
+              extra line made the two book headers different heights (market-read / capital rows
+              no longer aligned in the side-by-side). */}
         </div>
       </div>
 
