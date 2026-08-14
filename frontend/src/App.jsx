@@ -1574,36 +1574,6 @@ const SignalCard = ({ signal, onClick }) => {
 // Maximizer breakout-book card — the breakout book shown beside the Preserver base
 // (additive serving). Fields come from build_maximizer_breakout_view: status ('new'|
 // 'holding'), day X/29 countdown (days_held/hold_days/days_left), price, pnl_pct.
-const BreakoutBookCard = ({ card, onClick }) => {
-  const isNew = card.status === 'new';
-  const pnl = card.pnl_pct ?? 0;
-  const hold = card.hold_days || 29;
-  const pct = Math.min(100, Math.round(((card.days_held || 0) / hold) * 100));
-  return (
-    <div onClick={() => onClick && onClick(card)} className="p-4 hover:bg-paper-deep transition-colors cursor-pointer">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-ink">{card.symbol}</span>
-          <span className={`px-2 py-0.5 text-[0.58rem] font-semibold rounded-full uppercase tracking-wide ${isNew ? 'bg-claret/10 text-claret' : 'bg-ink/5 text-ink-mute'}`}>
-            {isNew ? 'New breakout' : 'Holding'}
-          </span>
-        </div>
-        <div className="text-right whitespace-nowrap">
-          <span className="text-base font-semibold text-ink">${card.price?.toFixed(2)}</span>
-          <span className={`ml-2 text-sm ${pnl >= 0 ? 'text-positive' : 'text-negative'}`}>{pnl >= 0 ? '+' : ''}{pnl?.toFixed(1)}%</span>
-        </div>
-      </div>
-      <div className="mt-2 flex items-center justify-between text-[0.72rem] text-ink-mute font-mono">
-        <span>day {card.days_held}/{hold} &middot; ~{card.days_left}d left</span>
-        <span className="text-ink-light">sells on time (no stop)</span>
-      </div>
-      <div className="mt-1.5 h-1 bg-paper-deep rounded overflow-hidden">
-        <div className={`h-full ${(card.days_left ?? 29) <= 5 ? 'bg-claret' : 'bg-claret/50'}`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-};
-
 // Position Row
 const PositionRow = ({ position, onClick }) => {
   const pnlColor = position.pnl_pct >= 0 ? 'text-positive' : 'text-negative';
@@ -3853,7 +3823,7 @@ function Dashboard() {
                         )}
                       </div>
                     </div>
-                  ) : (dashboardData?.buy_signals || []).length > 0 ? (
+                  ) : (dashboardData?.tier_book || (dashboardData?.buy_signals || []).length > 0) ? (
                     (() => {
                       const sectorFilter = (s) => !excludedSectors.includes(s.sector || 'Other');
                       const freshSignals = (dashboardData?.buy_signals || []).filter(s => s.is_fresh && sectorFilter(s));
@@ -4179,6 +4149,7 @@ function Dashboard() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                                   <TierBookView
                                     book={dashboardData.preserver_book}
+                                    compact
                                     onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
                                     onSetCapital={setSharedCapital}
                                   />
@@ -4310,7 +4281,7 @@ function Dashboard() {
                               <div className="mt-2">
                                 <div className="px-4 py-2.5 border-t border-rule flex items-center justify-between">
                                   <span className="font-display text-[0.95rem] font-medium tracking-tight">Other Signals <em className="font-display italic text-ink-light font-normal">({other.length})</em></span>
-                                  <span className="font-display italic text-[0.85rem] text-ink-mute" style={{ fontVariationSettings: '"opsz" 24' }}>Not in our book</span>
+                                  <span className="font-display italic text-[0.85rem] text-ink-mute" style={{ fontVariationSettings: '"opsz" 24' }}>Not in our book &mdash; but could be in yours.</span>
                                 </div>
                                 <div className="px-4 pt-2 pb-1">
                                   <p className="font-body text-[0.78rem] text-ink-mute leading-[1.5]">
@@ -4343,6 +4314,16 @@ function Dashboard() {
                               </div>
                             );
                           })()}
+
+                          {/* Served tiers: calm signals empty-state on a quiet day. The books
+                              above always render now (redesign: books-on-top, unconditional for a
+                              served user), so when there are no deviation signals we say so here
+                              instead of leaving a blank gap. */}
+                          {dashboardData?.tier_book && [...freshSignals, ...monitoringSignals].filter(s => s.source !== 'breakout').length === 0 && (
+                            <div className="px-4 py-6 mt-2 border-t border-rule text-center font-display italic text-ink-mute text-sm" style={{ fontVariationSettings: '"opsz" 24' }}>
+                              No new signals today &mdash; the system is watching.
+                            </div>
+                          )}
 
                           {/* Buy Signals section (fresh) — hidden for served tiers; the
                               capital-scaled mirror book replaces the pick-and-add flow. */}

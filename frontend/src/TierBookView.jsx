@@ -38,7 +38,7 @@ function HoldingGauge({ entry, now, hwm, stop }) {
 // the book's positions to it (implied_shares = book_shares x capital/book_value) so their
 // portfolio auto-mirrors the book with zero per-trade entry. Maximizer = breakout book
 // (day-X/29 exits); Preserver = t30v book (30% trailing). (Jul 24 2026)
-export default function TierBookView({ book, onSetCapital, onRowClick, radar, actions, hideCapitalEditor = false }) {
+export default function TierBookView({ book, onSetCapital, onRowClick, radar, actions, hideCapitalEditor = false, compact = false }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(book?.capital ?? 100000));
   const [saving, setSaving] = useState(false);
@@ -147,10 +147,11 @@ export default function TierBookView({ book, onSetCapital, onRowClick, radar, ac
         </div>
       </div>
 
-      {/* Holdings — Maximizer keeps the table + 29-day hold-clock; Preserver gets the
-          MOBILE-FIRST gauge cards (entry ▸ today ▸ HWM, cushion to the trailing stop).
-          No horizontal scroll on a phone — 76% of traffic is mobile. */}
-      {isMax ? (
+      {/* Holdings — Maximizer uses the compact table + 29-day hold-clock. Preserver uses the
+          MOBILE-FIRST gauge cards standalone, but in `compact` mode (side-by-side two-book view)
+          it renders the SAME table with a cushion-to-stop bar in the Exit column, so the two
+          books line up row-for-row. No horizontal scroll on a phone — 76% of traffic is mobile. */}
+      {(isMax || compact) ? (
         <div className="overflow-x-auto">
           <table className="w-full" style={{ fontFeatureSettings: '"tnum"' }}>
             <thead>
@@ -181,15 +182,35 @@ export default function TierBookView({ book, onSetCapital, onRowClick, radar, ac
                   <td className="py-2.5 px-3 text-right font-mono text-[0.82rem]">${h.price?.toFixed(2)}</td>
                   <td className="py-2.5 px-3 text-right font-mono text-[0.9rem] text-ink">{sh(h.implied_shares)}</td>
                   <td className="py-2.5 px-3 text-right font-mono text-[0.9rem] text-ink">{usd0(h.implied_value)}</td>
-                  <td className="py-2.5 px-3 font-mono text-[0.72rem] text-claret whitespace-nowrap">
-                    <div className="min-w-[92px]">
-                      <div className="mb-0.5">day {h.days_held}/{h.hold_days} · ~{h.days_left}d</div>
-                      {/* Hold-clock: progress through the 29-day time-stop; near-exit turns solid claret */}
-                      <div className="h-1 bg-paper-deep rounded overflow-hidden">
-                        <div className={`h-full ${h.days_left <= 5 ? 'bg-claret' : 'bg-claret/50'}`}
-                             style={{ width: `${Math.min(100, Math.round((h.days_held / (h.hold_days || 29)) * 100))}%` }} />
+                  <td className="py-2.5 px-3 font-mono text-[0.72rem] whitespace-nowrap">
+                    {isMax ? (
+                      <div className="min-w-[92px] text-claret">
+                        <div className="mb-0.5">day {h.days_held}/{h.hold_days} · ~{h.days_left}d</div>
+                        {/* Hold-clock: progress through the 29-day time-stop; near-exit turns solid claret */}
+                        <div className="h-1 bg-paper-deep rounded overflow-hidden">
+                          <div className={`h-full ${h.days_left <= 5 ? 'bg-claret' : 'bg-claret/50'}`}
+                               style={{ width: `${Math.min(100, Math.round((h.days_held / (h.hold_days || 29)) * 100))}%` }} />
+                        </div>
                       </div>
-                    </div>
+                    ) : (() => {
+                      // Preserver compact: cushion to the 30% trailing stop — mirror of the
+                      // hold-clock. Bar = where 'now' sits in the stop→high band; thin cushion
+                      // (near the stop) turns claret, healthy cushion stays green.
+                      const lo = Number(h.trailing_stop_level) || 0;
+                      const hi = Math.max(Number(h.high_water_mark) || 0, lo + 0.01);
+                      const now = Number(h.price) || lo;
+                      const cushion = now > 0 ? Math.max(0, (now - lo) / now * 100) : 0;
+                      const bandPct = Math.max(0, Math.min(100, ((now - lo) / (hi - lo)) * 100));
+                      const thin = cushion <= 8;
+                      return (
+                        <div className="min-w-[92px]">
+                          <div className={`mb-0.5 ${thin ? 'text-claret' : 'text-ink-mute'}`}>{Math.round(cushion)}% to stop</div>
+                          <div className="h-1 bg-paper-deep rounded overflow-hidden">
+                            <div className={`h-full ${thin ? 'bg-claret' : 'bg-positive/60'}`} style={{ width: `${bandPct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className={`py-2.5 px-3 text-right font-mono text-[0.82rem] hidden sm:table-cell ${h.pnl_pct >= 0 ? 'text-positive' : 'text-negative'}`}>
                     {h.pnl_pct >= 0 ? '+' : ''}{h.pnl_pct}%
