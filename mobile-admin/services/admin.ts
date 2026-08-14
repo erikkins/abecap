@@ -213,7 +213,7 @@ export async function getTrafficSummary(days = 7): Promise<TrafficSummary> {
 }
 
 // ── Social queue (read-only follow-along) ─────────────────────────
-// GET /api/social/posts?status=draft|scheduled — approve/kill happen via email.
+// GET /api/admin/social/posts?status=draft|scheduled — approve/kill happen via email.
 export interface SocialPost {
   id: number;
   post_type: string;
@@ -228,6 +228,6 @@ export interface SocialPost {
   [k: string]: any;
 }
 export async function getSocialPosts(status: string, limit = 50): Promise<SocialPost[]> {
-  const { data } = await api.get('/api/social/posts', { params: { status, limit } });
+  const { data } = await api.get('/api/admin/social/posts', { params: { status, limit } });
   return (data?.posts as SocialPost[]) || [];
 }
