@@ -193,20 +193,32 @@ export default function TierBookView({ book, onSetCapital, onRowClick, radar, ac
                         </div>
                       </div>
                     ) : (() => {
-                      // Preserver compact: cushion to the 30% trailing stop — mirror of the
-                      // hold-clock. Bar = where 'now' sits in the stop→high band; thin cushion
-                      // (near the stop) turns claret, healthy cushion stays green.
+                      // Preserver compact: a thin cushion gauge — the standalone gauge distilled
+                      // to one row. Band = stop (left edge) → high-water mark (right edge); green
+                      // fill = cushion up to now; thin tick = entry; solid marker = now. Thin
+                      // cushion (near the stop) turns claret.
                       const lo = Number(h.trailing_stop_level) || 0;
                       const hi = Math.max(Number(h.high_water_mark) || 0, lo + 0.01);
                       const now = Number(h.price) || lo;
+                      const entry = Number(h.entry_price) || lo;
+                      const clampPct = (v) => Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100));
+                      const nowPct = clampPct(now);
+                      const entryPct = clampPct(entry);
                       const cushion = now > 0 ? Math.max(0, (now - lo) / now * 100) : 0;
-                      const bandPct = Math.max(0, Math.min(100, ((now - lo) / (hi - lo)) * 100));
                       const thin = cushion <= 8;
                       return (
-                        <div className="min-w-[92px]">
-                          <div className={`mb-0.5 ${thin ? 'text-claret' : 'text-ink-mute'}`}>{Math.round(cushion)}% to stop</div>
-                          <div className="h-1 bg-paper-deep rounded overflow-hidden">
-                            <div className={`h-full ${thin ? 'bg-claret' : 'bg-positive/60'}`} style={{ width: `${bandPct}%` }} />
+                        <div className="min-w-[108px]">
+                          <div className={`mb-1 ${thin ? 'text-claret' : 'text-ink-mute'}`}>{Math.round(cushion)}% to stop</div>
+                          <div className="relative h-2 bg-paper-deep rounded">
+                            {/* cushion fill: stop → now */}
+                            <div className={`absolute inset-y-0 left-0 rounded-l ${thin ? 'bg-claret/40' : 'bg-positive/35'}`} style={{ width: `${nowPct}%` }} />
+                            {/* entry tick */}
+                            <div className="absolute top-1/2 -translate-y-1/2 h-[11px] w-px bg-ink-mute/70" style={{ left: `${entryPct}%` }} title={`Entry $${entry.toFixed(2)}`} />
+                            {/* now marker */}
+                            <div className={`absolute top-1/2 -translate-y-1/2 h-3.5 w-[2px] rounded ${thin ? 'bg-claret' : 'bg-ink'}`} style={{ left: `calc(${nowPct}% - 1px)` }} title={`Now $${now.toFixed(2)}`} />
+                          </div>
+                          <div className="flex justify-between mt-0.5 text-[0.52rem] leading-none text-ink-light">
+                            <span>stop ${Math.round(lo)}</span><span>high ${Math.round(hi)}</span>
                           </div>
                         </div>
                       );
