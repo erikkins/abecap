@@ -838,7 +838,8 @@ async def comp_maximizer(
 # dashboard reflects REAL users (mirrors the skip-list in
 # auth._ping_admin_new_signup). erikkins+test@... is caught by the +test pattern.
 _TEST_EMAIL_LIKE = ["%+test%", "%@example.com", "%test@test%"]
-_TEST_EMAIL_EXACT = ["erik@rigacap.com", "erikkins@gmail.com"]
+_TEST_EMAIL_EXACT = ["erik@rigacap.com", "erikkins@gmail.com",
+                     "erik@amberlandproductions.com", "jglynn@cookma.com"]
 
 
 def _exclude_test_users(col=User.email):
@@ -846,6 +847,77 @@ def _exclude_test_users(col=User.email):
     conds = [col.notilike(p) for p in _TEST_EMAIL_LIKE]
     conds += [func.lower(col) != e for e in _TEST_EMAIL_EXACT]
     return and_(*conds)
+
+
+def _email_is_test(email: str) -> bool:
+    """Python mirror of _exclude_test_users for filtering Stripe results by email."""
+    e = (email or "").lower()
+    if not e:
+        return False
+    if e in {x.lower() for x in _TEST_EMAIL_EXACT}:
+        return True
+    return e.endswith("@example.com") or "+test" in e or "test@test" in e
+
+
+# Stripe-sourced (paid, mrr) cache — keyed by secret key (so live/test don't mix),
+# TTL'd so the admin dashboard doesn't hit Stripe on every load.
+_STRIPE_STATS_CACHE: dict = {}
+_STRIPE_STATS_TTL = 300  # seconds
+
+
+async def _stripe_paid_mrr(db) -> Optional[tuple]:
+    """(paid_subscribers, mrr) from Stripe — active+trialing subs, internal/test
+    accounts excluded, MRR = sum of monthly-equivalent amounts. Returns None on ANY
+    failure so the caller falls back to the local estimate. Never raises."""
+    import time as _time
+    key = settings.STRIPE_SECRET_KEY
+    if not key:
+        return None
+    now = _time.time()
+    cached = _STRIPE_STATS_CACHE.get(key)
+    if cached and now - cached[0] < _STRIPE_STATS_TTL:
+        return cached[1]
+
+    # Map Stripe customer id -> local user email (to exclude internal accounts).
+    rows = (await db.execute(
+        select(User.stripe_customer_id, User.email).where(User.stripe_customer_id.isnot(None))
+    )).all()
+    cust_email = {c: (e or "") for c, e in rows}
+
+    def _fetch():
+        import stripe as _stripe
+        _stripe.api_key = key
+        paid = 0
+        mrr = 0.0
+        for status in ("active", "trialing"):
+            for sub in _stripe.Subscription.list(status=status, limit=100).auto_paging_iter():
+                if _email_is_test(cust_email.get(sub.get("customer"))):
+                    continue
+                paid += 1
+                for item in ((sub.get("items") or {}).get("data") or []):
+                    price = item.get("price") or {}
+                    amt = (price.get("unit_amount") or 0) / 100.0
+                    qty = item.get("quantity") or 1
+                    interval = (price.get("recurring") or {}).get("interval")
+                    monthly = amt * qty
+                    if interval == "year":
+                        monthly /= 12.0
+                    elif interval == "week":
+                        monthly = monthly * 52 / 12.0
+                    elif interval == "day":
+                        monthly = monthly * 365 / 12.0
+                    mrr += monthly
+        return (paid, round(mrr, 2))
+
+    try:
+        import asyncio
+        loop = asyncio.get_event_loop()
+        result = await asyncio.wait_for(loop.run_in_executor(None, _fetch), timeout=8)
+        _STRIPE_STATS_CACHE[key] = (now, result)
+        return result
+    except Exception as e:
+        print(f"⚠️ Stripe stats fetch failed ({e}); using local fallback")
+        return None
 
 
 @router.get("/stats", response_model=AdminStatsResponse)
@@ -946,10 +1018,14 @@ async def get_admin_stats(
     )
     new_users_week = week_result.scalar()
 
-    # MRR — rough estimate (assumes ~standard monthly price). TODO: sum actual
-    # amounts from stripe_price_id once a price->amount map exists. With test
-    # users excluded this is $0 until there's a real paying subscriber.
-    mrr = paid_subscribers * 129.0
+    # Paid subscribers + MRR — prefer the Stripe API (the true source: real active/
+    # trialing subs, internal accounts excluded, actual monthly-equivalent amounts).
+    # Falls back to the local guarded count × standard price if Stripe is unreachable.
+    _stripe_pm = await _stripe_paid_mrr(db)
+    if _stripe_pm is not None:
+        paid_subscribers, mrr = _stripe_pm
+    else:
+        mrr = paid_subscribers * 129.0
 
     return AdminStatsResponse(
         total_users=total_users,

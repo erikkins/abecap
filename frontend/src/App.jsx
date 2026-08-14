@@ -4140,6 +4140,13 @@ function Dashboard() {
                                 });
                               } catch (e) { console.error('set capital failed', e); }
                             };
+                            // Each book's candidate list now lives IN its own column under the book
+                            // (fills the empty gap under the shorter Maximizer column + makes "which
+                            // book" unambiguous). Preserver = momentum names not held; Maximizer =
+                            // breakout radar (approaching a trigger). The old full-width Signals
+                            // section is suppressed for 'both' (below) so these don't duplicate.
+                            const otherPreserver = [...freshSignals, ...monitoringSignals].filter(s => s.source !== 'breakout');
+                            const radar = dashboardData.breakout_radar || [];
                             return (
                               <div className="px-4 pt-4">
                                 <div className="flex items-baseline justify-between mb-3">
@@ -4147,20 +4154,55 @@ function Dashboard() {
                                   <span className="font-display italic text-[0.82rem] text-ink-mute" style={{ fontVariationSettings: '"opsz" 24' }}>auto-mirrored to your capital</span>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                                  <TierBookView
-                                    book={dashboardData.preserver_book}
-                                    compact
-                                    marketNote={dashboardData.preserver_market_context}
-                                    onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
-                                    onSetCapital={setSharedCapital}
-                                  />
-                                  <TierBookView
-                                    book={dashboardData.tier_book}
-                                    actions={dashboardData.todays_actions}
-                                    marketNote={dashboardData.maximizer_market_context}
-                                    hideCapitalEditor
-                                    onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
-                                  />
+                                  {/* LEFT — Preserver book + its candidate signals */}
+                                  <div>
+                                    <TierBookView
+                                      book={dashboardData.preserver_book}
+                                      compact
+                                      marketNote={dashboardData.preserver_market_context}
+                                      onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
+                                      onSetCapital={setSharedCapital}
+                                    />
+                                    {otherPreserver.length > 0 && (
+                                      <div className="mt-3 border border-rule rounded bg-paper-card overflow-hidden">
+                                        <div className="px-4 py-2.5 border-b border-rule">
+                                          <span className="font-display text-[0.9rem] font-medium tracking-tight">Preserver signals <em className="font-display italic text-ink-light font-normal">({otherPreserver.length})</em></span>
+                                          <p className="font-display italic text-[0.78rem] text-ink-mute mt-0.5" style={{ fontVariationSettings: '"opsz" 24' }}>Not in the Preserver book &mdash; but could be in yours.</p>
+                                        </div>
+                                        <div className="divide-y divide-rule">
+                                          {otherPreserver.map(renderSimpleSignal)}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {/* RIGHT — Maximizer book + breakout candidates */}
+                                  <div>
+                                    <TierBookView
+                                      book={dashboardData.tier_book}
+                                      actions={dashboardData.todays_actions}
+                                      marketNote={dashboardData.maximizer_market_context}
+                                      hideCapitalEditor
+                                      onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
+                                    />
+                                    {radar.length > 0 && (
+                                      <div className="mt-3 border border-claret/30 rounded bg-paper-card overflow-hidden">
+                                        <div className="px-4 py-2.5 border-b border-claret/30 bg-claret/5">
+                                          <span className="font-display text-[0.9rem] font-medium tracking-tight text-claret">&#9670; Maximizer breakout candidates <em className="font-display italic text-ink-light font-normal">({radar.length})</em></span>
+                                          <p className="font-display italic text-[0.78rem] text-ink-mute mt-0.5" style={{ fontVariationSettings: '"opsz" 24' }}>Approaching a breakout trigger.</p>
+                                        </div>
+                                        <div className="divide-y divide-rule">
+                                          {radar.map((r) => (
+                                            <div key={r.symbol}
+                                                 onClick={() => setChartModal({ type: 'signal', data: { symbol: r.symbol, price: r.price, source: 'breakout' }, symbol: r.symbol })}
+                                                 className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-paper-deep transition-colors">
+                                              <span className="font-display text-[1rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{r.symbol}</span>
+                                              <span className="font-mono text-[0.72rem] text-ink-mute">{r.pct_below_50d_high}% below high &middot; vol {r.vol_ratio}&times;</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -4275,7 +4317,7 @@ function Dashboard() {
                               entries = their own diversification, a hedge on our timing —
                               still gets them. Framed so it never reads as a book holding.
                               Breakout-tier signals ARE the book, so they're excluded here. */}
-                          {dashboardData?.tier_book && (() => {
+                          {dashboardData?.tier_book && dashboardData?.signal_source !== 'both' && (() => {
                             const other = [...freshSignals, ...monitoringSignals].filter(s => s.source !== 'breakout');
                             if (other.length === 0) return null;
                             return (
@@ -4319,7 +4361,7 @@ function Dashboard() {
                           {/* Maximizer breakout candidates — names approaching a 50-day-high
                               breakout (the radar). Not yet in the Maximizer book; the second book's
                               opportunity layer, so the Signals area shows BOTH books' deviations. */}
-                          {dashboardData?.tier_book && (dashboardData?.breakout_radar || []).length > 0 && (
+                          {dashboardData?.tier_book && dashboardData?.signal_source !== 'both' && (dashboardData?.breakout_radar || []).length > 0 && (
                             <div className="mt-2">
                               <div className="px-4 py-2.5 border-t border-rule flex items-center justify-between">
                                 <span className="font-display text-[0.95rem] font-medium tracking-tight text-claret">&#9670; Maximizer breakout candidates <em className="font-display italic text-ink-light font-normal">({dashboardData.breakout_radar.length})</em></span>
@@ -4342,7 +4384,7 @@ function Dashboard() {
                               above always render now (redesign: books-on-top, unconditional for a
                               served user), so when BOTH deviation groups are empty we say so here
                               instead of leaving a blank gap. */}
-                          {dashboardData?.tier_book
+                          {dashboardData?.tier_book && dashboardData?.signal_source !== 'both'
                             && [...freshSignals, ...monitoringSignals].filter(s => s.source !== 'breakout').length === 0
                             && (dashboardData?.breakout_radar || []).length === 0 && (
                             <div className="px-4 py-6 mt-2 border-t border-rule text-center font-display italic text-ink-mute text-sm" style={{ fontVariationSettings: '"opsz" 24' }}>

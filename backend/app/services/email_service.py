@@ -347,13 +347,35 @@ class EmailService:
                     })
                     return False
 
-    def _book_section(self, book: Dict, market_regime: Dict = None) -> str:
+    def _market_read_block(self, label: str, text: str) -> str:
+        """A small labeled market-read block. Used to sit a read directly above the book it
+        describes when a Maximizer email carries BOTH books (each gets its own read)."""
+        if not text:
+            return ''
+        return f'''<tr>
+            <td style="padding: 0 24px 14px;">
+                <div style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7A2430; margin-bottom: 6px;">{label}</div>
+                <div style="border-left: 2px solid #DDD5C7; padding: 10px 16px; background: #FAF7F0;">
+                    <div style="font-family: Georgia, serif; font-style: italic; font-size: 14px; color: #141210; line-height: 1.6;">{text}</div>
+                </div>
+            </td>
+        </tr>'''
+
+    def _book_section(self, book: Dict, market_regime: Dict = None, capital: float = None) -> str:
         """'Our Book' — the mirror that IS the product: current model holdings + a
         one-line posture + the mirroring rule. Leads the Preserver digest so the book
-        (what to hold to match us) comes before the bonus 'Other Signals' list."""
+        (what to hold to match us) comes before the bonus 'Other Signals' list.
+
+        capital: the recipient's portfolio size. When given, each row shows the implied
+        shares + $ value AT THEIR CAPITAL (linear rescale of the book's implied_* which
+        were computed at book['capital']) — so an email-only subscriber can mirror exactly."""
         if not book or not book.get('holdings'):
             return ''
         holdings = sorted(book['holdings'], key=lambda h: -(h.get('weight_pct') or 0))
+        # Linear rescale factor: the book's implied_shares/implied_value were built at
+        # book['capital']; scale to the recipient's capital. 1.0 if either is missing.
+        _book_cap = book.get('capital') or 0
+        _scale = (capital / _book_cap) if (capital and _book_cap) else 1.0
         n = len(holdings)
         new_ct = book.get('new_today') or 0
         exposure = book.get('exposure')
@@ -381,7 +403,12 @@ class EmailService:
             new_tag = ('&nbsp;<span style="font-family: \'Courier New\', monospace; font-size: 11px; '
                        'letter-spacing: 1px; color: #7A2430;">NEW</span>') if h.get('is_new') else ''
             wt_txt = f"{wt:.0f}% of book" if wt is not None else ""
-            meta = " &middot; ".join([x for x in (wt_txt, exit_txt) if x])
+            # Capital-scaled holding: how much to actually hold at the recipient's capital.
+            _ish = h.get('implied_shares'); _iv = h.get('implied_value')
+            hold_txt = ""
+            if _ish is not None and _iv is not None:
+                hold_txt = f"&asymp; {(_ish * _scale):.2f} sh &middot; ${(_iv * _scale):,.0f}"
+            meta = " &middot; ".join([x for x in (wt_txt, hold_txt, exit_txt) if x])
             rows += f'''
                 <div style="padding: 14px 0; border-bottom: 1px solid #DDD5C7;">
                     <table cellpadding="0" cellspacing="0" style="width: 100%;">
@@ -429,7 +456,10 @@ class EmailService:
         market_context: str = None,
         tier: str = 'preserver',
         book: Dict = None,
-        breakout_book: List[Dict] = None
+        breakout_book: List[Dict] = None,
+        capital: float = None,
+        secondary_market_context: str = None,
+        todays_actions: Dict = None,
     ) -> str:
         """
         Generate beautiful HTML for daily summary email
@@ -452,6 +482,44 @@ class EmailService:
             date = _now_et()
 
         date_str = date.strftime("%A, %B %d, %Y")
+
+        # Cascade Guard (circuit breaker) — email-only users won't see the portal badge, so if
+        # new entries are paused, say it plainly. Self-contained + best-effort.
+        cascade_notice = ''
+        try:
+            from app.services import circuit_breaker_state as _cb
+            _cbst = _cb.get_state('live') or {}
+            _pu = _cbst.get('pause_until')
+            if _pu and _cb.is_paused('live'):
+                cascade_notice = f'''
+        <tr><td style="padding: 0 24px 16px;">
+            <div style="border-left: 3px solid #7A2430; background: #FAF7F0; padding: 10px 14px; font-family: Georgia, serif; font-size: 13px; color: #7A2430; line-height: 1.5;">
+                <strong>Cascade Guard active</strong> &mdash; new entries are paused through {_pu} after a cluster of same-day stops. Existing holdings ride their stops as normal.
+            </div>
+        </td></tr>'''
+        except Exception:
+            cascade_notice = ''
+
+        # Today's moves — the book's same-day fills (BUY = new entries, SELL = 29-day time-stop
+        # exits). Email-only users need this explicit "sync your broker" callout; if the book
+        # didn't trade today there's nothing to render.
+        moves_banner = ''
+        _ta = todays_actions or {}
+        _buys = [b.get('symbol') for b in (_ta.get('buys') or []) if b.get('symbol')]
+        _sells = [s.get('symbol') for s in (_ta.get('sells') or []) if s.get('symbol')]
+        if _buys or _sells:
+            _parts = []
+            if _buys:
+                _parts.append("BUY " + ", ".join(_buys))
+            if _sells:
+                _parts.append("SELL " + ", ".join(_sells) + " (29-day exit)")
+            moves_banner = f'''
+        <tr><td style="padding: 0 24px 18px;">
+            <div style="border: 1px solid #7A2430; background: #FFFFFF; padding: 12px 16px;">
+                <div style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7A2430; margin-bottom: 6px;">Today's moves &mdash; sync your broker</div>
+                <div style="font-family: Georgia, serif; font-size: 15px; color: #141210; line-height: 1.5;">{" &nbsp;&middot;&nbsp; ".join(_parts)}</div>
+            </div>
+        </td></tr>'''
         # Bucket taxonomy — MUST match the dashboard (App.jsx) exactly:
         #   New today    = is_fresh signals ("Buy Signals" bucket on the site)
         #   Open         = non-fresh signals still in the buy zone ("Monitoring")
@@ -484,7 +552,7 @@ class EmailService:
         # Preserver (book + "Other Signals"), then append the breakout book as its own section.
         # Legacy Maximizer (no breakout_book): signals ARE the breakout book (the old swap).
         served_preserver = ((tier != 'maximizer' or breakout_book is not None) and book is not None)
-        book_section = self._book_section(book, market_regime) if served_preserver else ''
+        book_section = self._book_section(book, market_regime, capital) if served_preserver else ''
         if tier == 'maximizer' and not breakout_book:
             sig_header, sig_subhead = 'Your Maximizer Book', 'Held ~29 days'
             sig_framing = ("Mirror at today&rsquo;s price. Each breakout is held ~29 trading days then "
@@ -631,14 +699,24 @@ class EmailService:
             </td>
         </tr>''' if tier else ''}
 
-        <!-- Market Context -->
+        <!-- Cascade Guard notice (entries paused) — only when active -->
+        {cascade_notice}
+
+        <!-- Today's moves — same-day book fills; empty when the book didn't trade today -->
+        {moves_banner}
+
+        <!-- Market Context (top) — Preserver-only. For Maximizer (both books) the reads sit
+             per-book below, so each book carries its own read. -->
         {f'''<tr>
             <td style="padding: 0 24px 20px;">
                 <div style="border-left: 2px solid #7A2430; padding: 14px 18px; background: #FAF7F0;">
                     <div style="font-family: Georgia, serif; font-style: italic; font-size: 15px; color: #141210; line-height: 1.65;">{market_context}</div>
                 </div>
             </td>
-        </tr>''' if market_context else ''}
+        </tr>''' if (market_context and breakout_book is None) else ''}
+
+        <!-- Preserver market read (above the Preserver book) — shown for Maximizer w/ both books -->
+        {self._market_read_block('Preserver market read', secondary_market_context) if (breakout_book is not None and secondary_market_context) else ''}
 
         <!-- Our Book (mirror) — leads for served Preserver; empty otherwise -->
         {book_section}
@@ -647,8 +725,11 @@ class EmailService:
              when fresh, slim one-liner when only Open exists, centered notice when empty) -->
         {new_today_section}
 
+        <!-- Maximizer breakout read (above the breakout book) -->
+        {self._market_read_block('Maximizer breakout read', market_context) if (breakout_book is not None and market_context) else ''}
+
         <!-- Maximizer breakout book (additive) — delineated, below the Preserver base -->
-        {self._breakout_book_section(breakout_book) if breakout_book is not None else ''}
+        {self._breakout_book_section(breakout_book, capital=capital) if breakout_book is not None else ''}
 
         <!-- Open Section (non-fresh signals still in buy zone — dashboard "Monitoring" bucket) -->
         {self._open_signals_section(open_signals) if (open_signals and tier != 'maximizer' and not served_preserver) else ''}
@@ -704,10 +785,14 @@ class EmailService:
             return min(ages) <= 5
         return bool(sig.get('is_fresh'))
 
-    def _breakout_book_section(self, breakout_book: List[Dict]) -> str:
+    def _breakout_book_section(self, breakout_book: List[Dict], capital: float = None) -> str:
         """Delineated Maximizer breakout-book block for the additive digest — rendered below
         the Preserver base. Held names (day X/29) + any fresh breakouts; empty => a one-line
-        'paused' note. Claret top-border to set it apart from the Preserver sections."""
+        'paused' note. Claret top-border to set it apart from the Preserver sections.
+
+        capital: accepted for future per-name $ sizing; the breakout cards (built from the book
+        snapshot) don't yet carry weight_pct/implied_shares, so no scaled shares are rendered
+        here — that requires build_maximizer_breakout_view to emit weights."""
         cards = breakout_book or []
         new_ct = len([c for c in cards if c.get('status') == 'new' or c.get('is_fresh')])
         held_ct = len(cards) - new_ct
@@ -1163,7 +1248,10 @@ class EmailService:
         market_context: str = None,
         tier: str = 'preserver',
         book: Dict = None,
-        breakout_book: List[Dict] = None
+        breakout_book: List[Dict] = None,
+        capital: float = None,
+        secondary_market_context: str = None,
+        todays_actions: Dict = None,
     ) -> bool:
         """
         Send daily summary email to a subscriber
@@ -1230,7 +1318,10 @@ class EmailService:
             market_context=market_context,
             tier=tier,
             book=book,
-            breakout_book=breakout_book
+            breakout_book=breakout_book,
+            capital=capital,
+            secondary_market_context=secondary_market_context,
+            todays_actions=todays_actions,
         )
 
         text = self.generate_plain_text(signals, market_regime, date=date, watchlist=watchlist)

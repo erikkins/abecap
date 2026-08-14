@@ -1748,12 +1748,12 @@ class SchedulerService:
                     continue
                 # Admin override: skip subscription/preference checks for admin target sends
                 if target_set and email_lower in ADMIN_EMAILS:
-                    subscribers.append({'email': u.email, 'name': u.name, 'user_id': str(u.id), 'is_maximizer': _is_max(u)})
+                    subscribers.append({'email': u.email, 'name': u.name, 'user_id': str(u.id), 'is_maximizer': _is_max(u), 'capital': float(getattr(u, 'portfolio_size', None) or 100000.0)})
                     continue
                 if u.subscription and u.subscription.is_valid():
                     if not u.get_email_preference('daily_digest'):
                         continue
-                    subscribers.append({'email': u.email, 'name': u.name, 'user_id': str(u.id), 'is_maximizer': _is_max(u)})
+                    subscribers.append({'email': u.email, 'name': u.name, 'user_id': str(u.id), 'is_maximizer': _is_max(u), 'capital': float(getattr(u, 'portfolio_size', None) or 100000.0)})
 
             if not subscribers:
                 fresh_count = len([s for s in buy_signals if s.get('is_fresh')])
@@ -1791,6 +1791,7 @@ class SchedulerService:
             # (shared across all Maximizer recipients). Only when TIER_SERVING is on.
             max_signals = None
             max_context = None
+            max_todays = None   # today's book fills (BUY new / SELL 29-day) for the "moves" banner
             try:
                 from app.services import tier_serving
                 _need_max = any(s.get('is_maximizer') for s in subscribers) or force_tier == 'maximizer'
@@ -1799,6 +1800,10 @@ class SchedulerService:
                     from app.services.scanner import scanner_service as _ss
                     async with async_session() as _mdb:
                         max_signals = await tier_serving.build_maximizer_breakout_view(_mdb, _ss.data_cache)
+                        try:
+                            max_todays = await tier_serving.build_todays_actions(_mdb)
+                        except Exception:
+                            max_todays = None
                         _bs = (await _mdb.execute(
                             select(MaximizerBookSnapshot).order_by(MaximizerBookSnapshot.snapshot_date.desc()).limit(1)
                         )).scalars().first()
@@ -1846,7 +1851,9 @@ class SchedulerService:
                     # ADDITIVE: Maximizer sees the Preserver base (book + signals) AND a
                     # delineated breakout book — not the old swap.
                     user_signals = base_signals
-                    user_context = max_context or market_context
+                    user_context = max_context or market_context   # PRIMARY = breakout read
+                    user_secondary = market_context                # measured Preserver read (both shown)
+                    user_todays = max_todays                       # today's book fills → moves banner
                     user_watchlist = watchlist
                     user_tier = 'maximizer'
                     user_book = preserver_book
@@ -1854,6 +1861,8 @@ class SchedulerService:
                 else:
                     user_signals = base_signals
                     user_context = market_context
+                    user_secondary = None
+                    user_todays = None
                     user_watchlist = watchlist
                     user_tier = 'preserver'
                     user_book = preserver_book  # "Our Book" leads; signals follow as "Other Signals"
@@ -1871,6 +1880,9 @@ class SchedulerService:
                         tier=user_tier,
                         book=user_book,
                         breakout_book=user_breakout,
+                        capital=sub.get('capital'),
+                        secondary_market_context=user_secondary,
+                        todays_actions=user_todays,
                     )
                     if success:
                         sent += 1
