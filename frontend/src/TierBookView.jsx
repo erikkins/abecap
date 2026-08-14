@@ -38,7 +38,7 @@ function HoldingGauge({ entry, now, hwm, stop }) {
 // the book's positions to it (implied_shares = book_shares x capital/book_value) so their
 // portfolio auto-mirrors the book with zero per-trade entry. Maximizer = breakout book
 // (day-X/29 exits); Preserver = t30v book (30% trailing). (Jul 24 2026)
-export default function TierBookView({ book, onSetCapital, onRowClick, radar, actions }) {
+export default function TierBookView({ book, onSetCapital, onRowClick, radar, actions, hideCapitalEditor = false }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(book?.capital ?? 100000));
   const [saving, setSaving] = useState(false);
@@ -111,7 +111,11 @@ export default function TierBookView({ book, onSetCapital, onRowClick, radar, ac
       <div className="px-4 sm:px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 border-b border-rule">
         <div>
           <div className="text-[0.6rem] uppercase tracking-[0.16em] text-ink-mute mb-1">Your capital</div>
-          {editing ? (
+          {hideCapitalEditor ? (
+            /* Shared-capital mode (two books side-by-side): show the value, edit lives on the
+               other book so one control drives both. */
+            <div className="font-mono text-[1.15rem] text-ink">{usd0(book.capital)}</div>
+          ) : editing ? (
             <div className="flex items-center gap-1">
               <input
                 autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}

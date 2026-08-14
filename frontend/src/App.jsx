@@ -3999,6 +3999,10 @@ function Dashboard() {
                                 <span className="font-body text-[0.7rem] font-medium tracking-[0.12em] uppercase px-2.5 py-1 bg-paper-card text-ink-mute border border-rule whitespace-nowrap inline-block">Held</span>
                               ) : isBreakout && s.status === 'holding' ? (
                                 <span className="font-body text-[0.7rem] font-medium tracking-[0.12em] uppercase px-2.5 py-1 bg-paper-card text-ink-mute border border-rule whitespace-nowrap inline-block">Mirror</span>
+                              ) : dashboardData?.tier_book ? (
+                                /* Served tiers ("just mirror the book"): signals are informational —
+                                   no manual +Entry. Row stays click-to-chart. */
+                                s.is_fresh ? <span className="font-body text-[0.62rem] font-medium tracking-[0.14em] uppercase text-ink-light whitespace-nowrap inline-block">Signal</span> : null
                               ) : s.is_fresh && (
                                 <span className="font-body text-[0.7rem] font-medium tracking-[0.12em] uppercase px-2.5 py-1 bg-ink text-paper border border-ink hover:bg-claret hover:border-claret transition-colors whitespace-nowrap inline-block">+ Entry</span>
                               )}
@@ -4065,6 +4069,9 @@ function Dashboard() {
                               <span className="font-body text-[0.7rem] font-medium tracking-[0.1em] uppercase px-2.5 py-1 bg-paper-card text-ink-mute border border-rule whitespace-nowrap inline-block">
                                 Mirror
                               </span>
+                            ) : dashboardData?.tier_book ? (
+                              /* Served tiers ("just mirror the book"): informational, no manual +Entry. */
+                              s.is_fresh ? <span className="font-body text-[0.62rem] font-medium tracking-[0.12em] uppercase text-ink-light whitespace-nowrap inline-block">Signal</span> : null
                             ) : s.is_fresh && (
                               <button
                                 onClick={(e) => {
@@ -4130,55 +4137,62 @@ function Dashboard() {
                             </div>
                           )}
 
-                          {/* ADDITIVE MAXIMIZER (signal_source === 'both'): show BOTH books
-                              side-by-side (stacks on mobile) — Preserver base signals on the
-                              left, the Maximizer breakout book on the right. Replaces the
-                              standalone mirror book below in this mode. */}
-                          {dashboardData?.signal_source === 'both' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-4 pt-4">
-                              {/* LEFT — Preserver base */}
-                              <div className="border border-rule rounded-lg overflow-hidden">
-                                <div className="px-4 py-2.5 border-b border-rule bg-paper-card">
-                                  <span className="font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute">Preserver &middot; Protect</span>
-                                  <div className="font-display italic text-[0.8rem] text-ink-light" style={{ fontVariationSettings: '"opsz" 24' }}>New signals &middot; 30% trailing stop</div>
+                          {/* ADDITIVE MAXIMIZER (signal_source === 'both'): "YOUR BOOKS" — both
+                              capital-scaled MIRROR books side-by-side (stacks on mobile). Preserver
+                              base book LEFT, Maximizer breakout book RIGHT — both are HOLDINGS, so
+                              they're symmetric. One shared capital control (on the left book) drives
+                              both. This is the canonical "just mirror the book" view; the Signals
+                              feed below is the optional deviation layer. */}
+                          {dashboardData?.signal_source === 'both' && dashboardData?.tier_book && (() => {
+                            // One capital control → rescale BOTH books client-side (linear in capital)
+                            // for instant preview; the next fetch confirms server-side.
+                            const setSharedCapital = async (val) => {
+                              try {
+                                await api.patch('/api/auth/me/portfolio-size', { portfolio_size: val });
+                                await refreshUser();
+                                setDashboardData(prev => {
+                                  if (!prev) return prev;
+                                  const rescale = (bk) => {
+                                    if (!bk) return bk;
+                                    const f = val / (bk.capital || val);
+                                    return {
+                                      ...bk, capital: val,
+                                      invested_value: Math.round((bk.invested_value || 0) * f),
+                                      cash_value: Math.round((bk.cash_value || 0) * f),
+                                      holdings: (bk.holdings || []).map(h => ({
+                                        ...h,
+                                        implied_shares: +((h.implied_shares || 0) * f).toFixed(2),
+                                        implied_value: Math.round((h.implied_value || 0) * f),
+                                      })),
+                                    };
+                                  };
+                                  return { ...prev, preserver_book: rescale(prev.preserver_book), tier_book: rescale(prev.tier_book) };
+                                });
+                              } catch (e) { console.error('set capital failed', e); }
+                            };
+                            return (
+                              <div className="px-4 pt-4">
+                                <div className="flex items-baseline justify-between mb-3">
+                                  <h2 className="font-display text-[1.15rem] font-medium tracking-tight text-ink" style={{ fontVariationSettings: '"opsz" 48' }}>Your Books</h2>
+                                  <span className="font-display italic text-[0.82rem] text-ink-mute" style={{ fontVariationSettings: '"opsz" 24' }}>auto-mirrored to your capital</span>
                                 </div>
-                                {(freshSignals.length + monitoringSignals.length) > 0 ? (
-                                  <div className="divide-y divide-rule">
-                                    {freshSignals.map(renderSimpleSignal)}
-                                    {monitoringSignals.map(renderSimpleSignal)}
-                                  </div>
-                                ) : (
-                                  <div className="px-4 py-6 text-center text-ink-mute font-display italic text-sm" style={{ fontVariationSettings: '"opsz" 24' }}>No fresh Preserver signals today. The system is watching.</div>
-                                )}
-                              </div>
-                              {/* RIGHT — Maximizer breakout book */}
-                              <div className="border border-claret/30 rounded-lg overflow-hidden">
-                                <div className="px-4 py-2.5 border-b border-claret/30 bg-claret/5">
-                                  <span className="font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-claret">&#9670; Maximizer breakout book &middot; Grow</span>
-                                  <div className="font-display italic text-[0.8rem] text-ink-light" style={{ fontVariationSettings: '"opsz" 24' }}>Held ~29 days &middot; rotating-bull hunts</div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                                  <TierBookView
+                                    book={dashboardData.preserver_book}
+                                    onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
+                                    onSetCapital={setSharedCapital}
+                                  />
+                                  <TierBookView
+                                    book={dashboardData.tier_book}
+                                    radar={dashboardData.breakout_radar}
+                                    actions={dashboardData.todays_actions}
+                                    hideCapitalEditor
+                                    onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
+                                  />
                                 </div>
-                                {(dashboardData?.breakout_book || []).length > 0 ? (
-                                  <div className="divide-y divide-rule">
-                                    {dashboardData.breakout_book.map((c) => (
-                                      <BreakoutBookCard key={c.symbol} card={c} onClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })} />
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="px-4 py-6 text-center text-ink-mute font-display italic text-sm" style={{ fontVariationSettings: '"opsz" 24' }}>Breakout hunting is paused — no open breakout positions. Resumes in a rotating-bull regime.</div>
-                                )}
-                                {(dashboardData?.breakout_radar || []).length > 0 && (
-                                  <div className="px-4 py-3 border-t border-rule">
-                                    <div className="font-body text-[0.56rem] uppercase tracking-[0.16em] text-ink-mute mb-1.5">Breakout radar &middot; approaching trigger</div>
-                                    <div className="flex flex-wrap gap-2">
-                                      {dashboardData.breakout_radar.slice(0, 6).map((r) => (
-                                        <span key={r.symbol} className="text-[0.7rem] font-mono border border-rule rounded px-2 py-1 text-ink">{r.symbol} <span className="text-ink-light">{r.pct_below_50d_high}%</span></span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
                               </div>
-                            </div>
-                          )}
+                            );
+                          })()}
 
                           {/* Capital-scaled MIRROR book — the primary portfolio view for a
                               served tier (implied holdings scaled to portfolio_size). Renders

@@ -2152,6 +2152,7 @@ async def get_dashboard_data(
     breakout_radar = None
     todays_actions = None
     breakout_book = None  # additive Maximizer serving: the breakout book shown beside the Preserver base
+    preserver_book = None  # additive "both books": the Preserver mirror book shown beside the Maximizer breakout book
     try:
         from app.services import tier_serving
         if tier_serving.tier_serving_enabled():
@@ -2213,6 +2214,17 @@ async def get_dashboard_data(
                     todays_actions = await tier_serving.build_todays_actions(db)
                 except Exception as _rae:
                     print(f"⚠️ radar/actions build failed: {_rae}")
+                # ADDITIVE "both books" model: a Maximizer subscriber sees BOTH mirror books.
+                # tier_book above is the Maximizer breakout book; also build the Preserver base
+                # mirror book so the dashboard can show them side-by-side (books-on-top). Same
+                # capital drives both.
+                try:
+                    preserver_book = await tier_serving.build_tier_book(
+                        db, 'preserver', float(getattr(user, 'portfolio_size', None) or 100000.0),
+                        scanner_service.data_cache, regime_trail_pct
+                    )
+                except Exception as _pbe:
+                    print(f"⚠️ preserver_book build failed: {_pbe}")
     except Exception as e:
         import traceback
         print(f"⚠️ tier serving skipped (serving Core base): {e}")
@@ -2229,6 +2241,7 @@ async def get_dashboard_data(
         'tier_note': tier_meta['tier_note'],
         'upsell_missed': upsell_missed,
         'tier_book': tier_book,
+        'preserver_book': preserver_book,
         'tier_backtest': (tier_serving.tier_backtest(tier_meta['tier']) if tier_meta['tier'] else None),
         'breakout_radar': breakout_radar,
         'todays_actions': todays_actions,
