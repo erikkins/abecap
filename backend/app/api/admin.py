@@ -880,13 +880,17 @@ async def get_admin_stats(
     )
     active_trials = trials_result.scalar()
 
-    # Paid subscribers — real payers only: active AND not comped (comp sets
-    # status=active + comped_at). Comped accounts are $0, must not inflate MRR.
+    # Paid subscribers — real payers only: active, not comped, AND backed by an
+    # actual Stripe subscription. A row with no stripe_subscription_id is NOT a
+    # paying customer (manual/legacy/self rows drifted to active) and must not be
+    # counted as paid or inflate MRR. (True source of revenue is Stripe; this is
+    # the interim guard until get_stats pulls MRR from the Stripe API directly.)
     paid_result = await db.execute(
         sub_join(select(func.count(Subscription.id))).where(
             and_(
                 Subscription.status == "active",
                 Subscription.comped_at.is_(None),
+                Subscription.stripe_subscription_id.isnot(None),
                 _exclude_test_users(),
             )
         )
