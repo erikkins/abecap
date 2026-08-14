@@ -2155,6 +2155,7 @@ async def get_dashboard_data(
     preserver_book = None  # additive "both books": the Preserver mirror book shown beside the Maximizer breakout book
     preserver_market_context = None  # measured t30v read — shown under the Preserver book (both-books view)
     maximizer_market_context = None  # breakout-posture briefing — shown under the Maximizer book
+    maximizer_recent_exits = []  # real Maximizer time-stop/stop exits from tier_fills (empty until sells log ~mid-Aug)
     try:
         from app.services import tier_serving
         if tier_serving.tier_serving_enabled():
@@ -2231,6 +2232,28 @@ async def get_dashboard_data(
                     )
                 except Exception as _pbe:
                     print(f"⚠️ preserver_book build failed: {_pbe}")
+                # Recently closed — real Maximizer exits from the fill log (LIVE, not walk-forward).
+                # Empty until the Jul-15 buys hit their 29-day time-stop (~mid-Aug); once populated,
+                # the dashboard splits Rotation watch | Recently closed automatically.
+                try:
+                    from app.core.database import TierFill as _TF
+                    _exits = list((await db.execute(
+                        select(_TF).where(
+                            _TF.tier == "maximizer", _TF.side == "sell",
+                        ).order_by(_TF.fill_date.desc()).limit(5)
+                    )).scalars().all())
+                    for _f in _exits:
+                        _rp = _f.realized_pnl or 0.0
+                        _basis = (_f.shares or 0) * (_f.price or 0) - _rp  # exit gross − realized = cost basis
+                        maximizer_recent_exits.append({
+                            "symbol": _f.symbol,
+                            "fill_date": _f.fill_date.isoformat() if _f.fill_date else None,
+                            "days_held": _f.days_held,
+                            "reason": _f.reason,
+                            "pnl_pct": round((_rp / _basis * 100), 1) if _basis else 0.0,
+                        })
+                except Exception as _mre:
+                    print(f"⚠️ maximizer_recent_exits build failed: {_mre}")
     except Exception as e:
         import traceback
         print(f"⚠️ tier serving skipped (serving Core base): {e}")
@@ -2250,6 +2273,7 @@ async def get_dashboard_data(
         'preserver_book': preserver_book,
         'preserver_market_context': preserver_market_context,
         'maximizer_market_context': maximizer_market_context,
+        'maximizer_recent_exits': maximizer_recent_exits,
         'tier_backtest': (tier_serving.tier_backtest(tier_meta['tier']) if tier_meta['tier'] else None),
         'breakout_radar': breakout_radar,
         'todays_actions': todays_actions,

@@ -4147,6 +4147,17 @@ function Dashboard() {
                             // section is suppressed for 'both' (below) so these don't duplicate.
                             const otherPreserver = [...freshSignals, ...monitoringSignals].filter(s => s.source !== 'breakout');
                             const radar = dashboardData.breakout_radar || [];
+                            // Rotation watch — Maximizer holdings nearest their 29-day time-stop,
+                            // re-sorted by URGENCY (the book table is sorted by weight, so the
+                            // soonest-to-exit name is otherwise buried). 100% live data from the
+                            // book's own hold-clocks — no walk-forward. Once tier_fills logs real
+                            // sells (~mid-Aug, when the Jul-15 buys hit day 29) this block splits:
+                            // Rotation watch (upcoming) | Recently closed (realized).
+                            const rotation = [...(dashboardData.tier_book?.holdings || [])]
+                              .filter(h => h.days_left != null)
+                              .sort((a, b) => a.days_left - b.days_left)
+                              .slice(0, 3);
+                            const recentlyClosed = dashboardData.maximizer_recent_exits || []; // populated once real sells exist
                             return (
                               <div className="px-4 pt-4">
                                 <div className="flex items-baseline justify-between mb-3">
@@ -4200,6 +4211,51 @@ function Dashboard() {
                                             </div>
                                           ))}
                                         </div>
+                                      </div>
+                                    )}
+                                    {/* Rotation watch — nearest time-stops (live hold-clocks). Splits
+                                        into a 2-up grid once Recently closed has real sells. */}
+                                    {rotation.length > 0 && (
+                                      <div className={`mt-3 grid grid-cols-1 ${recentlyClosed.length > 0 ? 'sm:grid-cols-2' : ''} gap-3`}>
+                                        <div className="border border-rule rounded bg-paper-card overflow-hidden">
+                                          <div className="px-4 py-2.5 border-b border-rule">
+                                            <span className="font-display text-[0.9rem] font-medium tracking-tight">Rotation watch</span>
+                                            <p className="font-display italic text-[0.78rem] text-ink-mute mt-0.5" style={{ fontVariationSettings: '"opsz" 24' }}>Nearest the 29-day time-stop &mdash; the book rotates these next.</p>
+                                          </div>
+                                          <div className="divide-y divide-rule">
+                                            {rotation.map((h) => {
+                                              const soon = h.days_left <= 5;
+                                              return (
+                                                <div key={h.symbol}
+                                                     onClick={() => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
+                                                     className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-paper-deep transition-colors">
+                                                  <span className="font-display text-[1rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{h.symbol}</span>
+                                                  <span className={`font-mono text-[0.72rem] ${soon ? 'text-claret' : 'text-ink-mute'}`}>day {h.days_held}/{h.hold_days} &middot; ~{h.days_left}d</span>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                        {recentlyClosed.length > 0 && (
+                                          <div className="border border-rule rounded bg-paper-card overflow-hidden">
+                                            <div className="px-4 py-2.5 border-b border-rule">
+                                              <span className="font-display text-[0.9rem] font-medium tracking-tight">Recently closed</span>
+                                              <p className="font-display italic text-[0.78rem] text-ink-mute mt-0.5" style={{ fontVariationSettings: '"opsz" 24' }}>Last rotations &mdash; realized result.</p>
+                                            </div>
+                                            <div className="divide-y divide-rule">
+                                              {recentlyClosed.slice(0, 5).map((c) => (
+                                                <div key={`${c.symbol}-${c.fill_date}`}
+                                                     className="px-4 py-3 flex items-center justify-between">
+                                                  <span className="font-display text-[1rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{c.symbol}</span>
+                                                  <span className="font-mono text-[0.72rem] text-ink-mute">
+                                                    {c.reason === 'stop' ? 'stopped out' : `day ${c.days_held}`} &middot;{' '}
+                                                    <span className={c.pnl_pct >= 0 ? 'text-positive' : 'text-negative'}>{c.pnl_pct >= 0 ? '+' : ''}{c.pnl_pct}%</span>
+                                                  </span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
                                       </div>
                                     )}
                                   </div>
