@@ -94,19 +94,6 @@ export default function TierBookView({ book, onSetCapital, onRowClick, radar, ac
         </div>
       )}
 
-      {/* Vol-Target exposure gauge (Maximizer only) — the Barroso vol-brake. */}
-      {book.vol_scale != null && (
-        <div className="px-4 sm:px-5 py-3 border-b border-rule">
-          <div className="flex items-center justify-between mb-1">
-            <span className="font-body text-[0.6rem] font-medium tracking-[0.18em] uppercase text-ink-mute">Vol-target exposure</span>
-            <span className="font-mono text-[0.82rem] text-ink">{Math.round(book.vol_scale * 100)}%{book.vol_scale >= 0.999 ? ' · full' : ' · trimming risk'}</span>
-          </div>
-          <div className="h-2 bg-paper-deep rounded overflow-hidden">
-            <div className="h-full bg-claret" style={{ width: `${Math.min(100, Math.round(book.vol_scale * 100))}%` }} />
-          </div>
-        </div>
-      )}
-
       {/* Capital + summary */}
       <div className="px-4 sm:px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 border-b border-rule">
         <div>
@@ -146,6 +133,23 @@ export default function TierBookView({ book, onSetCapital, onRowClick, radar, ac
           <div className="font-mono text-[0.6rem] text-ink-mute">names</div>
         </div>
       </div>
+
+      {/* Vol-Target exposure gauge (Maximizer only) — the Barroso vol-brake. Sits AFTER the
+          capital row so it lines up with the Preserver book's capital row in the side-by-side. */}
+      {book.vol_scale != null && (
+        <div className="px-4 sm:px-5 py-3 border-b border-rule">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-body text-[0.6rem] font-medium tracking-[0.18em] uppercase text-ink-mute">Vol-target exposure</span>
+            <span className="font-mono text-[0.82rem] text-ink">{Math.round(book.vol_scale * 100)}%{book.vol_scale >= 0.999 ? ' · full' : ' · trimming risk'}</span>
+          </div>
+          <div className="h-2 bg-paper-deep rounded overflow-hidden">
+            <div className="h-full bg-claret" style={{ width: `${Math.min(100, Math.round(book.vol_scale * 100))}%` }} />
+          </div>
+          <div className="mt-1.5 font-display italic text-[0.72rem] text-ink-light" style={{ fontVariationSettings: '"opsz" 24' }}>
+            Auto-adjusts to keep risk steady — 100% is full exposure; it dials back (more cash, automatically) when breakouts turn volatile.
+          </div>
+        </div>
+      )}
 
       {/* Holdings — Maximizer uses the compact table + 29-day hold-clock. Preserver uses the
           MOBILE-FIRST gauge cards standalone, but in `compact` mode (side-by-side two-book view)
