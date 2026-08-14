@@ -1,35 +1,40 @@
 /**
- * Portfolio — the live model book, mobilized (NOT a copy of the web table).
+ * Portfolio — the two SERVED books, mobilized: Preserver + Maximizer (Core dropped).
  *
- * Header cards: Total Value / Today / Cash / Total Return, then a mini row of
- * Trades / Win Rate / Realized / Unrealized. Each holding is a compact card:
- *   line 1  SYM .................... +10.8%   (since-entry %)
- *   line 2  Jun 15 · 9d · 1.8 sh ... +$407    (since-entry $)
- *   line 3  entry $X → $Y · HWM $Z
- *   line 4  today +8.6% · +$331               (live daily move, if available)
+ * Top: a Cascade Guard status card (governs both books — "clear" or "entries
+ * paused until X"). Then a section per book: equity + holdings count + regime,
+ * and a compact card per open holding:
+ *   line 1  SYM .................... +10.8%   (P&L since entry)
+ *   line 2  N sh · $value ......... exit signal   (Preserver: 30% trail · Maximizer: day X/29)
+ *   line 3  entry $X → $Y                          (+ today's live move if available)
  *
- * Current price + daily change come from /api/quotes/live (real-time in market
- * hours, polled 30s), falling back to the model-portfolio's current_price.
- * Every line is single-row (numberOfLines={1}) so nothing wraps.
+ * Open holdings come from the tier-books `fills` (unrealized buy rows carry
+ * current_price + pnl_pct + days_held). Current price + daily change overlay
+ * from /api/quotes/live (polled 30s), falling back to the fill's current_price.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LiveQuote, getCurrentRegime, getLiveQuotes, getModelPortfolio } from '@/services/admin';
+import {
+  CascadeGuard,
+  LiveQuote,
+  TierBook,
+  TierBooks,
+  TierFillRow,
+  getCurrentRegime,
+  getLiveQuotes,
+  getTierBooks,
+} from '@/services/admin';
 import StatCard from '@/components/StatCard';
 import Section from '@/components/Section';
 import { Fonts, FontSize, Palette, Radii, Regime, Spacing } from '@/constants/theme';
 
-const pick = (obj: any, ...keys: string[]) => {
-  for (const k of keys) if (obj?.[k] != null) return obj[k];
-  return undefined;
-};
 const money = (n: any) => (typeof n === 'number' ? '$' + Math.round(n).toLocaleString('en-US') : '—');
-const signedMoney = (n: any) =>
-  typeof n === 'number' ? `${n >= 0 ? '+' : '−'}$${Math.abs(Math.round(n)).toLocaleString('en-US')}` : '—';
 const price2 = (n: any) => (typeof n === 'number' ? '$' + n.toFixed(2) : '—');
 const pct = (n: any) => (typeof n === 'number' ? `${n >= 0 ? '+' : ''}${n.toFixed(1)}%` : '—');
+const signedMoney = (n: any) =>
+  typeof n === 'number' ? `${n >= 0 ? '+' : '−'}$${Math.abs(Math.round(n)).toLocaleString('en-US')}` : '—';
 const toneColor = (n: any) =>
   typeof n === 'number' ? (n >= 0 ? Palette.positive : Palette.negative) : Palette.inkLight;
 const shortDate = (iso: any) => {
@@ -40,29 +45,135 @@ const shortDate = (iso: any) => {
     return undefined;
   }
 };
-const daysHeld = (iso: any) => {
-  if (!iso) return undefined;
-  try {
-    const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-    return d <= 0 ? '0d' : `${d}d`;
-  } catch {
-    return undefined;
-  }
-};
 
-function MiniStat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+const HOLD_DAYS = 29;
+
+// Open holdings for a book = its unrealized buy fills (they carry current price,
+// P&L, and days-held). Deduped by symbol (latest wins).
+function openHoldings(fills?: TierFillRow[]): TierFillRow[] {
+  const rows = (fills || []).filter((f) => f.side === 'buy' && f.unrealized);
+  const bySym = new Map<string, TierFillRow>();
+  for (const r of rows) bySym.set(r.symbol, r);
+  return Array.from(bySym.values());
+}
+
+function CascadeGuardCard({ cg }: { cg?: CascadeGuard | null }) {
+  if (!cg) return null;
+  if (cg.enabled === false) {
+    return (
+      <View style={[styles.cgCard, { borderLeftColor: Palette.inkLight }]}>
+        <Text style={styles.cgTitle}>Cascade Guard · off</Text>
+        <Text style={styles.cgSub}>Circuit breaker disabled.</Text>
+      </View>
+    );
+  }
+  if (cg.paused) {
+    const syms = (cg.last_stopped_symbols || []).join(', ');
+    return (
+      <View style={[styles.cgCard, { borderLeftColor: Palette.claret }]}>
+        <Text style={[styles.cgTitle, { color: Palette.claret }]}>
+          Cascade Guard · entries paused
+        </Text>
+        <Text style={styles.cgSub}>
+          Until {cg.pause_until || '—'}
+          {syms ? ` · triggered by ${syms}` : ''}
+        </Text>
+      </View>
+    );
+  }
   return (
-    <View style={styles.mini}>
-      <Text style={styles.miniLabel}>{label.toUpperCase()}</Text>
-      <Text style={[styles.miniValue, tone ? { color: tone } : null]} numberOfLines={1}>
-        {value}
+    <View style={[styles.cgCard, { borderLeftColor: Palette.positive }]}>
+      <Text style={[styles.cgTitle, { color: Palette.positive }]}>Cascade Guard · clear</Text>
+      <Text style={styles.cgSub}>
+        {cg.threshold_stops ?? 3} same-day stops → {cg.pause_days ?? 10}-day pause
+        {cg.last_triggered_at ? ` · last fired ${shortDate(cg.last_triggered_at) || cg.last_triggered_at}` : ''}
       </Text>
     </View>
   );
 }
 
+function BookSection({
+  tierKey,
+  book,
+  fills,
+  quotes,
+}: {
+  tierKey: 'preserver' | 'maximizer';
+  book?: TierBook;
+  fills?: TierFillRow[];
+  quotes: Record<string, LiveQuote>;
+}) {
+  const isMax = tierKey === 'maximizer';
+  const label = isMax ? 'Maximizer' : 'Preserver';
+  const accent = isMax ? Palette.claret : Palette.positive;
+  const holds = openHoldings(fills);
+  const regimeName = (book?.regime || '').toString();
+
+  return (
+    <Section title={`${isMax ? '◆ ' : ''}${label} book`} hint={book?.as_of ? `as of ${book.as_of}` : ''}>
+      <View style={styles.bookHead}>
+        <View style={[styles.tierPill, { borderColor: accent }]}>
+          <Text style={[styles.tierPillText, { color: accent }]}>{label.toUpperCase()}</Text>
+        </View>
+        <Text style={styles.bookEquity}>{money(book?.equity)}</Text>
+        <Text style={styles.bookHeld}>
+          {(book?.held ?? holds.length) || 0} {(book?.held ?? holds.length) === 1 ? 'name' : 'names'}
+        </Text>
+      </View>
+      {holds.length === 0 ? (
+        <Text style={styles.empty}>
+          {isMax ? 'No open breakouts — hunting resumes in rotating-bull.' : 'Flat — no open positions.'}
+        </Text>
+      ) : (
+        holds.map((h, i) => {
+          const q = quotes[h.symbol];
+          const entry = typeof h.price === 'number' ? h.price : undefined;
+          const cur = q?.price ?? h.current_price ?? entry;
+          const shares = h.shares;
+          const plPct =
+            typeof entry === 'number' && entry > 0 && typeof cur === 'number'
+              ? (cur / entry - 1) * 100
+              : h.pnl_pct ?? undefined;
+          const value = typeof cur === 'number' && typeof shares === 'number' ? cur * shares : undefined;
+          const todayPct = q?.change_pct;
+          const todayDol = q && typeof shares === 'number' ? q.change * shares : undefined;
+          // Exit signal: Maximizer = day X/29 clock; Preserver = 30% trailing stop.
+          const daysHeldN = typeof h.days_held === 'number' ? h.days_held : undefined;
+          const exit = isMax
+            ? daysHeldN != null
+              ? `day ${daysHeldN}/${HOLD_DAYS} · ~${Math.max(0, HOLD_DAYS - daysHeldN)}d`
+              : 'breakout · ~29d hold'
+            : '30% trailing stop';
+          return (
+            <View key={`${h.symbol}-${i}`} style={styles.posRow}>
+              <View style={styles.posLine}>
+                <Text style={styles.sym}>{h.symbol}</Text>
+                <Text style={[styles.plPct, { color: toneColor(plPct) }]}>{pct(plPct)}</Text>
+              </View>
+              <View style={styles.posLine}>
+                <Text style={styles.posMeta} numberOfLines={1}>
+                  {[typeof shares === 'number' ? `${shares.toFixed(2)} sh` : null, money(value)]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+                <Text style={[styles.exit, { color: accent }]} numberOfLines={1}>
+                  {exit}
+                </Text>
+              </View>
+              <Text style={styles.posPrices} numberOfLines={1}>
+                {`entry ${price2(entry)} → ${price2(cur)}`}
+                {q && todayPct != null ? `   ·   today ${pct(todayPct)}` : ''}
+              </Text>
+            </View>
+          );
+        })
+      )}
+    </Section>
+  );
+}
+
 export default function Portfolio() {
-  const [pf, setPf] = useState<any>(null);
+  const [tb, setTb] = useState<TierBooks | null>(null);
   const [regime, setRegime] = useState<any>(null);
   const [quotes, setQuotes] = useState<Record<string, LiveQuote>>({});
   const [loading, setLoading] = useState(true);
@@ -71,9 +182,9 @@ export default function Portfolio() {
 
   const load = useCallback(async () => {
     setError(null);
-    const [p, r] = await Promise.allSettled([getModelPortfolio(), getCurrentRegime()]);
-    if (p.status === 'fulfilled') setPf(p.value);
-    else setError('Could not load the portfolio.');
+    const [t, r] = await Promise.allSettled([getTierBooks(), getCurrentRegime()]);
+    if (t.status === 'fulfilled') setTb(t.value);
+    else setError('Could not load the books.');
     if (r.status === 'fulfilled') setRegime(r.value);
     setLoading(false);
   }, []);
@@ -82,11 +193,14 @@ export default function Portfolio() {
     load();
   }, [load]);
 
-  const positions: any[] = pick(pf, 'open_positions', 'positions', 'holdings') || [];
-  const symbolsKey = positions
-    .map((p) => pick(p, 'symbol', 'ticker'))
-    .filter(Boolean)
-    .join(',');
+  // Poll live quotes for the union of both books' held symbols.
+  const symbolsKey = useMemo(() => {
+    const syms = new Set<string>();
+    for (const tier of ['preserver', 'maximizer'] as const) {
+      for (const h of openHoldings(tb?.fills?.[tier])) if (h.symbol) syms.add(h.symbol);
+    }
+    return Array.from(syms).join(',');
+  }, [tb]);
 
   useEffect(() => {
     if (!symbolsKey) return;
@@ -96,7 +210,7 @@ export default function Portfolio() {
         const q = await getLiveQuotes(symbolsKey.split(','));
         if (active) setQuotes(q);
       } catch {
-        // best-effort — falls back to model-portfolio current_price
+        /* best-effort */
       }
     };
     fetchQuotes();
@@ -121,31 +235,9 @@ export default function Portfolio() {
     );
   }
 
-  const totalValue = pick(pf, 'total_value', 'equity', 'portfolio_value', 'value');
-  const cash = pick(pf, 'current_cash', 'cash', 'cash_balance', 'available_cash');
-  const totalReturn = pick(pf, 'total_return_pct', 'return_pct', 'pnl_pct');
-  const trades = pick(pf, 'total_trades', 'trades');
-  const winRate = pick(pf, 'win_rate', 'winrate');
-  const realized = pick(pf, 'realized_pnl', 'total_pnl', 'realized');
-  const unrealized = pick(pf, 'unrealized_pnl', 'unrealized');
-  const regimeName = (pick(regime, 'regime', 'current_regime', 'name') || '').toString();
+  const regimeName = (regime?.regime || regime?.current_regime || regime?.name || tb?.books?.preserver?.regime || '')
+    .toString();
   const regimeColor = Regime[regimeName] || Palette.inkLight;
-
-  // Portfolio-level daily change from live quotes: Σ shares·change vs Σ shares·prev_close.
-  let dayDollar = 0;
-  let prevValue = 0;
-  let haveQuotes = false;
-  for (const p of positions) {
-    const sym = pick(p, 'symbol', 'ticker');
-    const shares = pick(p, 'shares', 'qty', 'quantity');
-    const q = sym ? quotes[sym] : undefined;
-    if (q && typeof shares === 'number') {
-      dayDollar += q.change * shares;
-      prevValue += (q.prev_close ?? q.price - q.change) * shares;
-      haveQuotes = true;
-    }
-  }
-  const dayPct = haveQuotes && prevValue > 0 ? (dayDollar / prevValue) * 100 : undefined;
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -160,82 +252,16 @@ export default function Portfolio() {
           </View>
         ) : null}
 
-        {/* Headline cards */}
+        <CascadeGuardCard cg={tb?.cascade_guard} />
+
+        {/* Book equities at a glance */}
         <View style={styles.grid}>
-          <StatCard label="Total value" value={money(totalValue)} />
-          <StatCard
-            label="Today"
-            value={haveQuotes ? signedMoney(dayDollar) : '—'}
-            sub={haveQuotes ? pct(dayPct) : 'live'}
-            tone={haveQuotes ? (dayDollar >= 0 ? 'positive' : 'negative') : 'default'}
-          />
-          <StatCard label="Cash" value={money(cash)} />
-          <StatCard
-            label="Total return"
-            value={pct(totalReturn)}
-            tone={typeof totalReturn === 'number' ? (totalReturn >= 0 ? 'positive' : 'negative') : 'default'}
-          />
+          <StatCard label="Preserver" value={money(tb?.books?.preserver?.equity)} sub="protect" />
+          <StatCard label="Maximizer" value={money(tb?.books?.maximizer?.equity)} sub="grow" />
         </View>
 
-        {/* Trades / Win Rate / Realized / Unrealized */}
-        <View style={styles.miniRow}>
-          <MiniStat label="Trades" value={trades != null ? String(trades) : '—'} />
-          <MiniStat label="Win rate" value={typeof winRate === 'number' ? `${Math.round(winRate)}%` : '—'} />
-          <MiniStat label="Realized" value={signedMoney(realized)} tone={toneColor(realized)} />
-          <MiniStat label="Unrealized" value={signedMoney(unrealized)} tone={toneColor(unrealized)} />
-        </View>
-
-        <Section title="Open positions" hint={positions.length ? `${positions.length}` : ''}>
-          {positions.length === 0 ? (
-            <Text style={styles.empty}>Flat — 100% cash, or no position data exposed.</Text>
-          ) : (
-            positions.map((p, i) => {
-              const sym = pick(p, 'symbol', 'ticker') || '?';
-              const shares = pick(p, 'shares', 'qty', 'quantity');
-              const entry = pick(p, 'entry_price', 'cost_basis', 'avg_price');
-              const hwm = pick(p, 'highest_price', 'hwm', 'high_water_mark');
-              const q = quotes[sym];
-              const cur = q?.price ?? pick(p, 'current_price', 'price');
-              const plPct =
-                typeof entry === 'number' && entry > 0 && typeof cur === 'number'
-                  ? (cur / entry - 1) * 100
-                  : pick(p, 'pnl_pct', 'return_pct');
-              const plDol =
-                typeof entry === 'number' && typeof cur === 'number' && typeof shares === 'number'
-                  ? (cur - entry) * shares
-                  : pick(p, 'pnl_dollars', 'unrealized_pnl');
-              const todayPct = q?.change_pct;
-              const todayDol = q && typeof shares === 'number' ? q.change * shares : undefined;
-              const meta = [shortDate(pick(p, 'entry_date', 'entered_at', 'opened_at')), daysHeld(pick(p, 'entry_date', 'entered_at', 'opened_at')), shares != null ? `${shares} sh` : null]
-                .filter(Boolean)
-                .join(' · ');
-              return (
-                <View key={`${sym}-${i}`} style={styles.posRow}>
-                  <View style={styles.posLine}>
-                    <Text style={styles.sym}>{sym}</Text>
-                    <Text style={[styles.plPct, { color: toneColor(plPct) }]}>{pct(plPct)}</Text>
-                  </View>
-                  <View style={styles.posLine}>
-                    <Text style={styles.posMeta} numberOfLines={1}>
-                      {meta}
-                    </Text>
-                    <Text style={[styles.plDol, { color: toneColor(plDol) }]}>{signedMoney(plDol)}</Text>
-                  </View>
-                  <Text style={styles.posPrices} numberOfLines={1}>
-                    {`entry ${price2(entry)} → ${price2(cur)}`}
-                    {hwm != null ? ` · HWM ${price2(hwm)}` : ''}
-                  </Text>
-                  {q ? (
-                    <Text style={[styles.posToday, { color: toneColor(todayPct) }]} numberOfLines={1}>
-                      {`today ${pct(todayPct)}`}
-                      {todayDol != null ? ` · ${signedMoney(todayDol)}` : ''}
-                    </Text>
-                  ) : null}
-                </View>
-              );
-            })
-          )}
-        </Section>
+        <BookSection tierKey="preserver" book={tb?.books?.preserver} fills={tb?.fills?.preserver} quotes={quotes} />
+        <BookSection tierKey="maximizer" book={tb?.books?.maximizer} fills={tb?.fills?.maximizer} quotes={quotes} />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </ScrollView>
@@ -255,7 +281,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   dot: { width: 8, height: 8, borderRadius: 4, marginRight: Spacing.sm },
   regimeText: {
@@ -265,27 +291,35 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
     letterSpacing: 0.4,
   },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, marginBottom: Spacing.md },
-  miniRow: {
-    flexDirection: 'row',
+  cgCard: {
     backgroundColor: Palette.paperCard,
     borderWidth: 1,
     borderColor: Palette.rule,
+    borderLeftWidth: 4,
     borderRadius: Radii.lg,
-    paddingVertical: Spacing.md,
-    marginBottom: Spacing.xl,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
   },
-  mini: { flex: 1, alignItems: 'center', paddingHorizontal: 2 },
-  miniLabel: { fontFamily: Fonts.body.medium, fontSize: 9, letterSpacing: 0.5, color: Palette.inkLight },
-  miniValue: { fontFamily: Fonts.display.semibold, fontSize: FontSize.md, color: Palette.ink, marginTop: 3 },
+  cgTitle: { fontFamily: Fonts.display.medium, fontSize: FontSize.md, color: Palette.ink },
+  cgSub: { fontFamily: Fonts.mono.regular, fontSize: FontSize.xs, color: Palette.inkMute, marginTop: 3 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, marginBottom: Spacing.xl },
+  bookHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  tierPill: { borderWidth: 1, borderRadius: Radii.pill, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
+  tierPillText: { fontFamily: Fonts.body.medium, fontSize: 9, letterSpacing: 0.6 },
+  bookEquity: { fontFamily: Fonts.display.semibold, fontSize: FontSize.lg, color: Palette.ink },
+  bookHeld: { fontFamily: Fonts.mono.regular, fontSize: FontSize.xs, color: Palette.inkLight, marginLeft: 'auto' },
   posRow: { paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Palette.rule },
   posLine: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   sym: { fontFamily: Fonts.display.medium, fontSize: FontSize.lg, color: Palette.ink },
   plPct: { fontFamily: Fonts.mono.medium, fontSize: FontSize.md },
   posMeta: { fontFamily: Fonts.mono.regular, fontSize: FontSize.xs, color: Palette.inkMute, marginTop: 2, flex: 1, marginRight: Spacing.sm },
-  plDol: { fontFamily: Fonts.mono.regular, fontSize: FontSize.xs },
+  exit: { fontFamily: Fonts.mono.regular, fontSize: FontSize.xs },
   posPrices: { fontFamily: Fonts.mono.regular, fontSize: FontSize.xs, color: Palette.inkLight, marginTop: 3 },
-  posToday: { fontFamily: Fonts.mono.regular, fontSize: FontSize.xs, marginTop: 2 },
-  empty: { fontFamily: Fonts.body.regular, fontSize: FontSize.md, color: Palette.inkMute },
+  empty: { fontFamily: Fonts.body.regular, fontSize: FontSize.sm, color: Palette.inkMute, paddingVertical: Spacing.sm },
   error: { fontFamily: Fonts.body.medium, fontSize: FontSize.sm, color: Palette.negative, marginTop: Spacing.md },
 });

@@ -4969,4 +4969,28 @@ async def get_tier_books(limit: int = 40, admin: User = Depends(get_admin_user),
                                      "eod_price": _eod(pos["symbol"]) or float(pos.get("entry") or 0)})
     books["maximizer"]["holdings"] = max_holdings
 
-    return {"books": books, "fills": fills}
+    # Cascade Guard (circuit breaker) state on the live book — surfaced so the admin app
+    # can show "entries paused until X" at a glance (it governs both tier books).
+    cascade_guard = None
+    try:
+        from app.services import circuit_breaker_state as _cb
+        from datetime import date as _cbdate
+        st = _cb.get_state("live") or {}
+        pause_until = st.get("pause_until")
+        paused = bool(pause_until and str(pause_until) >= _cbdate.today().isoformat())
+        events = st.get("events") or []
+        last_ev = events[-1] if events else {}
+        cascade_guard = {
+            "enabled": _cb.is_enabled(),
+            "paused": paused,
+            "pause_until": pause_until,
+            "pause_source": st.get("pause_source"),
+            "last_triggered_at": st.get("last_triggered_at"),
+            "threshold_stops": _cb.threshold_stops(),
+            "pause_days": _cb.pause_days(),
+            "last_stopped_symbols": (last_ev.get("context") or {}).get("stopped_symbols") or [],
+        }
+    except Exception as _cbe:
+        print(f"⚠️ cascade_guard read failed: {_cbe}")
+
+    return {"books": books, "fills": fills, "cascade_guard": cascade_guard}

@@ -1,5 +1,5 @@
 /**
- * Admin tab navigator — Glance, Users, Portfolio, Ads.
+ * Admin tab navigator — Glance, Users, Portfolio, Ads, Social.
  */
 
 import React from 'react';
@@ -66,6 +66,13 @@ export default function TabLayout() {
         options={{
           title: 'Ads',
           tabBarIcon: ({ color, size }) => <Ionicons name="megaphone-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="social"
+        options={{
+          title: 'Social',
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles-outline" size={size} color={color} />,
         }}
       />
     </Tabs>

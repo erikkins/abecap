@@ -109,6 +109,29 @@ export default function Glance() {
           <Ionicons name="chevron-forward" size={20} color={Palette.inkLight} />
         </TouchableOpacity>
 
+        {/* Data freshness — market-data pipeline health from service-status
+            (services.market_data.status + last_fetch timestamp). */}
+        {(() => {
+          const md: any = svc?.services?.market_data || {};
+          if (!md.status && !md.last_fetch) return null;
+          const fresh = md.status === 'healthy';
+          const stamp = md.last_fetch ? String(md.last_fetch).slice(0, 16).replace('T', ' ') : null;
+          return (
+            <View style={styles.freshChip}>
+              <Ionicons
+                name={fresh ? 'checkmark-circle' : 'warning'}
+                size={14}
+                color={fresh ? Palette.positive : Palette.yellow}
+              />
+              <Text style={styles.freshText}>
+                {fresh
+                  ? `Data current${stamp ? ` · ${stamp}` : ''}`
+                  : `Data ${md.status || 'stale'}${stamp ? ` · last ${stamp}` : ''}`}
+              </Text>
+            </View>
+          );
+        })()}
+
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {/* Growth */}
@@ -167,6 +190,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: Spacing.md },
+  freshChip: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -Spacing.md, marginBottom: Spacing.lg },
+  freshText: { fontFamily: Fonts.mono.regular, fontSize: FontSize.xs, color: Palette.inkMute },
   bannerTitle: { fontFamily: Fonts.display.medium, fontSize: FontSize.md, color: Palette.ink },
   bannerSub: { fontFamily: Fonts.mono.regular, fontSize: FontSize.xs, color: Palette.inkLight, marginTop: 2 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
