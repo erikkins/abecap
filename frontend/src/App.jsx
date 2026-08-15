@@ -4172,7 +4172,7 @@ function Dashboard() {
                             const rotation = [...(dashboardData.tier_book?.holdings || [])]
                               .filter(h => h.days_left != null)
                               .sort((a, b) => a.days_left - b.days_left)
-                              .slice(0, 3);
+                              .slice(0, 5);
                             const recentlyClosed = dashboardData.maximizer_recent_exits || []; // populated once real sells exist
                             return (
                               <div className="px-4 pt-4">
@@ -4180,7 +4180,7 @@ function Dashboard() {
                                   <h2 className="font-display text-[1.15rem] font-medium tracking-tight text-ink" style={{ fontVariationSettings: '"opsz" 48' }}>Your Books</h2>
                                   <span className="font-display italic text-[0.82rem] text-ink-mute" style={{ fontVariationSettings: '"opsz" 24' }}>auto-mirrored to your capital</span>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                                   {/* LEFT — Preserver book (candidate signals are full-width BELOW,
                                       not in-column: an in-column list made the left run far longer
                                       than the right and opened a canyon under Maximizer). */}
@@ -4193,8 +4193,11 @@ function Dashboard() {
                                       onSetCapital={setSharedCapital}
                                     />
                                   </div>
-                                  {/* RIGHT — Maximizer book + Rotation watch (stays in this column). */}
-                                  <div>
+                                  {/* RIGHT — Maximizer book + Rotation watch (stays in this column).
+                                      flex-col so Rotation watch can flex-grow to the bottom and eat
+                                      the residual whitespace (Preserver's 20 holdings run taller than
+                                      Maximizer's 15). */}
+                                  <div className="flex flex-col">
                                     <TierBookView
                                       book={dashboardData.tier_book}
                                       actions={dashboardData.todays_actions}
@@ -4202,10 +4205,11 @@ function Dashboard() {
                                       hideCapitalEditor
                                       onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
                                     />
-                                    {/* Rotation watch — nearest time-stops (live hold-clocks). Splits
-                                        into a 2-up grid once Recently closed has real sells. */}
+                                    {/* Rotation watch — nearest time-stops (live hold-clocks). Grows to
+                                        fill the column; splits into a 2-up grid once Recently closed has
+                                        real sells. auto-rows-fr makes the card stretch to the row. */}
                                     {rotation.length > 0 && (
-                                      <div className={`mt-3 grid grid-cols-1 ${recentlyClosed.length > 0 ? 'sm:grid-cols-2' : ''} gap-3`}>
+                                      <div className={`mt-3 flex-1 grid grid-cols-1 ${recentlyClosed.length > 0 ? 'sm:grid-cols-2' : ''} auto-rows-fr gap-3`}>
                                         <div className="border border-rule rounded bg-paper-card overflow-hidden">
                                           <div className="px-4 py-2.5 border-b border-rule">
                                             <span className="font-display text-[0.9rem] font-medium tracking-tight">Rotation watch</span>
