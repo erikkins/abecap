@@ -92,6 +92,18 @@ function CascadeGuardCard({ cg }: { cg?: CascadeGuard | null }) {
   );
 }
 
+// Fallback for pre-deploy backends that don't yet send weight-sorted `positions`:
+// derive a position-shaped list from the (date-ordered) unrealized buy fills.
+function positionsFor(book?: TierBook, fills?: TierFillRow[]) {
+  if (book?.positions && book.positions.length) return book.positions;
+  return openHoldings(fills).map((h) => ({
+    symbol: h.symbol, price: h.price ?? null, pnl_pct: h.pnl_pct ?? null,
+    entry_price: h.price ?? null, days_held: h.days_held ?? null,
+    weight_pct: null, value: null, hold_days: null, days_left: null,
+    trailing_stop_level: null, high_water_mark: null,
+  }));
+}
+
 function BookSection({
   tierKey,
   book,
@@ -106,8 +118,8 @@ function BookSection({
   const isMax = tierKey === 'maximizer';
   const label = isMax ? 'Maximizer' : 'Preserver';
   const accent = isMax ? Palette.claret : Palette.positive;
-  const holds = openHoldings(fills);
-  const regimeName = (book?.regime || '').toString();
+  const positions = positionsFor(book, fills); // weight-sorted (matches the subscriber webapp)
+  const txns = (fills || []).slice(0, 6);       // date-sorted transaction log (distinct view)
 
   return (
     <Section title={`${isMax ? '◆ ' : ''}${label} book`} hint={book?.as_of ? `as of ${book.as_of}` : ''}>
@@ -115,46 +127,57 @@ function BookSection({
         <View style={[styles.tierPill, { borderColor: accent }]}>
           <Text style={[styles.tierPillText, { color: accent }]}>{label.toUpperCase()}</Text>
         </View>
-        <Text style={styles.bookEquity}>{money(book?.equity)}</Text>
+        <View style={styles.bookEquityBox}>
+          <Text style={styles.bookEquity}>{money(book?.equity)}</Text>
+          {/* Clarify: this is the MODEL book's mark-to-market from a $100k inception — NOT a
+              per-user balance (which we don't track; signals-only). */}
+          <Text style={styles.bookEquitySub}>
+            model book · from $100k{typeof book?.return_pct === 'number' ? ` · ${pct(book.return_pct)}` : ''}
+          </Text>
+        </View>
         <Text style={styles.bookHeld}>
-          {(book?.held ?? holds.length) || 0} {(book?.held ?? holds.length) === 1 ? 'name' : 'names'}
+          {(book?.held ?? positions.length) || 0} {(book?.held ?? positions.length) === 1 ? 'name' : 'names'}
         </Text>
       </View>
-      {holds.length === 0 ? (
+
+      {positions.length === 0 ? (
         <Text style={styles.empty}>
           {isMax ? 'No open breakouts — hunting resumes in rotating-bull.' : 'Flat — no open positions.'}
         </Text>
       ) : (
-        holds.map((h, i) => {
-          const q = quotes[h.symbol];
-          const entry = typeof h.price === 'number' ? h.price : undefined;
-          const cur = q?.price ?? h.current_price ?? entry;
-          const shares = h.shares;
+        positions.map((p, i) => {
+          const q = quotes[p.symbol];
+          const entry = typeof p.entry_price === 'number' ? p.entry_price : undefined;
+          const cur = q?.price ?? p.price ?? entry;
           const plPct =
             typeof entry === 'number' && entry > 0 && typeof cur === 'number'
               ? (cur / entry - 1) * 100
-              : h.pnl_pct ?? undefined;
-          const value = typeof cur === 'number' && typeof shares === 'number' ? cur * shares : undefined;
+              : p.pnl_pct ?? undefined;
           const todayPct = q?.change_pct;
-          const todayDol = q && typeof shares === 'number' ? q.change * shares : undefined;
+          const daysLeft =
+            typeof p.days_left === 'number'
+              ? p.days_left
+              : typeof p.days_held === 'number'
+                ? Math.max(0, (p.hold_days || HOLD_DAYS) - p.days_held)
+                : undefined;
           // Exit signal: Maximizer = day X/29 clock; Preserver = 30% trailing stop.
-          const daysHeldN = typeof h.days_held === 'number' ? h.days_held : undefined;
           const exit = isMax
-            ? daysHeldN != null
-              ? `day ${daysHeldN}/${HOLD_DAYS} · ~${Math.max(0, HOLD_DAYS - daysHeldN)}d`
+            ? typeof p.days_held === 'number'
+              ? `day ${p.days_held}/${p.hold_days || HOLD_DAYS} · ~${daysLeft}d`
               : 'breakout · ~29d hold'
-            : '30% trailing stop';
+            : typeof p.trailing_stop_level === 'number'
+              ? `30% trail · stop ${price2(p.trailing_stop_level)}`
+              : '30% trailing stop';
+          const wt = typeof p.weight_pct === 'number' ? `${Math.round(p.weight_pct)}% of book` : null;
           return (
-            <View key={`${h.symbol}-${i}`} style={styles.posRow}>
+            <View key={`${p.symbol}-${i}`} style={styles.posRow}>
               <View style={styles.posLine}>
-                <Text style={styles.sym}>{h.symbol}</Text>
+                <Text style={styles.sym}>{p.symbol}</Text>
                 <Text style={[styles.plPct, { color: toneColor(plPct) }]}>{pct(plPct)}</Text>
               </View>
               <View style={styles.posLine}>
                 <Text style={styles.posMeta} numberOfLines={1}>
-                  {[typeof shares === 'number' ? `${shares.toFixed(2)} sh` : null, money(value)]
-                    .filter(Boolean)
-                    .join(' · ')}
+                  {[wt, money(p.value)].filter(Boolean).join(' · ')}
                 </Text>
                 <Text style={[styles.exit, { color: accent }]} numberOfLines={1}>
                   {exit}
@@ -167,6 +190,26 @@ function BookSection({
             </View>
           );
         })
+      )}
+
+      {txns.length > 0 && (
+        <View style={styles.txnBlock}>
+          <Text style={styles.txnHead}>Recent transactions</Text>
+          {txns.map((t, i) => (
+            <View key={`${t.symbol}-${t.fill_date}-${i}`} style={styles.txnRow}>
+              <Text style={styles.txnSym} numberOfLines={1}>
+                <Text style={{ color: t.side === 'sell' ? Palette.claret : Palette.positive }}>
+                  {t.side === 'sell' ? 'SELL' : 'BUY '}
+                </Text>
+                {'  '}
+                {t.symbol}
+              </Text>
+              <Text style={styles.txnMeta} numberOfLines={1}>
+                {[shortDate(t.fill_date), price2(t.price), t.reason].filter(Boolean).join(' · ')}
+              </Text>
+            </View>
+          ))}
+        </View>
       )}
     </Section>
   );
@@ -197,7 +240,7 @@ export default function Portfolio() {
   const symbolsKey = useMemo(() => {
     const syms = new Set<string>();
     for (const tier of ['preserver', 'maximizer'] as const) {
-      for (const h of openHoldings(tb?.fills?.[tier])) if (h.symbol) syms.add(h.symbol);
+      for (const p of positionsFor(tb?.books?.[tier], tb?.fills?.[tier])) if (p.symbol) syms.add(p.symbol);
     }
     return Array.from(syms).join(',');
   }, [tb]);
@@ -254,10 +297,22 @@ export default function Portfolio() {
 
         <CascadeGuardCard cg={tb?.cascade_guard} />
 
-        {/* Book equities at a glance */}
+        {/* Book equities at a glance — model book MTM from $100k inception (not a per-user balance). */}
         <View style={styles.grid}>
-          <StatCard label="Preserver" value={money(tb?.books?.preserver?.equity)} sub="protect" />
-          <StatCard label="Maximizer" value={money(tb?.books?.maximizer?.equity)} sub="grow" />
+          <StatCard
+            label="Preserver"
+            value={money(tb?.books?.preserver?.equity)}
+            sub={typeof tb?.books?.preserver?.return_pct === 'number'
+              ? `from $100k · ${pct(tb.books.preserver.return_pct)}`
+              : 'from $100k'}
+          />
+          <StatCard
+            label="Maximizer"
+            value={money(tb?.books?.maximizer?.equity)}
+            sub={typeof tb?.books?.maximizer?.return_pct === 'number'
+              ? `from $100k · ${pct(tb.books.maximizer.return_pct)}`
+              : 'from $100k'}
+          />
         </View>
 
         <BookSection tierKey="preserver" book={tb?.books?.preserver} fills={tb?.fills?.preserver} quotes={quotes} />
@@ -311,8 +366,18 @@ const styles = StyleSheet.create({
   },
   tierPill: { borderWidth: 1, borderRadius: Radii.pill, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   tierPillText: { fontFamily: Fonts.body.medium, fontSize: 9, letterSpacing: 0.6 },
+  bookEquityBox: { flexShrink: 1 },
   bookEquity: { fontFamily: Fonts.display.semibold, fontSize: FontSize.lg, color: Palette.ink },
+  bookEquitySub: { fontFamily: Fonts.mono.regular, fontSize: 10, color: Palette.inkLight, marginTop: 1 },
   bookHeld: { fontFamily: Fonts.mono.regular, fontSize: FontSize.xs, color: Palette.inkLight, marginLeft: 'auto' },
+  txnBlock: { marginTop: Spacing.md, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Palette.rule },
+  txnHead: {
+    fontFamily: Fonts.body.medium, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase',
+    color: Palette.inkMute, marginBottom: Spacing.xs,
+  },
+  txnRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingVertical: 3 },
+  txnSym: { fontFamily: Fonts.mono.medium, fontSize: FontSize.xs, color: Palette.ink },
+  txnMeta: { fontFamily: Fonts.mono.regular, fontSize: FontSize.xs, color: Palette.inkLight, marginLeft: Spacing.sm },
   posRow: { paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Palette.rule },
   posLine: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   sym: { fontFamily: Fonts.display.medium, fontSize: FontSize.lg, color: Palette.ink },

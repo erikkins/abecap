@@ -161,13 +161,30 @@ export interface TierFillRow {
   realized_pnl?: number | null;
   unrealized?: boolean;
 }
+// Weight-sorted current holding (matches the subscriber webapp's book table).
+export interface TierPosition {
+  symbol: string;
+  weight_pct?: number | null;
+  price?: number | null;
+  pnl_pct?: number | null;
+  value?: number | null;       // at $100k CAP0 (book, not per-user)
+  entry_price?: number | null;
+  days_held?: number | null;
+  hold_days?: number | null;
+  days_left?: number | null;
+  trailing_stop_level?: number | null;
+  high_water_mark?: number | null;
+}
 export interface TierBook {
-  equity?: number | null;
+  equity?: number | null;      // model book MTM from $100k inception (NOT a per-user balance)
+  return_pct?: number | null;  // since-inception return (equity vs $100k CAP0)
+  vol_scale?: number | null;   // maximizer vol-target exposure (0–1)
   as_of?: string | null;
   regime?: string | null;
   held?: number | null;
   note?: string;
-  holdings?: TierHolding[];
+  holdings?: TierHolding[];     // {symbol,shares,eod_price} for intraday repricing
+  positions?: TierPosition[];   // weight-sorted current holdings (display)
 }
 export interface CascadeGuard {
   enabled?: boolean;

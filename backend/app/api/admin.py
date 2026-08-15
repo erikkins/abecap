@@ -5049,6 +5049,38 @@ async def get_tier_books(limit: int = 40, admin: User = Depends(get_admin_user),
                                      "eod_price": _eod(pos["symbol"]) or float(pos.get("entry") or 0)})
     books["maximizer"]["holdings"] = max_holdings
 
+    # Weight-sorted CURRENT holdings (matches the subscriber webapp's book table) so the admin app
+    # shows WHAT'S HELD and its weight — distinct from the date-sorted transaction log above. Plus
+    # each book's since-inception return % (equity vs the $100k CAP0), so the raw equity dollar
+    # figure reads as book MTM, not a per-user balance. Built at CAP0 via the same build_tier_book
+    # the webapp/email use → identical ordering + weights.
+    try:
+        from app.services import tier_serving as _ts
+        from app.services.scanner import scanner_service as _adm_ss
+        def _compact(hs):
+            return [{
+                "symbol": h.get("symbol"), "weight_pct": h.get("weight_pct"),
+                "price": h.get("price"), "pnl_pct": h.get("pnl_pct"),
+                "value": h.get("implied_value"), "entry_price": h.get("entry_price"),
+                "days_held": h.get("days_held"), "hold_days": h.get("hold_days"),
+                "days_left": h.get("days_left"),
+                "trailing_stop_level": h.get("trailing_stop_level"),
+                "high_water_mark": h.get("high_water_mark"),
+            } for h in (hs or [])]
+        for _tier in ("preserver", "maximizer"):
+            try:
+                _tb = await _ts.build_tier_book(db, _tier, _ts.CAP0, _adm_ss.data_cache, 30.0)
+                if _tb:
+                    books[_tier]["positions"] = _compact(_tb.get("holdings"))
+                    if _tb.get("book_return_pct") is not None:
+                        books[_tier]["return_pct"] = _tb["book_return_pct"]
+                    if _tb.get("vol_scale") is not None:
+                        books[_tier]["vol_scale"] = _tb["vol_scale"]
+            except Exception as _tbe:
+                print(f"⚠️ tier-books positions build failed for {_tier}: {_tbe}")
+    except Exception as _oe:
+        print(f"⚠️ tier-books positions section skipped: {_oe}")
+
     # Cascade Guard (circuit breaker) state on the live book — surfaced so the admin app
     # can show "entries paused until X" at a glance (it governs both tier books).
     cascade_guard = None
