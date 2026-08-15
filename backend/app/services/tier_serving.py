@@ -432,7 +432,7 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
             w = (h["value"] / invested) if invested else 0.0   # name's weight within the book
             h["implied_value"] = round(invested_cap * w, 2)
             h["implied_shares"] = round((invested_cap * w) / h["price"], 2) if h["price"] else 0.0
-            h["weight_pct"] = round(w * exp * 100, 1)           # weight of TOTAL capital
+            h["weight_pct"] = round(w * exp * 100)              # weight of TOTAL capital (whole %, app+email consistent)
         holdings.sort(key=lambda h: -h["implied_value"])
         return {
             "tier": tier,
@@ -453,7 +453,7 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
     for h in holdings:
         h["implied_shares"] = round(h["shares"] * scale, 2)
         h["implied_value"] = round(h["value"] * scale, 2)
-        h["weight_pct"] = round(h["value"] / book_value * 100, 1)
+        h["weight_pct"] = round(h["value"] / book_value * 100)   # whole % (app+email consistent)
     holdings.sort(key=lambda h: -h["implied_value"])
     return {
         "tier": tier,

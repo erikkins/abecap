@@ -416,7 +416,7 @@ class EmailService:
             cushion = ((now - stop) / now * 100) if now else 0                    # % above the stop
             color = '#7A2430' if cushion <= 8 else '#245232'     # thin cushion → claret, else green
             gauge = self._bar(nowpct, color)
-            g_l, g_r = f"stop ${stop:,.0f}", f"{cushion:.0f}% cushion &middot; high ${hwm:,.0f}"
+            g_l, g_r = f"stop ${stop:,.0f}", f"{cushion:.0f}% to stop &middot; high ${hwm:,.0f}"
 
         meta_bits = [wt_txt, hold_txt]
         if not gauge:  # fallback text exit label only when no gauge rendered
