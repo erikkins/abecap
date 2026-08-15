@@ -1,5 +1,8 @@
 # Stocker App - Key Learnings
 
+## 📉 WATCH — /should-i-sell funnel; redesign page if no scrollers (Aug 15)
+- [SIS funnel baseline + redesign trigger](project_sis_funnel_watch.md) — baseline 44 landers, fold-through (scroll_50÷landed) = 36%, 0 reached Stripe; engagement was a 1-day blip (Aug 12). Erik: let it run ~1wk/~150 landers; if fold-through still mid-30s → redesign above-the-fold (64% never scroll, mostly paid mobile). Re-pull via worker db_read on page_views.
+
 ## 📄 NEXT-WEEK TASK (Aug 7) — refresh ALL design/documents to current posture
 - [Docs refresh plan](project_docs_refresh.md) — investor report, market pricing (verify), marketing + sales playbooks, signal intelligence (internal), technical architecture. All drifted (navy/gold + "backtest" still present). Erik: reuse layout/thought-blocks, WRITE FRESH not line-edit. Must reflect 2-tier + growth-forward + claret/paper + walk-forward + overlay SSOT. Edit HTML → re-export PDF.
 
