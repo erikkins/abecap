@@ -410,7 +410,7 @@ class EmailService:
                 # Whole shares — the $ value is the exact target; shares are the convenience
                 # conversion (matches the portal). "<1" flags accounts too small for a full share.
                 _shn = _ish * _scale
-                _sh_txt = "&lt;1" if 0 < _shn < 1 else f"&asymp; {round(_shn):,}"
+                _sh_txt = "&lt;1" if 0 < _shn < 1 else f"{round(_shn):,}"
                 hold_txt = f"{_sh_txt} sh &middot; ${(_iv * _scale):,.0f}"
             meta = " &middot; ".join([x for x in (wt_txt, hold_txt, exit_txt) if x])
             rows += f'''

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom';
 import { logEvent } from './lib/eventLogger';
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
@@ -1918,6 +1918,24 @@ function Dashboard() {
     return saved || 'signals';
   });
   const [dashboardData, setDashboardData] = useState(null); // Unified dashboard data
+
+  // Pixel-perfect equal height for the two side-by-side Market Read blocks (two-book view).
+  // CSS min-height can't guarantee it when the two reads differ in length, so we measure both
+  // and pin them to the taller. md+ only — on mobile the books stack, so leave natural height.
+  // Direct DOM style writes (not React state) → no re-render loop. No dep array: re-syncs after
+  // every render (data fetch, tab/view switch); resize listener handles width changes.
+  useLayoutEffect(() => {
+    const sync = () => {
+      const nodes = document.querySelectorAll('[data-market-read]');
+      nodes.forEach(n => { n.style.height = 'auto'; });
+      if (nodes.length < 2 || !window.matchMedia('(min-width: 768px)').matches) return;
+      const max = Math.max(...[...nodes].map(n => n.offsetHeight));
+      nodes.forEach(n => { n.style.height = `${max}px`; });
+    };
+    sync();
+    window.addEventListener('resize', sync);
+    return () => window.removeEventListener('resize', sync);
+  });
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [chartModal, setChartModal] = useState(null);

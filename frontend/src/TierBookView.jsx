@@ -47,13 +47,13 @@ export default function TierBookView({ book, onSetCapital, onRowClick, radar, ac
   const isMax = book.tier === 'maximizer';
   const usd0 = (v) => v == null ? '—' : `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
   // Shares are the convenience conversion of the (exact) dollar target — most people place
-  // whole-share orders and fractional 2-decimals reads as false precision. Show whole ≈; the
-  // "<1" guard flags names where the account is too small to hold a full share cleanly.
+  // whole-share orders and fractional 2-decimals reads as false precision. Round to whole;
+  // the "<1" guard flags names where the account is too small to hold a full share cleanly.
   const sh = (v) => {
     if (v == null) return '—';
     const n = Number(v);
     if (n > 0 && n < 1) return '<1';
-    return `≈${Math.round(n).toLocaleString()}`;
+    return Math.round(n).toLocaleString();
   };
 
   const save = async () => {
@@ -91,11 +91,10 @@ export default function TierBookView({ book, onSetCapital, onRowClick, radar, ac
       {/* Market read — this book's own view (Preserver = measured regime read; Maximizer =
           breakout-posture briefing). Shown under the header in the two-book side-by-side. */}
       {marketNote && (
-        /* min-height reserves ~4 lines so the two side-by-side books' Market Read blocks
-           are the same height → the Your Capital ribbons below them line up. marketNote is
-           only passed in the two-book grid, so this hits both books; md-only so the mobile
-           stacked view isn't padded. */
-        <div className="px-4 sm:px-5 py-2.5 border-b border-rule bg-paper-deep/40 md:min-h-[112px]">
+        /* data-market-read: the parent (Dashboard) MEASURES both books' reads and pins them to
+           the taller one so the Your Capital ribbons below line up pixel-perfect — min-height
+           can't guarantee it when the two reads differ in length. md+ only; mobile stacks. */
+        <div data-market-read className="px-4 sm:px-5 py-2.5 border-b border-rule bg-paper-deep/40">
           <span className="font-body text-[0.56rem] font-medium tracking-[0.18em] uppercase text-ink-mute">Market read</span>
           <p className="font-display italic text-[0.82rem] text-ink-mute mt-0.5 leading-snug" style={{ fontVariationSettings: '"opsz" 24' }}>{marketNote}</p>
         </div>
