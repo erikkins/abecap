@@ -1918,19 +1918,37 @@ function Dashboard() {
     return saved || 'signals';
   });
   const [dashboardData, setDashboardData] = useState(null); // Unified dashboard data
+  // Rotation-watch row count — measured so the card fills to the bottom of the (taller) Preserver
+  // book with no wasted space. Default until measured.
+  const [rotRows, setRotRows] = useState(6);
 
-  // Pixel-perfect equal height for the two side-by-side Market Read blocks (two-book view).
-  // CSS min-height can't guarantee it when the two reads differ in length, so we measure both
-  // and pin them to the taller. md+ only — on mobile the books stack, so leave natural height.
-  // Direct DOM style writes (not React state) → no re-render loop. No dep array: re-syncs after
-  // every render (data fetch, tab/view switch); resize listener handles width changes.
+  // Two side-by-side book measurements (two-book view), md+ only:
+  //  1. Market Read blocks pinned to the taller so the Your Capital ribbons align pixel-perfect.
+  //  2. Rotation watch row count set so its list reaches the Preserver column's bottom (fill, no gap).
+  // Direct DOM writes for (1) → no re-render; (2) setStates only when the count changes → converges
+  // (Preserver height is independent of rotRows, so the target is stable). No dep array: re-syncs
+  // after every render (data fetch, tab/view switch); resize listener handles width changes.
   useLayoutEffect(() => {
     const sync = () => {
-      const nodes = document.querySelectorAll('[data-market-read]');
-      nodes.forEach(n => { n.style.height = 'auto'; });
-      if (nodes.length < 2 || !window.matchMedia('(min-width: 768px)').matches) return;
-      const max = Math.max(...[...nodes].map(n => n.offsetHeight));
-      nodes.forEach(n => { n.style.height = `${max}px`; });
+      const wide = window.matchMedia('(min-width: 768px)').matches;
+      // (1) equal-height Market Read
+      const reads = document.querySelectorAll('[data-market-read]');
+      reads.forEach(n => { n.style.height = 'auto'; });
+      if (reads.length >= 2 && wide) {
+        const max = Math.max(...[...reads].map(n => n.offsetHeight));
+        reads.forEach(n => { n.style.height = `${max}px`; });
+      }
+      // (2) Rotation-watch fill — rows to reach the Preserver column bottom
+      const left = document.querySelector('[data-books-left]');
+      const list = document.querySelector('[data-rot-list]');
+      if (left && list && wide) {
+        const maxRows = parseInt(list.getAttribute('data-rot-max') || '5', 10);
+        const rowEls = list.querySelectorAll('[data-rot-row]');
+        const rowH = rowEls.length ? rowEls[0].getBoundingClientRect().height : 49;
+        const avail = left.getBoundingClientRect().bottom - list.getBoundingClientRect().top;
+        const target = Math.min(maxRows, Math.max(3, Math.round(avail / rowH)));
+        if (target !== rotRows) setRotRows(target);
+      }
     };
     sync();
     window.addEventListener('resize', sync);
@@ -3624,8 +3642,9 @@ function Dashboard() {
               </div>
             )}
 
-            {/* Last updated timestamp */}
-            {dashboardData?.generated_at && (
+            {/* Last updated timestamp. For the two-book view it's merged onto the date line
+                below (saves a row); render standalone only otherwise. */}
+            {dashboardData?.generated_at && dashboardData?.signal_source !== 'both' && (
               <p className="font-mono text-[0.72rem] text-ink-light text-right mb-4 -mt-2 tracking-wide">
                 Last updated: {(() => {
                   const raw = dashboardData.generated_at;
@@ -4108,9 +4127,23 @@ function Dashboard() {
                               return dashDate !== todayStr ? `${dayName} · ${monthDay} (from ${dayName}'s close)` : `${dayName} · ${monthDay}`;
                             })();
                             if (dashboardData?.signal_source === 'both') {
+                              // Date tag (left) + Last updated (right) on ONE row — no wasted vertical space.
+                              const lu = (() => {
+                                const raw = dashboardData?.generated_at;
+                                if (!raw) return '';
+                                const d = new Date(raw.endsWith('Z') ? raw : raw + 'Z');
+                                if (isNaN(d.getTime())) return '';
+                                const now = new Date();
+                                const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                                if (d.toDateString() === now.toDateString()) return `Today at ${time}`;
+                                const y = new Date(now); y.setDate(y.getDate() - 1);
+                                if (d.toDateString() === y.toDateString()) return `Yesterday at ${time}`;
+                                return `${formatDate(raw)} at ${time}`;
+                              })();
                               return (
-                                <div className="px-4 pt-4 pb-1">
-                                  <span className="block font-body text-[0.64rem] font-medium tracking-[0.22em] uppercase text-ink-mute">{dateLabel}</span>
+                                <div className="px-4 pt-3 pb-1 flex items-baseline justify-between gap-3">
+                                  <span className="font-body text-[0.64rem] font-medium tracking-[0.22em] uppercase text-ink-mute">{dateLabel}</span>
+                                  {lu && <span className="font-mono text-[0.72rem] text-ink-light tracking-wide whitespace-nowrap">Last updated: {lu}</span>}
                                 </div>
                               );
                             }
@@ -4169,10 +4202,12 @@ function Dashboard() {
                             // book's own hold-clocks — no walk-forward. Once tier_fills logs real
                             // sells (~mid-Aug, when the Jul-15 buys hit day 29) this block splits:
                             // Rotation watch (upcoming) | Recently closed (realized).
-                            const rotation = [...(dashboardData.tier_book?.holdings || [])]
+                            // Full urgency-sorted list; the visible count (rotRows) is measured so
+                            // the card fills to the Preserver column's bottom with no wasted space.
+                            const rotationAll = [...(dashboardData.tier_book?.holdings || [])]
                               .filter(h => h.days_left != null)
-                              .sort((a, b) => a.days_left - b.days_left)
-                              .slice(0, 5);
+                              .sort((a, b) => a.days_left - b.days_left);
+                            const rotation = rotationAll.slice(0, rotRows);
                             const recentlyClosed = dashboardData.maximizer_recent_exits || []; // populated once real sells exist
                             return (
                               <div className="px-4 pt-4">
@@ -4183,8 +4218,9 @@ function Dashboard() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                                   {/* LEFT — Preserver book (candidate signals are full-width BELOW,
                                       not in-column: an in-column list made the left run far longer
-                                      than the right and opened a canyon under Maximizer). */}
-                                  <div>
+                                      than the right and opened a canyon under Maximizer).
+                                      data-books-left: the measured reference height Rotation watch fills to. */}
+                                  <div data-books-left>
                                     <TierBookView
                                       book={dashboardData.preserver_book}
                                       compact
@@ -4194,9 +4230,8 @@ function Dashboard() {
                                     />
                                   </div>
                                   {/* RIGHT — Maximizer book + Rotation watch (stays in this column).
-                                      Natural height: the books are genuinely different lengths, so the
-                                      right column just ends a bit short — a small honest gap reads
-                                      cleaner than a stretched empty card (Erik's call). */}
+                                      Rotation watch shows a MEASURED number of rows (rotRows) so it
+                                      reaches the Preserver column's bottom — no wasted space. */}
                                   <div>
                                     <TierBookView
                                       book={dashboardData.tier_book}
@@ -4205,20 +4240,21 @@ function Dashboard() {
                                       hideCapitalEditor
                                       onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
                                     />
-                                    {/* Rotation watch — nearest time-stops (live hold-clocks). Natural
-                                        height; splits into a 2-up grid once Recently closed has real sells. */}
+                                    {/* Rotation watch — nearest time-stops (live hold-clocks). Tight top
+                                        margin; row count measured to fill. Splits into a 2-up grid once
+                                        Recently closed has real sells. */}
                                     {rotation.length > 0 && (
-                                      <div className={`mt-3 grid grid-cols-1 ${recentlyClosed.length > 0 ? 'sm:grid-cols-2' : ''} gap-3`}>
+                                      <div className={`mt-2 grid grid-cols-1 ${recentlyClosed.length > 0 ? 'sm:grid-cols-2' : ''} gap-3`}>
                                         <div className="border border-rule rounded bg-paper-card overflow-hidden">
                                           <div className="px-4 py-2.5 border-b border-rule">
                                             <span className="font-display text-[0.9rem] font-medium tracking-tight">Rotation watch</span>
                                             <p className="font-display italic text-[0.78rem] text-ink-mute mt-0.5" style={{ fontVariationSettings: '"opsz" 24' }}>Nearest the 29-day time-stop &mdash; the book rotates these next.</p>
                                           </div>
-                                          <div className="divide-y divide-rule">
+                                          <div className="divide-y divide-rule" data-rot-list data-rot-max={rotationAll.length}>
                                             {rotation.map((h) => {
                                               const soon = h.days_left <= 5;
                                               return (
-                                                <div key={h.symbol}
+                                                <div key={h.symbol} data-rot-row
                                                      onClick={() => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
                                                      className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-paper-deep transition-colors">
                                                   <span className="font-display text-[1rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{h.symbol}</span>
