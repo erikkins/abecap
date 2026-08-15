@@ -361,6 +361,55 @@ class EmailService:
             </td>
         </tr>'''
 
+    def _holding_row(self, h: Dict, scale: float = 1.0) -> str:
+        """One book holding as an email row — symbol/price, then a meta line of
+        weight · whole shares · $ value (scaled to the recipient's capital) · exit,
+        plus P&L and a NEW tag. Shared by the Preserver book and the Maximizer
+        breakout book so the two render identically (exit_rule 'hold' → day X/29)."""
+        sym = h.get('symbol', '')
+        price = h.get('price') or 0
+        wt = h.get('weight_pct')
+        pnl = h.get('pnl_pct')
+        if h.get('exit_rule') == 'hold':
+            exit_txt = f"day {h.get('days_held', 0)}/{h.get('hold_days', 29)}"
+        else:
+            exit_txt = f"{(h.get('trailing_stop_pct') or 30):.0f}% trail"
+        pnl_txt = ''
+        if pnl is not None:
+            _pc = '#245232' if pnl >= 0 else '#7A2430'
+            pnl_txt = (f'<span style="font-family: \'Courier New\', monospace; font-size: 14px; '
+                       f'color: {_pc};">{"+" if pnl >= 0 else ""}{pnl:.1f}%</span>')
+        new_tag = ('&nbsp;<span style="font-family: \'Courier New\', monospace; font-size: 11px; '
+                   'letter-spacing: 1px; color: #7A2430;">NEW</span>') if h.get('is_new') else ''
+        wt_txt = f"{wt:.0f}% of book" if wt is not None else ""
+        # Capital-scaled holding: how much to actually hold at the recipient's capital.
+        _ish = h.get('implied_shares'); _iv = h.get('implied_value')
+        hold_txt = ""
+        if _ish is not None and _iv is not None:
+            # Whole shares — the $ value is the exact target; shares are the convenience
+            # conversion (matches the portal). "<1" flags accounts too small for a full share.
+            _shn = _ish * scale
+            _sh_txt = "&lt;1" if 0 < _shn < 1 else f"{round(_shn):,}"
+            hold_txt = f"{_sh_txt} sh &middot; ${(_iv * scale):,.0f}"
+        meta = " &middot; ".join([x for x in (wt_txt, hold_txt, exit_txt) if x])
+        return f'''
+                <div style="padding: 14px 0; border-bottom: 1px solid #DDD5C7;">
+                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                        <tr>
+                            <td style="vertical-align: baseline; padding-right: 12px;">
+                                <span style="font-family: Georgia, serif; font-size: 20px; font-weight: 500; color: #141210;">{sym}</span>{new_tag}
+                            </td>
+                            <td style="text-align: right; vertical-align: baseline; white-space: nowrap;">
+                                <span style="font-family: 'Courier New', monospace; font-size: 17px; font-weight: bold; color: #141210;">${price:.2f}</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding-top: 5px; font-family: 'Courier New', monospace; font-size: 13px; color: #5A544E; letter-spacing: 0.2px;">{meta}</td>
+                            <td style="padding-top: 5px; text-align: right; white-space: nowrap;">{pnl_txt}</td>
+                        </tr>
+                    </table>
+                </div>'''
+
     def _book_section(self, book: Dict, market_regime: Dict = None, capital: float = None) -> str:
         """'Our Book' — the mirror that IS the product: current model holdings + a
         one-line posture + the mirroring rule. Leads the Preserver digest so the book
@@ -385,51 +434,7 @@ class EmailService:
         if exposure is not None and exposure < 0.99:
             bits.append(f"~{round(exposure * 100)}% invested &mdash; cash raised (defensive)")
         posture = " &middot; ".join(bits)
-        rows = ""
-        for h in holdings:   # ALL holdings — the book is never truncated
-            sym = h.get('symbol', '')
-            price = h.get('price') or 0
-            wt = h.get('weight_pct')
-            pnl = h.get('pnl_pct')
-            if h.get('exit_rule') == 'hold':
-                exit_txt = f"day {h.get('days_held', 0)}/{h.get('hold_days', 29)}"
-            else:
-                exit_txt = f"{(h.get('trailing_stop_pct') or 30):.0f}% trail"
-            pnl_txt = ''
-            if pnl is not None:
-                _pc = '#245232' if pnl >= 0 else '#7A2430'
-                pnl_txt = (f'<span style="font-family: \'Courier New\', monospace; font-size: 14px; '
-                           f'color: {_pc};">{"+" if pnl >= 0 else ""}{pnl:.1f}%</span>')
-            new_tag = ('&nbsp;<span style="font-family: \'Courier New\', monospace; font-size: 11px; '
-                       'letter-spacing: 1px; color: #7A2430;">NEW</span>') if h.get('is_new') else ''
-            wt_txt = f"{wt:.0f}% of book" if wt is not None else ""
-            # Capital-scaled holding: how much to actually hold at the recipient's capital.
-            _ish = h.get('implied_shares'); _iv = h.get('implied_value')
-            hold_txt = ""
-            if _ish is not None and _iv is not None:
-                # Whole shares — the $ value is the exact target; shares are the convenience
-                # conversion (matches the portal). "<1" flags accounts too small for a full share.
-                _shn = _ish * _scale
-                _sh_txt = "&lt;1" if 0 < _shn < 1 else f"{round(_shn):,}"
-                hold_txt = f"{_sh_txt} sh &middot; ${(_iv * _scale):,.0f}"
-            meta = " &middot; ".join([x for x in (wt_txt, hold_txt, exit_txt) if x])
-            rows += f'''
-                <div style="padding: 14px 0; border-bottom: 1px solid #DDD5C7;">
-                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
-                        <tr>
-                            <td style="vertical-align: baseline; padding-right: 12px;">
-                                <span style="font-family: Georgia, serif; font-size: 20px; font-weight: 500; color: #141210;">{sym}</span>{new_tag}
-                            </td>
-                            <td style="text-align: right; vertical-align: baseline; white-space: nowrap;">
-                                <span style="font-family: 'Courier New', monospace; font-size: 17px; font-weight: bold; color: #141210;">${price:.2f}</span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 5px; font-family: 'Courier New', monospace; font-size: 13px; color: #5A544E; letter-spacing: 0.2px;">{meta}</td>
-                            <td style="padding-top: 5px; text-align: right; white-space: nowrap;">{pnl_txt}</td>
-                        </tr>
-                    </table>
-                </div>'''
+        rows = "".join(self._holding_row(h, _scale) for h in holdings)   # ALL holdings — never truncated
         return f'''
         <tr>
             <td style="padding: 0 24px 24px;">
@@ -461,6 +466,7 @@ class EmailService:
         tier: str = 'preserver',
         book: Dict = None,
         breakout_book: List[Dict] = None,
+        breakout_tier_book: Dict = None,
         capital: float = None,
         secondary_market_context: str = None,
         todays_actions: Dict = None,
@@ -733,7 +739,7 @@ class EmailService:
         {self._market_read_block('Maximizer breakout read', market_context) if (breakout_book is not None and market_context) else ''}
 
         <!-- Maximizer breakout book (additive) — delineated, below the Preserver base -->
-        {self._breakout_book_section(breakout_book, capital=capital) if breakout_book is not None else ''}
+        {self._breakout_book_section(breakout_book, capital=capital, tier_book=breakout_tier_book) if breakout_book is not None else ''}
 
         <!-- Open Section (non-fresh signals still in buy zone — dashboard "Monitoring" bucket) -->
         {self._open_signals_section(open_signals) if (open_signals and tier != 'maximizer' and not served_preserver) else ''}
@@ -789,26 +795,54 @@ class EmailService:
             return min(ages) <= 5
         return bool(sig.get('is_fresh'))
 
-    def _breakout_book_section(self, breakout_book: List[Dict], capital: float = None) -> str:
+    def _breakout_book_section(self, breakout_book: List[Dict], capital: float = None,
+                               tier_book: Dict = None) -> str:
         """Delineated Maximizer breakout-book block for the additive digest — rendered below
         the Preserver base. Held names (day X/29) + any fresh breakouts; empty => a one-line
         'paused' note. Claret top-border to set it apart from the Preserver sections.
 
-        capital: accepted for future per-name $ sizing; the breakout cards (built from the book
-        snapshot) don't yet carry weight_pct/implied_shares, so no scaled shares are rendered
-        here — that requires build_maximizer_breakout_view to emit weights."""
-        cards = breakout_book or []
-        new_ct = len([c for c in cards if c.get('status') == 'new' or c.get('is_fresh')])
-        held_ct = len(cards) - new_ct
-        if cards:
-            body = "".join(self._signal_row(c) for c in cards)
+        tier_book: the capital-scaled build_tier_book('maximizer') dict (same object the portal
+        renders). When present, each name shows weight · whole shares · $ value at the recipient's
+        capital (via the shared _holding_row) + a book-level vol-target exposure line — so an
+        email-only subscriber can mirror the breakout book exactly. Falls back to the plain
+        signal-card rows (no shares) when only the legacy card list is available."""
+        holdings = (tier_book or {}).get('holdings') or []
+        vol_line = ''
+        if holdings:
+            # Rich, capital-scaled render (portal parity).
+            _bcap = tier_book.get('capital') or 0
+            _scale = (capital / _bcap) if (capital and _bcap) else 1.0
+            holdings = sorted(holdings, key=lambda h: -(h.get('weight_pct') or 0))
+            new_ct = tier_book.get('new_today') or sum(1 for h in holdings if h.get('is_new'))
+            held_ct = len(holdings) - new_ct
+            body = "".join(self._holding_row(h, _scale) for h in holdings)
             posture = (f"{held_ct} breakout{'s' if held_ct != 1 else ''} in play"
                        + (f" &middot; {new_ct} entered today" if new_ct else " &middot; none entered today")
                        + ". Each is held ~29 trading days then sold on time &mdash; no trailing stop.")
+            # Vol-target exposure gauge: the Barroso vol-brake dials the book's exposure down in
+            # choppy tape. None (older snapshots) → omit the line rather than guess.
+            _vs = tier_book.get('vol_scale')
+            if _vs is not None:
+                _pct = round(_vs * 100)
+                _state = 'full exposure' if _vs >= 0.99 else 'dialed back in choppy tape'
+                vol_line = (f'<div style="font-family: \'Courier New\', monospace; font-size: 12px; '
+                            f'color: #5A544E; letter-spacing: 0.3px; margin-bottom: 12px;">'
+                            f'Volatility target: <strong style="color:#7A2430;">{_pct}% exposure</strong> '
+                            f'&mdash; {_state}.</div>')
         else:
-            body = ''
-            posture = ("Breakout hunting is paused &mdash; not a rotating-bull regime. "
-                       "Your breakout book resumes when momentum broadens.")
+            # Fallback: legacy card list (no per-name shares), or the paused empty-state.
+            cards = breakout_book or []
+            new_ct = len([c for c in cards if c.get('status') == 'new' or c.get('is_fresh')])
+            held_ct = len(cards) - new_ct
+            if cards:
+                body = "".join(self._signal_row(c) for c in cards)
+                posture = (f"{held_ct} breakout{'s' if held_ct != 1 else ''} in play"
+                           + (f" &middot; {new_ct} entered today" if new_ct else " &middot; none entered today")
+                           + ". Each is held ~29 trading days then sold on time &mdash; no trailing stop.")
+            else:
+                body = ''
+                posture = ("Breakout hunting is paused &mdash; not a rotating-bull regime. "
+                           "Your breakout book resumes when momentum broadens.")
         return f'''
         <tr>
             <td style="padding: 0 24px 24px;">
@@ -821,6 +855,7 @@ class EmailService:
                     </table>
                 </div>
                 <div style="font-family: Georgia, serif; font-style: italic; font-size: 12px; color: #8A8279; line-height: 1.5; margin-bottom: 12px;">{posture}</div>
+                {vol_line}
                 {body}
             </td>
         </tr>'''
@@ -1253,6 +1288,7 @@ class EmailService:
         tier: str = 'preserver',
         book: Dict = None,
         breakout_book: List[Dict] = None,
+        breakout_tier_book: Dict = None,
         capital: float = None,
         secondary_market_context: str = None,
         todays_actions: Dict = None,
@@ -1323,6 +1359,7 @@ class EmailService:
             tier=tier,
             book=book,
             breakout_book=breakout_book,
+            breakout_tier_book=breakout_tier_book,
             capital=capital,
             secondary_market_context=secondary_market_context,
             todays_actions=todays_actions,

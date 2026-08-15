@@ -1836,6 +1836,20 @@ class SchedulerService:
             except Exception as e:
                 logger.warning(f"📧 Preserver book build failed (digest still sends without it): {e}")
 
+            # Maximizer breakout book (capital-scaled mirror) — same build_tier_book the PORTAL
+            # renders, so the email shows per-name whole shares + $ value + the vol-target exposure
+            # gauge (portal parity). Built once at $100k; the email rescales to each recipient's
+            # capital. Only when a Maximizer recipient is in the batch.
+            breakout_tier_book = None
+            try:
+                if _ts_book.tier_serving_enabled() and _need_max:
+                    async with async_session() as _mbdb:
+                        breakout_tier_book = await _ts_book.build_tier_book(
+                            _mbdb, 'maximizer', 100000.0, _ss_book.data_cache, 30.0
+                        )
+            except Exception as e:
+                logger.warning(f"📧 Maximizer book build failed (digest still sends without scaled shares): {e}")
+
             # Send emails + push notifications to each subscriber
             sent = 0
             failed = 0
@@ -1858,6 +1872,7 @@ class SchedulerService:
                     user_tier = 'maximizer'
                     user_book = preserver_book
                     user_breakout = max_signals
+                    user_breakout_tier_book = breakout_tier_book   # scaled shares + vol-target
                 else:
                     user_signals = base_signals
                     user_context = market_context
@@ -1867,6 +1882,7 @@ class SchedulerService:
                     user_tier = 'preserver'
                     user_book = preserver_book  # "Our Book" leads; signals follow as "Other Signals"
                     user_breakout = None
+                    user_breakout_tier_book = None
                 user_fresh_count = len([s for s in user_signals if s.get('is_fresh')])
 
                 try:
@@ -1880,6 +1896,7 @@ class SchedulerService:
                         tier=user_tier,
                         book=user_book,
                         breakout_book=user_breakout,
+                        breakout_tier_book=user_breakout_tier_book,
                         capital=sub.get('capital'),
                         secondary_market_context=user_secondary,
                         todays_actions=user_todays,

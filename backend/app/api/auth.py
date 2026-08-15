@@ -395,7 +395,10 @@ async def refresh_token(
             detail="User not found or disabled"
         )
 
-    # Load subscription
+    # Load subscription — MUST mirror /me exactly, incl. the admin override/synthesis. The
+    # background refresh (every 11 min) calls setUser(data.user), so if this omitted the admin's
+    # synthesized subscription the SubscriptionBanner would pop back at the top of the page on an
+    # idle session (the token-expiry banner bug). Same resolution as get_me() below.
     result = await db.execute(
         select(Subscription).where(Subscription.user_id == user.id)
     )
@@ -403,7 +406,19 @@ async def refresh_token(
 
     user_dict = user.to_dict()
     if subscription:
-        user_dict["subscription"] = subscription.to_dict()
+        sub_dict = subscription.to_dict()
+        if user.is_admin():
+            sub_dict["is_valid"] = True
+            sub_dict["status"] = "active"
+        user_dict["subscription"] = sub_dict
+    elif user.is_admin():
+        # Admin with no subscription record — synthesize one (matches /me)
+        user_dict["subscription"] = {
+            "status": "active",
+            "is_valid": True,
+            "days_remaining": 999,
+            "has_stripe_subscription": False,
+        }
 
     # Generate new tokens
     access_token = create_access_token(str(user.id))
