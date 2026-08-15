@@ -441,8 +441,8 @@ class EmailService:
                 <div style="padding-bottom: 8px; border-bottom: 2px solid #141210; margin-bottom: 8px;">
                     <table cellpadding="0" cellspacing="0" style="width: 100%;">
                         <tr>
-                            <td style="font-family: Georgia, serif; font-size: 18px; font-weight: 500; color: #141210;">Our Book</td>
-                            <td align="right" style="font-family: Georgia, serif; font-style: italic; font-size: 14px; color: #7A2430;">the model you mirror</td>
+                            <td style="font-family: Georgia, serif; font-size: 18px; font-weight: 500; color: #141210;">Preserver Book</td>
+                            <td align="right" style="font-family: Georgia, serif; font-style: italic; font-size: 14px; color: #7A2430;">Preserve &middot; 30% trailing</td>
                         </tr>
                     </table>
                 </div>
@@ -467,6 +467,7 @@ class EmailService:
         book: Dict = None,
         breakout_book: List[Dict] = None,
         breakout_tier_book: Dict = None,
+        breakout_radar: List[Dict] = None,
         capital: float = None,
         secondary_market_context: str = None,
         todays_actions: Dict = None,
@@ -659,6 +660,31 @@ class EmailService:
         }
         regime_label = regime_labels.get(regime, regime.replace('_', ' ').title())
 
+        # --- Middle section ordering -----------------------------------------------------------
+        # Maximizer ("both" books): LEAD with the breakout book (what they upgraded for — matches
+        # the Maximizer-branded subject), then the Preserver base. Mirror the portal's two
+        # deviation layers (Preserver signals via new_today_section + the breakout radar) and DROP
+        # the generic ensemble "Approaching" watchlist here — the served portal doesn't show it and
+        # the word collides with the radar's "approaching a breakout trigger".
+        _is_both = breakout_book is not None
+        _top_ctx = (f'''<tr>
+            <td style="padding: 0 24px 20px;">
+                <div style="border-left: 2px solid #7A2430; padding: 14px 18px; background: #FAF7F0;">
+                    <div style="font-family: Georgia, serif; font-style: italic; font-size: 15px; color: #141210; line-height: 1.65;">{market_context}</div>
+                </div>
+            </td>
+        </tr>''' if (market_context and not _is_both) else '')
+        _pres_read = self._market_read_block('Preserver market read', secondary_market_context) if (_is_both and secondary_market_context) else ''
+        _max_read = self._market_read_block('Maximizer breakout read', market_context) if (_is_both and market_context) else ''
+        _breakout = self._breakout_book_section(breakout_book, capital=capital, tier_book=breakout_tier_book) if _is_both else ''
+        _radar = self._breakout_radar_section(breakout_radar) if (_is_both and breakout_radar) else ''
+        _open = self._open_signals_section(open_signals) if (open_signals and tier != 'maximizer' and not served_preserver) else ''
+        _watch = self._watchlist_section(watchlist) if (watchlist and not _is_both) else ''
+        if _is_both:
+            _middle = _max_read + _breakout + _radar + _pres_read + book_section + new_today_section
+        else:
+            _middle = _top_ctx + _pres_read + book_section + new_today_section + _open + _watch
+
         html = f"""
 <!DOCTYPE html>
 <html>
@@ -715,37 +741,9 @@ class EmailService:
         <!-- Today's moves — same-day book fills; empty when the book didn't trade today -->
         {moves_banner}
 
-        <!-- Market Context (top) — Preserver-only. For Maximizer (both books) the reads sit
-             per-book below, so each book carries its own read. -->
-        {f'''<tr>
-            <td style="padding: 0 24px 20px;">
-                <div style="border-left: 2px solid #7A2430; padding: 14px 18px; background: #FAF7F0;">
-                    <div style="font-family: Georgia, serif; font-style: italic; font-size: 15px; color: #141210; line-height: 1.65;">{market_context}</div>
-                </div>
-            </td>
-        </tr>''' if (market_context and breakout_book is None) else ''}
-
-        <!-- Preserver market read (above the Preserver book) — shown for Maximizer w/ both books -->
-        {self._market_read_block('Preserver market read', secondary_market_context) if (breakout_book is not None and secondary_market_context) else ''}
-
-        <!-- Our Book (mirror) — leads for served Preserver; empty otherwise -->
-        {book_section}
-
-        <!-- New Today / Other Signals lead section (pre-computed above: full section
-             when fresh, slim one-liner when only Open exists, centered notice when empty) -->
-        {new_today_section}
-
-        <!-- Maximizer breakout read (above the breakout book) -->
-        {self._market_read_block('Maximizer breakout read', market_context) if (breakout_book is not None and market_context) else ''}
-
-        <!-- Maximizer breakout book (additive) — delineated, below the Preserver base -->
-        {self._breakout_book_section(breakout_book, capital=capital, tier_book=breakout_tier_book) if breakout_book is not None else ''}
-
-        <!-- Open Section (non-fresh signals still in buy zone — dashboard "Monitoring" bucket) -->
-        {self._open_signals_section(open_signals) if (open_signals and tier != 'maximizer' and not served_preserver) else ''}
-
-        <!-- Approaching Section (watchlist) -->
-        {self._watchlist_section(watchlist) if watchlist else ''}
+        <!-- Ordered middle: Maximizer leads with breakout book + radar, then Preserver base;
+             Preserver-only keeps context → book → signals → open → watchlist. Assembled above. -->
+        {_middle}
 
         <!-- Open Positions -->
         {self._positions_section(positions, total_positions_pnl) if positions else ''}
@@ -857,6 +855,49 @@ class EmailService:
                 <div style="font-family: Georgia, serif; font-style: italic; font-size: 12px; color: #8A8279; line-height: 1.5; margin-bottom: 12px;">{posture}</div>
                 {vol_line}
                 {body}
+            </td>
+        </tr>'''
+
+    def _breakout_radar_section(self, radar: List[Dict]) -> str:
+        """Maximizer breakout RADAR — names approaching a 50-day-high breakout, not yet in the
+        book. Mirrors the portal's '◆ Maximizer breakout candidates · Approaching a breakout
+        trigger' card, so the email's 'approaching' layer matches the site (and no longer collides
+        with the old ensemble watchlist, which is dropped for the two-book view)."""
+        cards = radar or []
+        if not cards:
+            return ''
+        rows = ""
+        for r in cards[:8]:
+            sym = r.get('symbol', '')
+            pct = r.get('pct_below_50d_high')
+            vol = r.get('vol_ratio')
+            meta_bits = []
+            if pct is not None:
+                meta_bits.append(f"{pct}% below high")
+            if vol is not None:
+                meta_bits.append(f"vol {vol}&times;")
+            meta = " &middot; ".join(meta_bits)
+            rows += f'''
+                <div style="padding: 12px 0; border-bottom: 1px solid #DDD5C7;">
+                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                        <tr>
+                            <td style="font-family: Georgia, serif; font-size: 18px; font-weight: 500; color: #141210;">{sym}</td>
+                            <td align="right" style="font-family: 'Courier New', monospace; font-size: 12px; color: #5A544E; white-space: nowrap;">{meta}</td>
+                        </tr>
+                    </table>
+                </div>'''
+        return f'''
+        <tr>
+            <td style="padding: 0 24px 24px;">
+                <div style="padding-bottom: 8px; border-bottom: 1px solid #7A2430; margin-bottom: 10px;">
+                    <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                        <tr>
+                            <td style="font-family: Georgia, serif; font-size: 15px; font-weight: 500; color: #7A2430;">&#9670; Approaching a breakout trigger</td>
+                            <td align="right" style="font-family: Georgia, serif; font-style: italic; font-size: 12px; color: #8A8279;">not yet in the book</td>
+                        </tr>
+                    </table>
+                </div>
+                {rows}
             </td>
         </tr>'''
 
@@ -1289,6 +1330,7 @@ class EmailService:
         book: Dict = None,
         breakout_book: List[Dict] = None,
         breakout_tier_book: Dict = None,
+        breakout_radar: List[Dict] = None,
         capital: float = None,
         secondary_market_context: str = None,
         todays_actions: Dict = None,
@@ -1360,6 +1402,7 @@ class EmailService:
             book=book,
             breakout_book=breakout_book,
             breakout_tier_book=breakout_tier_book,
+            breakout_radar=breakout_radar,
             capital=capital,
             secondary_market_context=secondary_market_context,
             todays_actions=todays_actions,

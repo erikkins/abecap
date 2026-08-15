@@ -1794,6 +1794,7 @@ class SchedulerService:
             max_signals = None
             max_context = None
             max_todays = None   # today's book fills (BUY new / SELL 29-day) for the "moves" banner
+            max_radar = None    # breakout candidates approaching a trigger (mirrors the portal radar)
             try:
                 from app.services import tier_serving
                 _need_max = any(s.get('is_maximizer') for s in subscribers) or force_tier == 'maximizer'
@@ -1806,6 +1807,11 @@ class SchedulerService:
                             max_todays = await tier_serving.build_todays_actions(_mdb)
                         except Exception:
                             max_todays = None
+                        try:
+                            _held_syms = {c.get('symbol') for c in (max_signals or []) if c.get('symbol')}
+                            max_radar = tier_serving.build_breakout_radar(_ss.data_cache, _held_syms)
+                        except Exception:
+                            max_radar = None
                         _bs = (await _mdb.execute(
                             select(MaximizerBookSnapshot).order_by(MaximizerBookSnapshot.snapshot_date.desc()).limit(1)
                         )).scalars().first()
@@ -1875,6 +1881,7 @@ class SchedulerService:
                     user_book = preserver_book
                     user_breakout = max_signals
                     user_breakout_tier_book = breakout_tier_book   # scaled shares + vol-target
+                    user_breakout_radar = max_radar                # approaching-trigger candidates
                 else:
                     user_signals = base_signals
                     user_context = market_context
@@ -1885,6 +1892,7 @@ class SchedulerService:
                     user_book = preserver_book  # "Our Book" leads; signals follow as "Other Signals"
                     user_breakout = None
                     user_breakout_tier_book = None
+                    user_breakout_radar = None
                 user_fresh_count = len([s for s in user_signals if s.get('is_fresh')])
 
                 try:
@@ -1899,6 +1907,7 @@ class SchedulerService:
                         book=user_book,
                         breakout_book=user_breakout,
                         breakout_tier_book=user_breakout_tier_book,
+                        breakout_radar=user_breakout_radar,
                         capital=sub.get('capital'),
                         secondary_market_context=user_secondary,
                         todays_actions=user_todays,
