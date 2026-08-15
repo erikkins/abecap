@@ -1946,7 +1946,8 @@ function Dashboard() {
         const rowEls = list.querySelectorAll('[data-rot-row]');
         const rowH = rowEls.length ? rowEls[0].getBoundingClientRect().height : 49;
         const avail = left.getBoundingClientRect().bottom - list.getBoundingClientRect().top;
-        const target = Math.min(maxRows, Math.max(3, Math.round(avail / rowH)));
+        // floor → the most rows that fit WITHOUT extending past the Preserver book (near, not past).
+        const target = Math.min(maxRows, Math.max(3, Math.floor(avail / rowH)));
         if (target !== rotRows) setRotRows(target);
       }
     };

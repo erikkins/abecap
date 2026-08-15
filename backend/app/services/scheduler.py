@@ -1633,9 +1633,11 @@ class SchedulerService:
         logger.info("📧 Starting daily email job...")
 
         try:
-            # Check if this is a trading day
+            # Check if this is a trading day. Admin test sends (target_emails) bypass this — same
+            # as the freshness gate below — so a Maximizer/Preserver sample can be previewed any
+            # day (e.g. a weekend) off the last session's cached data.
             now = datetime.now(ET)
-            if not self._is_trading_day(now):
+            if not target_emails and not self._is_trading_day(now):
                 logger.info("📅 Not a trading day, skipping emails")
                 return
 
