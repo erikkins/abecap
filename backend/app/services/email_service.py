@@ -361,19 +361,28 @@ class EmailService:
             </td>
         </tr>'''
 
+    def _bar(self, pct: float, color: str, track: str = '#E5DFD2', height: int = 5) -> str:
+        """A horizontal progress bar that survives email clients — nested table with bgcolor
+        cells (no CSS positioning, which Gmail/Outlook strip). `pct` (0–100) is filled in `color`,
+        the remainder in `track`."""
+        pct = max(0.0, min(100.0, pct))
+        fill = (f'<td width="{pct:.0f}%" bgcolor="{color}" style="background:{color}; font-size:1px; '
+                f'line-height:1px; height:{height}px; mso-line-height-rule:exactly;">&nbsp;</td>') if pct > 0 else ''
+        rest = (f'<td bgcolor="{track}" style="background:{track}; font-size:1px; line-height:1px; '
+                f'height:{height}px; mso-line-height-rule:exactly;">&nbsp;</td>') if pct < 100 else ''
+        return (f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+                f'style="border-collapse:collapse; table-layout:fixed;"><tr>{fill}{rest}</tr></table>')
+
     def _holding_row(self, h: Dict, scale: float = 1.0) -> str:
-        """One book holding as an email row — symbol/price, then a meta line of
-        weight · whole shares · $ value (scaled to the recipient's capital) · exit,
-        plus P&L and a NEW tag. Shared by the Preserver book and the Maximizer
-        breakout book so the two render identically (exit_rule 'hold' → day X/29)."""
+        """One book holding as an email row — symbol/price, a meta line (weight · whole shares ·
+        $ value scaled to the recipient's capital), P&L, a NEW tag, and a visual GAUGE matching
+        the portal: the Maximizer day-clock (progress to the 29-day time-stop) or the Preserver
+        cushion-to-stop bar. Shared by both books. Bars only — the portal's entry/now marker dots
+        need CSS positioning email can't do, so those are omitted; the bar + labels carry it."""
         sym = h.get('symbol', '')
         price = h.get('price') or 0
         wt = h.get('weight_pct')
         pnl = h.get('pnl_pct')
-        if h.get('exit_rule') == 'hold':
-            exit_txt = f"day {h.get('days_held', 0)}/{h.get('hold_days', 29)}"
-        else:
-            exit_txt = f"{(h.get('trailing_stop_pct') or 30):.0f}% trail"
         pnl_txt = ''
         if pnl is not None:
             _pc = '#245232' if pnl >= 0 else '#7A2430'
@@ -386,12 +395,49 @@ class EmailService:
         _ish = h.get('implied_shares'); _iv = h.get('implied_value')
         hold_txt = ""
         if _ish is not None and _iv is not None:
-            # Whole shares — the $ value is the exact target; shares are the convenience
-            # conversion (matches the portal). "<1" flags accounts too small for a full share.
             _shn = _ish * scale
             _sh_txt = "&lt;1" if 0 < _shn < 1 else f"{round(_shn):,}"
             hold_txt = f"{_sh_txt} sh &middot; ${(_iv * scale):,.0f}"
-        meta = " &middot; ".join([x for x in (wt_txt, hold_txt, exit_txt) if x])
+
+        # Gauge — day-clock (breakout) or cushion-to-stop (Preserver). It carries the exit info,
+        # so the text exit label is dropped from the meta line when a gauge renders.
+        gauge = ''; g_l = ''; g_r = ''
+        if h.get('exit_rule') == 'hold':
+            hd = int(h.get('days_held') or 0); hold = int(h.get('hold_days') or 29)
+            _dl = h.get('days_left'); dl = (hold - hd) if _dl is None else int(_dl)
+            color = '#7A2430' if dl <= 5 else '#B98A92'          # near-exit → solid claret
+            gauge = self._bar((hd / hold * 100) if hold else 0, color)
+            g_l, g_r = f"day {hd}/{hold}", f"~{dl}d to time-stop"
+        elif h.get('trailing_stop_level') is not None and h.get('high_water_mark') is not None:
+            stop = float(h.get('trailing_stop_level') or 0)
+            hwm = max(float(h.get('high_water_mark') or 0), stop + 0.01)
+            now = float(price or stop)
+            nowpct = ((now - stop) / (hwm - stop) * 100) if (hwm - stop) else 0   # cushion fill: stop→now
+            cushion = ((now - stop) / now * 100) if now else 0                    # % above the stop
+            color = '#7A2430' if cushion <= 8 else '#245232'     # thin cushion → claret, else green
+            gauge = self._bar(nowpct, color)
+            g_l, g_r = f"stop ${stop:,.0f}", f"{cushion:.0f}% cushion &middot; high ${hwm:,.0f}"
+
+        meta_bits = [wt_txt, hold_txt]
+        if not gauge:  # fallback text exit label only when no gauge rendered
+            if h.get('exit_rule') == 'hold':
+                meta_bits.append(f"day {h.get('days_held', 0)}/{h.get('hold_days', 29)}")
+            else:
+                meta_bits.append(f"{(h.get('trailing_stop_pct') or 30):.0f}% trail")
+        meta = " &middot; ".join([x for x in meta_bits if x])
+
+        gauge_row = ''
+        if gauge:
+            gauge_row = f'''
+                        <tr>
+                            <td colspan="2" style="padding-top: 8px;">
+                                {gauge}
+                                <table cellpadding="0" cellspacing="0" style="width:100%; margin-top:3px;"><tr>
+                                    <td style="font-family:'Courier New',monospace; font-size:10px; color:#8A8279;">{g_l}</td>
+                                    <td style="text-align:right; font-family:'Courier New',monospace; font-size:10px; color:#8A8279;">{g_r}</td>
+                                </tr></table>
+                            </td>
+                        </tr>'''
         return f'''
                 <div style="padding: 14px 0; border-bottom: 1px solid #DDD5C7;">
                     <table cellpadding="0" cellspacing="0" style="width: 100%;">
@@ -406,7 +452,7 @@ class EmailService:
                         <tr>
                             <td style="padding-top: 5px; font-family: 'Courier New', monospace; font-size: 13px; color: #5A544E; letter-spacing: 0.2px;">{meta}</td>
                             <td style="padding-top: 5px; text-align: right; white-space: nowrap;">{pnl_txt}</td>
-                        </tr>
+                        </tr>{gauge_row}
                     </table>
                 </div>'''
 
