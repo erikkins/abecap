@@ -4778,7 +4778,8 @@ async def pageviews_summary(
     _funnel_order = [
         ("pageview", "Landed"), ("scroll_50", "Read past fold"), ("reach_cta", "Saw the offer"),
         ("cta_hero", "Clicked hero CTA"), ("cta_trial", "Clicked trial CTA"),
-        ("signup_open", "Opened signup"), ("checkout_redirect", "Reached Stripe"),
+        ("signup_open", "Opened signup"), ("signup_submit", "Submitted signup"),
+        ("signup_success", "Account created"), ("checkout_redirect", "Reached Stripe"),
         ("newsletter_submit", "Newsletter (soft)"), ("bounce", "Bounced (no engage)"),
     ]
 

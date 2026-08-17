@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom';
 import { logEvent } from './lib/eventLogger';
+import { logPublicEvent, consumeAdOrigin } from './lib/publicEvent';
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import {
   LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -2036,7 +2037,14 @@ function Dashboard() {
       try {
         const data = await api.post('/api/billing/create-checkout', { plan: plan === 'annual' ? 'annual' : 'monthly', maximizer: wantMaximizer });
         if (window.gtag) window.gtag('event', 'begin_checkout', { currency: 'USD', item_variant: wantMaximizer ? `${plan}+maximizer` : plan });
-        if (data?.checkout_url) window.location.href = data.checkout_url;
+        if (data?.checkout_url) {
+          // Cookieless "reached the pay page" — the ad-landing signup flow redirects HERE (not via
+          // AuthContext.redirectToCheckout), so without this the ad-door funnel never logs it.
+          // Attributed back to the landing page stashed at signup-intent.
+          const origin = consumeAdOrigin();
+          logPublicEvent('checkout_redirect', (origin && origin.path) ? origin : {});
+          window.location.href = data.checkout_url;
+        }
       } catch (e) {
         // Non-fatal: leave them in /app with the subscribe button if checkout fails
         console.error('Auto-checkout after signup failed:', e);

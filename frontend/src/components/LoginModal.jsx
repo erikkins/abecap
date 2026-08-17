@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Mail, Lock, User, Eye, EyeOff, Chrome, Apple, Shield } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { logPublicEvent } from '../lib/publicEvent';
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -108,8 +109,10 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
           setLoading(false);
           return;
         }
+        logPublicEvent('signup_submit');   // funnel: register attempt made
         const result = await register(email, password, name, turnstileToken || 'dev-bypass');
         if (result.success) {
+          logPublicEvent('signup_success'); // funnel: account created
           if (!result.redirecting) {
             onSuccess ? onSuccess() : onClose();
           }
@@ -156,9 +159,11 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
         callback: async (response) => {
           if (response.credential) {
             setLoading(true);
+            if (mode === 'register') logPublicEvent('signup_submit');
             const result = await loginWithGoogle(response.credential);
             setLoading(false);
             if (result.success) {
+              if (mode === 'register') logPublicEvent('signup_success');
               if (result.requires_2fa) return;
               if (!result.redirecting) {
                 onSuccess ? onSuccess() : onClose();
@@ -209,10 +214,12 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
       const userData = response.user || null;
 
       setLoading(true);
+      if (mode === 'register') logPublicEvent('signup_submit');
       const result = await loginWithApple(idToken, userData);
       setLoading(false);
 
       if (result.success) {
+        if (mode === 'register') logPublicEvent('signup_success');
         if (result.requires_2fa) return;
         if (!result.redirecting) {
           onSuccess ? onSuccess() : onClose();
