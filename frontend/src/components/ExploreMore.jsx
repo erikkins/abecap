@@ -16,7 +16,7 @@ const LINKS = [
   { to: '/for-advisers', k: 'advisers', h: 'For advisers',
     p: 'Run it as a sleeve — the behavioral case, the risk metrics, and client-ready one-pagers.' },
   { to: '/blog', k: 'blog', h: 'Market, Measured',
-    p: 'Our read on the tape — the thinking behind the signals, in writing, every week.' },
+    p: 'Our read on the market — the thinking behind the signals, in writing, every week.' },
 ];
 
 export default function ExploreMore({ heading }) {

@@ -864,11 +864,11 @@ class EmailService:
                        + (f" &middot; {new_ct} entered today" if new_ct else " &middot; none entered today")
                        + ". Each is held ~29 trading days then sold on time &mdash; no trailing stop.")
             # Vol-target exposure gauge: the Barroso vol-brake dials the book's exposure down in
-            # choppy tape. None (older snapshots) → omit the line rather than guess.
+            # choppy markets. None (older snapshots) → omit the line rather than guess.
             _vs = tier_book.get('vol_scale')
             if _vs is not None:
                 _pct = round(_vs * 100)
-                _state = 'full exposure' if _vs >= 0.99 else 'dialed back in choppy tape'
+                _state = 'full exposure' if _vs >= 0.99 else 'dialed back when the market turns choppy'
                 vol_line = (f'<div style="font-family: \'Courier New\', monospace; font-size: 12px; '
                             f'color: #5A544E; letter-spacing: 0.3px; margin-bottom: 12px;">'
                             f'Volatility target: <strong style="color:#7A2430;">{_pct}% exposure</strong> '
