@@ -10,21 +10,19 @@ metadata:
 # Session snapshot — Aug 14–17 2026
 
 ## Frozen spec
-- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP PUBLIC. PRINT DOCS=ink-on-white+US-English; WEB=claret/paper. perf_numbers SSOT. Web deploy=push main→"Deploy RigaCap" GHA + smoke api.rigacap.com/api/market-data-status→200. Migration-first DB. NEVER lambda update-function-configuration --environment / terraform apply w/o plan. Admin app=mobile-admin/ Expo EAS OTA (`eas update --channel preview`; Erik reopens app). TIER_SERVING=true; 0 real external subs. Admin/test emails→erik@rigacap.com. Email=SMTP/aiosmtplib (NOT SES); scheduler logger NOT in CloudWatch → diagnose sends via email_events table. NO Google Ads API wired (screenshots only; Erik applies ad changes in UI).
-- **RigaCap is a PUBLISHER** (signals-only, no custody). No "your portfolio value" screen by design. Book equity = model MTM from $100k CAP0, NOT per-user.
+- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP PUBLIC; never say "tape" for the market ([[feedback_no_tape_brand_voice]]). PRINT DOCS=ink-on-white+US-English; WEB=claret/paper. perf_numbers SSOT. Web deploy=push main→"Deploy RigaCap" GHA + smoke api.rigacap.com/api/market-data-status→200. Migration-first DB. NEVER lambda update-function-configuration --environment / terraform apply w/o plan. Admin app=mobile-admin/ Expo EAS OTA (`eas update --channel preview`; Erik reopens app). TIER_SERVING=true; 0 real external subs. Admin/test emails→erik@rigacap.com. Email=SMTP/aiosmtplib; diagnose sends via email_events table. NO Google Ads API (Erik applies ad changes in UI).
+- **RigaCap = PUBLISHER** (signals-only, no custody). No "your portfolio value" screen. Book equity = model MTM from $100k CAP0.
 
-## ✅ SHIPPED Aug 14–15 (all live) — served-Maximizer portal + email + admin app + fixes
-- Portal: [Preserver | Maximizer + Rotation watch] side-by-side, books-on-top, one capital control, Market Read pixel-aligned, whole shares no ≈, candidates full-width, Rotation watch measured-fill. Recently-closed DORMANT (0 sells, ~mid-Aug).
-- Maximizer EMAIL: Maximizer-first order (read+book+radar), Preserver base below, "Preserver Book"+"Preserve · 30% trailing", breakout radar replaces ensemble "Approaching", GAUGES (day-clock + cushion table bars). Weight rounds WHOLE % everywhere; cushion label "% to stop".
-- Admin app: weight-sorted `positions` + equity labeled "model book · from $100k · ±X%" + "Recent transactions" block (OTA'd).
-- Bug fixes: /api/auth/refresh admin sub-synthesis (banner-on-idle); admin test emails bypass trading-day gate (weekend no-op); Stripe-sourced admin stats.
+## ✅ SHIPPED this session (all live)
+- Served-Maximizer PORTAL (2 books side-by-side, pixel-aligned reads, whole shares, Rotation watch measured-fill, candidates full-width). Recently-closed DORMANT (~mid-Aug first sells).
+- Maximizer EMAIL: Maximizer-first order, scaled shares + vol-target, gauges (day-clock + cushion table bars), breakout radar replaces ensemble "Approaching". Weight rounds WHOLE %.
+- ADMIN app: weight-sorted positions + equity "model book · from $100k · ±X%" + Recent transactions (OTA'd).
+- **NEW /momentum door (c8b481b, live)**: Maximizer persona, hold-period-first (filters day-traders), "momentum with a floor", sets rigacap_want_maximizer, prerendered. Same funnel events as /should-i-sell → mom_funnel + sis_funnel both in /api/admin/pageviews/summary; web TrafficTab + mobile Ads tab render BOTH (OTA group dec5c012). **ExploreMore** band on both doors (fixes dead-end nav; explore_* events).
+- Fixes: refresh-endpoint admin banner; weekend test-email gate; Stripe stats; "tape" removed everywhere (63e459b).
 
-## ▶ Aug 15 — SIS funnel WATCH (see [[project_sis_funnel_watch]])
-- Baseline 44 landers, fold-through 36%, 0 reached Stripe, engagement was 1-day blip. Erik: let it run ~1wk/~150 landers; redesign above-the-fold if fold-through stays mid-30s. Re-pull via worker db_read on page_views.
-
-## ▶ Aug 17 — AWAITING ERIK: Google Ads conflicting negative
-- Phrase negative "trading signals" blocks positive kw "momentum trading signals". I recommended KEEP the negative + DELETE the keyword (day-trader crowd is off-thesis/churny; filtration > conversion). Alt: Apply (remove neg) + add specific negatives (day trading, forex, crypto, free signals, telegram, discord, scalping, intraday, options signals). Erik decides in UI.
+## ▶ AWAITING ERIK
+- Google Ads: open "momentum trading signals" (Apply remove neg + add `live signals`/`scalping`/`options signals`) and point that ad group at **/momentum** (door now exists) — OR I point the ad group; Erik doing UI-side. Keep negative until he's ready.
+- SIS funnel WATCH ([[project_sis_funnel_watch]]): baseline fold-through 36%; ~1wk/150 landers → redesign above-the-fold if still mid-30s. Now also watch /momentum funnel + explore_* clicks.
 
 ## ▶ STILL OPEN
-- DOCS refresh: signal-intel + tech-arch UNCOMMITTED; PDF re-export + investor/marketing/sales sweep + 3 Qs. Commit ONLY design/documents (scratch scripts/ untracked).
-- Optional Preserver email header adjective; modeled "your mirrored book value" what-if.
+- DOCS refresh: signal-intel + tech-arch UNCOMMITTED; PDF re-export + investor/marketing/sales sweep + 3 Qs. Commit ONLY design/documents.

@@ -1,5 +1,11 @@
 # Stocker App - Key Learnings
 
+## 🗣️ BRAND VOICE — never say "tape" for the market (Aug 17)
+- [No "tape" rule](feedback_no_tape_brand_voice.md) — Erik doesn't use "tape"; say market/action/conditions. Already enforced in maximizer_service AI prompt; grep new copy for it before shipping.
+
+## 🚪 TWO ad doors LIVE — /should-i-sell (Preserver) + /momentum (Maximizer) (Aug 17)
+- [SIS funnel + doors](project_sis_funnel_watch.md) — /momentum built (Maximizer, hold-period-first to filter day-traders, "momentum with a floor", sets rigacap_want_maximizer, prerendered). Same cookieless funnel events on both → mom_funnel + sis_funnel in /api/admin/pageviews/summary; web TrafficTab + mobile Ads tab show BOTH. ExploreMore band on both doors (fixes dead-end; explore_* events). Momentum keyword still BLOCKED until Erik opens it in Ads UI.
+
 ## 📉 WATCH — /should-i-sell funnel; redesign page if no scrollers (Aug 15)
 - [SIS funnel baseline + redesign trigger](project_sis_funnel_watch.md) — baseline 44 landers, fold-through (scroll_50÷landed) = 36%, 0 reached Stripe; engagement was a 1-day blip (Aug 12). Erik: let it run ~1wk/~150 landers; if fold-through still mid-30s → redesign above-the-fold (64% never scroll, mostly paid mobile). Re-pull via worker db_read on page_views.
 
