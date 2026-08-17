@@ -20,9 +20,10 @@ metadata:
 - **NEW /momentum door (c8b481b, live)**: Maximizer persona, hold-period-first (filters day-traders), "momentum with a floor", sets rigacap_want_maximizer, prerendered. Same funnel events as /should-i-sell → mom_funnel + sis_funnel both in /api/admin/pageviews/summary; web TrafficTab + mobile Ads tab render BOTH (OTA group dec5c012). **ExploreMore** band on both doors (fixes dead-end nav; explore_* events).
 - Fixes: refresh-endpoint admin banner; weekend test-email gate; Stripe stats; "tape" removed everywhere (63e459b).
 
-## ▶ AWAITING ERIK
-- Google Ads: open "momentum trading signals" (Apply remove neg + add `live signals`/`scalping`/`options signals`) and point that ad group at **/momentum** (door now exists) — OR I point the ad group; Erik doing UI-side. Keep negative until he's ready.
-- SIS funnel WATCH ([[project_sis_funnel_watch]]): baseline fold-through 36%; ~1wk/150 landers → redesign above-the-fold if still mid-30s. Now also watch /momentum funnel + explore_* clicks.
+## ▶ ADS (Aug 17 — Erik doing UI-side; campaign=rigacap-signals-2tier, ad groups Maximize + Preserve)
+- Both doors LIVE + pointed with UTM (each ad group → its own landing page). PLUMBING VERIFIED via db_read: /momentum logs pageview+scroll+cta+utm (paid=0, just pointed); /should-i-sell 25 landed/22 paid today, **fold-through 52% today vs 36% baseline** (encouraging — may NOT need redesign; keep watching).
+- Advised Erik: (1) NOW OK to remove "trading signals" negative (door exists) BUT add specifics `live signals`/`scalping`/`options signals` + keep day trading/forex/crypto/free; put "momentum trading signals" in Maximize group; watch search terms. (2) DON'T switch to conversion bidding (Google rec) — ~0 conversions to train on; stay Maximize Clicks/Manual CPC for discovery; revisit at ~15+ conv/mo AFTER pre-Stripe leak fixed; also verify conversion action = sign_up/purchase not begin_checkout. (3) Ad-preview showed cross-ad-group keyword OVERLAP (momentum search matched both groups) → add cross-group negatives (Preserve: momentum/breakout/growth; Maximize: sell/protect/crash) + reconsider "stock buy sell signals" in Preserve, so the door A/B stays clean.
 
-## ▶ STILL OPEN
+## ▶ WATCH / OPEN
+- Compare /momentum vs /should-i-sell funnels once momentum has paid clicks (gclid>0) — ping to pull head-to-head. SIS redesign call still open ([[project_sis_funnel_watch]], baseline 36%, today 52%).
 - DOCS refresh: signal-intel + tech-arch UNCOMMITTED; PDF re-export + investor/marketing/sales sweep + 3 Qs. Commit ONLY design/documents.
