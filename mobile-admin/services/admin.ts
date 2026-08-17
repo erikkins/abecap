@@ -222,7 +222,8 @@ export interface TrafficSummary {
   by_source: Array<{ source: string; count: number }>;
   by_day: Array<{ date: string; count: number }>;
   by_event?: Array<{ event: string; count: number }>;
-  sis_funnel?: FunnelStep[]; // /should-i-sell funnel; first step (Landed) = denominator
+  sis_funnel?: FunnelStep[]; // /should-i-sell (Preserver) funnel; step[0] Landed = denominator
+  mom_funnel?: FunnelStep[]; // /momentum (Maximizer) funnel — same steps, for door comparison
 }
 export async function getTrafficSummary(days = 7): Promise<TrafficSummary> {
   const { data } = await api.get('/api/admin/pageviews/summary', { params: { days } });

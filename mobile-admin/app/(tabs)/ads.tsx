@@ -88,9 +88,11 @@ export default function Ads() {
   const pctOf = (n: any) =>
     traffic && traffic.total && typeof n === 'number' ? `${Math.round((n / traffic.total) * 100)}% of views` : undefined;
 
-  const funnel = traffic?.sis_funnel || [];
-  const landed = funnel.find((s) => s.step === 'pageview')?.count ?? funnel[0]?.count ?? 0;
-  const funnelPct = (n: number) => (landed ? `${Math.round((n / landed) * 100)}%` : '—');
+  // Both ad doors, same funnel steps → compare which is working.
+  const FUNNEL_DOORS: Array<{ key: 'sis_funnel' | 'mom_funnel'; label: string; note: string }> = [
+    { key: 'sis_funnel', label: '/should-i-sell', note: 'Preserver' },
+    { key: 'mom_funnel', label: '/momentum', note: 'Maximizer' },
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -164,27 +166,33 @@ export default function Ads() {
               </View>
             </Section>
 
-            {/* /should-i-sell conversion funnel */}
-            {funnel.length ? (
-              <Section title="/should-i-sell funnel" hint={landed ? `${landed} landed` : 'no traffic yet'}>
-                {funnel.map((s) => {
-                  const w = landed && s.count > 0 ? Math.max(2, Math.round((s.count / landed) * 100)) : 0;
-                  return (
-                    <View key={s.step} style={styles.funnelRow}>
-                      <Text style={styles.funnelLabel} numberOfLines={1}>
-                        {s.label}
-                      </Text>
-                      <View style={styles.funnelBarTrack}>
-                        {w > 0 ? <View style={[styles.funnelBarFill, { width: `${w}%` }]} /> : null}
+            {/* Ad-door conversion funnels — /should-i-sell (Preserver) vs /momentum (Maximizer) */}
+            {FUNNEL_DOORS.map(({ key, label, note }) => {
+              const f = traffic[key] || [];
+              const landed = f.find((s) => s.step === 'pageview')?.count ?? f[0]?.count ?? 0;
+              if (!f.length) return null;
+              const fpct = (n: number) => (landed ? `${Math.round((n / landed) * 100)}%` : '—');
+              return (
+                <Section key={key} title={`${label} funnel`} hint={landed ? `${note} · ${landed} landed` : `${note} · no traffic yet`}>
+                  {f.map((s) => {
+                    const w = landed && s.count > 0 ? Math.max(2, Math.round((s.count / landed) * 100)) : 0;
+                    return (
+                      <View key={s.step} style={styles.funnelRow}>
+                        <Text style={styles.funnelLabel} numberOfLines={1}>
+                          {s.label}
+                        </Text>
+                        <View style={styles.funnelBarTrack}>
+                          {w > 0 ? <View style={[styles.funnelBarFill, { width: `${w}%` }]} /> : null}
+                        </View>
+                        <Text style={styles.funnelCount}>
+                          {s.count} <Text style={styles.funnelPct}>{fpct(s.count)}</Text>
+                        </Text>
                       </View>
-                      <Text style={styles.funnelCount}>
-                        {s.count} <Text style={styles.funnelPct}>{funnelPct(s.count)}</Text>
-                      </Text>
-                    </View>
-                  );
-                })}
-              </Section>
-            ) : null}
+                    );
+                  })}
+                </Section>
+              );
+            })}
 
             {traffic.by_path?.length ? (
               <Section title="Top pages">

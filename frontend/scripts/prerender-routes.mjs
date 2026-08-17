@@ -49,6 +49,13 @@ const ROUTES = [
     priority: 0.9, changefreq: 'weekly',
   },
   {
+    path: '/momentum',
+    title: 'Momentum, With a Floor — RigaCap',
+    description: 'Momentum is the most durable edge in markets — and the fastest way to blow up if you chase it. RigaCap Maximizer trades it with discipline: confirmed breakouts held about a month, with a capital-preservation floor. Walk-forward, survivorship-free.',
+    source: 'src/MomentumPage.jsx',
+    priority: 0.9, changefreq: 'weekly',
+  },
+  {
     path: '/track-record-v1',
     title: 'Track Record (v1) — RigaCap',
     description: 'Earlier track-record format. Walk-forward results, 2021–2026.',

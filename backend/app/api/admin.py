@@ -4772,19 +4772,25 @@ async def pageviews_summary(
     )).all()
     by_event = [{"event": e, "count": int(n)} for e, n in ev_rows]
 
-    # Ordered conversion funnel for the /should-i-sell ad landing page.
-    SIS = "/should-i-sell"
-    sis_counts = dict((await db.execute(
-        select(PageView.event, func.count()).where(where, PageView.path == SIS)
-        .group_by(PageView.event)
-    )).all())
+    # Ordered conversion funnel for the ad landing DOORS. Same step order for both so /should-i-sell
+    # (Preserver / panic intent) and /momentum (Maximizer / breakout intent) are directly comparable
+    # — "which door is working". explore_* clicks (ExploreMore band) land in by_event.
     _funnel_order = [
         ("pageview", "Landed"), ("scroll_50", "Read past fold"), ("reach_cta", "Saw the offer"),
         ("cta_hero", "Clicked hero CTA"), ("cta_trial", "Clicked trial CTA"),
         ("signup_open", "Opened signup"), ("checkout_redirect", "Reached Stripe"),
         ("newsletter_submit", "Newsletter (soft)"), ("bounce", "Bounced (no engage)"),
     ]
-    sis_funnel = [{"step": k, "label": lbl, "count": int(sis_counts.get(k, 0))} for k, lbl in _funnel_order]
+
+    async def _funnel(path):
+        counts = dict((await db.execute(
+            select(PageView.event, func.count()).where(where, PageView.path == path)
+            .group_by(PageView.event)
+        )).all())
+        return [{"step": k, "label": lbl, "count": int(counts.get(k, 0))} for k, lbl in _funnel_order]
+
+    sis_funnel = await _funnel("/should-i-sell")
+    mom_funnel = await _funnel("/momentum")
 
     return {
         "days": days,
@@ -4796,6 +4802,7 @@ async def pageviews_summary(
         "by_day": [{"date": str(d), "count": int(n)} for d, n in by_day],
         "by_event": by_event,
         "sis_funnel": sis_funnel,
+        "mom_funnel": mom_funnel,
     }
 
 

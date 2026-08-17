@@ -118,15 +118,23 @@ export default function TrafficTab({ fetchWithAuth }) {
             </div>
           )}
 
-          {data.sis_funnel && (() => {
-            const landed = data.sis_funnel.find((s) => s.step === 'pageview')?.count || 0;
+          {/* Both ad doors, same funnel steps → compare which is working. */}
+          {[
+            { key: 'sis_funnel', label: '/should-i-sell', note: 'Preserver · panic intent' },
+            { key: 'mom_funnel', label: '/momentum', note: 'Maximizer · breakout intent' },
+          ].map(({ key, label, note }) => {
+            const f = data[key];
+            if (!f) return null;
+            const landed = f.find((s) => s.step === 'pageview')?.count || 0;
             // Funnel steps (exclude the soft/bounce rows from the main ladder; show them separately).
-            const ladder = data.sis_funnel.filter((s) => !['newsletter_submit', 'bounce'].includes(s.step));
-            const aside = data.sis_funnel.filter((s) => ['newsletter_submit', 'bounce'].includes(s.step));
+            const ladder = f.filter((s) => !['newsletter_submit', 'bounce'].includes(s.step));
+            const aside = f.filter((s) => ['newsletter_submit', 'bounce'].includes(s.step));
             const fpct = (n) => (landed ? `${Math.round((n / landed) * 100)}%` : '—');
             return (
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <div className="text-sm font-medium text-gray-900 mb-1">/should-i-sell — conversion funnel</div>
+              <div key={key} className="bg-white border border-gray-200 rounded-lg p-4">
+                <div className="text-sm font-medium text-gray-900 mb-1">
+                  {label} — conversion funnel <span className="font-normal text-gray-400">· {note}</span>
+                </div>
                 <div className="text-xs text-gray-400 mb-3">Cookieless aggregate steps (no per-visitor ID). % is of Landed.</div>
                 <div className="space-y-1.5">
                   {ladder.map((s) => (
@@ -148,7 +156,7 @@ export default function TrafficTab({ fetchWithAuth }) {
                 )}
               </div>
             );
-          })()}
+          })}
 
           <p className="text-xs text-gray-400">
             Cookieless first-party beacon — no cookie, no stored IP, no consent banner required. Bots filtered by user-agent.
