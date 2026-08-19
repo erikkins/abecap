@@ -1657,23 +1657,18 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
             except Exception as ca_err:
                 print(f"⚠️ Cross-asset data failed (non-fatal): {ca_err}")
 
-            # SPY technical context
-            spy_technical = ""
+            # SPY trend facts — deterministic (real closes only): consecutive-session streak +
+            # 5-session return + distance from the 20-day high. Shared with the Maximizer briefing
+            # so both reads see the same real numbers and can lead with "down N straight sessions"
+            # instead of just the (slow) regime label.
             try:
-                spy_cache = scanner_service.data_cache.get('SPY')
-                if spy_cache is not None and len(spy_cache) >= 5:
-                    spy_5d_ret = (spy_cache['close'].iloc[-1] / spy_cache['close'].iloc[-5] - 1) * 100
-                    spy_20d_high = spy_cache['close'].iloc[-20:].max() if len(spy_cache) >= 20 else None
-                    spy_pct_from_high = ((spy_cache['close'].iloc[-1] / spy_20d_high - 1) * 100) if spy_20d_high else None
-                    parts = [f"SPY 5-day: {'+' if spy_5d_ret >= 0 else ''}{spy_5d_ret:.1f}%"]
-                    if spy_pct_from_high is not None and spy_pct_from_high < -3:
-                        parts.append(f"{spy_pct_from_high:.1f}% from 20-day high")
-                    spy_technical = " | ".join(parts)
+                from app.services.market_regime import spy_trend_facts
+                spy_technical = spy_trend_facts(scanner_service.data_cache)
             except Exception:
-                pass
+                spy_technical = ""
 
             cross_asset_block = "\n".join(cross_asset_lines) + "\n" if cross_asset_lines else ""
-            spy_tech_line = f"SPY technicals: {spy_technical}\n" if spy_technical else ""
+            spy_tech_line = f"{spy_technical}\n" if spy_technical else ""
 
             # Continuity breakdown: NEW today vs continuing-run vs re-signaling.
             # 'Re-signaling' means Day 1 of a return after a 2+ day gap — TODAY
@@ -1763,6 +1758,10 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
                 "- Never say 'our algorithm' or 'our model' — say 'the ensemble' or 'our signals'.\n"
                 "- Never give financial advice or say 'buy' / 'sell'.\n"
                 "- Reference specific tickers, regimes, or data points when interesting.\n"
+                "- MARKET DATA HONESTY: cite ONLY the exact numbers, streaks, and prices given in the "
+                "data block below (e.g. the 'SPY:' line, signal counts, market fear). NEVER invent, "
+                "estimate, or recall a number, percentage, streak, or price that isn't provided — if a "
+                "figure isn't listed, don't state it. You may phrase what's given, never embellish it.\n"
                 "- CRITICAL: You may ONLY name tickers that appear in the 'New today', 'Continuing runs', "
                 "or 'Re-signaling' lists below. NEVER invent or recall a ticker that isn't in those lists — "
                 "if it's not listed, it is not shown to the reader and naming it breaks trust. Held positions "
@@ -1813,8 +1812,8 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
             avoid_block = ""
             try:
                 recent = []
-                for _db in range(1, 12):
-                    if len(recent) >= 5:
+                for _db in range(1, 18):
+                    if len(recent) >= 8:
                         break
                     _snap = data_export_service.read_snapshot(
                         (date.today() - timedelta(days=_db)).strftime("%Y-%m-%d"))

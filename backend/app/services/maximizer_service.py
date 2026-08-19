@@ -193,10 +193,14 @@ async def emit_tier_fills(db, tier: str, fill_date, regime: str, fills: List[dic
 
 
 def generate_maximizer_briefing(held: int, new_today: int, regime: str,
-                                recent: List[str] = None) -> str:
+                                recent: List[str] = None, market_note: str = "") -> str:
     """AI daily briefing for the Maximizer book — book-posture voice (aggressive, breakout-
     hunting), generated once/day in the worker and cached in the snapshot. Fed its last few
-    briefings so it doesn't read templated. Falls back to a deterministic line if AI is down."""
+    briefings so it doesn't read templated, plus deterministic SPY trend facts (market_note) so
+    it's market-aware, not just regime-aware. Falls back to a deterministic line if AI is down.
+
+    market_note: a real-data SPY facts line (from market_regime.spy_trend_facts) — the ONLY market
+    numbers the briefing may cite; never let it invent figures."""
     recent = recent or []
     fallback = (
         f"Rotating-bull momentum is broad — your Maximizer book is riding {held} breakout "
@@ -208,6 +212,9 @@ def generate_maximizer_briefing(held: int, new_today: int, regime: str,
         "Preserver mode. Held breakouts wind down on their exit dates; new buys follow the "
         "Preserver book."
     )
+    # Make even the deterministic fallback market-aware (real facts only).
+    if market_note:
+        fallback = f"{market_note}. {fallback}"
     try:
         import httpx
         from app.core.config import settings
@@ -225,13 +232,18 @@ def generate_maximizer_briefing(held: int, new_today: int, regime: str,
             "ensemble'. NEVER use the word 'tape' for the market — say 'market', 'action', or "
             "'the session'. Convey the aggressive, time-boxed nature honestly (it's high-variance; "
             "don't oversell). Vary opening, structure, and rhythm every day — sound spontaneous.\n"
+            "MARKET DATA HONESTY: if a 'Market facts:' line is provided, you may cite ONLY those "
+            "exact SPY numbers/streaks; never invent, estimate, or recall a figure. If none is "
+            "given, state no market numbers at all.\n"
             + banned_summary_for_prompt()
         )
         avoid = ("\n\nYour last briefings (do NOT echo their opening, structure, or rhythm):\n"
                  + "\n".join(f"- {m}" for m in recent)) if recent else ""
+        mkt = f"\nMarket facts (cite ONLY these exact numbers): {market_note}" if market_note else ""
         user_prompt = (
             f"Regime: {regime}. The book holds {held} breakout name(s)"
             f"{f' and entered {new_today} today' if new_today else ' (no new entries today)'}."
+            f"{mkt}"
             f"{avoid}"
         )
         headers = {"x-api-key": settings.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
@@ -343,12 +355,17 @@ async def run_shadow_day(db, signal_date, regime, t30v_signals, data_cache, n_po
         recent_briefs = (await db.execute(
             select(MaximizerBookSnapshot.positions_json)
             .where(MaximizerBookSnapshot.snapshot_date < sd)
-            .order_by(MaximizerBookSnapshot.snapshot_date.desc()).limit(5)
+            .order_by(MaximizerBookSnapshot.snapshot_date.desc()).limit(8)
         )).scalars().all()
         recent = [pj.get("briefing") for pj in recent_briefs
                   if isinstance(pj, dict) and pj.get("briefing")]
         new_today = sum(1 for f in getattr(book, "day_fills", []) if f.get("side") == "buy")
-        briefing = generate_maximizer_briefing(len(book.pos), new_today, regime, recent)
+        try:
+            from app.services.market_regime import spy_trend_facts
+            _mkt = spy_trend_facts(data_cache)
+        except Exception:
+            _mkt = ""
+        briefing = generate_maximizer_briefing(len(book.pos), new_today, regime, recent, market_note=_mkt)
     except Exception as _be:
         print(f"⚠️ Maximizer briefing generate failed (non-fatal): {_be}")
 

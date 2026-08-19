@@ -907,6 +907,50 @@ class MarketRegimeService:
 market_regime_service = MarketRegimeService()
 
 
+def spy_trend_facts(data_cache: dict) -> str:
+    """Deterministic SPY trend facts for the daily market reads — computed ONLY from real SPY
+    closes, never estimated. Returns a compact factual line the AI briefing may PHRASE but must
+    not embellish (paired with a 'only cite provided numbers' prompt rule); returns '' when SPY
+    data is unavailable, so nothing is ever fabricated.
+
+    Facts: consecutive same-direction close streak (>=2 sessions), 5-session return, and distance
+    from the 20-day high — the pieces that let a read say 'S&P down a third straight session'
+    instead of falling back to the regime label.
+    """
+    try:
+        spy = data_cache.get('SPY') if data_cache else None
+        if spy is None or 'close' not in spy or len(spy) < 6:
+            return ""
+        closes = spy['close'].astype(float)
+        parts = []
+        # Consecutive up/down-close streak ending at the latest bar (>=2 to be a 'streak').
+        diffs = closes.diff().dropna()
+        if len(diffs):
+            last = diffs.iloc[-1]
+            if last != 0:
+                direction = 'down' if last < 0 else 'up'
+                n = 0
+                for d in reversed(diffs.tolist()):
+                    if (d < 0 and direction == 'down') or (d > 0 and direction == 'up'):
+                        n += 1
+                    else:
+                        break
+                if n >= 2:
+                    parts.append(f"{direction} {n} straight sessions")
+        # 5-session return (real).
+        r5 = (closes.iloc[-1] / closes.iloc[-6] - 1) * 100
+        parts.append(f"{'+' if r5 >= 0 else ''}{r5:.1f}% over 5 sessions")
+        # Distance from the 20-day high (always included, not just when steep).
+        if len(closes) >= 20:
+            hi20 = float(closes.iloc[-20:].max())
+            if hi20:
+                frm = (closes.iloc[-1] / hi20 - 1) * 100
+                parts.append("at its 20-day high" if frm >= -0.1 else f"{frm:.1f}% below its 20-day high")
+        return "SPY: " + " · ".join(parts) if parts else ""
+    except Exception:
+        return ""
+
+
 def get_regime_adjusted_params(regime: MarketRegime) -> dict:
     """
     Apply regime param_adjustments offsets to base config values.
