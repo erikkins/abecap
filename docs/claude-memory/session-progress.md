@@ -23,6 +23,9 @@ metadata:
 - Ads targeting WORKING (crash/protection intent, ~$2.70 CPC, on-thesis). But 0 conversions on $367 = PAGE problem not targeting. Funnel: /should-i-sell fold-through recovered to 46% (was 36%); real leak = offer→CTA (2 of 19 offer-viewers clicked, 11%). signup→Stripe leg TOO NEW to judge (events 2 days old, 3 opens, 1 maybe Erik). /momentum starved (~0 paid, needs volume).
 - NEXT (in a few days): redesign /should-i-sell OFFER/CTA/trust block (not the hero); Erik's signup idea = single-field email-first + prominent one-tap Google/Apple (revisit w/ sub-funnel data). Momentum needs impression volume to evaluate.
 
+## ▶ PERSONAL SOCIAL LAUNCH (Aug 19, copy delivered — no code)
+- Erik promoting RigaCap on his OWN socials (rare poster = high impact). Drafted "it's live" posts: Facebook (warm story-first, behavioral why, soft ask, link OK), Instagram (punchy + link-in-bio + brand launch card), Story (IG+FB, link sticker). Framing: founder-authentic not ad-copy; lead with WHY (investors lose to own panic not bad stocks); numbers light (compliance+braggy); [X years] placeholder for Erik. NOTE: LinkedIn Stories RETIRED 2021 → suggested a follow-up "founder's note" post instead (main LinkedIn post already done). OFFERED: spin a fresh launch card (social-launch-cards.html pipeline) + match Erik's voice if he pastes a past post.
+
 ## ▶ STILL OPEN
 - DOCS refresh: signal-intel + tech-arch UNCOMMITTED; PDF re-export + investor/marketing/sales sweep + 3 Qs. Commit ONLY design/documents.
 - Recently-closed (email+portal) auto-activates on first real Maximizer sells (~now/mid-Aug).
