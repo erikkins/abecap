@@ -7,19 +7,22 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 14–17 2026
+# Session snapshot — Aug 14–19 2026
 
 ## Frozen spec
-- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP PUBLIC; never say "tape" for the market ([[feedback_no_tape_brand_voice]]). PRINT DOCS=ink-on-white; WEB=claret/paper. perf_numbers SSOT. Web deploy=push main→"Deploy RigaCap" GHA + smoke api.rigacap.com/api/market-data-status→200. Admin app=mobile-admin/ EAS OTA (`eas update --channel preview`; Erik reopens). NO Google Ads API (Erik does ad UI). NEVER lambda update-function-configuration --environment / terraform apply w/o plan. RigaCap = PUBLISHER (no custody, no "your portfolio value" screen).
+- "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP PUBLIC; never say "tape" ([[feedback_no_tape_brand_voice]]). PRINT DOCS=ink-on-white; WEB=claret/paper. perf_numbers SSOT. Web deploy=push main→"Deploy RigaCap" GHA + smoke api.rigacap.com/api/market-data-status→200. Admin app=mobile-admin/ EAS OTA (channel preview; Erik reopens). NO Google Ads API (Erik does ad UI). RigaCap=PUBLISHER (no custody, no "your portfolio value" screen). NO HALLUCINATION: AI copy cites only real Python-computed facts.
 
 ## ✅ SHIPPED this session (all live)
-- Served-Maximizer PORTAL (2 books side-by-side, gauges, whole-shares, Rotation-watch fill). Maximizer EMAIL (Maximizer-first, scaled shares + vol-target, gauges, radar). Weight rounds WHOLE %. Admin app: weight-sorted positions + labeled equity + Recent transactions.
+- Served-Maximizer PORTAL (2 books, gauges, whole-shares, Rotation-watch fill) + Maximizer EMAIL (Maximizer-first, scaled shares+vol-target, gauges, radar, weight WHOLE %). Admin app: weight-sorted positions + labeled equity + Recent transactions.
 - Fixes: /api/auth/refresh admin banner; weekend test-email gate; Stripe stats; "tape" removed.
-- **TWO AD DOORS**: /should-i-sell (Preserver) + NEW /momentum (Maximizer, hold-period-first, "momentum with a floor", sets want_maximizer, prerendered). Both pointed w/ UTM, plumbing verified. ExploreMore band on both (explore_* events). mom_funnel + sis_funnel both in /api/admin/pageviews/summary; web TrafficTab + mobile Ads tab show both (data-driven).
-- **FUNNEL BLIND-SPOT FIXED (c88bc8c)**: ad-landing checkout goes via App.jsx auto-checkout effect (not AuthContext) which now fires `checkout_redirect` — before, ad-door conversions never logged "Reached Stripe" (the should-i-sell signup_open→0-Stripe = MEASUREMENT GAP, not dead funnel; historical 0 stays blind). Added `signup_submit`+`signup_success` (LoginModal: email/Google/Apple register) so signup_open→Stripe drop is localizable: open≫submit=modal friction; submit≫success=registration fail; success≫redirect=Stripe handoff. admin _funnel_order updated.
+- TWO AD DOORS: /should-i-sell (Preserver) + /momentum (Maximizer, hold-period-first). ExploreMore band both (explore_* events). Both funnels (sis_funnel+mom_funnel) in admin summary; web TrafficTab + mobile Ads tab show both.
+- FUNNEL BLIND-SPOT FIXED: App.jsx auto-checkout now fires checkout_redirect (ad-door path); added signup_submit+signup_success sub-steps (LoginModal email/Google/Apple). admin _funnel_order updated.
+- MARKET READS now SPY-trend-aware (a8674f0): market_regime.spy_trend_facts() = deterministic streak + 5-session return + from-20d-high (real closes, '' if missing → no fabrication). Base read + Maximizer briefing both fed it + "cite only provided numbers" prompt rule. Anti-repeat 5→8. Takes effect NEXT daily scan.
 
-## ▶ WATCH / NEXT
-- After a day+ of live door clicks: pull BOTH funnels (all steps) — see if 0-Stripe was a mirage or find the real leak step, then fix that one. Compare /momentum vs /should-i-sell. SIS fold-through: baseline 36%, today 52% (redesign call open, [[project_sis_funnel_watch]]).
-- ADS (Erik UI): shared neg list CLEAN; ad-group intent split correct; "trading signals" removed; DON'T switch to conversion bidding (~0 conv); prune search-terms reactively.
-- Recently-closed (email+portal) auto-activates on first real Maximizer sells (~mid-Aug).
-- DOCS refresh STILL OPEN: signal-intel + tech-arch UNCOMMITTED; PDF re-export + investor/marketing/sales sweep + 3 Qs. Commit ONLY design/documents.
+## ▶ WAIT-AND-WATCH (Erik: wait a couple days, revisit) — [[project_sis_funnel_watch]]
+- Ads targeting WORKING (crash/protection intent, ~$2.70 CPC, on-thesis). But 0 conversions on $367 = PAGE problem not targeting. Funnel: /should-i-sell fold-through recovered to 46% (was 36%); real leak = offer→CTA (2 of 19 offer-viewers clicked, 11%). signup→Stripe leg TOO NEW to judge (events 2 days old, 3 opens, 1 maybe Erik). /momentum starved (~0 paid, needs volume).
+- NEXT (in a few days): redesign /should-i-sell OFFER/CTA/trust block (not the hero); Erik's signup idea = single-field email-first + prominent one-tap Google/Apple (revisit w/ sub-funnel data). Momentum needs impression volume to evaluate.
+
+## ▶ STILL OPEN
+- DOCS refresh: signal-intel + tech-arch UNCOMMITTED; PDF re-export + investor/marketing/sales sweep + 3 Qs. Commit ONLY design/documents.
+- Recently-closed (email+portal) auto-activates on first real Maximizer sells (~now/mid-Aug).
