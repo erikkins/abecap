@@ -9,6 +9,14 @@ metadata:
 
 # Maximizer cold-start finding + warm-start requirement (Jul 21 2026)
 
+## 🚨 VERIFIED LIVE (Aug 20 2026) — the warm-start requirement was NOT applied to the live book
+- Discovered while trying to run a faithful start-date sweep (couldn't validate → found this instead). Verified via db_read on maximizer_book_snapshots + code (maximizer_service `_VOL_WIN=20`, `_vol_scale` returns 1.0 if `len(bk_eq_hist) < 21`).
+- Live Maximizer book: launched **Jul 8** (first fills Jul14–15), **re-based/format-changed Jul 24** (equity re-anchored $98,775.91, bk_eq_hist RESET to len 1). bk_eq_hist only **19 on Aug 19** → **vol_scale = 1.0 (brake OFF, full exposure) EVERY day of its life so far.** Self-warms ~Aug 21 as count crosses 21, but first ~6 weeks ran unbraked.
+- Equity path (real): +0.45% (Jul15 peak) → −3.21% (Jul31 trough) → **−1.69% / $98,311.30 (Aug19)**. (The −0.9%/$99,125 we'd cited was Aug 14 — it slipped.)
+- Cause: the book cold-started (bk_eq_hist accumulates from scratch, no backtest seed) + Jul-24 rebase wiped history — contra THIS file's "MUST warm-start (seed eq_hist from backtested equity)" rule. 0 live Maximizer subs so no customer harm yet, but affects book/track-record integrity.
+- FIX (proposed, AWAITING ERIK sign-off — load-bearing brake): seed bk_eq_hist from backtested breakout equity so vol_scale is warm day 1 + re-seed on any rebase. THEN tranche customer entry + run the faithful start-date sweep validated against the reproducible Jul-24+ new-format era (replay Jul-24 fwd → must reproduce $98,311.30 before trusting alt-start numbers). Sweep handler NOT built/deployed (fork correctly stopped at the validation gate).
+
+
 ## Question (Erik): does Maximizer beat SPY? Expected yes.
 Answer: NO over the Jun15→Jul20 drawdown window. Faithful replay (scripts/maximizer_backfill.py, pitfwu panel, breakout sleeve, n_pos=15):
 - **COLD-start Jun15 (brake off — eq_hist empty <21d, all-fresh pile-in at the top): −22.2%**
