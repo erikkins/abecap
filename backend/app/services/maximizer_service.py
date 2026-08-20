@@ -235,6 +235,9 @@ def generate_maximizer_briefing(held: int, new_today: int, regime: str,
             "MARKET DATA HONESTY: if a 'Market facts:' line is provided, you may cite ONLY those "
             "exact SPY numbers/streaks; never invent, estimate, or recall a figure. If none is "
             "given, state no market numbers at all.\n"
+            "SPY STREAK (mandatory): if the Market facts show a streak of 3+ straight sessions "
+            "(up or down), you MUST reference it — a sustained index move is always material. A "
+            "1-2 session wiggle is not a streak; don't force it.\n"
             + banned_summary_for_prompt()
         )
         avoid = ("\n\nYour last briefings (do NOT echo their opening, structure, or rhythm):\n"
