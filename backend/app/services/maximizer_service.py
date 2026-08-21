@@ -66,19 +66,51 @@ class MaximizerBook:
     def source_counts(self) -> Dict[str, int]:
         return {BREAKOUT_SOURCE: len(self.pos)} if self.pos else {}
 
-    def _vol_scale(self) -> float:
+    def _vol_scale(self, recent_closes: Dict[str, "pd.Series"] = None) -> float:
         """Barroso vol-target: target / trailing realized vol of the breakout sleeve (annualized,
-        LAGGED — computed from history BEFORE today, so causal), capped at 1.0. 1.0 until warm."""
-        if len(self.bk_eq_hist) < _VOL_WIN + 1:
+        LAGGED — computed from history BEFORE today, so causal), capped at 1.0.
+
+        WARM (>= _VOL_WIN+1 days of book equity): the CERTIFIED return-stream computation, kept
+        BYTE-IDENTICAL — the marketed Maximizer walk-forward maps to this penny-to-penny; do NOT
+        touch it.
+
+        COLD WINDOW (first ~21 days, before the book has its own return stream): instead of the old
+        vs=1.0 — brake OFF exactly when launch-timing risk bites (project_maximizer_coldstart_jul21)
+        — estimate the SAME quantity from the ACTUAL held positions' recent REAL closes:
+        value-weighted (by position value) daily returns over the last _VOL_WIN days, annualized,
+        lagged (today excluded). Converges to the certified return-stream vol once warm. Empty book
+        / no closes passed / no usable history → 1.0 (never fabricate)."""
+        if len(self.bk_eq_hist) >= _VOL_WIN + 1:
+            eq = pd.Series(self.bk_eq_hist[-(_VOL_WIN + 1):])
+            rv = float(eq.pct_change().std() * (252 ** 0.5))
+            if rv <= 0 or rv != rv:
+                return 1.0
+            return min(1.0, VOL_TARGET / rv)
+        # cold-window real-holdings-vol estimator (only reached while len(bk_eq_hist) < _VOL_WIN+1)
+        if not self.pos or not recent_closes:
             return 1.0
-        eq = pd.Series(self.bk_eq_hist[-(_VOL_WIN + 1):])
-        rv = float(eq.pct_change().std() * (252 ** 0.5))
+        cols, weights = {}, {}
+        for s, p in self.pos.items():
+            ser = recent_closes.get(s)
+            if ser is None or len(ser) < _VOL_WIN + 2:
+                continue
+            cols[s] = ser.iloc[:-1].tail(_VOL_WIN + 1).pct_change()   # drop today (causal) → 20 returns
+            weights[s] = p["shares"] * self.last.get(s, p["last"])
+        tot = sum(weights.values()) if weights else 0.0
+        if not cols or tot <= 0:
+            return 1.0
+        ret_df = pd.DataFrame(cols).dropna()
+        if ret_df.empty:
+            return 1.0
+        w = pd.Series({s: weights[s] / tot for s in cols})
+        rv = float(ret_df.mul(w, axis=1).sum(axis=1).std() * (252 ** 0.5))   # value-weighted port vol
         if rv <= 0 or rv != rv:
             return 1.0
         return min(1.0, VOL_TARGET / rv)
 
     def advance_day(self, today, active_source: str, candidates: List[dict],
-                    price_of: Dict[str, float], core_ret: float = 0.0) -> float:
+                    price_of: Dict[str, float], core_ret: float = 0.0,
+                    recent_closes: Dict[str, "pd.Series"] = None) -> float:
         """One trading day. candidates = ranked breakout names for today (empty unless the regime
         is routed to breakout). Returns the vol-scaled Maximizer equity. Records the day's discrete
         fills in self.day_fills (entries + hold-exits) for the per-tier STR log."""
@@ -129,7 +161,7 @@ class MaximizerBook:
         bk_eq = self._bk_equity()
         prev = self.bk_eq_hist[-1] if self.bk_eq_hist else CAP0
         r_bk = (bk_eq / prev - 1.0) if prev else 0.0
-        vs = self._vol_scale()                       # from PRIOR history (lagged), before append
+        vs = self._vol_scale(recent_closes)          # from PRIOR history (lagged), before append
         self.max_value *= (1.0 + vs * r_bk)
         self._last_vol_scale = vs                     # stamp on today's entry fills (STR)
         for f in self.day_fills:
@@ -330,8 +362,16 @@ async def run_shadow_day(db, signal_date, regime, t30v_signals, data_cache, n_po
         except Exception:
             pass
 
-    # 4) advance the book one trading day (gated breakout sleeve + book-level vol-target)
-    equity = book.advance_day(sd, src, book_cands, price_of)
+    # 4) advance the book one trading day (gated breakout sleeve + book-level vol-target).
+    #    COLD WINDOW only (fresh/rebased book, < _VOL_WIN+1 days of equity history): pass the held
+    #    names' real closes so the vol-brake estimates exposure from actual-holdings vol instead of
+    #    sitting at 1.0. Warm books use the certified return-stream path and ignore this, so skip
+    #    the work then (never touches the marketed/penny-to-penny warm mapping).
+    _rc = None
+    if len(book.bk_eq_hist) < _VOL_WIN + 1:
+        _rc = {s: df["close"] for s, df in data_cache.items()
+               if df is not None and getattr(df, "columns", None) is not None and "close" in df.columns}
+    equity = book.advance_day(sd, src, book_cands, price_of, recent_closes=_rc)
 
     # 4b) STR: persist today's discrete breakout fills (entries + hold-exits) to tier_fills.
     await emit_tier_fills(db, "maximizer", sd, regime, book.day_fills)
