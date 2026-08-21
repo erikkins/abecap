@@ -3841,6 +3841,111 @@ def handler(event, context):
             print(f"❌ Tier WF failed: {e}\n{tb}")
             return {"status": "failed", "error": str(e), "traceback": tb[:1500]}
 
+    # READ-ONLY Maximizer start-date sweep — how much the (warm-braked) breakout book's current
+    # return depends on LAUNCH DATE. Uses the CERTIFIED engine only (maximizer_portfolio.replay_sleeve
+    # 'breakout' gated to rotating_bull + vol_scaled_returns) = the pure breakout book (the live
+    # MaximizerBook object), NOT the Option-B tier blend. Each variant is WARMED by a ~30-td pre-roll
+    # so the sweep isolates launch timing from the (separately fixed) cold-start. No writes/mutation;
+    # calls the marketing/WF functions unchanged. Invoke: {"maximizer_start_sweep": {}}.
+    if event.get("maximizer_start_sweep") is not None:
+        cfg = event.get("maximizer_start_sweep") or {}
+        print("📊 Maximizer start-date sweep triggered (read-only)")
+        async def _run_sweep():
+            import numpy as _np
+            import pandas as _pd
+            from app.services.data_export import data_export_service as _dex
+            from app.services.maximizer_portfolio import replay_sleeve as _rs, vol_scaled_returns as _vsr
+            from app.services.tier_walkforward_service import compute_tier_walkforward as _ctw, ROTATING as _ROT
+            from sqlalchemy import text as _text
+            if 'SPY' not in scanner_service.data_cache:
+                _c = _dex.import_all()
+                if _c:
+                    scanner_service.data_cache = _c
+            dc = scanner_service.data_cache
+            spy = dc.get('SPY')
+            if spy is None or len(spy) < 260:
+                return {"status": "failed", "error": "no SPY / insufficient data"}
+            idx = _pd.DatetimeIndex(spy.index).normalize()
+            end = idx[-1]
+            regime_map = {}
+            async with async_session() as _db:
+                rows = (await _db.execute(_text(
+                    "SELECT snapshot_date, current_regime FROM regime_forecast_snapshots "
+                    "WHERE snapshot_date >= NOW() - INTERVAL '400 days'"))).all()
+                for d, r in rows:
+                    regime_map[d] = r
+            reg_by_date = {_pd.Timestamp(d).normalize(): v for d, v in regime_map.items()}
+            # ANCHOR: run the canonical certified dashboard function in-worker (proves the engine
+            # runs + gives the live trailing-365 tier number). NOTE: tier maximizer = Option-B BLEND,
+            # which differs from the pure breakout book we sweep — reported side-by-side, not matched.
+            anchor = None
+            try:
+                _tw = _ctw(dc, days=365, regime_map=regime_map)
+                if _tw:
+                    anchor = {"maximizer_blend": _tw["maximizer"], "preserver": _tw["preserver"],
+                              "diag": _tw.get("diag")}
+            except Exception as _ae:
+                anchor = {"error": str(_ae)}
+            def _breakout_vs_eq(start_ts):
+                se = _rs(dc, "breakout", start_ts, end, n_positions=15,
+                         entry_regimes={_ROT}, regime_by_date=reg_by_date)
+                if se is None or len(se) < 5:
+                    return None
+                vr = _vsr(se).fillna(0.0)
+                return _pd.Series((1.0 + vr).cumprod().values,
+                                  index=_pd.DatetimeIndex(se.index).normalize())
+            # pure-breakout trailing-365 (same object we sweep) — anchor cross-check for sanity
+            _t365 = _breakout_vs_eq(end - _pd.Timedelta(days=365))
+            breakout_365_total = round((_t365.iloc[-1] / _t365.iloc[0] - 1) * 100, 1) if _t365 is not None else None
+            lstart = _pd.Timestamp(cfg.get("start", "2026-06-23")).normalize()
+            lend = _pd.Timestamp(cfg.get("end", "2026-08-01")).normalize()
+            warm = int(cfg.get("warm_lookback_td", 30))
+            grid = [d for d in idx if lstart <= d <= lend]
+            if len(grid) > 12:  # bound runtime; keep ~10 + always include the real launch date
+                stride = max(1, len(grid) // 10)
+                strided = grid[::stride]
+                j8 = _pd.Timestamp("2026-07-08")
+                if j8 in grid and j8 not in strided:
+                    strided.append(j8); strided.sort()
+                grid = strided
+            results = []
+            for L in grid:
+                p = int(idx.get_indexer([L])[0])
+                if p < 0:
+                    continue
+                vs = _breakout_vs_eq(idx[max(0, p - warm)])
+                if vs is None:
+                    continue
+                base = vs.asof(L); tip = vs.asof(end)
+                if base is None or tip is None or base <= 0 or base != base or tip != tip:
+                    continue
+                results.append({"launch": L.strftime("%Y-%m-%d"), "ret_pct": round((tip / base - 1) * 100, 2)})
+            rets = _np.array([r["ret_pct"] for r in results], dtype=float)
+            if len(rets) == 0:
+                return {"status": "failed", "error": "no sweep results", "anchor": anchor}
+            _pct = lambda q: round(float(_np.percentile(rets, q)), 2)
+            spread = {"n": len(rets), "min": round(float(rets.min()), 2), "p25": _pct(25),
+                      "median": _pct(50), "mean": round(float(rets.mean()), 2), "p75": _pct(75),
+                      "max": round(float(rets.max()), 2),
+                      "std": round(float(rets.std(ddof=1)), 2) if len(rets) > 1 else 0.0}
+            usd_on_100k = {k: round(100000 * (1 + spread[k] / 100)) for k in ("min", "mean", "max")}
+            j8 = next((r for r in results if r["launch"] == "2026-07-08"), None)
+            j8_pct = round(float((rets < j8["ret_pct"]).mean() * 100)) if j8 else None
+            return {"status": "success", "anchor": anchor,
+                    "breakout_trailing365_total_pct": breakout_365_total,
+                    "launch_window": [grid[0].strftime("%Y-%m-%d"), grid[-1].strftime("%Y-%m-%d")],
+                    "warm_lookback_td": warm, "spread_pct": spread, "usd_on_100k": usd_on_100k,
+                    "jul8": j8, "jul8_percentile": j8_pct, "by_launch": results}
+        try:
+            result = _run_async(_run_sweep())
+            print(f"📊 sweep: {result.get('spread_pct')}")
+            return result
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            print(f"❌ sweep failed: {e}\n{tb}")
+            return {"status": "failed", "error": str(e), "traceback": tb[:1500]}
+
     # Handle regime forecast snapshot (writes to regime_forecast_snapshots table)
     if event.get("regime_forecast_snapshot"):
         print(f"📊 Regime forecast snapshot triggered - {len(scanner_service.data_cache)} symbols in cache")
