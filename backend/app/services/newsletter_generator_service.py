@@ -230,6 +230,96 @@ class NewsletterGeneratorService:
             logger.warning(f"Failed to load dashboard data: {e}")
             return {}
 
+    def _weekly_market_pack(self) -> str:
+        """Real WEEKLY facts for the recap — so §01 summarizes the WEEK, not a single EOD snapshot,
+        and never invents a regime-duration count. Every figure is computed from real data; anything
+        unavailable is OMITTED (never fabricated). Returns a text block (or '' if nothing computable):
+          - the current regime's UNBROKEN run (consecutive trading days / ~weeks) from market_context_history
+          - week-over-week (~5 trading day) moves for SPY / Nasdaq-100 / Small Caps / Gold / Treasuries
+            from real closes in scanner_service.data_cache
+          - the week's biggest single-day S&P move
+        """
+        lines = []
+        # --- regime run: consecutive trading days in the current regime (real, from history) ---
+        try:
+            import asyncio
+            from app.core.database import async_session
+            from sqlalchemy import text as sa_text
+            run = {}
+
+            async def _fetch_run():
+                async with async_session() as db:
+                    rows = await db.execute(sa_text(
+                        "SELECT date, regime FROM market_context_history ORDER BY date DESC LIMIT 200"
+                    ))
+                    recs = rows.fetchall()
+                    if not recs:
+                        return
+                    cur = recs[0][1]
+                    n, first = 0, recs[0][0]
+                    for d, rg in recs:
+                        if rg == cur:
+                            n += 1
+                            first = d
+                        else:
+                            break
+                    run.update(regime=cur, days=n, since=first)
+
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    pool.submit(lambda: asyncio.run(_fetch_run())).result(timeout=10)
+            else:
+                loop.run_until_complete(_fetch_run())
+            if run.get("days"):
+                wks = max(1, round(run["days"] / 5))
+                lines.append(
+                    f"REGIME RUN (real): the current regime ({run['regime']}) has held UNBROKEN for "
+                    f"{run['days']} consecutive trading days (~{wks} weeks), since {run['since']}. "
+                    f"State the regime's duration ONLY from this figure — NEVER invent a 'Nth week' count."
+                )
+        except Exception as e:
+            logger.warning(f"weekly regime-run compute failed (omitting): {e}")
+
+        # --- week-over-week asset moves from real closes (omit any symbol without clean history) ---
+        try:
+            import pandas as pd
+            from app.services.scanner import scanner_service
+            dc = getattr(scanner_service, "data_cache", {}) or {}
+            assets = [("SPY", "S&P 500"), ("QQQ", "Nasdaq-100"), ("IWM", "Small Caps"),
+                      ("GLD", "Gold"), ("TLT", "20-Year Treasuries")]
+            moves, spy_notable = [], None
+            for sym, name in assets:
+                df = dc.get(sym)
+                if df is None or "close" not in getattr(df, "columns", []) or len(df) < 6:
+                    continue
+                c = df["close"].astype(float)
+                wk = (c.iloc[-1] / c.iloc[-6] - 1) * 100
+                moves.append(f"{name} {'+' if wk >= 0 else ''}{wk:.1f}%")
+                if sym == "SPY":
+                    d5 = c.pct_change().tail(5) * 100
+                    if len(d5):
+                        idx = d5.abs().idxmax()
+                        val = float(d5.loc[idx])
+                        try:
+                            dayname = pd.Timestamp(idx).strftime("%A")
+                        except Exception:
+                            dayname = None
+                        spy_notable = f"{'+' if val >= 0 else ''}{val:.1f}%" + (f" ({dayname})" if dayname else "")
+            if moves:
+                lines.append(
+                    "WEEKLY MARKET MOVES (real, ~5 trading days / week-over-week — cite THESE for the "
+                    "week's action, NOT any single-day figure from the daily briefing): "
+                    + ", ".join(moves) + "."
+                )
+            if spy_notable:
+                lines.append(f"Biggest single S&P 500 day this week: {spy_notable}.")
+        except Exception as e:
+            logger.warning(f"weekly asset moves compute failed (omitting): {e}")
+
+        return "\n".join(lines)
+
     LEAD_STORY_KEY = "newsletter/next_lead_story.json"
 
     def get_pending_lead_story(self) -> Optional[str]:
@@ -428,11 +518,16 @@ class NewsletterGeneratorService:
         market_summary += f"\nStops triggered this week: {stops_count}."
         if profit_exits_count:
             market_summary += f"\nProfit exits this week: {profit_exits_count}."
+        # Real WEEKLY facts (regime-run length + week-over-week asset moves + biggest S&P day) so
+        # §01 recaps the WEEK and never invents a regime-duration. Prefer these over the daily briefing.
+        weekly_pack = self._weekly_market_pack()
+        if weekly_pack:
+            market_summary += f"\n\n{weekly_pack}"
         if market_context:
-            # Market COLOR only (index/sector/commodity moves from real market data). The
-            # COUNTS above are authoritative — never take a signal/position/stop number from
-            # this briefing, and never infer a prior-week comparison from it.
-            market_summary += f"\n\nMARKET COLOR (from the system's real-data briefing — use for texture like index/sector/commodity moves; do NOT take any signal/position/stop COUNT from here, those come only from the structured data above): {market_context}"
+            # LATEST DAILY briefing — BACKDROP/TEXTURE ONLY. Its % moves are a single-day snapshot,
+            # NOT the week: never present its day-specific figures as "this week." Weekly figures come
+            # from the WEEKLY MARKET MOVES block above. COUNTS come only from the structured data above.
+            market_summary += f"\n\nLATEST DAILY BRIEFING (backdrop/texture only — do NOT cite its single-day % moves as the week; use WEEKLY MARKET MOVES for weekly figures; never take a signal/position/stop COUNT from here): {market_context}"
 
         # Operator-set lead story: explicit param wins, else the pending S3 concept
         lead_story = lead_story or self.get_pending_lead_story()
@@ -452,11 +547,15 @@ Market data:
 
 Write 2-3 paragraphs explaining what the system is seeing in plain English. Translate the regime and data into something a smart non-trader would understand. Don't just list numbers — interpret them. What does this regime mean for how the system is behaving?
 
+THIS IS A WEEKLY RECAP — describe what happened over the WEEK, not just the latest day:
+- Use the WEEKLY MARKET MOVES block (week-over-week % for the S&P, Nasdaq, small caps, gold, treasuries) and the "biggest single S&P day" for the week's action. Do NOT present a single-day figure from the daily briefing as if it were the week.
+- REGIME DURATION: if you note how long the regime has run, state it ONLY using the REGIME RUN figure provided (e.g. "~16 weeks"). NEVER invent a count like "second week running" — a wrong duration is an instant credibility hit. If no REGIME RUN figure is given, don't state a duration at all.
+
 You may reference: number of fresh signals, watchlist count, open positions, stops triggered, profit exits — but ONLY the exact numbers from the "Market data" block above, and the S&P move + VIX. Do NOT make up any numbers. If the data says 1 stop, say 1; if 0, say 0.
 
 HARD NUMBER DISCIPLINE (this is where trust is won or lost):
 - COUNTS are authoritative ONLY from the structured data (fresh signals, watchlist, open positions, stops). NEVER take a count from the MARKET COLOR briefing, and NEVER invent a prior-week comparison ("up from 9 to 14") — you are not given last week's counts.
-- MARKET COLOR is allowed: index/sector/commodity moves that appear in the MARKET COLOR briefing (e.g. "gold up 2.3%") ARE real data — you may use them for texture. But do NOT invent color that isn't in the briefing, and never describe an individual holding by a specific industry ("a ride-hailing name") — the counts are all we know about the book's composition.
+- WEEKLY FIGURES come from the WEEKLY MARKET MOVES block (real week-over-week %) — cite those for "this week." The LATEST DAILY BRIEFING is a single-day snapshot: use it only for narrative backdrop, and NEVER present its day-specific % (e.g. "gold up 2%") as the week's move. Do NOT invent any figure that isn't in these blocks, and never describe an individual holding by a specific industry ("a ride-hailing name") — the counts are all we know about the book's composition.
 - WHICH BOOK: the position/signal counts describe the CORE model book. Maximizer runs a SEPARATE breakout book with its own holdings — do NOT imply the core counts ("20 positions", "these 8 signals") are Maximizer's. When you contrast the two settings, keep Maximizer's behavior conceptual (hunts breakouts, holds on a clock, sells on a hard exit) unless given its own numbers.
 
 CRITICAL: Do NOT use any specific ticker symbols anywhere (no AAPL, NVDA, RIOT, etc.). This newsletter goes to free readers. Refer to stocks generically: "a name," "one position," "a tech stock." Subscribers who want tickers get them in the daily digest.
@@ -499,19 +598,18 @@ Market context:
 
 Based on the current regime and market conditions, write EXACTLY 3 items — things the system is NOT doing right now, and why.
 
+TIER BALANCE (required): we run TWO settings — Preserver (protect) and Maximizer (grow, a breakout book). AT LEAST ONE of the 3 items MUST be about the Maximizer/breakout side, so the section never reads Preserver-only. A good mix is 2 Preserver-side + 1 Maximizer-side. Keep Maximizer behavior CONCEPTUAL (it hunts breakouts, holds on a ~29-day clock, sells on a hard time-stop, throttles exposure with a volatility target) — do NOT attach the core book's position/signal counts to it.
+
 Format: Wrap the ENTIRE first sentence of each item in **...** (the whole sentence bold, not just a lead-in phrase), then 1-2 more sentences unbolded. Example:
 **The system isn't chasing the extended tech names this week.** The momentum scores have diverged from price in ways that historically precede pullbacks. We might miss more upside. That's fine.
 
-Choose from ideas like:
-- Not chasing a specific hot sector
-- Not shorting anything (long-only by design)
-- Not touching small caps (volume/price filters)
-- Not adding positions in a weakening regime
-- Not panic-selling existing positions despite headlines
-- Not following the crowd into a popular trade
+Choose from ideas like —
+Preserver side: not chasing a hot sector; not shorting (long-only by design); not touching small caps (volume/price filters); not adding into a weakening regime; not panic-selling despite headlines; not following the crowd into a popular trade.
+Maximizer side: not forcing breakout entries when the regime isn't rewarding them; not white-knuckling a breakout past its ~29-day time-stop hoping for more; not doubling down when volatility spikes (the vol-target trims exposure instead); not chasing a breakout that's already extended far past its trigger.
 
 CRITICAL RULES:
 - Output EXACTLY 3 items, each starting with **bold text.**
+- AT LEAST ONE of the 3 items must be about the Maximizer/breakout side (see TIER BALANCE above). Never all-Preserver.
 - Do NOT include any preamble, section header, title, or intro text like "Right now, the system is:" — just the 3 items.
 - Do NOT include the closing italic sentence about "if you're looking for a system" — that's added separately.
 - Do NOT number them.
