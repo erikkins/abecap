@@ -4090,7 +4090,7 @@ function Dashboard() {
                                 return `${formatDate(raw)} at ${time}`;
                               })();
                               return (
-                                <div className="px-4 pt-3 pb-1 flex items-baseline justify-between gap-3">
+                                <div className="pt-3 pb-1 flex items-baseline justify-between gap-3">
                                   <span className="font-body text-[0.64rem] font-medium tracking-[0.22em] uppercase text-ink-mute">{dateLabel}</span>
                                   {lu && <span className="font-mono text-[0.72rem] text-ink-light tracking-wide whitespace-nowrap">Last updated: {lu}</span>}
                                 </div>
