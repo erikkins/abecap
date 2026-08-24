@@ -474,7 +474,7 @@ const PricingSection = ({ onGetStarted, founding }) => {
             Introductory rate, locked <strong className="text-claret font-medium">12 months</strong> &mdash; then $129/month, or <strong className="text-claret font-medium">$1,099/year</strong>. Start free, no card &mdash; upgrade when you&rsquo;re ready.
           </p>
           <ul className="list-none my-7 pt-6 border-t border-rule flex-1 space-y-1.5">
-            {['Every buy & sell call the model makes', 'Daily email digest', 'Entry, stop & exit levels', 'Regime-adaptive risk engine', 'Portfolio tracking dashboard', 'Direct reply line to Erik', 'Grandfathered on future features'].map(item => (
+            {['Every buy & sell call the model makes', 'Daily email digest', 'Entry, stop & exit levels', 'Regime-adaptive risk engine', 'Portfolio tracking dashboard'].map(item => (
               <li key={item} className="text-ink-mute text-[1rem] pl-5 relative before:content-['—'] before:absolute before:left-0 before:text-claret">{item}</li>
             ))}
           </ul>
