@@ -2062,6 +2062,7 @@ async def get_dashboard_data(
     fresh_days: int = 5,
     as_of_date: Optional[str] = None,
     preview_tier: Optional[str] = None,
+    preview_state: Optional[str] = None,
 ):
     """
     Unified dashboard endpoint.
@@ -2100,6 +2101,14 @@ async def get_dashboard_data(
     entitlement = resolve_entitlement(user, subscription)
     has_valid_sub = entitlement == "paid"
 
+    # QA harness (project_free_first_spec §5): an admin can preview any account state's UI via
+    # ?preview_state=free|active|trial|expired|past_due|canceled. 'active' → paid view; every other
+    # state → the free (proof-only) view. Non-admins can't use it. Composes with preview_tier.
+    _preview_state = preview_state if (user and user.is_admin()) else None
+    if _preview_state:
+        has_valid_sub = (_preview_state == "active")
+        entitlement = "paid" if has_valid_sub else "free"
+
     # --- Time-travel mode (admin only) — always compute live ---
     if as_of_date:
         if not user or not user.is_admin():
@@ -2134,6 +2143,7 @@ async def get_dashboard_data(
             'generated_at': cached.get('generated_at', datetime.now().isoformat()),
             'entitlement': 'free',
             'subscription_required': True,
+            'preview_state': _preview_state,  # admin QA only; None in normal serving
         }
         # These service modules are imported locally elsewhere in this file (and tier_serving
         # not until the paid path below) — import them here so the free seam can use them.
