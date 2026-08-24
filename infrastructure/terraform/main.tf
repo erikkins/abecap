@@ -1764,6 +1764,32 @@ resource "aws_lambda_permission" "monthly_universe_audit" {
   source_arn    = aws_cloudwatch_event_rule.monthly_universe_audit.arn
 }
 
+# Weekly universe refresh — re-ranks the FULL universe by 60-day avg volume and writes the
+# authoritative signals/universe-history/{date}.json that the scoped parquet load reads. Without
+# this the top-600 ossifies: the daily scan SKIPS the snapshot in parquet mode expecting this job
+# to own it (main.py ~2049), but the cron was never created. Saturday 20:00 UTC — before the
+# Sunday 00:00 pickle_rebuild (so it picks up new symbols) and well before Monday's scan.
+resource "aws_cloudwatch_event_rule" "universe_refresh" {
+  name                = "${local.prefix}-universe-refresh"
+  description         = "Weekly full-universe re-rank by 60d avg volume"
+  schedule_expression = "cron(0 20 ? * SAT *)"
+}
+
+resource "aws_cloudwatch_event_target" "universe_refresh" {
+  rule      = aws_cloudwatch_event_rule.universe_refresh.name
+  target_id = "lambda-universe-refresh"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ universe_refresh = true })
+}
+
+resource "aws_lambda_permission" "universe_refresh" {
+  statement_id  = "AllowUniverseRefreshEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.universe_refresh.arn
+}
+
 # ============================================================================
 # Quarterly deep audit — monthly audit + 90-day corp-actions replay.
 # 1st of Jan/Apr/Jul/Oct at 4 AM EDT (08:00 UTC).
