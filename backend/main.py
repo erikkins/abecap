@@ -2287,6 +2287,53 @@ def handler(event, context):
             return {"error": str(e)}
 
     # Handle dashboard cache export
+    if event.get("patch_breakout_radar"):
+        # Surgical: compute ONLY the Maximizer breakout radar and splice it into the EXISTING
+        # dashboard.json — signals + market reads left byte-for-byte untouched. Lets us light up
+        # the radar without a full scan / read regeneration.
+        print("🎯 Patching breakout_radar into dashboard.json (reads/signals untouched)")
+        async def _patch_radar():
+            import json as _json, boto3
+            from app.services.data_export import data_export_service
+            from app.services import tier_serving
+            from app.core.database import MaximizerBookSnapshot
+            if 'SPY' not in scanner_service.data_cache:
+                _c = data_export_service.import_all()
+                if _c:
+                    scanner_service.data_cache = _c
+            held = set()
+            async with async_session() as db:
+                snap = (await db.execute(
+                    select(MaximizerBookSnapshot).order_by(MaximizerBookSnapshot.snapshot_date.desc()).limit(1)
+                )).scalars().first()
+                if snap and isinstance(snap.positions_json, dict):
+                    held = {p.get("symbol") for p in (snap.positions_json.get("positions") or []) if p.get("symbol")}
+            radar = tier_serving.build_breakout_radar(scanner_service.data_cache, held)
+            dash = data_export_service.read_dashboard_json() or {}
+            _s3 = boto3.client('s3', region_name='us-east-1')
+            _bucket = "rigacap-prod-price-data-149218244179"
+            # Back up the CURRENT dashboard.json (exact bytes) BEFORE overwriting. Abort if the
+            # backup fails. Restore = copy backup_key back to signals/dashboard.json.
+            from datetime import datetime as _dt
+            _bak = f"signals/backups/dashboard.json.bak-{_dt.utcnow().strftime('%Y%m%dT%H%M%SZ')}"
+            try:
+                _s3.copy_object(Bucket=_bucket, Key=_bak,
+                                CopySource={'Bucket': _bucket, 'Key': 'signals/dashboard.json'})
+            except Exception as _be:
+                return {"status": "failed", "error": f"backup failed, patch aborted: {_be}"}
+            dash['breakout_radar'] = radar
+            _s3.put_object(Bucket=_bucket, Key='signals/dashboard.json',
+                           Body=_json.dumps(dash).encode(), ContentType='application/json')
+            return {"status": "success", "radar_count": len(radar),
+                    "sample": [r.get("symbol") for r in radar[:8]], "held_excluded": len(held),
+                    "market_context_preserved": bool(dash.get('market_context')),
+                    "backup_key": _bak}
+        try:
+            return _run_async(_patch_radar())
+        except Exception as e:
+            import traceback
+            return {"status": "failed", "error": str(e), "tb": traceback.format_exc()[:1200]}
+
     if event.get("export_dashboard_cache"):
         print("📦 Dashboard cache export requested")
         async def _export_dashboard():
