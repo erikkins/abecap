@@ -2135,6 +2135,10 @@ async def get_dashboard_data(
             'entitlement': 'free',
             'subscription_required': True,
         }
+        # These service modules are imported locally elsewhere in this file (and tier_serving
+        # not until the paid path below) — import them here so the free seam can use them.
+        from app.services.model_portfolio_service import model_portfolio_service
+        from app.services import tier_serving
         # (A) Closed-trade "We Called It" ledger — NAMED proof (closed trades only; past the
         # entry, fully resolved → not actionable).
         try:
