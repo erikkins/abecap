@@ -9093,6 +9093,18 @@ RigaCap Admin &middot; "Post now" publishes the draft immediately (one click, no
             regime = (dash.get('market_stats') or {}).get('regime_name', 'unknown')
             last_entry = dash.get('last_ensemble_entry_date') or 'n/a'
 
+            # Maximizer book status — give the breakout tier its due in the Signals section
+            # (the rows above are all Core/Preserver). Snapshot-only, no price data needed.
+            _max = None
+            try:
+                from app.services import tier_serving as _ts_h
+                from app.core.database import async_session as _hsess
+                async with _hsess() as _hdb:
+                    _max = await _ts_h.tier_public_summary(_hdb, 'maximizer')
+            except Exception as _me:
+                print(f"maximizer health summary err: {_me}")
+            radar_count = len(dash.get('breakout_radar', []) or [])
+
             pipeline_steps = plog.get('steps', [])
             bad_steps = [s for s in pipeline_steps if s.get('status') not in ('ok', 'success')]
 
@@ -9136,11 +9148,21 @@ RigaCap Admin &middot; "Post now" publishes the draft immediately (one click, no
                 + _row("MA200 valid", _pct(valid_ma200, total))
             )
             signal_rows = (
-                _row("Buy signals", f"{buy_count} ({fresh_count} fresh)")
+                _row("Buy signals (Preserver)", f"{buy_count} ({fresh_count} fresh)")
                 + _row("Watchlist", str(wl_count))
                 + _row("Last ensemble entry", str(last_entry))
                 + _row("Market regime", str(regime))
             )
+            if _max:
+                _mexp = _max.get('exposure')
+                _mexp_s = f"{_mexp*100:.0f}%" if isinstance(_mexp, (int, float)) else "n/a"
+                signal_rows += (
+                    _row("Maximizer book", f"{_max.get('holdings_count', 0)} holdings ({_max.get('new_today', 0)} new today)")
+                    + _row("Breakout radar", f"{radar_count} approaching")
+                    + _row("Maximizer exposure", _mexp_s)
+                )
+            else:
+                signal_rows += _row("Maximizer book", f"n/a (breakout radar {radar_count} approaching)")
             flags_html = ""
             if flags:
                 flag_items = "".join(
