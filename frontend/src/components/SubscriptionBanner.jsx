@@ -61,28 +61,39 @@ export default function SubscriptionBanner() {
     }
   };
 
-  if (!user.subscription) {
+  // Free-first (project_free_first_spec §7): a non-valid authenticated user is on the free/proof
+  // tier — no sub yet, or a trial whose full-product window phased out, or expired/canceled. Show a
+  // PERSISTENT "unlock the full product" CTA (Erik: always there for the free tier). past_due falls
+  // through to its own payment banner; active/valid-trial users have full access → no banner.
+  if (!hasValidSubscription && user.subscription?.status !== 'past_due') {
     return (
-      <div className="border border-rule-dark rounded p-5 mb-6 bg-paper-card">
-        <div className="flex items-center justify-between">
+      <div className="border border-claret/30 rounded p-5 mb-6 bg-claret/5">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <CreditCard className="text-claret flex-shrink-0" size={20} />
             <div>
-              <p className="font-medium text-ink">
-                Complete your signup to start your free trial
-              </p>
+              <p className="font-medium text-ink">Unlock the full product</p>
               <p className="text-sm text-ink-mute mt-1">
-                7-day free trial, then $129/month or $1,099/year
+                You&rsquo;re on the free view &mdash; subscribe to see today&rsquo;s live signals, book weights, and sell alerts. 30-day money-back guarantee.
               </p>
             </div>
           </div>
-          <button
-            onClick={() => handleUpgrade('monthly')}
-            disabled={loading}
-            className="px-5 py-2.5 bg-ink text-paper font-medium rounded-[2px] hover:bg-claret transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Loading...' : 'Start Free Trial'}
-          </button>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <button
+              onClick={() => handleUpgrade('monthly')}
+              disabled={loading}
+              className="px-4 py-2.5 border border-rule-dark text-ink font-medium rounded-[2px] hover:border-ink transition-colors disabled:opacity-50"
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => handleUpgrade('annual')}
+              disabled={loading}
+              className="px-4 py-2.5 bg-ink text-paper font-medium rounded-[2px] hover:bg-claret transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Loading…' : 'Annual'}
+            </button>
+          </div>
         </div>
       </div>
     );

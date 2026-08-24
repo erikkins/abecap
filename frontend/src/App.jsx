@@ -3177,6 +3177,18 @@ function Dashboard() {
               </div>
             )}
 
+            {/* "Where we are right now" — honest book-phase readout, shown in the trial/paid
+                dashboard too (the proof floor shows it via FreeProofView). project_free_first_spec. */}
+            {dashboardData?.current_phase?.text && !dashboardData?.subscription_required && (
+              <div className={`mb-4 rounded-[2px] border p-4 ${dashboardData.current_phase.phase === 'soft_patch' ? 'border-ink/15 bg-paper-deep' : 'border-positive/30 bg-positive/5'}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className={`w-4 h-4 ${dashboardData.current_phase.phase === 'soft_patch' ? 'text-ink-mute' : 'text-positive'}`} />
+                  <span className="text-xs font-medium uppercase tracking-wide text-ink-mute">Where we are right now</span>
+                </div>
+                <p className="text-sm text-ink leading-relaxed">{dashboardData.current_phase.text}</p>
+              </div>
+            )}
+
             {/* Regime Forecast Bar — shown for everyone incl. the proof floor (regime is market
                 context, not an actionable signal; Erik wants the regime control visible to free). */}
             {dashboardData?.regime_forecast && (

@@ -2347,9 +2347,19 @@ async def get_dashboard_data(
         print(f"⚠️ tier serving skipped (serving Core base): {e}")
         print(traceback.format_exc()[:1500])
 
+    # Honest "where we are right now" — the same readout the proof floor shows, surfaced in the
+    # trial/paid dashboard too (Erik: show in both).
+    _current_phase = None
+    try:
+        from app.services import tier_serving as _ts_phase
+        _current_phase = await _ts_phase.current_book_phase(db)
+    except Exception as _cpe:
+        print(f"⚠️ current_phase (paid) failed: {_cpe}")
+
     return {
         'regime_forecast': cached.get('regime_forecast'),
         'regime_adjustments': cached.get('regime_adjustments'),
+        'current_phase': _current_phase,
         'buy_signals': buy_signals,
         'breakout_book': breakout_book,
         'tier': tier_meta['tier'],

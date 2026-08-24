@@ -812,6 +812,12 @@ class User(Base):
         return result
 
 
+# Free-first (project_free_first_spec §7): a no-card signup trial runs 30 days as an account, but
+# the FULL product (live signals) is granted only for the first TRIAL_FULL_DAYS — after that it
+# phases out to the proof floor (anti-harvest of the current book + conversion urgency).
+TRIAL_FULL_DAYS = 14
+
+
 class Subscription(Base):
     """User subscription for trial and payment management"""
     __tablename__ = "subscriptions"
@@ -887,9 +893,15 @@ class Subscription(Base):
                 return now < self.current_period_end
             return True
 
-        # No-card 30-day trial (and carded Stripe trial) = full access until trial_end; after that
-        # it lapses to the proof floor (is_valid False), never a lockout.
         if self.status == "trial":
+            # Carded Stripe trial: full access for its whole Stripe window.
+            if self.stripe_subscription_id:
+                return (self.trial_end is None) or (now < self.trial_end)
+            # No-card trial: FULL product only for the first TRIAL_FULL_DAYS (14) — signals then
+            # phase out to the proof floor (anti-harvest + conversion urgency) while the account
+            # stays in 'trial' through trial_end (+30d) for winding-down nudges. Never a lockout.
+            if self.trial_start:
+                return now < self.trial_start + timedelta(days=TRIAL_FULL_DAYS)
             return bool(self.trial_end) and now < self.trial_end
 
         return False
