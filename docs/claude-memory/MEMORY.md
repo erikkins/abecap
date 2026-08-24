@@ -1,5 +1,8 @@
 # Stocker App - Key Learnings
 
+## ✒️ QUEUED NEWSLETTER TOPIC — "Pascal's Portfolio" (seeded Aug 24)
+- [Pascal → discipline + margin of safety](project_newsletter_pascal_topic.md) — FUTURE issue. Pascal's Wager = asymmetric payoff/margin-of-safety (Preserver put-option premium); "inability to sit quietly in a room" = behavior gap/overtrading (discipline engine, both tiers). Hook: "the discipline to sit still — and the one rule that decides when not to." Principle piece, numbers as light proof (Max DD −20.8 vs raw-mom −57).
+
 ## 🗣️ BRAND VOICE — never say "tape" for the market (Aug 17)
 - [No "tape" rule](feedback_no_tape_brand_voice.md) — Erik doesn't use "tape"; say market/action/conditions. Already enforced in maximizer_service AI prompt; grep new copy for it before shipping.
 
