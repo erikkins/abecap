@@ -6,6 +6,9 @@
 ## ✒️ QUEUED NEWSLETTER TOPIC — "Pascal's Portfolio" (seeded Aug 24)
 - [Pascal → discipline + margin of safety](project_newsletter_pascal_topic.md) — FUTURE issue. Pascal's Wager = asymmetric payoff/margin-of-safety (Preserver put-option premium); "inability to sit quietly in a room" = behavior gap/overtrading (discipline engine, both tiers). Hook: "the discipline to sit still — and the one rule that decides when not to." Principle piece, numbers as light proof (Max DD −20.8 vs raw-mom −57).
 
+## 💡 PREDICTION LEDGER idea (Aug 24) — scored regime forecasts → publishable track record
+- [Prediction ledger + scored calls](project_prediction_ledger_idea.md) — seed = regime_forecast_snapshots; ADD scoring→hit-rate→publish "our calls, graded." PROBABILISTIC only, never point-predict. Graded record is the product. Future/greenlight-pending.
+
 ## 🚫 NO PICKLE — live read path is PARQUET/PITFWU (Aug 24, Erik emphatic ×2)
 - [Stop saying pickle](feedback_no_pickle_parquet.md) — `PRICE_SOURCE=parquet`+`PITFWU_READ=true`, scoped partial reads. CLAUDE.md's "2GB pickle" language is STALE. Say parquet/PITFWU; for DB-derivable work read snapshots directly (price-source-agnostic).
 
