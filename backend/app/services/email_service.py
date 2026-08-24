@@ -2486,55 +2486,34 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
 
     async def send_onboarding_email(self, step: int, to_email: str, name: str, user_id: str = None) -> bool:
         """
-        Send an onboarding drip email.
+        Send an onboarding drip email for the free-first lifecycle.
 
-        Time-based (lifecycle, fired by day count from signup):
-          Step 1 (Day 1): How Your Signals Work (actionable end-to-end walkthrough)
-          Step 2 (Day 3): What to Expect — the honest version (churn-prevention)
-          Step 3 (Day 5): Your Trial Ends in 2 Days
-          Step 4 (Day 6): Last Day of Your Free Trial
-          Step 5 (Day 8): One Thing to Take With You (win-back)
+        New signup = 30-day no-card trial with FULL live access (both books)
+        for the first 14 days (TRIAL_FULL_DAYS), then access decays to the
+        proof floor (record + closed winners, no live names). Users
+        auto-mirror the model book — there is no manual record-entry
+        workflow. Signals only; subscribers execute at their own broker.
 
-        Event-triggered for subscribers (per marketing doc §14 — fire when
-        the named event occurs, not on a calendar):
-          Step 6: First trailing-stop hit (DR-005 in marketing doc)
-          Step 7: First profitable exit (DR-006)
-          Step 8: 7-day no-signal streak (DR-008)
+        Day-based schedule (see scheduler.send_onboarding_drip_emails):
+          Step 1 (Day 1):  Welcome — you're in, full access, how to act + sync your broker
+          Step 2 (Day 3):  One engine, two settings — Preserver vs Maximizer
+          Step 3 (Day 7):  Your first week, graded — value reinforcement, still full access
+          Step 4 (Day 12): CONVERSION (urgency) — full access winds down in 2 days, subscribe to keep it
+          Step 5 (Day 15): Access wound down — you're on the proof view now, unlock to get live back
+          Step 6 (Day 22): Proof + last nudge — a real closed winner, 30-day money-back, final ask
 
-        Re-engagement for trial-exited (no longer subscribers):
-          Step 9: Worked-example after a signal fires post-trial (RE-001)
-                  Renders {symbol}, {signal_date}, {entry_price},
-                  {trail_stop}, {regime_context} placeholders — caller
-                  supplies via str.format() before send. 24-48h delayed
-                  delivery per Marketing Rule guidance.
-          Step 10: 30-day "still here" check-in (RE-002)
-          Step 11: 90-day quarterly summary (RE-003)
-                   Renders {signal_count}, {cash_days}, {current_regime}.
-
-        ATTORNEY REVIEW REQUIRED before steps 9-11 fire publicly: the
-        worked-example mechanism in step 9 has Marketing Rule
-        implications. Per project_marketing_strategy_doc.md §14: "Run
-        by Juris (legal counsel) before shipping."
-
-        Step-6+ triggering is event-driven, not day-based — see scheduler
-        hooks (TODO) for when each one fires. Each is one-shot per
-        recipient (tracked separately for steps 6-8 vs 9-11 since
-        9-11 fire to former subscribers, not active ones).
+        Steps 1-3 send regardless of subscription status; steps 4-6 are
+        upgrade asks and skip already-converted (active) subscribers.
         """
         first_name = name.split()[0] if name else "there"
 
         subjects = {
-            1: "How Your Signals Work",
-            2: "What to expect (the honest version)",
-            3: "Your trial ends in 2 days",
-            4: "Last day of your free trial",
-            5: "One thing to take with you",
-            6: "About that trailing stop",
-            7: "Locked in",
-            8: "Quiet week",
-            9: "A signal you missed (worked example)",
-            10: "Still here",
-            11: "Quarterly check-in",
+            1: "You're in — full access starts now",
+            2: "One engine, two settings",
+            3: "Your first week, graded",
+            4: "Your live access winds down in 2 days",
+            5: "You're on the proof view now",
+            6: "We called it — proof, and one last door",
         }
 
         subject = f"RigaCap — {subjects.get(step, 'RigaCap')}"
@@ -2545,32 +2524,32 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                     {first_name},
                 </p>
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    I built RigaCap because I kept overriding my own rules at exactly the wrong moments. The system doesn't have that problem. Here's what it does each day — and, more usefully, what <em>you</em> do with it.
+                    You're in. From today you have <strong>full access to both books</strong> — every live signal, both settings — for your trial. No card, nothing to configure. This first note is the only one you really need to read closely, because it tells you how to act on what you see.
                 </p>
 
                 <div style="border-left: 2px solid #7A2430; padding: 20px 24px; background: #FAF7F0; margin: 28px 0;">
                     <p style="margin: 0 0 4px; font-family: 'Courier New', monospace; font-size: 10px; font-weight: 500; letter-spacing: 3px; text-transform: uppercase; color: #5A544E;">The Daily Rhythm</p>
                     <ol style="margin: 12px 0 0; padding: 0 0 0 20px; color: #141210; line-height: 2; font-size: 15px;">
                         <li><strong>4:30 PM ET, every market day</strong> — the system scans after the close</li>
-                        <li><strong>Every evening</strong> — you get the daily digest: the market read, the model's positions, and any new signals</li>
-                        <li><strong>If a stock qualifies</strong> — it's in that email with full details, and a signal card appears on your dashboard</li>
+                        <li><strong>Every evening</strong> — you get the daily digest: the market read, the model's positions, and any new moves</li>
+                        <li><strong>If a stock qualifies</strong> — it's in that email in full, and a signal card appears on your dashboard</li>
                         <li><strong>If nothing qualifies</strong> — the digest says so, and the model holds cash. "Nothing today" is an output, stated out loud.</li>
                     </ol>
                 </div>
 
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    An entry signal gives you three things: the ticker, the entry price, and the current stop level — a trailing stop that rises as the stock makes new highs and never moves down. It also shows what slice of the model portfolio the position represents, so you can size it to your own account.
+                    Here's the part that surprises people: <strong>there's no manual bookkeeping.</strong> Your view auto-mirrors the model book — when the model enters or exits, your dashboard updates. You never mark a trade "done" or key in a fill. The system keeps the record; you keep the returns.
                 </p>
 
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    Concretely: say tomorrow's scan flags ABC at $42. The email lands that evening with the entry, the stop level, and the weight. At your broker — next morning is fine, this isn't a race — you place the buy order and close the laptop. That's it. You don't set any stop orders, and there's nothing to watch intraday: <em>the system</em> tracks the trailing stop for you, ratcheting it up as the stock rises, and the dashboard always shows each position's current level. If price ever breaches it, you get a sell alert that says so plainly: sell ABC, here's why, here's the model's exit. You sell. That's the whole judgment call — there isn't one.
+                    What you <em>do</em> is act at your own broker — RigaCap sends signals, it never touches your money. Say tomorrow's scan flags ABC at $42. The email lands that evening with the entry, the current stop level, and the position weight. At your broker — next morning is fine, this isn't a race — you place the buy and close the laptop. You don't set stop orders and there's nothing to watch intraday: <em>the system</em> tracks the trailing stop, ratcheting it up as the stock rises. If price ever breaches it, you get a sell alert that says so plainly — sell ABC, here's why. That's the whole judgment call. There isn't one.
                 </p>
 
                 <table cellpadding="0" cellspacing="0" style="width:100%; border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; margin: 28px 0;">
                     <tr>
                         <td style="padding: 14px 16px 14px 0; border-right: 1px solid #DDD5C7;">
                             <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Entry Signal</div>
-                            <div style="font-family: Georgia, serif; font-size: 13px; color: #141210; margin-top: 4px;">Ticker, entry price, current stop level, position weight</div>
+                            <div style="font-family: Georgia, serif; font-size: 13px; color: #141210; margin-top: 4px;">Ticker, entry price, current stop level, position weight — you place it at your broker</div>
                         </td>
                         <td style="padding: 14px 16px;">
                             <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Sell Alert</div>
@@ -2580,7 +2559,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 </table>
 
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    One more thing worth saying on Day 1. Our live record began June 11, 2026 — it is days old, and I'll keep saying so. On its very first day, the system held 100% cash: nothing qualified, so it bought nothing. If that looks like a product doing nothing, I'd gently push back — knowing when not to buy is most of what you're paying for.
+                    A note on the shape of your trial, so nothing catches you off guard: you have full live access — every current name, both books — through <strong>day 14</strong>. I'll remind you before it changes. For now, open the dashboard and see what the model is actually holding today.
                 </p>
 
                 <div style="text-align: center; margin: 32px 0;">
@@ -2591,7 +2570,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 </div>
 
                 <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
-                    Tomorrow evening you'll receive your first daily digest. Day 3, I'll send you the email most services never send — what owning this actually feels like.
+                    Tomorrow evening you'll get your first daily digest. In a couple of days I'll explain the one choice you get to make: which of the two settings fits you.
                 </p>
             """,
             2: f"""
@@ -2599,97 +2578,86 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                     {first_name},
                 </p>
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    Day 3 feels like the right time for the email most services never send. Before you've formed habits, I want you to know what owning this strategy actually feels like — including the parts that don't sell subscriptions.
+                    You've seen a digest or two by now. Time for the one real choice RigaCap gives you: which setting you want it in. It's <strong>one engine, two settings</strong> — the same signal machinery, tuned for two different jobs. You pick at checkout; both are open to you during the trial.
                 </p>
 
                 <div style="border-top: 1px solid #DDD5C7; padding: 20px 0;">
-                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7A2430; margin: 0 0 8px;">Ⅰ / Quiet Weeks Are By Design</p>
-                    <p style="font-family: Georgia, serif; font-size: 18px; color: #141210; margin: 0 0 8px; font-weight: 500;">Some weeks, nothing happens.</p>
-                    <p style="font-size: 15px; color: #5A544E; margin: 0; line-height: 1.6;">The system buys only when its conditions are met and holds cash otherwise. If you need constant action to feel like you're investing, this will frustrate you — better to know that now.</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7A2430; margin: 0 0 8px;">Setting One / Preserver</p>
+                    <p style="font-family: Georgia, serif; font-size: 18px; color: #141210; margin: 0 0 8px; font-weight: 500;">Built to protect capital first.</p>
+                    <p style="font-size: 15px; color: #5A544E; margin: 0; line-height: 1.6;">A wide 30% trailing stop lets positions breathe through normal noise and gets you out before a real break turns into a rout. It gives up bull-market bragging rights to almost never hand you a reason to panic. If your instinct is "don't lose the money," this is your setting.</p>
                 </div>
 
                 <div style="border-top: 1px solid #DDD5C7; padding: 20px 0;">
-                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7A2430; margin: 0 0 8px;">Ⅱ / It Trails the Index in Calm Markets</p>
-                    <p style="font-family: Georgia, serif; font-size: 18px; color: #141210; margin: 0 0 8px; font-weight: 500;">In our 21-year walk-forward, Preserver beat the S&amp;P in only about 17% of rolling 3-year windows.</p>
-                    <p style="font-size: 15px; color: #5A544E; margin: 0; line-height: 1.6;">Its wins concentrate around the years markets break. In 2008 it finished roughly flat while the index fell about 37%. Worst drawdown across 21 walk-forward years: 13.7% — over a span in which the index lost more than half its value twice, and a raw momentum portfolio fell 57%. You give up bull-market bragging rights to get that. (Maximizer, the aggressive setting, takes more drawdown and beats the market.)</p>
-                </div>
-
-                <div style="border-top: 1px solid #DDD5C7; padding: 20px 0;">
-                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7A2430; margin: 0 0 8px;">Ⅲ / The Math It's Actually Built For</p>
-                    <p style="font-family: Georgia, serif; font-size: 18px; color: #141210; margin: 0 0 8px; font-weight: 500;">Investors reliably collect less than their strategies earn.</p>
-                    <p style="font-size: 15px; color: #5A544E; margin: 0; line-height: 1.6;">The gap is behavior — mostly panic-selling somewhere near a bottom. We modeled an investor who capitulates at a 25% drawdown: on Preserver's walk-forward path, that trigger never fired in 21 years. The deepest point was 13.7%. The strategy is built so you never get a reason to quit at the worst moment.</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7A2430; margin: 0 0 8px;">Setting Two / Maximizer</p>
+                    <p style="font-family: Georgia, serif; font-size: 18px; color: #141210; margin: 0 0 8px; font-weight: 500;">Built to grow — with a seatbelt.</p>
+                    <p style="font-size: 15px; color: #5A544E; margin: 0; line-height: 1.6;">Leans into breakouts and adds a volatility brake that pulls in when conditions get rough, plus a roughly 29-day time-stop so capital doesn't sit dead in a name that stalls. More drawdown than Preserver, more upside in trending markets. If your instinct is "put it to work," this is your setting.</p>
                 </div>
 
                 <div style="border-left: 2px solid #7A2430; padding: 16px 20px; background: #FAF7F0; margin: 24px 0;">
                     <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 16px; color: #141210; line-height: 1.6;">
-                        An independent analyst who reviewed the strategy graded it two ways: an F for someone trying to maximize bull-market returns, an A for someone trying to preserve and compound capital. Same product. The grade depends on who's holding it.
+                        Same product, graded two ways: an F for someone trying to beat the market every year, an A for someone trying to preserve and compound. The grade depends on who's holding it — which is exactly why you get to choose the setting.
                     </p>
                 </div>
 
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    So, plainly: if you need to beat the market every year, this isn't your product — and I'd rather say that on Day 3 than read it in your cancellation survey. If what you want is to stay fully invested through whatever comes next, without ever being the person who sold at the bottom, you're in the right place.
+                    Reading the digest is simple once you know this. <strong>"Today's Moves"</strong> is just the sync list: what the model bought, what it sold. You mirror those at your broker to stay in step. Green means a new entry to place; a sell alert means close a position. Nothing listed means nothing to do — hold.
                 </p>
 
                 <div style="text-align: center; margin: 32px 0;">
                     <a href="https://rigacap.com/app"
                        style="display: inline-block; background: #141210; color: #F5F1E8; font-size: 13px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; padding: 14px 36px; text-decoration: none;">
-                        Open Dashboard
+                        See Both Books
                     </a>
                 </div>
+
+                <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
+                    You don't have to decide today — both are live for you this week. Just start noticing which one you'd actually want to live in.
+                </p>
             """,
             3: f"""
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
                     {first_name},
                 </p>
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    Your free trial ends in <strong>2 days</strong>. Before you decide, here is the record as honestly as I can state it. All of it is walk-forward — our live record began June 11, 2026, and is days old. It posts publicly from here, good or bad.
+                    One week in. This note is just a checkpoint — no ask attached. You still have <strong>full live access to both books</strong>, and I want you to get the most out of the days that are left.
                 </p>
 
-                <table cellpadding="0" cellspacing="0" style="width:100%; border-top: 2px solid #141210; border-bottom: 1px solid #141210; margin: 28px 0;">
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
+                    Look back at what actually happened this week rather than what a chart might have tempted you to do. A few honest questions worth sitting with:
+                </p>
+
+                <table cellpadding="0" cellspacing="0" style="width:100%; border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; margin: 28px 0;">
                     <tr>
-                        <td style="padding: 16px 16px 16px 0; border-right: 1px solid #DDD5C7; text-align: center;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Preserver Return</div>
-                            <div style="font-family: Georgia, serif; font-size: 32px; color: #141210; margin-top: 4px;">7.7%</div>
-                            <div style="font-family: 'Courier New', monospace; font-size: 11px; color: #6B6356; margin-top: 2px;">/yr · 21-yr walk-forward</div>
+                        <td style="padding: 14px 16px 14px 0; border-right: 1px solid #DDD5C7;">
+                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">The Regime</div>
+                            <div style="font-family: Georgia, serif; font-size: 13px; color: #141210; margin-top: 4px;">What did the market read say each evening — was the model leaning in, or holding cash?</div>
                         </td>
-                        <td style="padding: 16px; border-right: 1px solid #DDD5C7; text-align: center;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Worst Drawdown</div>
-                            <div style="font-family: Georgia, serif; font-size: 32px; color: #141210; margin-top: 4px;">13.7%</div>
-                            <div style="font-family: 'Courier New', monospace; font-size: 11px; color: #6B6356; margin-top: 2px;">Index lost half, twice</div>
-                        </td>
-                        <td style="padding: 16px 0 16px 16px; text-align: center;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Sharpe</div>
-                            <div style="font-family: Georgia, serif; font-size: 32px; color: #141210; margin-top: 4px;">0.87</div>
-                            <div style="font-family: 'Courier New', monospace; font-size: 11px; color: #6B6356; margin-top: 2px;">vs index 0.54</div>
+                        <td style="padding: 14px 16px;">
+                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">The Book</div>
+                            <div style="font-family: Georgia, serif; font-size: 13px; color: #141210; margin-top: 4px;">Did any signals fire? Did a stop move up under a position you were watching?</div>
                         </td>
                     </tr>
                 </table>
 
-                <p style="font-size: 15px; color: #5A544E; margin: 0 0 24px 0; line-height: 1.6;">
-                    For scale on that Sharpe: Buffett's lifetime figure is 0.79 ("Buffett's Alpha," 2018) — Preserver's 0.87 edges it, with the honest caveat that our pre-2016 data flatters the early years. A typical two-year stretch ran about +20.8% for Preserver and +57.5% for Maximizer, but I'd rather you anchor on the 21-year number. Bull markets flatter everyone.
-                </p>
-
                 <div style="border-left: 2px solid #7A2430; padding: 16px 20px; background: #FAF7F0; margin: 24px 0;">
                     <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 16px; color: #141210; line-height: 1.6;">
-                        On the fee: what you're buying isn't a hot streak, it's the absence of a reason to panic. One panic-sale near a bottom — selling, then buying back higher — costs a serious portfolio more than years of any subscription. That's the comparison I'd make, not fee versus return.
+                        If your week was quiet, that's not a dead product — it's the discipline showing. The system only buys when its conditions are met and holds cash otherwise. Learning to sit still through a quiet stretch is most of what you're here to practice.
                     </p>
                 </div>
 
-                <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0; text-align: center;">
-                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E; margin: 0 0 8px;">Founding Rate · First 100</p>
-                    <p style="font-family: Georgia, serif; font-size: 24px; color: #141210; margin: 0 0 4px;">$59/month, locked for 12 months</p>
-                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 0;">While founding seats remain · standard rate $129/month or $1,099/year</p>
-                </div>
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
+                    The most useful thing you can do with the rest of your full-access window is watch how the model behaves and check it against your own instincts. When did you feel the itch to override it? Note that. That gap — between what you'd have done and what the system did — is the whole reason this exists.
+                </p>
 
                 <div style="text-align: center; margin: 32px 0;">
-                    <a href="https://rigacap.com/#pricing"
+                    <a href="https://rigacap.com/app"
                        style="display: inline-block; background: #141210; color: #F5F1E8; font-size: 13px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; padding: 14px 36px; text-decoration: none;">
-                        Subscribe
+                        Review Your Week
                     </a>
                 </div>
 
                 <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
-                    Questions? Reply to this email — it comes straight to me.
+                    Anything unclear about what you're seeing? Reply — it comes straight to me. — Erik
                 </p>
             """,
             4: f"""
@@ -2697,52 +2665,35 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                     {first_name},
                 </p>
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    Your free trial ends today. After tonight the dashboard and signal emails stop — that's the whole consequence. No tricks, nothing retroactive.
+                    Straight to it: <strong>your full live access winds down in 2 days.</strong> On day 14 the live signals switch off. After that you keep an honest proof view — the record and the closed winners — but the current names, both books, and the exit alerts go quiet unless you subscribe.
                 </p>
 
-                <p style="font-size: 17px; color: #141210; margin: 0 0 16px 0; line-height: 1.65;">
-                    The facts, one more time:
-                </p>
-
-                <table cellpadding="0" cellspacing="0" style="width:100%; border-collapse: collapse; margin: 0 0 24px 0;">
-                    <tr>
-                        <td style="padding: 12px 16px 12px 0; border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">21-year walk-forward</td>
-                        <td style="padding: 12px 0; border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; text-align: right; font-family: 'Courier New', monospace; font-size: 15px; color: #141210; font-weight: bold;">Preserver 7.7% a year</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px 16px 12px 0; border-bottom: 1px solid #DDD5C7; font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Worst drawdown</td>
-                        <td style="padding: 12px 0; border-bottom: 1px solid #DDD5C7; text-align: right; font-family: 'Courier New', monospace; font-size: 15px; color: #2D5F3F; font-weight: bold;">&minus;13.7% <span style="color: #8A8279; font-weight: normal; font-size: 13px;">(index: lost half, twice)</span></td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px 16px 12px 0; border-bottom: 1px solid #DDD5C7; font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">2008</td>
-                        <td style="padding: 12px 0; border-bottom: 1px solid #DDD5C7; text-align: right; font-family: 'Courier New', monospace; font-size: 15px; color: #141210; font-weight: bold;">+0.1% <span style="color: #8A8279; font-weight: normal; font-size: 13px;">(index: &minus;37%)</span></td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 12px 16px 12px 0; border-bottom: 1px solid #DDD5C7; font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Live record</td>
-                        <td style="padding: 12px 0; border-bottom: 1px solid #DDD5C7; text-align: right; font-family: 'Courier New', monospace; font-size: 15px; color: #7A2430; font-weight: bold;">began June 11, 2026</td>
-                    </tr>
-                </table>
+                <div style="border-left: 2px solid #7A2430; padding: 20px 24px; background: #FAF7F0; margin: 28px 0;">
+                    <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 17px; color: #141210; line-height: 1.65;">
+                        The signals only help if you can see them the evening they fire — not a week later as a case study. That's the whole thing you'd be keeping: today's moves, in real time, while there's still time to act on them.
+                    </p>
+                </div>
 
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    The live record is days old, and it posts publicly from here — good or bad. You can check it whether you subscribe or not. That's the deal.
+                    Subscribe before day 14 and nothing changes — the live signals, both books, and the sell alerts stay on without a gap. Wait, and you'll be looking at yesterday's winners instead of today's setups.
                 </p>
 
-                <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0;">
-                    <p style="font-family: Georgia, serif; font-size: 17px; color: #141210; margin: 0; line-height: 1.65;">
-                        If Tuesday's honest-version email read like a warning, trust that instinct and let the trial lapse — no hard feelings. If it read like the thing you've been looking for, the founding rate ($59/month, first 100 subscribers, locked for a year) is still open.
-                    </p>
+                <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0; text-align: center;">
+                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E; margin: 0 0 8px;">What You Keep</p>
+                    <p style="font-family: Georgia, serif; font-size: 22px; color: #141210; margin: 0 0 6px;">Live signals · both books · exit alerts</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 0; line-height: 1.7;">Introductory rate, locked 12 months · 30-day money-back<br>Choose your setting — Preserver or Maximizer — at checkout</p>
                 </div>
 
                 <div style="text-align: center; margin: 32px 0;">
                     <a href="https://rigacap.com/#pricing"
                        style="display: inline-block; background: #141210; color: #F5F1E8; font-size: 13px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; padding: 16px 40px; text-decoration: none;">
-                        Subscribe
+                        Keep My Access
                     </a>
-                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin-top: 8px;">$59/month founding · $129/month standard · $1,099/year · Cancel anytime</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin-top: 8px;">Introductory pricing · 12-month lock · 30-day money-back guarantee</p>
                 </div>
 
                 <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
-                    Either way, thanks for giving it a week. Reply if anything was unclear — it comes straight to me. — Erik
+                    If you're on the fence, reply and tell me what's holding you up — it comes straight to me. — Erik
                 </p>
             """,
             5: f"""
@@ -2750,38 +2701,34 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                     {first_name},
                 </p>
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    Your trial ended a couple of days ago and you didn't subscribe. Maybe the answer was simply no — that's fine, and I'm not going to fill your inbox arguing with it. This product is built for a specific kind of investor, and pretending otherwise helps neither of us.
+                    Your full-access window closed, so I'll be straight about what changed. <strong>You're on the proof view now.</strong> Not a lockout — you can still open the dashboard, still see the live record as it posts, still see the closed winners the model has booked. What you can't see anymore are the live calls: today's entries, the current positions in each book, and the sell alerts.
                 </p>
 
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    One thing worth taking with you, whatever you do next:
-                </p>
-
-                <div style="border-left: 2px solid #7A2430; padding: 16px 20px; background: #FAF7F0; margin: 24px 0;">
-                    <p style="margin: 0 0 14px 0; font-family: Georgia, serif; font-style: italic; font-size: 16px; color: #141210; line-height: 1.6;">
-                        The biggest threat to your returns isn't picking the wrong stock. It's selling the right portfolio at the worst moment.
-                    </p>
-                    <p style="margin: 0 0 14px 0; font-family: Georgia, serif; font-style: italic; font-size: 16px; color: #141210; line-height: 1.6;">
-                        Decide your exit rules before you're scared, write them down, and honor them.
-                    </p>
-                    <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 16px; color: #141210; line-height: 1.6;">
-                        Most of the damage investors do to themselves happens in a single bad week.
+                <div style="border-left: 2px solid #7A2430; padding: 20px 24px; background: #FAF7F0; margin: 28px 0;">
+                    <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 17px; color: #141210; line-height: 1.65;">
+                        The proof view is there so you can keep checking our homework — the record posts publicly, good or bad. But a record you can only read after the fact doesn't help your account. The live signals do.
                     </p>
                 </div>
 
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    That advice is free and works without us. If part of why you passed was wanting those rules enforced for you rather than by willpower, the door stays open — same price as everyone, no games.
+                    If the two weeks were enough to tell you this isn't your product, let it rest here — no hard feelings, and the proof view stays open if you want to keep watching from a distance. If they told you the opposite, one click puts the live signals, both books, and the exit alerts back on.
                 </p>
+
+                <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0; text-align: center;">
+                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E; margin: 0 0 8px;">Unlock The Live Calls</p>
+                    <p style="font-family: Georgia, serif; font-size: 22px; color: #141210; margin: 0 0 6px;">Introductory rate, locked 12 months</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 0;">30-day money-back · choose Preserver or Maximizer at checkout</p>
+                </div>
 
                 <div style="text-align: center; margin: 32px 0;">
                     <a href="https://rigacap.com/#pricing"
                        style="display: inline-block; background: #141210; color: #F5F1E8; font-size: 13px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; padding: 14px 36px; text-decoration: none;">
-                        Reactivate
+                        Get The Live Signals Back
                     </a>
                 </div>
 
                 <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
-                    If something else wasn't right, reply and tell me. I read every response. — Erik
+                    If something specific didn't land during the trial, reply and tell me. I read every response. — Erik
                 </p>
             """,
             6: f"""
@@ -2789,210 +2736,53 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                     {first_name},
                 </p>
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    A trailing stop just fired on one of your positions. That can feel like a loss — and on this trade, financially, it was. But the stop firing isn't the system failing. It's the system doing the hardest job in trading.
-                </p>
-
-                <div style="border-left: 2px solid #7A2430; padding: 20px 24px; background: #FAF7F0; margin: 28px 0;">
-                    <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 17px; color: #141210; line-height: 1.65;">
-                        Discretionary traders override stops constantly. "It'll come back." "Just one more day." That's how a 12% loss becomes a 30% loss. The system doesn't have that conversation.
-                    </p>
-                </div>
-
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    Trailing stops aren't designed to maximize a single trade. They're designed to keep losses bounded across hundreds of trades. The math only works if every stop fires — including this one. The next signal already ranks fresh; that's where capital goes next.
-                </p>
-
-                <table cellpadding="0" cellspacing="0" style="width:100%; border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; margin: 28px 0;">
-                    <tr>
-                        <td style="padding: 14px 16px 14px 0; border-right: 1px solid #DDD5C7;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">What You Avoided</div>
-                            <div style="font-family: Georgia, serif; font-size: 13px; color: #141210; margin-top: 4px;">A losing position closed by its published stop before it could compound</div>
-                        </td>
-                        <td style="padding: 14px 16px;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">What's Next</div>
-                            <div style="font-family: Georgia, serif; font-size: 13px; color: #141210; margin-top: 4px;">Capital redeploys to the strongest current signal</div>
-                        </td>
-                    </tr>
-                </table>
-
-                <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
-                    If you're tempted to override the next one, reply and tell me — I'll talk you out of it. — Erik
-                </p>
-            """,
-            7: f"""
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    {first_name},
-                </p>
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    One of your positions just closed at a profit. The trailing stop did its other job — letting a winner run, then closing it before the gain evaporated. Worth pausing on what happened, because most retail traders never see this trade end this way.
-                </p>
-
-                <div style="border-left: 2px solid #7A2430; padding: 20px 24px; background: #FAF7F0; margin: 28px 0;">
-                    <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 17px; color: #141210; line-height: 1.65;">
-                        The instinct on a winner is to take it early — "lock it in before it gives back." That instinct is exactly why most retail underperforms. Winners need room to compound; losers need to be cut.
-                    </p>
-                </div>
-
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    The system doesn't care that you "had a feeling" about exiting earlier. It tracks the high water mark and only closes when the trail breaches. The trade ended where the math said it should end — not where your emotions wanted it to.
-                </p>
-
-                <table cellpadding="0" cellspacing="0" style="width:100%; border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; margin: 28px 0;">
-                    <tr>
-                        <td style="padding: 14px 16px 14px 0; border-right: 1px solid #DDD5C7;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Win/Loss Ratio</div>
-                            <div style="font-family: Georgia, serif; font-size: 13px; color: #141210; margin-top: 4px;">Winners average 1.7× the size of losers</div>
-                        </td>
-                        <td style="padding: 14px 16px;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Why It Works</div>
-                            <div style="font-family: Georgia, serif; font-size: 13px; color: #141210; margin-top: 4px;">Asymmetric outcomes, executed without flinching</div>
-                        </td>
-                    </tr>
-                </table>
-
-                <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
-                    Worth a small celebration. Not a strategy change. — Erik
-                </p>
-            """,
-            9: f"""
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    {first_name},
-                </p>
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    Your trial ended quiet. Most of it landed in a stretch where the system stayed in cash, so you never saw a signal fire — and that's a tough way to evaluate something. I get it.
-                </p>
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    But yesterday, the system did fire. Here's what subscribers saw — delivered as a worked example, not a trade idea. The window has closed; this is what happened.
+                    Last note from me on this. Rather than argue, I'll just show you one. Since your access wound down, the model closed a position the way it's supposed to — let a winner run, then booked it when the trail said so. This is the kind of call the live signals put in front of subscribers the evening it happens.
                 </p>
 
                 <table cellpadding="0" cellspacing="0" style="width:100%; border-top: 2px solid #141210; border-bottom: 1px solid #141210; margin: 28px 0;">
                     <tr>
                         <td style="padding: 16px 16px 16px 0; border-right: 1px solid #DDD5C7; text-align: center;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Signal</div>
-                            <div style="font-family: Georgia, serif; font-size: 22px; color: #141210; margin-top: 4px;">{{symbol}}</div>
-                            <div style="font-family: 'Courier New', monospace; font-size: 11px; color: #6B6356; margin-top: 2px;">{{signal_date}}</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">We Called It</div>
+                            <div style="font-family: Georgia, serif; font-size: 22px; color: #141210; margin-top: 4px;">Closed Winner</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 11px; color: #6B6356; margin-top: 2px;">On the public record</div>
                         </td>
                         <td style="padding: 16px; border-right: 1px solid #DDD5C7; text-align: center;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Entry</div>
-                            <div style="font-family: Georgia, serif; font-size: 20px; color: #141210; margin-top: 4px;">${{entry_price}}</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Entered</div>
+                            <div style="font-family: Georgia, serif; font-size: 20px; color: #141210; margin-top: 4px;">On signal</div>
                         </td>
                         <td style="padding: 16px 0 16px 16px; text-align: center;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Trail</div>
-                            <div style="font-family: Georgia, serif; font-size: 20px; color: #141210; margin-top: 4px;">${{trail_stop}}</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Exited</div>
+                            <div style="font-family: Georgia, serif; font-size: 20px; color: #141210; margin-top: 4px;">On the trail</div>
                         </td>
                     </tr>
                 </table>
 
+                <p style="font-size: 15px; color: #5A544E; margin: 0 0 24px 0; line-height: 1.6;">
+                    You can see the closed winners on your proof view right now — that part never left. What the proof view can't give you is the next one, in time to act on it. That's the only thing behind the subscription.
+                </p>
+
                 <div style="border-left: 2px solid #7A2430; padding: 16px 20px; background: #FAF7F0; margin: 24px 0;">
                     <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 16px; color: #141210; line-height: 1.65;">
-                        {{regime_context}} — that's why the breakout passed every filter. The system was waiting; this was the entry it was waiting for.
+                        And if you subscribe and it turns out I'm wrong for you — you have 30 days to get every dollar back. The whole risk of trying it is a couple of clicks. The risk of the alternative is being the person who read the record and still watched the next call from the sidelines.
                     </p>
                 </div>
 
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    If you'd been a subscriber, you would have received this signal in real-time, with the entry price, the stop level, and the regime context. Subscribers act on it; trial-exits see it 24 hours later as a worked example, like this one.
-                </p>
+                <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0; text-align: center;">
+                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E; margin: 0 0 8px;">The Offer, Plainly</p>
+                    <p style="font-family: Georgia, serif; font-size: 22px; color: #141210; margin: 0 0 6px;">Introductory rate, locked 12 months</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 0;">30-day money-back · choose your setting at checkout</p>
+                </div>
 
                 <div style="text-align: center; margin: 32px 0;">
                     <a href="https://rigacap.com/#pricing"
-                       style="display: inline-block; background: #141210; color: #F5F1E8; font-size: 13px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; padding: 14px 36px; text-decoration: none;">
-                        Reactivate
+                       style="display: inline-block; background: #141210; color: #F5F1E8; font-size: 13px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; padding: 16px 40px; text-decoration: none;">
+                        Turn The Live Signals Back On
                     </a>
-
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin-top: 8px;">30-day money-back guarantee · cancel anytime</p>
                 </div>
 
                 <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
-                    No pressure. The next signal will fire when the system says it should — could be days, could be weeks. — Erik
-                </p>
-            """,
-            10: f"""
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    {first_name},
-                </p>
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    It's been about a month since your trial ended. No pitch, no urgency — I just wanted to say I'm still here, and the system is still working.
-                </p>
-
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    A handful of signals fired since you left. A couple of trailing stops triggered. Mostly the system has been doing what it usually does: waiting for the conditions it likes, and staying in cash when it doesn't see them.
-                </p>
-
-                <div style="border-left: 2px solid #7A2430; padding: 16px 20px; background: #FAF7F0; margin: 24px 0;">
-                    <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 16px; color: #141210; line-height: 1.65;">
-                        If you tried RigaCap and it wasn't right for where you are, that's fine. If you're still curious but the timing wasn't right then, the door's open whenever it is.
-                    </p>
-                </div>
-
-                <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
-                    Reply if you want to talk through anything specific. — Erik
-                </p>
-            """,
-            11: f"""
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    {first_name},
-                </p>
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    A quarter has passed since your trial. Here's what the system has done in that time — not a sales pitch, just the honest summary I'd want if I were where you are.
-                </p>
-
-                <table cellpadding="0" cellspacing="0" style="width:100%; border-top: 2px solid #141210; border-bottom: 1px solid #141210; margin: 28px 0;">
-                    <tr>
-                        <td style="padding: 16px 16px 16px 0; border-right: 1px solid #DDD5C7; text-align: center;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Signals Fired</div>
-                            <div style="font-family: Georgia, serif; font-size: 28px; color: #141210; margin-top: 4px;">{{signal_count}}</div>
-                        </td>
-                        <td style="padding: 16px; border-right: 1px solid #DDD5C7; text-align: center;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Days In Cash</div>
-                            <div style="font-family: Georgia, serif; font-size: 28px; color: #141210; margin-top: 4px;">{{cash_days}}</div>
-                        </td>
-                        <td style="padding: 16px 0 16px 16px; text-align: center;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Active Regime</div>
-                            <div style="font-family: Georgia, serif; font-size: 20px; color: #141210; margin-top: 4px;">{{current_regime}}</div>
-                        </td>
-                    </tr>
-                </table>
-
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    Whether or not RigaCap is for you, I hope your trading's been going well this quarter. If you want to come back, the door's still open.
-                </p>
-
-                <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
-                    No reply needed. — Erik
-                </p>
-            """,
-            8: f"""
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    {first_name},
-                </p>
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    The system has been quiet for a week — no fresh signals, no entries. If you're wondering whether something's broken, it isn't. Quiet is one of the system's outputs.
-                </p>
-
-                <div style="border-left: 2px solid #7A2430; padding: 20px 24px; background: #FAF7F0; margin: 28px 0;">
-                    <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 17px; color: #141210; line-height: 1.65;">
-                        When the system stays quiet, that's the discipline working. Most active traders force trades during quiet weeks — and most of those trades lose money. The hardest skill in this business is sitting still.
-                    </p>
-                </div>
-
-                <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    The market-regime filter is reading current conditions and the entry criteria simply aren't aligning: breakouts aren't confirming, momentum is mid-pack, or breadth is thin. Any one of those alone might still produce a signal. All of them together — silence.
-                </p>
-
-                <table cellpadding="0" cellspacing="0" style="width:100%; border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; margin: 28px 0;">
-                    <tr>
-                        <td style="padding: 14px 16px 14px 0; border-right: 1px solid #DDD5C7;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Typical Cadence</div>
-                            <div style="font-family: Georgia, serif; font-size: 13px; color: #141210; margin-top: 4px;">3–4 signals per month in healthy markets</div>
-                        </td>
-                        <td style="padding: 14px 16px;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">When Conditions Improve</div>
-                            <div style="font-family: Georgia, serif; font-size: 13px; color: #141210; margin-top: 4px;">You'll see fresh signals back in the dashboard</div>
-                        </td>
-                    </tr>
-                </table>
-
-                <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
-                    Boring is the price of consistent. — Erik
+                    Whatever you decide, thank you for giving it a real look. If it's a no, this is the last you'll hear on it. — Erik
                 </p>
             """,
         }

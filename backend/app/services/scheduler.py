@@ -2046,8 +2046,12 @@ class SchedulerService:
         """
         Daily check: send next onboarding email based on signup age.
 
-        Schedule: {1: day 1, 2: day 3, 3: day 5, 4: day 6, 5: day 8}
-        Skips: fully unsubscribed users, admins, already-converted (steps 3-5).
+        Free-first lifecycle (30-day no-card trial; full live access first 14 days,
+        then decays to the proof floor). Schedule:
+          {1: day 1, 2: day 3, 3: day 7, 4: day 12, 5: day 15, 6: day 22}
+        Steps 1-3 send regardless of status; steps 4-6 are upgrade asks and
+        skip already-converted (active) subscribers.
+        Skips: fully unsubscribed users, admins.
 
         Args:
             target_emails: If provided, only process these email addresses.
@@ -2059,7 +2063,7 @@ class SchedulerService:
             from sqlalchemy import select
             from sqlalchemy.orm import selectinload
 
-            step_schedule = {1: 1, 2: 3, 3: 5, 4: 6, 5: 8}
+            step_schedule = {1: 1, 2: 3, 3: 7, 4: 12, 5: 15, 6: 22}
 
             async with async_session() as db:
                 query = (
@@ -2083,7 +2087,7 @@ class SchedulerService:
 
                     # Skip if already completed all steps
                     current_step = user.onboarding_step or 0
-                    if current_step >= 5:
+                    if current_step >= 6:
                         continue
 
                     # Skip if fully unsubscribed (all prefs false)
@@ -2106,8 +2110,9 @@ class SchedulerService:
                     if next_step is None:
                         continue
 
-                    # For steps 3-5 (trial urgency / win-back): skip if already converted
-                    if next_step >= 3:
+                    # Steps 4-6 are upgrade asks: skip if already converted.
+                    # Steps 1-3 (welcome / education / week-one) send regardless of status.
+                    if next_step >= 4:
                         sub = user.subscription
                         if sub and sub.status == "active":
                             skipped += 1

@@ -8017,8 +8017,8 @@ def handler(event, context):
                 cancel_url="https://api.rigacap.com/api/admin/social/posts/998/cancel-email?token=test-preview",
             ))
 
-            # 15-19. Onboarding drip emails (steps 1-5)
-            for step in range(1, 6):
+            # 15-20. Onboarding drip emails (steps 1-6)
+            for step in range(1, 7):
                 await _try(f"onboarding_{step}", email_service.send_onboarding_email(
                     step=step, to_email=to, name="Erik Kinsman",
                     user_id=test_user_id,
