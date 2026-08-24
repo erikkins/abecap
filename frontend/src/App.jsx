@@ -2967,7 +2967,7 @@ function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 pt-4 sm:pt-6 pb-28 sm:pb-28">
         <WelcomeTour />
         {/* Time Travel Banner */}
         {timeTravelDate && (
@@ -4159,7 +4159,7 @@ function Dashboard() {
                             const rotation = rotationAll.slice(0, rotRows);
                             const recentlyClosed = dashboardData.maximizer_recent_exits || []; // populated once real sells exist
                             return (
-                              <div className="px-4 pt-4">
+                              <div className="pt-4">
                                 <div className="flex items-baseline justify-between mb-3">
                                   <h2 className="font-display text-[1.15rem] font-medium tracking-tight text-ink" style={{ fontVariationSettings: '"opsz" 48' }}>Your Books</h2>
                                   <span className="font-display italic text-[0.82rem] text-ink-mute" style={{ fontVariationSettings: '"opsz" 24' }}>auto-mirrored to your capital</span>
