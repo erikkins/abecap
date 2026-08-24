@@ -877,7 +877,7 @@ async def _notify_tier_books(db):
         from sqlalchemy import text as _text
         from app.services.email_service import admin_email_service, ADMIN_EMAILS
         rows = (await db.execute(_text(
-            "SELECT tier, side, symbol, reason, days_held, realized_pnl, price "
+            "SELECT tier, side, symbol, reason, days_held, realized_pnl, price, shares "
             "FROM tier_fills WHERE fill_date = CURRENT_DATE ORDER BY tier, side, symbol"
         ))).all()
         if not rows:
@@ -891,13 +891,19 @@ async def _notify_tier_books(db):
             if not frs:
                 continue
             lines = []
-            for (_t, side, sym, reason, dh, pnl, price) in frs:
+            for (_t, side, sym, reason, dh, pnl, price, shares) in frs:
                 if reason in ("exposure_trim", "exposure_restore"):
                     lines.append(f"  {reason.replace('_', ' ')}: ${(price or 0):,.0f} shifted")
                 elif side == "buy":
                     lines.append(f"  BUY {sym} @ ${(price or 0):.2f}")
                 else:
-                    _p = f", {pnl:+.1f}%" if pnl is not None else ""
+                    # realized_pnl is DOLLARS — convert to a RETURN % off cost basis
+                    # (cost = exit_gross - realized_pnl = shares*price - realized_pnl). The old
+                    # code printed the dollar P&L with a "%" sign (e.g. -$443 shown as -443.5%).
+                    _p = ""
+                    if pnl is not None:
+                        _basis = (shares or 0) * (price or 0) - pnl
+                        _p = f", {(pnl / _basis * 100):+.1f}%" if _basis > 0 else f", ${pnl:+,.0f}"
                     lines.append(f"  SELL {sym} @ ${(price or 0):.2f} ({reason or 'exit'}{_p}, {dh or 0}d)")
             sections.append(f"{tier.upper()}:\n" + "\n".join(lines))
         if not sections:
