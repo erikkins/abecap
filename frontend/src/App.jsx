@@ -3768,7 +3768,7 @@ function Dashboard() {
                   );
                 })()}
 
-                <div className={`relative ${dashboardData?.tier_book ? '' : 'max-h-[500px] overflow-y-auto'}`}>
+                <div className={`relative ${dashboardData?.tier_book || dashboardData?.subscription_required ? '' : 'max-h-[500px] overflow-y-auto'}`}>
                   {timeTravelLoading && (
                     <div className="absolute inset-0 bg-paper-card/80 z-10 flex items-center justify-center">
                       <div className="flex flex-col items-center gap-2">
