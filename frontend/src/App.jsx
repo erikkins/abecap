@@ -4364,11 +4364,11 @@ function Dashboard() {
                             if (other.length === 0) return null;
                             return (
                               <div className="mt-2">
-                                <div className="px-4 py-2.5 border-t border-rule flex items-center justify-between">
+                                <div className="px-3 py-2.5 border-t border-rule flex items-center justify-between">
                                   <span className="font-display text-[0.95rem] font-medium tracking-tight">Preserver signals <em className="font-display italic text-ink-light font-normal">({other.length})</em></span>
                                   <span className="font-display italic text-[0.85rem] text-ink-mute" style={{ fontVariationSettings: '"opsz" 24' }}>Not in the Preserver book &mdash; but could be in yours.</span>
                                 </div>
-                                <div className="px-4 pt-2 pb-1">
+                                <div className="px-3 pt-2 pb-1">
                                   <p className="font-body text-[0.78rem] text-ink-mute leading-[1.5]">
                                     Momentum names that pass our screen but aren&rsquo;t in the Preserver book right now &mdash; shown for your own allocation.
                                   </p>
@@ -4405,20 +4405,51 @@ function Dashboard() {
                               opportunity layer, so the Signals area shows BOTH books' deviations. */}
                           {dashboardData?.tier_book && (dashboardData?.breakout_radar || []).length > 0 && (
                             <div className="mt-2">
-                              <div className="px-4 py-2.5 border-t border-rule flex items-center justify-between">
+                              <div className="px-3 py-2.5 border-t border-rule flex items-center justify-between">
                                 <span className="font-display text-[0.95rem] font-medium tracking-tight text-claret">&#9670; Maximizer breakout candidates <em className="font-display italic text-ink-light font-normal">({dashboardData.breakout_radar.length})</em></span>
                                 <span className="font-display italic text-[0.85rem] text-ink-mute" style={{ fontVariationSettings: '"opsz" 24' }}>Approaching a breakout trigger.</span>
                               </div>
-                              <div className="divide-y divide-rule">
-                                {dashboardData.breakout_radar.map((r) => (
-                                  <div key={r.symbol}
-                                       onClick={() => setChartModal({ type: 'signal', data: { symbol: r.symbol, price: r.price, source: 'breakout' }, symbol: r.symbol })}
-                                       className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-paper-deep transition-colors">
-                                    <span className="font-display text-[1rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{r.symbol}</span>
-                                    <span className="font-mono text-[0.72rem] text-ink-mute">{r.pct_below_50d_high}% below high &middot; vol {r.vol_ratio}&times;</span>
-                                  </div>
-                                ))}
-                              </div>
+                              {viewMode === 'simple' ? (
+                                <div className="divide-y divide-rule">
+                                  {dashboardData.breakout_radar.map((r) => (
+                                    <div key={r.symbol}
+                                         onClick={() => setChartModal({ type: 'signal', data: { symbol: r.symbol, price: r.price, source: 'breakout' }, symbol: r.symbol })}
+                                         className="px-3 py-3 flex items-center justify-between cursor-pointer hover:bg-paper-deep transition-colors">
+                                      <span className="font-display text-[1rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{r.symbol}</span>
+                                      <span className="font-mono text-[0.72rem] text-ink-mute">{r.trigger != null ? `buy > $${r.trigger}` : `${r.pct_below_50d_high}% below high`}{r.pct_to_trigger != null ? ` · ${r.pct_to_trigger}% to go` : ''}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="overflow-x-auto">
+                                  <table className="w-full border-collapse" style={{ fontFeatureSettings: '"tnum"' }}>
+                                    <thead>
+                                      <tr>
+                                        <th className="px-3 py-2 text-left font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Symbol</th>
+                                        <th className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Price</th>
+                                        <th className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Trigger</th>
+                                        <th className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink whitespace-nowrap">% to go</th>
+                                        <th className="px-3 py-2 text-center font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink whitespace-nowrap">6-mo mom</th>
+                                        <th className="px-3 py-2 text-center font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Vol</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {dashboardData.breakout_radar.map((r) => (
+                                        <tr key={r.symbol}
+                                            onClick={() => setChartModal({ type: 'signal', data: { symbol: r.symbol, price: r.price, source: 'breakout' }, symbol: r.symbol })}
+                                            className="cursor-pointer hover:bg-paper-deep transition-colors border-b border-rule">
+                                          <td className="px-3 py-3 font-display text-[1rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{r.symbol}</td>
+                                          <td className="px-3 py-3 text-right font-mono text-[0.8rem] text-ink">${r.price}</td>
+                                          <td className="px-3 py-3 text-right font-mono text-[0.8rem] text-claret">{r.trigger != null ? `$${r.trigger}` : '—'}</td>
+                                          <td className="px-3 py-3 text-right font-mono text-[0.8rem] text-ink-mute">{r.pct_to_trigger != null ? `${r.pct_to_trigger}%` : '—'}</td>
+                                          <td className="px-3 py-3 text-center font-mono text-[0.8rem] text-ink">{r.mom_6mo_pct != null ? `${r.mom_6mo_pct >= 0 ? '+' : ''}${r.mom_6mo_pct}%` : '—'}</td>
+                                          <td className="px-3 py-3 text-center font-mono text-[0.8rem] text-ink-mute">{r.vol_ratio}&times;</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
                             </div>
                           )}
 

@@ -270,8 +270,14 @@ def build_breakout_radar(data_cache: dict, held_syms=None, limit: int = 8) -> Li
                 "symbol": sym, "price": round(price, 2),
                 "pct_below_50d_high": round((hi50_1 - price) / hi50_1 * 100, 1),
                 "vol_ratio": round(vol / vol50, 2),
+                # Actionable extras (already computed above, previously discarded): the breakout
+                # TRIGGER level (buy-above price), how far price must rise to hit it, and 6-mo
+                # momentum as a strength read — so the radar table is as rich as Preserver signals.
+                "trigger": round(trigger, 2),
+                "pct_to_trigger": round((trigger / price - 1) * 100, 1),
+                "mom_6mo_pct": round(mom126 * 100, 1),
             })
-    out.sort(key=lambda x: x["pct_below_50d_high"])  # nearest to trigger first
+    out.sort(key=lambda x: x["pct_to_trigger"])  # nearest to firing first
     return out[:limit]
 
 
