@@ -4291,7 +4291,7 @@ function Dashboard() {
                               trading days" or the Preserver capitulation posture). Served
                               by the tier-aware dashboard path; absent => nothing renders. */}
                           {dashboardData?.tier_note && (
-                            <div className="px-4 pt-3">
+                            <div className="px-3 pt-3">
                               <div className="py-3 px-4 bg-claret/5 border-l-2 border-claret font-display italic text-[0.9rem] text-ink leading-[1.55]" style={{ fontVariationSettings: '"opsz" 24' }}>
                                 {dashboardData.tier_note}
                               </div>
