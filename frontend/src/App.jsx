@@ -4843,8 +4843,12 @@ function Dashboard() {
               )
             )}
 
-            {/* Missed Opportunities */}
-            {missedOpportunities.length > 0 && (
+            {/* Missed Opportunities — the walk-forward "you could have made $X following our
+                signals" upsell. Only meaningful for users NOT following the book; a mirror/paid
+                user (tier_book) DID take these trades, so it's shown their real "Recently closed"
+                instead (in the Maximizer book column). Free users get this framing via
+                FreeProofView's "Recent catches". (project_free_first_spec — split by tier) */}
+            {!dashboardData?.tier_book && missedOpportunities.length > 0 && (
               viewMode === 'simple' ? (
                 /* Simple mode: summary + top 3 cards */
                 <div className="mt-6 bg-paper-deep border border-rule-dark rounded p-4">
