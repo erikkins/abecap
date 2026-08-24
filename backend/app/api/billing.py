@@ -39,11 +39,22 @@ async def count_founding_seats(db: AsyncSession) -> int:
 async def founding_status(db: AsyncSession) -> dict:
     limit = settings.FOUNDING_SEAT_LIMIT
     taken = await count_founding_seats(db)
+    is_open = taken < limit
     return {
         "taken": taken,
         "limit": limit,
         "remaining": max(0, limit - taken),
-        "open": taken < limit,
+        "open": is_open,
+        # Display pricing SSOT — drives the FreeProofView/banner CTAs so they show the active
+        # introductory deal instead of a hardcoded price. While intro is open the monthly is the
+        # $59 founding rate (locked 12 mo), then $129 standard; annual is $1,099.
+        "pricing": {
+            "monthly": 129,
+            "annual": 1099,
+            "intro_monthly": 59 if is_open else 129,
+            "intro_active": is_open,
+            "intro_lock_months": 12,
+        },
     }
 
 

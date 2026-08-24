@@ -61,6 +61,21 @@ export default function FreeProofView({ data, user, upgradeLoading, onSubscribe,
 
   const isSoft = phase?.phase === 'soft_patch';
 
+  // Live introductory pricing from the founding-status SSOT (so the CTA shows the ACTIVE deal,
+  // not a hardcoded price). Falls back to standard if the fetch fails.
+  const [pricing, setPricing] = React.useState(null);
+  React.useEffect(() => {
+    const base = import.meta.env.VITE_API_URL || '';
+    fetch(`${base}/api/billing/founding-status`)
+      .then((r) => r.json())
+      .then((d) => setPricing(d?.pricing || null))
+      .catch(() => {});
+  }, []);
+  const introMo = pricing?.intro_monthly ?? 129;
+  const annual = pricing?.annual ?? 1099;
+  const introActive = !!pricing?.intro_active;
+  const lockMo = pricing?.intro_lock_months ?? 12;
+
   return (
     <div className="p-4 sm:p-5 space-y-4 text-left">
       {/* 1. Dynamic, honest "where we are right now" */}
@@ -137,18 +152,18 @@ export default function FreeProofView({ data, user, upgradeLoading, onSubscribe,
         {user ? (
           <>
             <button
-              onClick={() => onSubscribe('annual')}
+              onClick={() => onSubscribe('monthly')}
               disabled={upgradeLoading}
               className="w-full px-4 py-2.5 bg-ink text-paper font-medium rounded-[2px] hover:bg-claret transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {upgradeLoading ? 'Loading…' : <>Unlock live signals — $1,099/year <ArrowRight className="w-4 h-4" /></>}
+              {upgradeLoading ? 'Loading…' : <>Unlock live signals — ${introMo}/mo{introActive ? ' introductory' : ''} <ArrowRight className="w-4 h-4" /></>}
             </button>
             <button
-              onClick={() => onSubscribe('monthly')}
+              onClick={() => onSubscribe('annual')}
               disabled={upgradeLoading}
               className="w-full px-4 py-2 text-sm text-ink-mute hover:text-ink font-medium transition-colors"
             >
-              or $129/month · 30-day money-back guarantee
+              or ${annual.toLocaleString()}/year{introActive ? ` · rate locked ${lockMo} mo` : ''} · 30-day money-back
             </button>
           </>
         ) : (

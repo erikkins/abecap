@@ -4365,11 +4365,6 @@ function Dashboard() {
                                   <span className="font-display text-[0.95rem] font-medium tracking-tight">Preserver signals <em className="font-display italic text-ink-light font-normal">({other.length})</em></span>
                                   <span className="font-display italic text-[0.85rem] text-ink-mute" style={{ fontVariationSettings: '"opsz" 24' }}>Not in the Preserver book &mdash; but could be in yours.</span>
                                 </div>
-                                <div className="px-3 pt-2 pb-1">
-                                  <p className="font-body text-[0.78rem] text-ink-mute leading-[1.5]">
-                                    Momentum names that pass our screen but aren&rsquo;t in the Preserver book right now &mdash; shown for your own allocation.
-                                  </p>
-                                </div>
                                 {viewMode === 'simple' ? (
                                   <div className="divide-y divide-rule">
                                     {other.map(renderSimpleSignal)}
