@@ -1905,7 +1905,7 @@ function WelcomeTour() {
 // ============================================================================
 
 function Dashboard() {
-  const { user, logout, isAdmin, isAuthenticated, loading: authLoading, refreshUser } = useAuth();
+  const { user, logout, isAdmin, isAuthenticated, loading: authLoading, refreshUser, hasValidSubscription } = useAuth();
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [signals, setSignals] = useState([]);
   const [positions, setPositions] = useState([]);
@@ -1921,6 +1921,15 @@ function Dashboard() {
     return saved || 'signals';
   });
   const [dashboardData, setDashboardData] = useState(null); // Unified dashboard data
+  // FREE/proof-floor vs full layout decision. For real users it's driven PURELY by the stable auth
+  // entitlement (hasValidSubscription, resolved from /me before the dashboard fetch) — so the correct
+  // layout renders from the first frame regardless of what's in the (possibly stale, cross-account)
+  // dashboard cache. That kills the flash where a stale PAID payload painted the 2-column layout for
+  // a beat before the fresh free payload arrived. Admins are never "free" except via the explicit
+  // ?preview_state=free QA path (payload subscription_required). (project_free_first_spec)
+  const freeTier = isAdmin
+    ? (dashboardData?.subscription_required === true)
+    : (isAuthenticated && !hasValidSubscription);
   // Rotation-watch row count — measured so the card fills to the bottom of the (taller) Preserver
   // book with no wasted space. Default until measured.
   const [rotRows, setRotRows] = useState(6);
@@ -2744,7 +2753,7 @@ function Dashboard() {
                 claret pill w/ mark; Preserver = subtle outline. */}
             {(() => {
               // No tier badge for free/proof-only users — they haven't chosen a tier yet.
-              if (dashboardData?.subscription_required) return null;
+              if (freeTier) return null;
               const servedTier = dashboardData?.tier
                 || (user?.subscription ? (user.subscription.has_maximizer ? 'maximizer' : 'preserver') : null);
               if (!servedTier) return null;
@@ -3167,7 +3176,7 @@ function Dashboard() {
         {activeTab === 'signals' ? (
           <>
             {/* Go to Cash Banner */}
-            {dashboardData?.regime_forecast?.recommended_action === 'go_to_cash' && !dashboardData?.subscription_required && (
+            {dashboardData?.regime_forecast?.recommended_action === 'go_to_cash' && !freeTier && (
               <div className="mb-4 p-4 bg-negative text-white rounded flex items-center gap-3">
                 <Shield className="w-6 h-6 flex-shrink-0" />
                 <div>
@@ -3179,7 +3188,7 @@ function Dashboard() {
 
             {/* "Where we are right now" — honest book-phase readout, shown in the trial/paid
                 dashboard too (the proof floor shows it via FreeProofView). project_free_first_spec. */}
-            {dashboardData?.current_phase?.text && !dashboardData?.subscription_required && (
+            {dashboardData?.current_phase?.text && !freeTier && (
               <div className={`mb-4 rounded-[2px] border p-4 ${dashboardData.current_phase.phase === 'soft_patch' ? 'border-ink/15 bg-paper-deep' : 'border-positive/30 bg-positive/5'}`}>
                 <div className="flex items-center gap-2 mb-1">
                   <TrendingUp className={`w-4 h-4 ${dashboardData.current_phase.phase === 'soft_patch' ? 'text-ink-mute' : 'text-positive'}`} />
@@ -3635,7 +3644,7 @@ function Dashboard() {
             {/* Stats strip — hidden for served tiers (capital-scaled mirror): Portfolio Value /
                 P&L / Positions / Win Rate are all manual-portfolio-derived and have no data
                 under the mirror model. The book view carries capital/invested/cash instead. */}
-            {!dashboardData?.tier_book && !dashboardData?.subscription_required && (
+            {!dashboardData?.tier_book && !freeTier && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 border-t border-b border-ink py-4 mb-6">
                 <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} subtitle={`Cost basis $${totalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}`} />
                 <MetricCard title="Open P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} trend={totalPnlPct >= 0 ? 'up' : 'down'} subtitle={`${totalPnlPct >= 0 ? '+' : ''}$${Math.abs(totalValue - totalCost).toLocaleString(undefined, {maximumFractionDigits: 0})} unrealized`} />
@@ -3666,10 +3675,10 @@ function Dashboard() {
 
             {/* Two column layout: Buy Signals | Open Positions. Served tiers (capital-scaled
                 mirror) collapse to a single column — the book view IS the portfolio. */}
-            <div className={`grid grid-cols-1 gap-6 ${dashboardData?.tier_book || dashboardData?.subscription_required ? '' : 'lg:grid-cols-2'}`}>
+            <div className={`grid grid-cols-1 gap-6 ${dashboardData?.tier_book || freeTier ? '' : 'lg:grid-cols-2'}`}>
               {/* LEFT: Buy Signals (for free/proof-only users this column holds FreeProofView) */}
               <div className="overflow-hidden">
-                {!dashboardData?.tier_book && !dashboardData?.subscription_required && (<div className="pb-3 border-b-2 border-ink mb-5">
+                {!dashboardData?.tier_book && !freeTier && (<div className="pb-3 border-b-2 border-ink mb-5">
                   <div className="flex items-baseline justify-between gap-3">
                     <div className="flex items-baseline gap-2 min-w-0">
                       <h2 className="font-display text-[1.25rem] font-medium text-ink tracking-tight whitespace-nowrap" style={{ fontVariationSettings: '"opsz" 48' }}>Buy Signals</h2>
@@ -3780,7 +3789,7 @@ function Dashboard() {
                   );
                 })()}
 
-                <div className={`relative ${dashboardData?.tier_book || dashboardData?.subscription_required ? '' : 'max-h-[500px] overflow-y-auto'}`}>
+                <div className={`relative ${dashboardData?.tier_book || freeTier ? '' : 'max-h-[500px] overflow-y-auto'}`}>
                   {timeTravelLoading && (
                     <div className="absolute inset-0 bg-paper-card/80 z-10 flex items-center justify-center">
                       <div className="flex flex-col items-center gap-2">
@@ -3789,7 +3798,7 @@ function Dashboard() {
                       </div>
                     </div>
                   )}
-                  {dashboardData?.subscription_required ? (
+                  {freeTier ? (
                     /* FREE tier proof-only view (project_free_first_spec §2) */
                     <FreeProofView
                       data={dashboardData}
@@ -4654,7 +4663,7 @@ function Dashboard() {
 
               {/* RIGHT: Open Positions with Sell Guidance — hidden for served tiers (mirror book)
                   and for free/proof-only users (the free view owns the single column). */}
-              {!dashboardData?.tier_book && !dashboardData?.subscription_required && (() => {
+              {!dashboardData?.tier_book && !freeTier && (() => {
                 const positionSectorFilter = (p) => !excludedSectors.includes(p.sector || 'Other');
                 const filteredGuidance = guidanceWithLiveQuotes.filter(positionSectorFilter);
                 const filteredPositions = positionsWithLiveQuotes.filter(positionSectorFilter);
