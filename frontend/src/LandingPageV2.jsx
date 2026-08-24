@@ -116,7 +116,7 @@ const HeroSection = ({ onGetStarted }) => (
               onClick={() => onGetStarted('founding')}
               className="w-full sm:w-auto text-center px-7 py-4 bg-claret text-paper text-[1.02rem] font-medium rounded-[2px] no-underline hover:bg-claret-light transition-all"
             >
-              Join the founding list
+              Start free &mdash; no card
             </button>
             <a
               href="/track-record"
@@ -450,7 +450,7 @@ const PricingSection = ({ onGetStarted, founding }) => {
           One engine. <em className="text-claret italic">Your dial.</em>
         </h2>
         <p className="text-ink-mute text-[1.05rem] leading-[1.65]">
-          Start with <strong className="text-ink font-medium">Preserver</strong>, the capital-preservation base &mdash; founding members lock the rate while the live record builds.
+          Start with <strong className="text-ink font-medium">Preserver</strong>, the capital-preservation base &mdash; lock the introductory rate while the live record builds.
           Add <strong className="text-ink font-medium">Maximizer</strong> when you want more offense &mdash; seatbelt included, toggle on or off anytime.
           Advisory firms license the engine at the firm level. Cancel anytime.
         </p>
@@ -460,7 +460,7 @@ const PricingSection = ({ onGetStarted, founding }) => {
         {/* Founding — Featured */}
         <div className="bg-paper-card border-2 border-claret p-10 flex flex-col relative">
           <span className="absolute -top-3 left-8 bg-claret text-paper text-[0.78rem] font-medium tracking-[0.15em] uppercase px-3 py-1">
-            Founding &middot; First 100
+            Introductory rate
           </span>
           <h3 className="font-display text-[1.3rem] font-medium text-ink mb-1" style={{ fontVariationSettings: '"opsz" 72' }}>Preserver</h3>
           <p className="font-display italic text-ink-mute text-[1rem] mb-6" style={{ fontVariationSettings: '"opsz" 24' }}>The capital-preservation dial.</p>
@@ -471,7 +471,7 @@ const PricingSection = ({ onGetStarted, founding }) => {
             {open && <span className="font-body text-[0.7rem] font-medium tracking-[0.1em] uppercase text-positive bg-positive/10 px-2 py-0.5 rounded ml-1 self-center">Save $70/mo</span>}
           </div>
           <p className="text-ink-mute text-[1rem] leading-relaxed mt-3">
-            Founding rate, locked <strong className="text-claret font-medium">12 months</strong> &mdash; then $129/month, or <strong className="text-claret font-medium">$1,099/year</strong>. Only <strong className="text-claret font-medium">100 founding seats</strong>, then it closes.
+            Introductory rate, locked <strong className="text-claret font-medium">12 months</strong> &mdash; then $129/month, or <strong className="text-claret font-medium">$1,099/year</strong>. Start free, no card &mdash; upgrade when you&rsquo;re ready.
           </p>
           <ul className="list-none my-7 pt-6 border-t border-rule flex-1 space-y-1.5">
             {['Every buy & sell call the model makes', 'Daily email digest', 'Entry, stop & exit levels', 'Regime-adaptive risk engine', 'Portfolio tracking dashboard', 'Direct reply line to Erik', 'Grandfathered on future features'].map(item => (
@@ -479,27 +479,18 @@ const PricingSection = ({ onGetStarted, founding }) => {
             ))}
           </ul>
           <button
-            onClick={() => open && onGetStarted('founding')}
-            disabled={!open}
-            className={`w-full py-4 text-[1.05rem] font-medium rounded-[2px] text-center transition-colors ${open ? 'bg-ink text-paper hover:bg-claret' : 'bg-rule text-ink-light cursor-not-allowed'}`}
+            onClick={() => onGetStarted('founding')}
+            className="w-full py-4 text-[1.05rem] font-medium rounded-[2px] text-center transition-colors bg-ink text-paper hover:bg-claret"
           >
-            {open ? 'Claim a Founding Seat' : 'Founding Seats Filled'}
+            Start free &mdash; no card
           </button>
-          {/* Gated counter: silent until scarce (no embarrassing "100 left"),
-              real urgency once it's running low, "filled" when closed. */}
-          {!open ? (
-            <p className="text-center font-mono text-[0.78rem] text-ink-light tracking-[0.1em] uppercase mt-3">All 100 founding seats claimed</p>
-          ) : scarce ? (
-            <p className="text-center font-mono text-[0.78rem] text-claret tracking-[0.1em] uppercase mt-3">Only {founding.remaining} of 100 seats left</p>
-          ) : (
-            <p className="text-center font-mono text-[0.78rem] text-claret tracking-[0.1em] uppercase mt-3">Limited to the first 100 subscribers</p>
-          )}
+          <p className="text-center font-mono text-[0.78rem] text-claret tracking-[0.1em] uppercase mt-3">Introductory rate &middot; locked 12 months</p>
         </div>
 
         {/* Maximizer — add-on, launching this month (waitlist; not charged until signals live) */}
         <div className="bg-paper-card border border-rule p-10 flex flex-col relative">
           <span className="absolute -top-3 left-8 bg-ink text-paper text-[0.78rem] font-medium tracking-[0.15em] uppercase px-3 py-1">
-            Add-on &middot; {open ? 'Founding rate' : 'Live'}
+            Add-on &middot; {open ? 'Introductory rate' : 'Live'}
           </span>
           <h3 className="font-display text-[1.3rem] font-medium text-ink mb-1" style={{ fontVariationSettings: '"opsz" 72' }}>+ Maximizer</h3>
           <p className="font-display italic text-ink-mute text-[1rem] mb-6" style={{ fontVariationSettings: '"opsz" 24' }}>Aggressive growth, seatbelt on.</p>
@@ -507,10 +498,10 @@ const PricingSection = ({ onGetStarted, founding }) => {
             {open && <span className="font-display text-[1.7rem] text-ink-light line-through decoration-claret/50 decoration-2" style={{ fontVariationSettings: '"opsz" 48' }}>+$100</span>}
             <span className="font-display text-[3.5rem] font-normal text-ink leading-none tracking-tight" style={{ fontVariationSettings: '"opsz" 144' }}>{open ? '+$79' : '+$100'}</span>
             <span className="text-ink-mute text-[1.05rem]">/month</span>
-            {open && <span className="font-body text-[0.7rem] font-medium tracking-[0.1em] uppercase text-positive bg-positive/10 px-2 py-0.5 rounded ml-1 self-center">Founding rate</span>}
+            {open && <span className="font-body text-[0.7rem] font-medium tracking-[0.1em] uppercase text-positive bg-positive/10 px-2 py-0.5 rounded ml-1 self-center">Introductory</span>}
           </div>
           <p className="text-ink-mute text-[1rem] leading-relaxed mt-3">
-            Layers onto Preserver &mdash; the aggressive breakout engine with a momentum-crash brake. {open && <strong className="text-claret font-medium">Founding members lock +$79/mo.</strong>} Toggle on or off anytime.
+            Layers onto Preserver &mdash; the aggressive breakout engine with a momentum-crash brake. {open && <strong className="text-claret font-medium">Introductory rate locks +$79/mo.</strong>} Toggle on or off anytime.
           </p>
           <ul className="list-none my-7 pt-6 border-t border-rule flex-1 space-y-1.5">
             {['Everything in Preserver', 'Aggressive breakout engine in trending markets', 'Volatility seatbelt on the crash tail', 'Higher-return profile for growth-seekers', 'Toggle on or off anytime'].map(item => (
@@ -560,7 +551,7 @@ const PricingSection = ({ onGetStarted, founding }) => {
 const faqItems = [
   { q: 'Who is this for?', a: <>Two kinds of people. Self-directed investors with meaningful portfolios who've decided indexing alone is too passive and individual active trading has been too emotional — if you've tried to run your own momentum strategy and found yourself overriding your own rules, this is a system that will do the boring parts consistently whether you feel like it or not. And registered investment advisers, who license it at the firm level as a disciplined momentum sleeve their clients can actually hold through a full cycle — see the <a href="/for-advisers" className="text-claret underline underline-offset-2 decoration-1">For Advisers page</a>.</> },
   { q: 'Who is this NOT for?', a: "Anyone who'll bail the moment they trail the market. Both tiers are built to keep you invested through a full cycle, not to win every quarter — even Maximizer, the aggressive setting, is designed to survive the drawdowns that make people capitulate. If watching the index run while your account grinds along for a stretch would make you quit, you'd be paying insurance premiums and cancelling right before the fire. We'd rather tell you that on the front page than learn it from your cancellation survey." },
-  { q: "What's the difference between Preserver and Maximizer?", a: <>Same engine, one knob &mdash; you choose how hard to push. Preserver is the capital-preservation setting: strong momentum returns with a tight drawdown (a typical modern year around {PERF.preserver.typical_12mo}%, and a {Math.abs(PERF.preserver.yr21.maxdd)}% worst loss across 21 years). Maximizer dials up the offense &mdash; an aggressive breakout strategy in trending markets, with a volatility &ldquo;seatbelt&rdquo; that automatically eases exposure when its own turbulence spikes (a typical modern year around {PERF.maximizer.typical_12mo}%, a {Math.abs(PERF.maximizer.yr21.maxdd)}% worst loss). Maximizer isn&rsquo;t <em className="italic">better</em>, it&rsquo;s <em className="italic">more</em> &mdash; more return and more drawdown, in roughly equal measure &mdash; so pick the setting that matches how much volatility you can actually sit through. Preserver is the flagship; Maximizer is a +$100/month add-on (founding members +$79/mo) &mdash; both buyable today, and you can toggle Maximizer on or off anytime. Both are walk-forward tested; the live record is just beginning.</> },
+  { q: "What's the difference between Preserver and Maximizer?", a: <>Same engine, one knob &mdash; you choose how hard to push. Preserver is the capital-preservation setting: strong momentum returns with a tight drawdown (a typical modern year around {PERF.preserver.typical_12mo}%, and a {Math.abs(PERF.preserver.yr21.maxdd)}% worst loss across 21 years). Maximizer dials up the offense &mdash; an aggressive breakout strategy in trending markets, with a volatility &ldquo;seatbelt&rdquo; that automatically eases exposure when its own turbulence spikes (a typical modern year around {PERF.maximizer.typical_12mo}%, a {Math.abs(PERF.maximizer.yr21.maxdd)}% worst loss). Maximizer isn&rsquo;t <em className="italic">better</em>, it&rsquo;s <em className="italic">more</em> &mdash; more return and more drawdown, in roughly equal measure &mdash; so pick the setting that matches how much volatility you can actually sit through. Preserver is the flagship; Maximizer is a +$100/month add-on (introductory rate +$79/mo) &mdash; both buyable today, and you can toggle Maximizer on or off anytime. Both are walk-forward tested; the live record is just beginning.</> },
   { q: 'Is your Sharpe ratio actually good?', a: `Read it honestly. Long-horizon Sharpe ratios live on a compressed scale. Numbers above 1 come from short windows and overfit backtests; over decades the air gets thin. The S&P 500 scored 0.54 across our same 21-year window; Preserver walk-forward tested at ${PERF.preserver.yr21.sharpe} and Maximizer at ${PERF.maximizer.yr21.sharpe}. The highest lifetime figure ever measured for any fund with 30+ years of real history is Warren Buffett\u2019s 0.79 (\u201cBuffett\u2019s Alpha,\u201d Frazzini, Kabiller & Pedersen, 2018). Ours is walk-forward tested and his is real — that distinction matters — and our pre-2016 data carries a survivorship caveat that flatters the early years, so we hold these as strong-but-honest, not a claim to have out-Sharped Buffett.` },
   { q: 'What returns should I actually expect?', a: `Two honest lenses. The modern market (2021–26): a typical year runs about ${PERF.preserver.typical_12mo}% for Preserver and ${PERF.maximizer.typical_12mo}% for Maximizer. The full 21-year walk-forward (through 2008, COVID, and 2022): ${PERF.preserver.yr21.cagr}% a year for Preserver at a ${Math.abs(PERF.preserver.yr21.maxdd)}% worst drawdown, ${PERF.maximizer.yr21.cagr}% for Maximizer at ${Math.abs(PERF.maximizer.yr21.maxdd)}% — versus the S&P's ${PERF.benchmarks.spy_21yr.cagr}% at ${Math.abs(PERF.benchmarks.spy_21yr.maxdd)}%. But here's the number we'd actually plan around, discounted for uncertainty: ${PERF.preserver.plan_low}–${PERF.preserver.plan_high}% for Preserver, ${PERF.maximizer.plan_low}–${PERF.maximizer.plan_high}% for Maximizer (a larger haircut on Maximizer, whose breakout engine is newer). We'd rather you be pleasantly surprised than sold a peak. Past performance, including walk-forward and simulated results, does not predict future results.` },
   { q: "Why don't you publish flashier numbers like other services?", a: `Because we anchor on what survives scrutiny. Our research is survivorship-free and point-in-time from 2016 on; every time cleaner data made the numbers smaller, we revised them down and said so — and we publish the construction we actually ship, not an idealized one that looks better on paper. Most services lead with cherry-picked windows or zero-friction simulations no subscriber reproduces. We'd rather publish honest walk-forward figures — Preserver's ${PERF.preserver.yr21.cagr}% at a ${Math.abs(PERF.preserver.yr21.maxdd)}% worst drawdown, Maximizer's ${PERF.maximizer.yr21.cagr}% at ${Math.abs(PERF.maximizer.yr21.maxdd)}% — than a flattering number we can't defend.` },
@@ -602,13 +593,13 @@ const CTASection = ({ onGetStarted }) => (
         Stop fighting your own worst instincts.
       </h2>
       <p className="font-body text-paper/60 mb-8">
-        7-day free trial. Full access. Cancel anytime.
+        Start free, no card. Full access to see it work, then the introductory rate when you upgrade.
       </p>
       <button
         onClick={() => onGetStarted('founding')}
         className="inline-block px-8 py-4 bg-paper text-ink text-[1.05rem] font-medium rounded-[2px] hover:bg-paper-deep transition-colors"
       >
-        Claim a Founding Seat &middot; $59/mo
+        Start free &mdash; no card
       </button>
     </div>
   </section>
