@@ -226,6 +226,31 @@ async def _ping_admin_new_signup(email: str, method: str, req=None):
 
 
 @router.post("/register", response_model=TokenResponse)
+async def _provision_free_account(db, user):
+    """Free-first (project_free_first_spec §6/§7): every NEW user gets an explicit `free`
+    Subscription (no card, no clock — the proof-only tier) and their email enrolled in the
+    newsletter (EmailSubscriber = the list the weekly send reads). Idempotent; must NEVER block
+    account creation. Caller invokes right after db.flush() so user.id is assigned."""
+    from app.core.database import EmailSubscriber
+    try:
+        db.add(Subscription(user_id=user.id, status="free", trial_start=None, trial_end=None))
+    except Exception as _e:
+        print(f"⚠️ free-sub provision failed for {getattr(user,'email','?')}: {_e}")
+    try:
+        el = (user.email or "").lower()
+        if el:
+            ex = (await db.execute(
+                select(EmailSubscriber).where(EmailSubscriber.email == el)
+            )).scalar_one_or_none()
+            if ex is None:
+                db.add(EmailSubscriber(email=el, source="free_signup"))
+            elif not ex.is_active:
+                ex.is_active = True
+                ex.unsubscribed_at = None
+    except Exception as _e:
+        print(f"⚠️ newsletter enroll failed for {getattr(user,'email','?')}: {_e}")
+
+
 async def register(
     request: RegisterRequest,
     req: Request,
@@ -282,6 +307,8 @@ async def register(
 
     db.add(user)
     await db.flush()
+
+    await _provision_free_account(db, user)
 
     await db.commit()
     await db.refresh(user)
@@ -547,6 +574,7 @@ async def google_auth(
 
         db.add(user)
         await db.flush()
+        await _provision_free_account(db, user)
         is_new_user = True
 
     await db.commit()
@@ -673,6 +701,7 @@ async def apple_auth(
 
         db.add(user)
         await db.flush()
+        await _provision_free_account(db, user)
         is_new_user = True
 
     await db.commit()

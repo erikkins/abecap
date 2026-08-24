@@ -16,17 +16,10 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
   const [twoFactorError, setTwoFactorError] = useState('');
   const twoFactorInputRef = useRef(null);
 
-  // Store selected plan in localStorage for use during checkout — ONLY when the
-  // user is actually registering (checkout intent). Seeding this on every modal
-  // open (including plain login) caused the /app auto-checkout effect
-  // (App.jsx) to bounce returning unpaid users straight into Stripe on login —
-  // the dashboard flashed for a frame, then redirected, with no error and no
-  // success path. Login must never imply a plan selection.
-  useEffect(() => {
-    if (mode === 'register' && selectedPlan) {
-      localStorage.setItem('rigacap_selected_plan', selectedPlan);
-    }
-  }, [selectedPlan, mode]);
+  // Free-first (project_free_first_spec §7): registration creates a FREE account and lands in the
+  // free view — it must NEVER seed a checkout plan or auto-route to Stripe (the App auto-checkout
+  // effect consumes rigacap_selected_plan). The card is asked for ONLY at explicit upgrade.
+  const [regStep, setRegStep] = useState(1);  // register is two-step: 1 = email, 2 = password
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -66,12 +59,30 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
       clearError();
       setTurnstileToken('');
       setMode(initialMode); // Reset mode based on visitor type
+      setRegStep(1);        // always start registration at the email step
     }
   }, [isOpen, clearError, initialMode]);
 
-  // Load Turnstile widget
+  // Advance the two-step register flow: validate the email, capture it into the newsletter NOW
+  // (before the password) so an abandoned signup is still a lead (fire-and-forget), then step to
+  // the password. (project_free_first_spec §6/§7)
+  const handleContinue = (e) => {
+    e.preventDefault();
+    const em = email.trim();
+    if (!em || !em.includes('@')) { setLocalError('Enter a valid email to continue.'); return; }
+    setLocalError('');
+    try {
+      fetch(`${API_BASE}/api/public/subscribe-newsletter`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: em, turnstile_token: turnstileToken || 'dev-bypass', report_type: 'market_measured', source: 'signup_step1' }),
+      }).catch(() => {});
+    } catch { /* never block advancing on a beacon failure */ }
+    setRegStep(2);
+  };
+
+  // Load Turnstile widget (register step 2, where the password + create button live)
   useEffect(() => {
-    if (!isOpen || !TURNSTILE_SITE_KEY || mode !== 'register') return;
+    if (!isOpen || !TURNSTILE_SITE_KEY || mode !== 'register' || regStep !== 2) return;
 
     const loadTurnstile = () => {
       if (window.turnstile && turnstileRef.current) {
@@ -95,7 +106,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
       }, 100);
       return () => clearInterval(checkInterval);
     }
-  }, [isOpen, mode]);
+  }, [isOpen, mode, regStep]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -353,7 +364,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
         {/* Header */}
         <div className="px-6 py-5 border-b border-rule flex justify-between items-center">
           <h2 className="font-display text-xl text-ink" style={{ fontVariationSettings: '"opsz" 48' }}>
-            {mode === 'login' ? 'Welcome Back' : 'Start Your Free Trial'}
+            {mode === 'login' ? 'Welcome Back' : (regStep === 1 ? 'Create your free account' : 'Choose a password')}
           </h2>
           <button
             onClick={onClose}
@@ -365,6 +376,8 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
 
         {/* Content */}
         <div className="p-6">
+          {(mode === 'login' || regStep === 1) && (
+          <>
           {/* OAuth buttons */}
           <div className="space-y-3 mb-6">
             <div id="google-signin-button" className="w-full">
@@ -394,6 +407,8 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
               <span className="px-3 bg-paper text-ink-light">or continue with email</span>
             </div>
           </div>
+          </>
+          )}
 
           {/* Error message */}
           {(localError || error) && (
@@ -403,8 +418,8 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'register' && (
+          <form onSubmit={mode === 'register' && regStep === 1 ? handleContinue : handleSubmit} className="space-y-4">
+            {mode === 'register' && regStep === 1 && (
               <div>
                 <label className="block text-sm font-medium text-ink-mute mb-1">Full Name</label>
                 <div className="relative">
@@ -420,21 +435,31 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
               </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-ink-mute mb-1">Email</label>
-              <div className="relative">
-                <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-light" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
-                  className="w-full pl-10 pr-4 py-3 border border-rule-dark bg-paper-card focus:outline-none focus:border-ink"
-                />
+            {(mode === 'login' || regStep === 1) && (
+              <div>
+                <label className="block text-sm font-medium text-ink-mute mb-1">Email</label>
+                <div className="relative">
+                  <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-light" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    className="w-full pl-10 pr-4 py-3 border border-rule-dark bg-paper-card focus:outline-none focus:border-ink"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
+            {mode === 'register' && regStep === 2 && (
+              <div className="text-sm text-ink-mute">
+                Signing up as <span className="text-ink font-medium">{email}</span>
+                <button type="button" onClick={() => { setRegStep(1); setLocalError(''); }} className="text-claret hover:underline ml-2">change</button>
+              </div>
+            )}
+
+            {(mode === 'login' || (mode === 'register' && regStep === 2)) && (
             <div>
               <label className="block text-sm font-medium text-ink-mute mb-1">Password</label>
               <div className="relative">
@@ -474,9 +499,10 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
                 </div>
               )}
             </div>
+            )}
 
             {/* Turnstile widget for registration */}
-            {mode === 'register' && TURNSTILE_SITE_KEY && (
+            {mode === 'register' && regStep === 2 && TURNSTILE_SITE_KEY && (
               <div className="flex justify-center">
                 <div ref={turnstileRef}></div>
               </div>
@@ -493,10 +519,10 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  {mode === 'login' ? 'Signing in...' : 'Setting up trial...'}
+                  {mode === 'login' ? 'Signing in…' : 'Creating your account…'}
                 </span>
               ) : (
-                mode === 'login' ? 'Sign In' : 'Start 7-Day Free Trial'
+                mode === 'login' ? 'Sign In' : (regStep === 1 ? 'Continue' : 'Create free account')
               )}
             </button>
           </form>
@@ -510,7 +536,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
                   onClick={() => setMode('register')}
                   className="text-claret hover:underline font-medium"
                 >
-                  Start free trial
+                  Create a free account
                 </button>
               </>
             ) : (
@@ -526,18 +552,21 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
             )}
           </div>
 
-          {/* Trial info */}
+          {/* Free-account assurance — no card at signup (project_free_first_spec §7) */}
           {mode === 'register' && (
             <div className="mt-4 py-2.5 border-t border-b border-rule text-center">
               <p className="text-sm text-positive font-medium">
-                7-day free trial &middot; Credit card required
+                Free account &middot; No credit card
+              </p>
+              <p className="text-xs text-ink-mute mt-0.5">
+                Upgrade anytime — 30-day money-back guarantee.
               </p>
             </div>
           )}
 
           {/* Soft conversion — don't let cold visitors leak. Offer the free
-              newsletter as a no-commitment alternative to the trial. */}
-          {mode === 'register' && (
+              newsletter as a no-commitment alternative (step 1 only). */}
+          {mode === 'register' && regStep === 1 && (
             <div className="mt-4 text-center">
               {newsletterDone ? (
                 <p className="text-sm text-positive font-medium">You're on the list — watch your inbox for the weekly read.</p>
