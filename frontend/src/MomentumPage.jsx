@@ -284,7 +284,7 @@ export default function MomentumPage() {
             onClick={() => { logPublicEvent('cta_trial'); handleGetStarted(); }}
             className="mt-8 bg-claret text-paper font-body font-medium text-[1.05rem] px-8 py-4 rounded hover:bg-claret-light transition-colors"
           >
-            Start your 7-day trial
+            Start free &mdash; no card
           </button>
           <p className="mt-3 text-[0.9rem] text-paper/60">Maximizer includes the Preserver floor &middot; cancel anytime</p>
         </div>
