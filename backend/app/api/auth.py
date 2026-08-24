@@ -258,6 +258,7 @@ async def register(
 ):
     """Register a new user with email/password."""
     client_ip = get_client_ip(req) or "unknown"
+    print(f"🔑 [SIGNUP] email register attempt: {request.email} ip={client_ip}")
 
     # Rate limit: 3 registrations per minute per IP
     if not rate_limiter.check(f"register:{client_ip}", max_requests=3, window_seconds=60):
@@ -312,6 +313,7 @@ async def register(
 
     await db.commit()
     await db.refresh(user)
+    print(f"✅ [SIGNUP] free account created (email): {user.email} id={user.id}")
 
     await _ping_admin_new_signup(user.email, "email", req)
 
@@ -505,18 +507,23 @@ async def google_auth(
     """Authenticate with Google OAuth."""
     import httpx
 
+    print("🔑 [OAUTH] google_auth called")
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 f"https://oauth2.googleapis.com/tokeninfo?id_token={request.id_token}"
             )
             if response.status_code != 200:
+                print(f"🔑 [OAUTH] google tokeninfo NON-200: {response.status_code}")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid Google token"
                 )
             google_data = response.json()
-    except Exception:
+    except HTTPException:
+        raise
+    except Exception as _e:
+        print(f"🔑 [OAUTH] google token verify EXCEPTION: {_e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Failed to verify Google token"
@@ -537,6 +544,7 @@ async def google_auth(
         select(User).where((User.google_id == google_id) | (User.email == email))
     )
     user = result.scalar_one_or_none()
+    print(f"🔑 [OAUTH] google verified email={email} existing_user={user is not None}")
 
     is_new_user = False
     if user:
@@ -548,6 +556,7 @@ async def google_auth(
         # Verify Turnstile for new users (mandatory)
         client_ip = get_client_ip(req)
         if not request.turnstile_token or not await verify_turnstile(request.turnstile_token, client_ip):
+            print(f"🔑 [OAUTH] google NEW-user turnstile FAILED email={email} (token_present={bool(request.turnstile_token)})")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Bot verification failed"
@@ -624,6 +633,7 @@ async def apple_auth(
     db: AsyncSession = Depends(get_db)
 ):
     """Authenticate with Apple Sign In."""
+    print("🔑 [OAUTH] apple_auth called")
     try:
         verified = await _verify_apple_token(request.id_token)
         apple_id = verified.get("sub")
@@ -638,7 +648,8 @@ async def apple_auth(
             full_name = f"{name.get('firstName', '')} {name.get('lastName', '')}".strip()
         else:
             full_name = None
-    except Exception:
+    except Exception as _e:
+        print(f"🔑 [OAUTH] apple token verify EXCEPTION: {_e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Apple token"
@@ -658,6 +669,7 @@ async def apple_auth(
     if not user and email:
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalar_one_or_none()
+    print(f"🔑 [OAUTH] apple verified email={email} existing_user={user is not None}")
 
     is_new_user = False
     if user:

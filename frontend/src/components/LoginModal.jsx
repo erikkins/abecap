@@ -153,7 +153,9 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
   };
 
   const handleGoogleLogin = async () => {
+    logPublicEvent('oauth_google_click');   // client-side visibility into OAuth attempts
     if (!GOOGLE_CLIENT_ID) {
+      logPublicEvent('oauth_google_error');
       setLocalError('Google Sign-In is not configured.');
       return;
     }
@@ -161,6 +163,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
     try {
       const google = window.google;
       if (!google?.accounts?.id) {
+        logPublicEvent('oauth_google_error');
         setLocalError('Google Sign-In SDK not loaded. Please refresh and try again.');
         return;
       }
@@ -195,20 +198,24 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
         }
       });
     } catch (err) {
+      logPublicEvent('oauth_google_error');
       console.error('Google login error:', err);
       setLocalError('Google Sign-In failed. Please try again.');
     }
   };
 
   const handleAppleLogin = async () => {
+    logPublicEvent('oauth_apple_click');   // client-side visibility into OAuth attempts
     const APPLE_CLIENT_ID = import.meta.env.VITE_APPLE_CLIENT_ID;
     if (!APPLE_CLIENT_ID) {
+      logPublicEvent('oauth_apple_error');
       setLocalError('Apple Sign-In is not configured.');
       return;
     }
 
     try {
       if (!window.AppleID) {
+        logPublicEvent('oauth_apple_error');
         setLocalError('Apple Sign-In SDK not loaded. Please refresh and try again.');
         return;
       }
@@ -241,6 +248,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
     } catch (err) {
       setLoading(false);
       if (err.error === 'popup_closed_by_user') return;
+      logPublicEvent('oauth_apple_error');
       console.error('Apple login error:', err);
       setLocalError('Apple Sign-In failed. Please try again.');
     }

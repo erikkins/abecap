@@ -166,43 +166,45 @@ export function AuthProvider({ children }) {
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
   }, [user?.id, getTokens, refreshAccessToken]);
 
-  // Helper: redirect users without a subscription to Stripe checkout
+  // Helper: carry an EXPLICIT upgrade intent through to Stripe checkout after auth.
+  // Free-first (project_free_first_spec §7): this must NEVER auto-redirect on a plain login/signup.
+  // It fires ONLY when the user actually chose a plan (stashed in rigacap_selected_plan); with no
+  // plan we return false and land them in the free view. The old code defaulted the plan to
+  // 'monthly' and redirected whenever a user had no subscription — which bounced every sub-less
+  // user (especially OAuth signups) into Stripe, cancel → return → bounce again = a redirect loop.
   const redirectToCheckoutIfNeeded = async (userData, accessToken) => {
-    if (!userData.subscription) {
-      // Consume the selected plan immediately so a stale value can't leak into
-      // a later, unrelated checkout (or get double-consumed by the App.jsx
-      // auto-checkout effect, which also reads+clears this key). One-shot.
-      const plan = localStorage.getItem('rigacap_selected_plan') || 'monthly';
-      localStorage.removeItem('rigacap_selected_plan');
-      try {
-        const res = await fetch(`${API_URL}/api/billing/create-checkout`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({ plan }),
-        });
-        const data = await res.json();
-        if (res.ok && data.checkout_url) {
-          // GA4: track begin_checkout conversion
-          if (window.gtag) {
-            window.gtag('event', 'begin_checkout', { value: plan === 'annual' ? 349 : 39, currency: 'USD' });
-          }
-          // Cookieless "reached the pay page" event — attributed back to the ad
-          // landing page that drove it (stashed at signup-intent on the landing).
-          const origin = consumeAdOrigin();
-          if (origin && origin.path) {
-            logPublicEvent('checkout_redirect', origin);
-          } else {
-            logPublicEvent('checkout_redirect');
-          }
-          window.location.href = data.checkout_url;
-          return true;
+    const plan = localStorage.getItem('rigacap_selected_plan');
+    localStorage.removeItem('rigacap_selected_plan');  // one-shot; never a stale default
+    if (!plan) return false;  // no explicit upgrade intent → free view, no redirect
+
+    // Don't send an already-subscribed user to a second checkout.
+    const sub = userData.subscription;
+    if (sub && (sub.has_stripe_subscription || ['active', 'trialing', 'past_due'].includes(sub.status))) {
+      return false;
+    }
+    try {
+      const res = await fetch(`${API_URL}/api/billing/create-checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ plan }),
+      });
+      const data = await res.json();
+      if (res.ok && data.checkout_url) {
+        if (window.gtag) {
+          window.gtag('event', 'begin_checkout', { currency: 'USD', item_variant: plan });
         }
-      } catch (err) {
-        console.error('Checkout redirect failed:', err);
+        // Cookieless "reached the pay page" event — attributed back to the ad
+        // landing page that drove it (stashed at signup-intent on the landing).
+        const origin = consumeAdOrigin();
+        logPublicEvent('checkout_redirect', (origin && origin.path) ? origin : undefined);
+        window.location.href = data.checkout_url;
+        return true;
       }
+    } catch (err) {
+      console.error('Checkout redirect failed:', err);
     }
     return false;
   };
