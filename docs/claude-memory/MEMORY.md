@@ -1,5 +1,8 @@
 # Stocker App - Key Learnings
 
+## 🧭 FREE-FIRST CONVERSION PIVOT — full build spec (Aug 24, DISCUSS→build)
+- [Free-first spec](project_free_first_spec.md) — 0 real subs → earn trust via FREE (no-card, delayed-proof) experience, card LATER (30-day money-back). New `free` state, RETIRE `trial`, `is_valid`=paid-only. Free shows whole engine DELAYED (lead personalized by ad door; tier choice at upgrade). Anti-leak = data-layer entitlement choke point + fail-closed pre-send guard. QA = preview_state/force_state. Every captured email→newsletter (+abandoned-signup recovery). Drip rewrite. OPEN: free/paid line, money-back length, intro pricing #s.
+
 ## ✒️ QUEUED NEWSLETTER TOPIC — "Pascal's Portfolio" (seeded Aug 24)
 - [Pascal → discipline + margin of safety](project_newsletter_pascal_topic.md) — FUTURE issue. Pascal's Wager = asymmetric payoff/margin-of-safety (Preserver put-option premium); "inability to sit quietly in a room" = behavior gap/overtrading (discipline engine, both tiers). Hook: "the discipline to sit still — and the one rule that decides when not to." Principle piece, numbers as light proof (Max DD −20.8 vs raw-mom −57).
 
