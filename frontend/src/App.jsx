@@ -1350,15 +1350,8 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
           <button onClick={onClose} className="px-6 py-2.5 text-ink-mute hover:bg-paper-deep rounded font-medium">
             Close
           </button>
-          {type === 'signal' && !data?.exit_date && (
-            <button
-              onClick={() => setShowBuyModal(true)}
-              className="px-6 py-2.5 bg-positive text-white rounded font-medium hover:bg-positive flex items-center gap-2"
-            >
-              <DollarSign size={18} />
-              Record Entry
-            </button>
-          )}
+          {/* Record Entry retired — the manual per-user portfolio workflow was replaced by the
+              auto-mirror book model, so signals no longer offer a "record entry" action. */}
           {type === 'position' && (
             <button
               onClick={() => setShowSellModal(true)}
@@ -4026,6 +4019,9 @@ function Dashboard() {
                               return <span className="font-mono text-[0.7rem] tracking-[0.12em] uppercase text-claret">{label}</span>;
                             })()}
                           </td>
+                          {/* Trailing action column — RETIRED for mirror/served-tier users: no
+                              manual record-entry workflow, so the "Signal"/"+Entry" column is dropped. */}
+                          {!dashboardData?.tier_book && (
                           <td className="px-3 py-3 text-center">
                             {s.in_user_position ? (
                               <span className="font-body text-[0.7rem] font-medium tracking-[0.1em] uppercase px-2.5 py-1 bg-paper-card text-ink-mute border border-rule whitespace-nowrap inline-block">
@@ -4050,6 +4046,7 @@ function Dashboard() {
                               </button>
                             )}
                           </td>
+                          )}
                         </tr>
                         );
                       };
@@ -4387,7 +4384,7 @@ function Dashboard() {
                                           <th className="px-3 py-2 text-right font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Breakout</th>
                                           <th className="px-3 py-2 text-center font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">Score</th>
                                           <th className="px-3 py-2 text-center font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink whitespace-nowrap">Strength</th>
-                                          <th className="px-3 py-2 text-center font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink"></th>
+                                          {!dashboardData?.tier_book && <th className="px-3 py-2 text-center font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink"></th>}
                                         </tr>
                                       </thead>
                                       <tbody>
