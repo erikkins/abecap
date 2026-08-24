@@ -534,6 +534,65 @@ async def tier_public_summary(db, tier: str) -> Optional[dict]:
     }
 
 
+async def current_book_phase(db) -> Optional[dict]:
+    """Dynamic 'where we are right now' readout from the live book's OWN daily equity — a readout
+    of the present, never a claim, so it stays honest and swings positive on its own when the book
+    recovers. Below the trailing peak → soft patch (down X% over N weeks); at/near a new high off a
+    recent low → upswing (up X% off the low). Uses the Preserver book series (the base both tiers
+    hold, longest history). (project_free_first_spec — honest dynamic proof.)"""
+    from app.core.database import PreserverBookSnapshot
+
+    rows = (await db.execute(
+        select(PreserverBookSnapshot).order_by(PreserverBookSnapshot.snapshot_date.asc())
+    )).scalars().all()
+    series = [(r.snapshot_date, float(r.equity)) for r in rows if r.equity]
+    if len(series) < 5:
+        return None
+    dates = [d for d, _ in series]
+    eq = [e for _, e in series]
+    last = eq[-1]
+
+    def _dur(i):
+        days = max(1, (dates[-1] - dates[i]).days)
+        if days >= 55:
+            m = max(1, round(days / 30.4))
+            return f"{m} month" + ("s" if m != 1 else "")
+        w = max(1, round(days / 7))
+        return f"{w} week" + ("s" if w != 1 else "")
+
+    # trailing peak (last occurrence of the running max) and its date
+    peak, peak_i = eq[0], 0
+    for i, e in enumerate(eq):
+        if e >= peak:
+            peak, peak_i = e, i
+    dd = last / peak - 1.0
+
+    if dd <= -0.005:  # currently in a drawdown from the peak → soft patch
+        return {
+            "phase": "soft_patch",
+            "pct": round(dd * 100, 1),
+            "duration": _dur(peak_i),
+            "since": dates[peak_i].isoformat() if hasattr(dates[peak_i], "isoformat") else str(dates[peak_i]),
+            "text": f"Right now we're about {_dur(peak_i)} into a soft patch — the book is "
+                    f"{abs(round(dd * 100, 1))}% off its high. This is what riding momentum with a "
+                    f"floor looks like in a down stretch; the edge is measured over full cycles.",
+        }
+    # at/near a new high → measure the upswing off the lowest point of the run
+    trough, trough_i = last, len(eq) - 1
+    for i in range(len(eq) - 1, -1, -1):
+        if eq[i] <= trough:
+            trough, trough_i = eq[i], i
+    up = last / trough - 1.0 if trough else 0.0
+    return {
+        "phase": "upswing",
+        "pct": round(up * 100, 1),
+        "duration": _dur(trough_i),
+        "since": dates[trough_i].isoformat() if hasattr(dates[trough_i], "isoformat") else str(dates[trough_i]),
+        "text": f"Right now we're about {_dur(trough_i)} into an upswing — the book is up "
+                f"{round(up * 100, 1)}% off its recent low.",
+    }
+
+
 async def apply_tier_serving(
     db, cached: dict, tier: str, data_cache: dict, buy_signals: List[dict],
 ) -> dict:

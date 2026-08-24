@@ -2165,6 +2165,12 @@ async def get_dashboard_data(
                 cached, free_payload.get('open_book'))
         except Exception as _mre:
             print(f"⚠️ free market_read failed: {_mre}")
+        # (D) Dynamic "where we are right now" — honest phase readout that auto-flips soft
+        # patch ↔ upswing as the book's own equity moves.
+        try:
+            free_payload['current_phase'] = await tier_serving.current_book_phase(db)
+        except Exception as _cpe:
+            print(f"⚠️ free current_phase failed: {_cpe}")
         return free_payload
 
     # Add user-specific positions with sell guidance (~200ms).
