@@ -2034,11 +2034,11 @@ def _build_free_market_read(cached: dict, open_book: Optional[dict]) -> dict:
     parts = []
     if regime:
         parts.append(f"Market regime: {regime}.")
-    if spy:
-        vtxt = ""
-        if vix:
-            vtxt = f", volatility {'elevated' if float(vix) >= 20 else 'subdued'} (VIX {round(float(vix))})"
-        parts.append(f"S&P 500 near {round(float(spy)):,}{vtxt}.")
+    # Deliberately NO absolute S&P/index level — market_stats.spy_price is unreliable (has served
+    # nonsense like 763) and a precise index number adds nothing for the free tier. Volatility
+    # band only (qualitative), which is robust.
+    if vix:
+        parts.append(f"Volatility {'elevated' if float(vix) >= 20 else 'subdued'} (VIX {round(float(vix))}).")
     if new_today:
         parts.append(f"The book added {new_today} new position{'s' if new_today != 1 else ''} "
                      f"this session — unlock to see them.")
@@ -2139,10 +2139,16 @@ async def get_dashboard_data(
         # not until the paid path below) — import them here so the free seam can use them.
         from app.services.model_portfolio_service import model_portfolio_service
         from app.services import tier_serving
-        # (A) Closed-trade "We Called It" ledger — NAMED proof (closed trades only; past the
-        # entry, fully resolved → not actionable).
+        # (A) "We Called It" ledger — NAMED WINNERS from the nightly walk-forward, already in the
+        # cache (cached['missed_opportunities']). NOT signal_track_record (that unfiltered
+        # flat-sized experiment is 0%-win and unrepresentative of the model book). Winners are
+        # closed/resolved catches → proof, not actionable.
         try:
-            free_payload['closed_ledger'] = await model_portfolio_service.get_signal_track_stats(db)
+            _winners = cached.get('missed_opportunities') or []
+            free_payload['closed_ledger'] = {
+                'winners': _winners[:12],
+                'count': len(_winners),
+            }
         except Exception as _cle:
             print(f"⚠️ free closed_ledger failed: {_cle}")
         # (B) Current open-book COUNTS + performance per tier — NO names/prices/weights.
