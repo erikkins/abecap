@@ -1911,6 +1911,25 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
     except Exception:
         pass
 
+    # Precompute the Maximizer Breakout Radar (names approaching a 50-day-high breakout) HERE, in
+    # the scan, where scanner_service.data_cache is populated. The API Lambda has no live price
+    # data, so building it in the request path (signals.py serving) returned EMPTY — the radar
+    # never showed on the Maximizer screen. Exclude names the model Maximizer book already holds
+    # (users mirror that book). Cached into dashboard.json + served from there.
+    breakout_radar = []
+    try:
+        from app.services import tier_serving as _ts_radar
+        from app.core.database import MaximizerBookSnapshot as _MBS
+        _msnap = (await db.execute(
+            select(_MBS).order_by(_MBS.snapshot_date.desc()).limit(1)
+        )).scalars().first()
+        _mheld = set()
+        if _msnap and isinstance(_msnap.positions_json, dict):
+            _mheld = {p.get("symbol") for p in (_msnap.positions_json.get("positions") or []) if p.get("symbol")}
+        breakout_radar = _ts_radar.build_breakout_radar(scanner_service.data_cache, _mheld)
+    except Exception as _bre:
+        print(f"⚠️ breakout_radar precompute failed: {_bre}")
+
     return {
         'regime_forecast': regime_forecast_data,
         'regime_adjustments': regime_adjustments,
@@ -1921,6 +1940,7 @@ async def compute_shared_dashboard_data(db: AsyncSession, momentum_top_n: int = 
         'recent_signals': recent_signals,
         'last_ensemble_entry_date': last_ensemble_entry_date,
         'market_context': market_context,
+        'breakout_radar': breakout_radar,
         'data_date': data_date,
         'generated_at': datetime.now().isoformat(),
     }
@@ -2305,7 +2325,10 @@ async def get_dashboard_data(
             if tier == 'maximizer':
                 try:
                     _held = {h.get('symbol') for h in (tier_book or {}).get('holdings', [])}
-                    breakout_radar = tier_serving.build_breakout_radar(scanner_service.data_cache, _held)
+                    # Prefer the radar precomputed by the scan (dashboard.json) — the API Lambda has
+                    # no live price data, so building it here from scanner_service.data_cache returns
+                    # empty. Fall back to a live build only where data_cache is populated (worker/local).
+                    breakout_radar = cached.get('breakout_radar') or tier_serving.build_breakout_radar(scanner_service.data_cache, _held)
                     todays_actions = await tier_serving.build_todays_actions(db)
                 except Exception as _rae:
                     print(f"⚠️ radar/actions build failed: {_rae}")
