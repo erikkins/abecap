@@ -1795,8 +1795,16 @@ class SchedulerService:
             max_context = None
             max_todays = None   # today's book fills (BUY new / SELL 29-day) for the "moves" banner
             max_radar = None    # breakout candidates approaching a trigger (mirrors the portal radar)
+            pres_todays = None  # today's PRESERVER (live model book) moves — shown for ALL subs
+                                # (everyone mirrors the base book), sourced from ModelPosition.
             try:
                 from app.services import tier_serving
+                if tier_serving.tier_serving_enabled():
+                    try:
+                        async with async_session() as _pdb:
+                            pres_todays = await tier_serving.build_preserver_todays_actions(_pdb)
+                    except Exception as _pe:
+                        logger.warning(f"preserver todays_actions failed: {_pe}")
                 _need_max = any(s.get('is_maximizer') for s in subscribers) or force_tier == 'maximizer'
                 if tier_serving.tier_serving_enabled() and _need_max:
                     from app.core.database import MaximizerBookSnapshot
@@ -1911,6 +1919,7 @@ class SchedulerService:
                         capital=sub.get('capital'),
                         secondary_market_context=user_secondary,
                         todays_actions=user_todays,
+                        preserver_todays_actions=pres_todays,
                     )
                     if success:
                         sent += 1

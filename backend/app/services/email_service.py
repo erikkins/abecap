@@ -517,6 +517,7 @@ class EmailService:
         capital: float = None,
         secondary_market_context: str = None,
         todays_actions: Dict = None,
+        preserver_todays_actions: Dict = None,
     ) -> str:
         """
         Generate beautiful HTML for daily summary email
@@ -557,24 +558,40 @@ class EmailService:
         except Exception:
             cascade_notice = ''
 
-        # Today's moves — the book's same-day fills (BUY = new entries, SELL = 29-day time-stop
-        # exits). Email-only users need this explicit "sync your broker" callout; if the book
-        # didn't trade today there's nothing to render.
+        # Today's moves — same-day fills for the book(s) this subscriber mirrors. A Maximizer sub
+        # holds BOTH books, so show a per-book line: Preserver (t30v entries / 30% trailing / regime)
+        # AND Maximizer (breakout entries / 29-day time-stop). Only render a line that has moves; if
+        # neither book traded today there's nothing to render.
         moves_banner = ''
-        _ta = todays_actions or {}
-        _buys = [b.get('symbol') for b in (_ta.get('buys') or []) if b.get('symbol')]
-        _sells = [s.get('symbol') for s in (_ta.get('sells') or []) if s.get('symbol')]
-        if _buys or _sells:
-            _parts = []
-            if _buys:
-                _parts.append("BUY " + ", ".join(_buys))
-            if _sells:
-                _parts.append("SELL " + ", ".join(_sells) + " (29-day exit)")
+
+        def _moves_line(ta, label, sell_note):
+            b = [x.get('symbol') for x in ((ta or {}).get('buys') or []) if x.get('symbol')]
+            s = [x.get('symbol') for x in ((ta or {}).get('sells') or []) if x.get('symbol')]
+            if not (b or s):
+                return None
+            segs = []
+            if b:
+                segs.append("BUY " + ", ".join(b))
+            if s:
+                segs.append("SELL " + ", ".join(s) + sell_note)
+            return (
+                '<div style="font-family: Georgia, serif; font-size: 15px; color: #141210; '
+                'line-height: 1.5; margin-top: 3px;">'
+                '<span style="font-family: \'Courier New\', monospace; font-size: 11px; '
+                'text-transform: uppercase; letter-spacing: 1px; color: #7A2430;">' + label + ':</span> '
+                '&nbsp;' + " &nbsp;&middot;&nbsp; ".join(segs) + '</div>'
+            )
+
+        _move_lines = [ln for ln in (
+            _moves_line(preserver_todays_actions, "Preserver", " (trailing / regime exit)"),
+            _moves_line(todays_actions, "Maximizer", " (29-day exit)"),
+        ) if ln]
+        if _move_lines:
             moves_banner = f'''
         <tr><td style="padding: 0 24px 18px;">
             <div style="border: 1px solid #7A2430; background: #FFFFFF; padding: 12px 16px;">
                 <div style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7A2430; margin-bottom: 6px;">Today's moves &mdash; sync your broker</div>
-                <div style="font-family: Georgia, serif; font-size: 15px; color: #141210; line-height: 1.5;">{" &nbsp;&middot;&nbsp; ".join(_parts)}</div>
+                {"".join(_move_lines)}
             </div>
         </td></tr>'''
         # Bucket taxonomy — MUST match the dashboard (App.jsx) exactly:
@@ -1380,6 +1397,7 @@ class EmailService:
         capital: float = None,
         secondary_market_context: str = None,
         todays_actions: Dict = None,
+        preserver_todays_actions: Dict = None,
     ) -> bool:
         """
         Send daily summary email to a subscriber
@@ -1452,6 +1470,7 @@ class EmailService:
             capital=capital,
             secondary_market_context=secondary_market_context,
             todays_actions=todays_actions,
+            preserver_todays_actions=preserver_todays_actions,
         )
 
         text = self.generate_plain_text(signals, market_regime, date=date, watchlist=watchlist)

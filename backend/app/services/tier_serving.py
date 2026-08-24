@@ -300,6 +300,29 @@ async def build_todays_actions(db) -> dict:
     return {"buys": buys, "sells": sells, "as_of": today.isoformat()}
 
 
+async def build_preserver_todays_actions(db) -> dict:
+    """Today's PRESERVER (live t30v model book) moves — BUY = entries dated today, SELL = exits
+    dated today (30% trailing / regime). Sourced from ModelPosition (the Preserver book uses the
+    live model portfolio, not TierFill). Parallels build_todays_actions (Maximizer) so the email
+    can show a per-book "Today's moves" for BOTH books a Maximizer subscriber mirrors."""
+    from app.core.database import ModelPosition
+    from app.core.timezone import trading_today
+    today = trading_today()
+    rows = (await db.execute(
+        select(ModelPosition).where(ModelPosition.portfolio_type == "live")
+    )).scalars().all()
+    buys, sells = [], []
+    for r in rows:
+        _ed = r.entry_date.date() if getattr(r, "entry_date", None) else None
+        _xd = r.exit_date.date() if getattr(r, "exit_date", None) else None
+        if _ed == today and r.status == "open":
+            buys.append({"symbol": r.symbol, "price": round(float(r.entry_price or 0), 2)})
+        if _xd == today and r.status == "closed":
+            sells.append({"symbol": r.symbol, "price": round(float(r.exit_price or 0), 2),
+                          "pnl_pct": r.pnl_pct, "exit_reason": r.exit_reason})
+    return {"buys": buys, "sells": sells, "as_of": today.isoformat() if (buys or sells) else None}
+
+
 def _vol_scale_from_hist(bk_eq_hist) -> float:
     """The book's current Barroso vol-brake factor (target / trailing realized vol, capped 1.0)
     — SAME formula as MaximizerBook._vol_scale. 1.0 until warm."""
