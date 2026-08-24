@@ -57,6 +57,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginModal from './components/LoginModal';
 import { formatDate, formatChartDate } from './utils/formatDate';
 import SubscriptionBanner from './components/SubscriptionBanner';
+import FreeProofView from './components/FreeProofView';
 import CookieConsent from './components/CookieConsent';
 import PageViewBeacon from './components/PageViewBeacon';
 import TwoFactorSettings from './components/TwoFactorSettings';
@@ -3797,80 +3798,26 @@ function Dashboard() {
                     </div>
                   )}
                   {dashboardData?.subscription_required ? (
-                    /* Upgrade prompt for users without valid subscription */
-                    <div className="p-6 text-center space-y-4">
-                      <div className="w-12 h-12 bg-paper-deep rounded-full flex items-center justify-center mx-auto">
-                        <Lock className="w-6 h-6 text-ink-light" />
-                      </div>
-                      <div>
-                        <h3 className="font-display text-[1.15rem] font-medium text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>Unlock Signals</h3>
-                        <p className="text-sm text-ink-mute mt-1">
-                          Subscribe to see real-time ensemble signals, momentum rankings, and position guidance.
-                        </p>
-                      </div>
-                      {dashboardData?.regime_forecast && (
-                        <div className="flex items-center justify-center gap-2 text-sm text-ink-mute">
-                          <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                            ['strong_bull', 'weak_bull', 'recovery'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-positive/100' :
-                            ['rotating_bull', 'range_bound'].includes(dashboardData.regime_forecast.current_regime) ? 'bg-ink-light' :
-                            'bg-negative/100'
-                          }`} />
-                          <span>Current regime: <strong>{dashboardData.regime_forecast.current_regime_name}</strong></span>
-                        </div>
-                      )}
-                      <div className="pt-2 space-y-2">
-                        {user ? (
-                          <>
-                            <button
-                              onClick={async () => {
-                                setUpgradeLoading(true);
-                                try {
-                                  const data = await api.post('/api/billing/create-checkout', { plan: 'annual' });
-                                  if (window.gtag) window.gtag('event', 'begin_checkout', { value: 1099, currency: 'USD' });
-                                  window.location.href = data.checkout_url;
-                                } catch (err) {
-                                  console.error('Checkout error:', err);
-                                  alert('Failed to start checkout. Please try again.');
-                                } finally {
-                                  setUpgradeLoading(false);
-                                }
-                              }}
-                              disabled={upgradeLoading}
-                              className="w-full px-4 py-2.5 bg-ink text-paper font-medium rounded-[2px] hover:bg-claret transition-all disabled:opacity-50"
-                            >
-                              {upgradeLoading ? 'Loading...' : 'Subscribe — $1,099/year (Save $449)'}
-                            </button>
-                            <button
-                              onClick={async () => {
-                                setUpgradeLoading(true);
-                                try {
-                                  const data = await api.post('/api/billing/create-checkout', { plan: 'monthly' });
-                                  if (window.gtag) window.gtag('event', 'begin_checkout', { value: 129, currency: 'USD' });
-                                  window.location.href = data.checkout_url;
-                                } catch (err) {
-                                  console.error('Checkout error:', err);
-                                  alert('Failed to start checkout. Please try again.');
-                                } finally {
-                                  setUpgradeLoading(false);
-                                }
-                              }}
-                              disabled={upgradeLoading}
-                              className="w-full px-4 py-2 text-sm text-ink-mute hover:text-ink font-medium transition-colors"
-                            >
-                              or $129/month
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => setShowLoginModal(true)}
-                            className="w-full px-4 py-2.5 bg-ink text-white font-medium rounded-lg hover:bg-claret transition-all flex items-center justify-center gap-2"
-                          >
-                            <LogIn className="w-4 h-4" />
-                            Sign in to get started
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    /* FREE tier proof-only view (project_free_first_spec §2) */
+                    <FreeProofView
+                      data={dashboardData}
+                      user={user}
+                      upgradeLoading={upgradeLoading}
+                      onSignIn={() => setShowLoginModal(true)}
+                      onSubscribe={async (plan) => {
+                        setUpgradeLoading(true);
+                        try {
+                          const d = await api.post('/api/billing/create-checkout', { plan });
+                          if (window.gtag) window.gtag('event', 'begin_checkout', { value: plan === 'annual' ? 1099 : 129, currency: 'USD' });
+                          window.location.href = d.checkout_url;
+                        } catch (err) {
+                          console.error('Checkout error:', err);
+                          alert('Failed to start checkout. Please try again.');
+                        } finally {
+                          setUpgradeLoading(false);
+                        }
+                      }}
+                    />
                   ) : (dashboardData?.tier_book || (dashboardData?.buy_signals || []).length > 0) ? (
                     (() => {
                       const sectorFilter = (s) => !excludedSectors.includes(s.sector || 'Other');
