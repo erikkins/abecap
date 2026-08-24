@@ -901,6 +901,15 @@ class Subscription(Base):
         project_free_first_spec §4 (free payload OMITS paid fields at the data layer)."""
         return "paid" if self.is_valid() else "free"
 
+    def has_maximizer_access(self) -> bool:
+        """Maximizer (both-books) entitlement. True for: a paid add-on (has_maxpp_addon), an admin
+        comp (compmax), OR a VALID no-card trial. Trials get both tiers by virtue of being a valid
+        trial — NOT via a persistent flag — so converting to a Preserver-only paid plan can't leak
+        free Maximizer. Use this everywhere instead of `has_maxpp_addon or compmax`."""
+        if self.has_maxpp_addon or self.compmax:
+            return True
+        return self.status == "trial" and self.is_valid()
+
     def days_remaining(self) -> int:
         """Get days remaining in trial or current period."""
         now = datetime.utcnow()
@@ -928,8 +937,9 @@ class Subscription(Base):
             "current_period_end": self.current_period_end.isoformat() if self.current_period_end else None,
             "cancel_at_period_end": self.cancel_at_period_end,
             "has_stripe_subscription": bool(self.stripe_subscription_id),
-            # Maximizer entitlement = paid add-on OR admin comp.
-            "has_maximizer": bool(self.has_maxpp_addon or self.compmax),
+            # Maximizer entitlement = paid add-on OR admin comp OR a valid trial (trial-aware,
+            # non-persistent — see has_maximizer_access).
+            "has_maximizer": self.has_maximizer_access(),
         }
 
 

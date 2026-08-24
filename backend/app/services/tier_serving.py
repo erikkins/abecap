@@ -103,7 +103,8 @@ def resolve_tier(subscription, is_admin: bool = False, preview_tier: Optional[st
     if preview_tier in ("preserver", "maximizer"):
         return preview_tier
     if subscription is not None and (
-        getattr(subscription, "has_maxpp_addon", False) or getattr(subscription, "compmax", False)
+        subscription.has_maximizer_access() if hasattr(subscription, "has_maximizer_access")
+        else (getattr(subscription, "has_maxpp_addon", False) or getattr(subscription, "compmax", False))
     ):
         return "maximizer"
     return "preserver"

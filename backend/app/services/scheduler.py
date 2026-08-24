@@ -1743,7 +1743,7 @@ class SchedulerService:
             subscribers = []
             def _is_max(u):
                 s = getattr(u, 'subscription', None)
-                return bool(s and (getattr(s, 'has_maxpp_addon', False) or getattr(s, 'compmax', False)))
+                return bool(s and s.has_maximizer_access())
             for u in all_users:
                 email_lower = (u.email or '').lower()
                 if target_set and email_lower not in target_set:
