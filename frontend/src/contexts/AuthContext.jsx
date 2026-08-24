@@ -166,46 +166,15 @@ export function AuthProvider({ children }) {
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
   }, [user?.id, getTokens, refreshAccessToken]);
 
-  // Helper: carry an EXPLICIT upgrade intent through to Stripe checkout after auth.
-  // Free-first (project_free_first_spec §7): this must NEVER auto-redirect on a plain login/signup.
-  // It fires ONLY when the user actually chose a plan (stashed in rigacap_selected_plan); with no
-  // plan we return false and land them in the free view. The old code defaulted the plan to
-  // 'monthly' and redirected whenever a user had no subscription — which bounced every sub-less
-  // user (especially OAuth signups) into Stripe, cancel → return → bounce again = a redirect loop.
+  // Free-first (project_free_first_spec §7): login/signup NEVER auto-redirects to Stripe.
+  // Every new user lands in the FREE view; upgrades happen only via an explicit in-app action
+  // (the free view's Upgrade button → create-checkout directly). This helper is kept so its
+  // callers don't change; it now just clears any stale plan intent and always returns false so
+  // the caller proceeds straight into the app. (Previously it defaulted the plan to 'monthly'
+  // and redirected sub-less users to Stripe — an OAuth/login redirect loop + surprise checkout.)
   const redirectToCheckoutIfNeeded = async (userData, accessToken) => {
-    const plan = localStorage.getItem('rigacap_selected_plan');
-    localStorage.removeItem('rigacap_selected_plan');  // one-shot; never a stale default
-    if (!plan) return false;  // no explicit upgrade intent → free view, no redirect
-
-    // Don't send an already-subscribed user to a second checkout.
-    const sub = userData.subscription;
-    if (sub && (sub.has_stripe_subscription || ['active', 'trialing', 'past_due'].includes(sub.status))) {
-      return false;
-    }
-    try {
-      const res = await fetch(`${API_URL}/api/billing/create-checkout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ plan }),
-      });
-      const data = await res.json();
-      if (res.ok && data.checkout_url) {
-        if (window.gtag) {
-          window.gtag('event', 'begin_checkout', { currency: 'USD', item_variant: plan });
-        }
-        // Cookieless "reached the pay page" event — attributed back to the ad
-        // landing page that drove it (stashed at signup-intent on the landing).
-        const origin = consumeAdOrigin();
-        logPublicEvent('checkout_redirect', (origin && origin.path) ? origin : undefined);
-        window.location.href = data.checkout_url;
-        return true;
-      }
-    } catch (err) {
-      console.error('Checkout redirect failed:', err);
-    }
+    localStorage.removeItem('rigacap_selected_plan');
+    localStorage.removeItem('rigacap_want_maximizer');
     return false;
   };
 

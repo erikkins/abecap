@@ -2017,41 +2017,15 @@ function Dashboard() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Auto-launch Stripe checkout after signup from a landing/pricing CTA.
-  // LoginModal stores the chosen plan in localStorage('rigacap_selected_plan')
-  // when a visitor clicks "Start Trial"; previously nothing consumed it, so a
-  // signed-up user landed in /app and had to find the subscribe button. Now we
-  // carry the intent straight through to the Stripe screen (Jun 23 2026). Only
-  // fires for an authenticated user who isn't already subscribed; one-shot
-  // (flag cleared immediately) so it can't loop.
+  // Free-first (project_free_first_spec §7): auto-launching Stripe checkout after signup is
+  // RETIRED. New users land in the FREE view and upgrade ONLY via an explicit action (the free
+  // view's Upgrade button → create-checkout directly). This effect now just clears any stale
+  // plan intent left in localStorage so a leftover value can't trigger a surprise checkout a few
+  // seconds after landing on the dashboard.
   useEffect(() => {
-    if (!isAuthenticated || authLoading) return;
-    const plan = localStorage.getItem('rigacap_selected_plan');
-    if (!plan) return;
-    localStorage.removeItem('rigacap_selected_plan');  // consume immediately
-    const wantMaximizer = localStorage.getItem('rigacap_want_maximizer') === '1';
+    localStorage.removeItem('rigacap_selected_plan');
     localStorage.removeItem('rigacap_want_maximizer');
-    const sub = user?.subscription;
-    const alreadySubscribed = sub?.has_stripe_subscription || ['active', 'trialing', 'past_due'].includes(sub?.status);
-    if (alreadySubscribed) return;
-    (async () => {
-      try {
-        const data = await api.post('/api/billing/create-checkout', { plan: plan === 'annual' ? 'annual' : 'monthly', maximizer: wantMaximizer });
-        if (window.gtag) window.gtag('event', 'begin_checkout', { currency: 'USD', item_variant: wantMaximizer ? `${plan}+maximizer` : plan });
-        if (data?.checkout_url) {
-          // Cookieless "reached the pay page" — the ad-landing signup flow redirects HERE (not via
-          // AuthContext.redirectToCheckout), so without this the ad-door funnel never logs it.
-          // Attributed back to the landing page stashed at signup-intent.
-          const origin = consumeAdOrigin();
-          logPublicEvent('checkout_redirect', (origin && origin.path) ? origin : {});
-          window.location.href = data.checkout_url;
-        }
-      } catch (e) {
-        // Non-fatal: leave them in /app with the subscribe button if checkout fails
-        console.error('Auto-checkout after signup failed:', e);
-      }
-    })();
-  }, [isAuthenticated, authLoading, user]);
+  }, []);
 
   // Handle post-checkout redirect from Stripe
   useEffect(() => {

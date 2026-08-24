@@ -164,8 +164,10 @@ async def create_checkout_session(
             "customer": user.stripe_customer_id,
             "mode": "subscription",
             "line_items": line_items,
-            "success_url": f"{settings.FRONTEND_URL}/dashboard?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
-            "cancel_url": f"{settings.FRONTEND_URL}/pricing?checkout=canceled",
+            # Return to the authenticated app route (/app). /dashboard and /pricing are NOT SPA
+            # routes — they render the client-side 404 page (the back-from-Stripe 404 bug).
+            "success_url": f"{settings.FRONTEND_URL}/app?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
+            "cancel_url": f"{settings.FRONTEND_URL}/app?checkout=canceled",
         }
 
         # Apply referral coupon if user was referred (and no existing subscription)
