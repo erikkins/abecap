@@ -12,7 +12,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from app.core.database import get_db, Signal, Position, User, UserPortfolioState, EmailSubscriber
-from app.core.security import get_current_user_optional, get_admin_user, require_valid_subscription
+from app.core.security import get_current_user_optional, get_admin_user, require_valid_subscription, resolve_entitlement
 from app.services.scanner import scanner_service, SignalData
 from app.services.stock_universe import stock_universe_service
 from app.services.data_export import data_export_service
@@ -2016,6 +2016,43 @@ async def _get_positions_with_guidance(db: AsyncSession, user, regime_forecast_d
     return positions_with_guidance
 
 
+def _build_free_market_read(cached: dict, open_book: Optional[dict]) -> dict:
+    """Ticker-free market read for the FREE tier: regime + SPY/VIX levels + GENERIC activity
+    counts (never a symbol name). Assembled from cache fields that are already ticker-free plus
+    the counts-only open-book summary — so it is ticker-free BY CONSTRUCTION, not by stripping.
+    (project_free_first_spec §2b — a purpose-built free read, not a regex-scrubbed paid one.)"""
+    ms = cached.get('market_stats') or {}
+    rf = cached.get('regime_forecast') or {}
+    regime = rf.get('regime') or rf.get('current_regime') or ms.get('regime_name')
+    spy = ms.get('spy_price')
+    vix = ms.get('vix_level') or ms.get('vix')
+    new_today = 0
+    if open_book:
+        for _t in ('preserver', 'maximizer'):
+            s = open_book.get(_t) or {}
+            new_today += int(s.get('new_today') or 0)
+    parts = []
+    if regime:
+        parts.append(f"Market regime: {regime}.")
+    if spy:
+        vtxt = ""
+        if vix:
+            vtxt = f", volatility {'elevated' if float(vix) >= 20 else 'subdued'} (VIX {round(float(vix))})"
+        parts.append(f"S&P 500 near {round(float(spy)):,}{vtxt}.")
+    if new_today:
+        parts.append(f"The book added {new_today} new position{'s' if new_today != 1 else ''} "
+                     f"this session — unlock to see them.")
+    else:
+        parts.append("No new positions this session.")
+    return {
+        "text": " ".join(parts) if parts else None,
+        "regime": regime,
+        "spy_price": spy,
+        "vix_level": vix,
+        "new_today": new_today,
+    }
+
+
 @router.get("/dashboard")
 async def get_dashboard_data(
     response: Response,
@@ -2050,21 +2087,18 @@ async def get_dashboard_data(
     from sqlalchemy.orm import selectinload
     from app.core.database import Subscription
 
-    # --- Check subscription status ---
-    has_valid_sub = False
+    # --- Resolve content entitlement via the single choke point (free-first model) ---
+    # Load the subscription for everyone (admins included) so tier serving can read the
+    # Maximizer entitlement (has_maxpp_addon / compmax) further down.
     subscription = None
     if user:
-        # Load the subscription for everyone (admins included) so tier serving can read
-        # the Maximizer entitlement (has_maxpp_addon / compmax); admins still bypass the
-        # validity gate below.
         sub_result = await db.execute(
             select(Subscription).where(Subscription.user_id == user.id)
         )
         subscription = sub_result.scalar_one_or_none()
-        if user.is_admin():
-            has_valid_sub = True
-        else:
-            has_valid_sub = subscription is not None and subscription.is_valid()
+    # 'paid' = full real-time payload; 'free' = proof-only payload (project_free_first_spec §4).
+    entitlement = resolve_entitlement(user, subscription)
+    has_valid_sub = entitlement == "paid"
 
     # --- Time-travel mode (admin only) — always compute live ---
     if as_of_date:
@@ -2082,10 +2116,13 @@ async def get_dashboard_data(
         # Fallback: compute live if S3 cache missing but data is loaded
         cached = await compute_shared_dashboard_data(db, momentum_top_n, fresh_days)
 
-    # --- Subscription gating ---
+    # --- FREE payload seam (project_free_first_spec §2/§4) ---
+    # entitlement == 'free' → PROOF ONLY: closed-trade ledger (named, closed-only), current-book
+    # COUNTS/perf (NO names), and a ticker-free market read. ZERO live names/entries/weights/
+    # exits/signals ever cross this seam. Each enrichment is isolated so a failure degrades to the
+    # base teaser rather than 500-ing.
     if not has_valid_sub:
-        # Teaser: show regime, market stats, signal count, but no actual signals
-        return {
+        free_payload = {
             'regime_forecast': cached.get('regime_forecast'),
             'regime_adjustments': cached.get('regime_adjustments'),
             'buy_signals': [],
@@ -2095,8 +2132,30 @@ async def get_dashboard_data(
             'recent_signals': [],
             'missed_opportunities': [],
             'generated_at': cached.get('generated_at', datetime.now().isoformat()),
+            'entitlement': 'free',
             'subscription_required': True,
         }
+        # (A) Closed-trade "We Called It" ledger — NAMED proof (closed trades only; past the
+        # entry, fully resolved → not actionable).
+        try:
+            free_payload['closed_ledger'] = await model_portfolio_service.get_signal_track_stats(db)
+        except Exception as _cle:
+            print(f"⚠️ free closed_ledger failed: {_cle}")
+        # (B) Current open-book COUNTS + performance per tier — NO names/prices/weights.
+        try:
+            free_payload['open_book'] = {
+                'preserver': await tier_serving.tier_public_summary(db, 'preserver'),
+                'maximizer': await tier_serving.tier_public_summary(db, 'maximizer'),
+            }
+        except Exception as _obe:
+            print(f"⚠️ free open_book failed: {_obe}")
+        # (C) Ticker-free market read — regime + SPY/VIX + generic activity counts.
+        try:
+            free_payload['market_read_free'] = _build_free_market_read(
+                cached, free_payload.get('open_book'))
+        except Exception as _mre:
+            print(f"⚠️ free market_read failed: {_mre}")
+        return free_payload
 
     # Add user-specific positions with sell guidance (~200ms).
     # Trailing stop must track the live model/email exit (regime-adjusted t30v value,

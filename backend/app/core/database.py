@@ -869,18 +869,35 @@ class Subscription(Base):
         )
 
     def is_valid(self) -> bool:
-        """Check if subscription is currently valid (trial or active)."""
-        now = datetime.utcnow()
+        """Paid full-access ONLY (free-first model, Aug 2026 — see project_free_first_spec).
 
-        if self.status == "trial":
-            return self.trial_end and now < self.trial_end
+        Valid = ``active`` within its billing period (or comped with no period_end), OR a *carded*
+        Stripe trial (status ``trial`` WITH a stripe_subscription_id — billing.py maps Stripe
+        'trialing' -> 'trial', and a card is on file so it converts) within trial_end.
+
+        NOT valid: ``free`` (registered, no card — the free proof-only tier), a no-card ``trial``
+        (retired legacy), ``canceled``, ``expired``, ``past_due``. These sit BELOW valid and are
+        served the free tier, NOT hard-locked. Replaced the old 'trial OR active' definition; the
+        entitlement() choke point turns this bool into 'paid' | 'free'."""
+        now = datetime.utcnow()
 
         if self.status == "active":
             if self.current_period_end:
                 return now < self.current_period_end
             return True
 
+        # Carded Stripe trial (card on file -> converting) stays valid; a no-card trial does not.
+        if self.status == "trial" and self.stripe_subscription_id:
+            return (self.trial_end is None) or (now < self.trial_end)
+
         return False
+
+    def entitlement(self) -> str:
+        """Model-level content entitlement: 'paid' (full real-time access) or 'free' (proof-only
+        tier). A user with NO Subscription row is 'free' — callers handle that, or use the
+        admin-aware request-level choke point security.resolve_entitlement(user, sub). See
+        project_free_first_spec §4 (free payload OMITS paid fields at the data layer)."""
+        return "paid" if self.is_valid() else "free"
 
     def days_remaining(self) -> int:
         """Get days remaining in trial or current period."""

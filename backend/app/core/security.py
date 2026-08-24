@@ -213,6 +213,21 @@ async def get_current_user_optional(
         return None
 
 
+def resolve_entitlement(user, subscription) -> str:
+    """THE single content-entitlement choke point (free-first model, Aug 2026 —
+    project_free_first_spec §4). Returns 'paid' (full real-time access) or 'free' (proof-only
+    tier). Admins are always 'paid'. A user with no Subscription row, or one that is not
+    is_valid() (free / lapsed / canceled / expired / past_due), is 'free' — served the limited
+    view, NEVER hard-locked. Every tier-aware content producer (dashboard payload, daily digest,
+    drip) resolves entitlement ONCE via this and assembles a state-appropriate payload; the free
+    payload OMITS paid-only fields at the DATA layer so it can't leak what it never fetched."""
+    if user is not None and user.is_admin():
+        return "paid"
+    if subscription is not None and subscription.is_valid():
+        return "paid"
+    return "free"
+
+
 async def get_admin_user(user = Depends(get_current_user)):
     """Require the current user to be an admin."""
     if not user.is_admin():

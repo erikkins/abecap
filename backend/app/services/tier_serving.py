@@ -472,6 +472,68 @@ async def build_tier_book(db, tier: str, capital: float, data_cache: dict,
     }
 
 
+async def tier_public_summary(db, tier: str) -> Optional[dict]:
+    """FREE-tier proof payload: a tier's current open-book COUNTS + aggregate performance, with
+    NO names, prices, weights, or exit levels. Snapshot/DB-only — reads the same book snapshots
+    build_tier_book does and computes book_return_pct / new_today / exposure identically, but
+    emits zero position detail and needs NO price data (parquet/PITFWU) so it runs cheaply on the
+    API Lambda and can never leak an actionable name. (project_free_first_spec §2/§4)"""
+    from app.core.database import (MaximizerBookSnapshot, ModelPosition,
+                                   PreserverBookSnapshot)
+    from datetime import date as _d
+
+    if tier == "maximizer":
+        snap = (await db.execute(
+            select(MaximizerBookSnapshot).order_by(MaximizerBookSnapshot.snapshot_date.desc()).limit(1)
+        )).scalars().first()
+        if not snap or not isinstance(snap.positions_json, dict):
+            return None
+        pj = snap.positions_json
+        positions = pj.get("positions", []) or []
+        book_equity = float(snap.equity) if snap.equity else None
+        return {
+            "tier": "maximizer",
+            "holdings_count": len(positions),
+            "new_today": sum(1 for p in positions if int(p.get("days_held") or 0) == 0),
+            "book_return_pct": round((book_equity / CAP0 - 1) * 100, 1) if book_equity else None,
+            "exposure": _vol_scale_from_hist(pj.get("bk_eq_hist")),
+            "regime": snap.regime,
+            "as_of": snap.snapshot_date.isoformat() if snap.snapshot_date else None,
+        }
+
+    # preserver (and any non-maximizer): live t30v model book + Preserver exposure snapshot
+    rows = (await db.execute(
+        select(ModelPosition).where(
+            ModelPosition.portfolio_type == "live", ModelPosition.status == "open")
+    )).scalars().all()
+    psnap = (await db.execute(
+        select(PreserverBookSnapshot).order_by(PreserverBookSnapshot.snapshot_date.desc()).limit(1)
+    )).scalars().first()
+    if not rows and not psnap:
+        return None
+    exposure, book_equity, as_of = 1.0, None, None
+    if psnap and isinstance(psnap.positions_json, dict):
+        try:
+            exposure = max(0.0, min(1.0, float(psnap.positions_json.get("exposure", 1.0))))
+        except (TypeError, ValueError):
+            exposure = 1.0
+        if psnap.equity:
+            book_equity = float(psnap.equity)
+        as_of = psnap.snapshot_date
+    _today = _d.today()
+    return {
+        "tier": "preserver",
+        "holdings_count": len(rows),
+        "new_today": sum(1 for r in rows if getattr(r, "entry_date", None)
+                         and r.entry_date.date() == _today),
+        "book_return_pct": round((book_equity / CAP0 - 1) * 100, 1) if book_equity else None,
+        "exposure": round(exposure, 2),
+        "cash_pct": round((1 - exposure) * 100, 1),
+        "regime": None,
+        "as_of": as_of.isoformat() if hasattr(as_of, "isoformat") else (str(as_of) if as_of else None),
+    }
+
+
 async def apply_tier_serving(
     db, cached: dict, tier: str, data_cache: dict, buy_signals: List[dict],
 ) -> dict:
