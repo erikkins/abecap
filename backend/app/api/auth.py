@@ -225,7 +225,6 @@ async def _ping_admin_new_signup(email: str, method: str, req=None):
         pass
 
 
-@router.post("/register", response_model=TokenResponse)
 async def _provision_free_account(db, user):
     """Free-first (project_free_first_spec §6/§7): every NEW user gets an explicit `free`
     Subscription (no card, no clock — the proof-only tier) and their email enrolled in the
@@ -251,6 +250,7 @@ async def _provision_free_account(db, user):
         print(f"⚠️ newsletter enroll failed for {getattr(user,'email','?')}: {_e}")
 
 
+@router.post("/register", response_model=TokenResponse)
 async def register(
     request: RegisterRequest,
     req: Request,
