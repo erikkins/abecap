@@ -3177,9 +3177,9 @@ function Dashboard() {
               </div>
             )}
 
-            {/* Regime Forecast Bar — hidden for free/proof-only users; FreeProofView carries its
-                own ticker-free "Where we are right now" so the paid strategy framing is suppressed. */}
-            {dashboardData?.regime_forecast && !dashboardData?.subscription_required && (
+            {/* Regime Forecast Bar — shown for everyone incl. the proof floor (regime is market
+                context, not an actionable signal; Erik wants the regime control visible to free). */}
+            {dashboardData?.regime_forecast && (
               viewMode === 'simple' ? (
                 /* Simple mode: traffic light + one sentence, click to expand */
                 <div className="mb-4">

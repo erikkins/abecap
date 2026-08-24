@@ -226,15 +226,22 @@ async def _ping_admin_new_signup(email: str, method: str, req=None):
 
 
 async def _provision_free_account(db, user):
-    """Free-first (project_free_first_spec §6/§7): every NEW user gets an explicit `free`
-    Subscription (no card, no clock — the proof-only tier) and their email enrolled in the
-    newsletter (EmailSubscriber = the list the weekly send reads). Idempotent; must NEVER block
-    account creation. Caller invokes right after db.flush() so user.id is assigned."""
+    """Free-first (project_free_first_spec §7): every NEW user gets a no-card 30-day FULL-PRODUCT
+    trial — status='trial', trial_end=+30d, BOTH tiers (compmax=True grants Maximizer during the
+    trial) — so they experience the real thing (live signals, both books, regime control). When
+    trial_end passes, is_valid() flips false and they drop to the proof-only floor (FreeProofView),
+    never a lockout. Also enrolls the email in the newsletter (EmailSubscriber = the weekly-send
+    list). Idempotent; must NEVER block account creation. Called right after db.flush()."""
     from app.core.database import EmailSubscriber
+    now = datetime.utcnow()
     try:
-        db.add(Subscription(user_id=user.id, status="free", trial_start=None, trial_end=None))
+        db.add(Subscription(
+            user_id=user.id, status="trial",
+            trial_start=now, trial_end=now + timedelta(days=30),
+            compmax=True,  # both tiers during the trial
+        ))
     except Exception as _e:
-        print(f"⚠️ free-sub provision failed for {getattr(user,'email','?')}: {_e}")
+        print(f"⚠️ trial-sub provision failed for {getattr(user,'email','?')}: {_e}")
     try:
         el = (user.email or "").lower()
         if el:

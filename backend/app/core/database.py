@@ -869,16 +869,17 @@ class Subscription(Base):
         )
 
     def is_valid(self) -> bool:
-        """Paid full-access ONLY (free-first model, Aug 2026 — see project_free_first_spec).
+        """Full product access (free-first model, Aug 2026 — see project_free_first_spec).
 
-        Valid = ``active`` within its billing period (or comped with no period_end), OR a *carded*
-        Stripe trial (status ``trial`` WITH a stripe_subscription_id — billing.py maps Stripe
-        'trialing' -> 'trial', and a card is on file so it converts) within trial_end.
+        Valid = ``active`` within its billing period (or comped with no period_end), OR a ``trial``
+        within trial_end. The trial is the no-card 30-day FULL-PRODUCT trial every new signup gets
+        (both tiers, live signals) — AND it also covers carded Stripe 'trialing' (billing.py maps
+        it to 'trial'). Both carry a trial_end.
 
-        NOT valid: ``free`` (registered, no card — the free proof-only tier), a no-card ``trial``
-        (retired legacy), ``canceled``, ``expired``, ``past_due``. These sit BELOW valid and are
-        served the free tier, NOT hard-locked. Replaced the old 'trial OR active' definition; the
-        entitlement() choke point turns this bool into 'paid' | 'free'."""
+        NOT valid: an EXPIRED trial (trial_end passed), ``canceled``, ``expired``, ``past_due``,
+        ``free``. These do NOT hard-lock — they drop to the proof-only free floor (FreeProofView)
+        via the entitlement() choke point. So the lifecycle is: trial (full) → proof floor →
+        upgrade to active (full)."""
         now = datetime.utcnow()
 
         if self.status == "active":
@@ -886,9 +887,10 @@ class Subscription(Base):
                 return now < self.current_period_end
             return True
 
-        # Carded Stripe trial (card on file -> converting) stays valid; a no-card trial does not.
-        if self.status == "trial" and self.stripe_subscription_id:
-            return (self.trial_end is None) or (now < self.trial_end)
+        # No-card 30-day trial (and carded Stripe trial) = full access until trial_end; after that
+        # it lapses to the proof floor (is_valid False), never a lockout.
+        if self.status == "trial":
+            return bool(self.trial_end) and now < self.trial_end
 
         return False
 
