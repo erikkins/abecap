@@ -6,6 +6,9 @@
 ## ✒️ QUEUED NEWSLETTER TOPIC — "Pascal's Portfolio" (seeded Aug 24)
 - [Pascal → discipline + margin of safety](project_newsletter_pascal_topic.md) — FUTURE issue. Pascal's Wager = asymmetric payoff/margin-of-safety (Preserver put-option premium); "inability to sit quietly in a room" = behavior gap/overtrading (discipline engine, both tiers). Hook: "the discipline to sit still — and the one rule that decides when not to." Principle piece, numbers as light proof (Max DD −20.8 vs raw-mom −57).
 
+## 🚫 NO PICKLE — live read path is PARQUET/PITFWU (Aug 24, Erik emphatic ×2)
+- [Stop saying pickle](feedback_no_pickle_parquet.md) — `PRICE_SOURCE=parquet`+`PITFWU_READ=true`, scoped partial reads. CLAUDE.md's "2GB pickle" language is STALE. Say parquet/PITFWU; for DB-derivable work read snapshots directly (price-source-agnostic).
+
 ## 🗣️ BRAND VOICE — never say "tape" for the market (Aug 17)
 - [No "tape" rule](feedback_no_tape_brand_voice.md) — Erik doesn't use "tape"; say market/action/conditions. Already enforced in maximizer_service AI prompt; grep new copy for it before shipping.
 
