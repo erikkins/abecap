@@ -2743,6 +2743,8 @@ function Dashboard() {
                 flips it too), falling back to the subscription. Maximizer = premium filled
                 claret pill w/ mark; Preserver = subtle outline. */}
             {(() => {
+              // No tier badge for free/proof-only users — they haven't chosen a tier yet.
+              if (dashboardData?.subscription_required) return null;
               const servedTier = dashboardData?.tier
                 || (user?.subscription ? (user.subscription.has_maximizer ? 'maximizer' : 'preserver') : null);
               if (!servedTier) return null;
@@ -3165,7 +3167,7 @@ function Dashboard() {
         {activeTab === 'signals' ? (
           <>
             {/* Go to Cash Banner */}
-            {dashboardData?.regime_forecast?.recommended_action === 'go_to_cash' && (
+            {dashboardData?.regime_forecast?.recommended_action === 'go_to_cash' && !dashboardData?.subscription_required && (
               <div className="mb-4 p-4 bg-negative text-white rounded flex items-center gap-3">
                 <Shield className="w-6 h-6 flex-shrink-0" />
                 <div>
@@ -3175,8 +3177,9 @@ function Dashboard() {
               </div>
             )}
 
-            {/* Regime Forecast Bar */}
-            {dashboardData?.regime_forecast && (
+            {/* Regime Forecast Bar — hidden for free/proof-only users; FreeProofView carries its
+                own ticker-free "Where we are right now" so the paid strategy framing is suppressed. */}
+            {dashboardData?.regime_forecast && !dashboardData?.subscription_required && (
               viewMode === 'simple' ? (
                 /* Simple mode: traffic light + one sentence, click to expand */
                 <div className="mb-4">
@@ -3620,7 +3623,7 @@ function Dashboard() {
             {/* Stats strip — hidden for served tiers (capital-scaled mirror): Portfolio Value /
                 P&L / Positions / Win Rate are all manual-portfolio-derived and have no data
                 under the mirror model. The book view carries capital/invested/cash instead. */}
-            {!dashboardData?.tier_book && (
+            {!dashboardData?.tier_book && !dashboardData?.subscription_required && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 border-t border-b border-ink py-4 mb-6">
                 <MetricCard title="Portfolio Value" value={`$${totalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} subtitle={`Cost basis $${totalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}`} />
                 <MetricCard title="Open P&L" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} trend={totalPnlPct >= 0 ? 'up' : 'down'} subtitle={`${totalPnlPct >= 0 ? '+' : ''}$${Math.abs(totalValue - totalCost).toLocaleString(undefined, {maximumFractionDigits: 0})} unrealized`} />
@@ -3651,10 +3654,10 @@ function Dashboard() {
 
             {/* Two column layout: Buy Signals | Open Positions. Served tiers (capital-scaled
                 mirror) collapse to a single column — the book view IS the portfolio. */}
-            <div className={`grid grid-cols-1 gap-6 ${dashboardData?.tier_book ? '' : 'lg:grid-cols-2'}`}>
-              {/* LEFT: Buy Signals */}
+            <div className={`grid grid-cols-1 gap-6 ${dashboardData?.tier_book || dashboardData?.subscription_required ? '' : 'lg:grid-cols-2'}`}>
+              {/* LEFT: Buy Signals (for free/proof-only users this column holds FreeProofView) */}
               <div className="overflow-hidden">
-                {!dashboardData?.tier_book && (<div className="pb-3 border-b-2 border-ink mb-5">
+                {!dashboardData?.tier_book && !dashboardData?.subscription_required && (<div className="pb-3 border-b-2 border-ink mb-5">
                   <div className="flex items-baseline justify-between gap-3">
                     <div className="flex items-baseline gap-2 min-w-0">
                       <h2 className="font-display text-[1.25rem] font-medium text-ink tracking-tight whitespace-nowrap" style={{ fontVariationSettings: '"opsz" 48' }}>Buy Signals</h2>
@@ -4637,8 +4640,9 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* RIGHT: Open Positions with Sell Guidance — hidden for served tiers (mirror book) */}
-              {!dashboardData?.tier_book && (() => {
+              {/* RIGHT: Open Positions with Sell Guidance — hidden for served tiers (mirror book)
+                  and for free/proof-only users (the free view owns the single column). */}
+              {!dashboardData?.tier_book && !dashboardData?.subscription_required && (() => {
                 const positionSectorFilter = (p) => !excludedSectors.includes(p.sector || 'Other');
                 const filteredGuidance = guidanceWithLiveQuotes.filter(positionSectorFilter);
                 const filteredPositions = positionsWithLiveQuotes.filter(positionSectorFilter);
