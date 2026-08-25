@@ -350,7 +350,12 @@ async def run_shadow_day(db, signal_date, regime, t30v_signals, data_cache, n_po
     # 2) route + today's routed candidates. Only the breakout sleeve feeds the Maximizer book
     #    (gated: build_daily_signals returns src='breakout' only in rotating_bull).
     src, cands = build_daily_signals(data_cache, regime, t30v_signals, sd, max_positions=n_positions)
-    book_cands = ([{"symbol": c["symbol"], "hold": SLEEVE_HOLD[src]} for c in cands]
+    # Data-quality gate (ASST guard, Aug 25 2026): never enter a stale or split-broken series,
+    # no matter how strong its (corrupt) signal looks. Same rule the momentum ranker uses.
+    from app.services.scanner import is_series_tradeable, _universe_stale_cutoff
+    _cut = _universe_stale_cutoff(data_cache)
+    book_cands = ([{"symbol": c["symbol"], "hold": SLEEVE_HOLD[src]} for c in cands
+                   if is_series_tradeable(data_cache.get(c["symbol"]), _cut)]
                   if src == BREAKOUT_SOURCE else [])
 
     # 3) today's prices (latest close per symbol from the shared cache)

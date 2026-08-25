@@ -219,6 +219,9 @@ EXCLUDED_SYMBOLS = [
     'JAAA', 'VTEB', 'USHY', 'JEPQ',
     # Crypto ETFs (spot and leveraged)
     'BITX', 'BITU', 'SBIT', 'IBIT', 'FBTC', 'ARKB', 'GBTC', 'ETHE', 'ETHA', 'ETH',
+    # NOTE: broken/corrupt price series (e.g. ASST's unhandled reverse split, Aug 25 2026) are NOT
+    # hard-coded here — they're caught GENERICALLY at rank/entry time by scanner.is_series_tradeable
+    # (stale-bar + DWAP-ratio gate). This list stays for STRUCTURAL exclusions only (ETFs, leverage).
 ]
 
 def get_universe():

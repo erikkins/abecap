@@ -34,6 +34,56 @@ logger = logging.getLogger(__name__)
 # Fast set lookup for excluded symbols — union of both lists (single source of truth)
 _EXCLUDED_SET = set(EXCLUDED_PATTERNS) | set(EXCLUDED_SYMBOLS)
 
+# Max trading-days a symbol's last bar may lag the freshest bar in the universe before it's
+# considered stale and untradeable. ~7 calendar days covers a long weekend + a holiday.
+_MAX_STALE_DAYS = 7
+# A healthy momentum name trades within a sane band of its own 200-day DWAP. A ratio outside
+# [0.2, 5.0] means the series is broken — almost always an unadjusted split/reverse-split.
+_DWAP_RATIO_HI = 5.0
+_DWAP_RATIO_LO = 0.2
+
+
+def is_series_tradeable(df, fresh_cutoff=None) -> bool:
+    """Data-quality gate: reject STALE (last bar lagging the market by > _MAX_STALE_DAYS) or
+    SPLIT-BROKEN (price wildly detached from its own 200-day DWAP) price series, so a corrupt
+    ticker can NEVER be ranked or entered. Root cause of the ASST incident (Aug 25 2026): a
+    frozen series + unhandled reverse split (DWAP ~$1.67 vs ~$16-21 price) read as a giant
+    breakout. Conservative — only rejects clearly-broken data. Never raises (fail-open on odd
+    shapes so it can't break the scan)."""
+    try:
+        if df is None or len(df) == 0:
+            return False
+        last = pd.Timestamp(df.index.max())
+        if getattr(last, "tzinfo", None) is not None:
+            last = last.tz_localize(None)
+        if fresh_cutoff is not None and last < fresh_cutoff:
+            return False   # stale
+        row = df.iloc[-1]
+        price = float(row.get("close", 0) or 0)
+        dwap = float(row.get("dwap", 0) or 0)
+        if price > 0 and dwap > 0:
+            r = price / dwap
+            if r > _DWAP_RATIO_HI or r < _DWAP_RATIO_LO:
+                return False   # split-broken / unadjusted series
+        return True
+    except Exception:
+        return True   # never break the scan over a malformed frame
+
+
+def _universe_stale_cutoff(data_cache) -> "pd.Timestamp":
+    """Freshest bar across the cache minus _MAX_STALE_DAYS ≈ the 'must be at least this recent'
+    line. tz-naive. Returns None if the cache is empty."""
+    try:
+        dates = [df.index.max() for df in data_cache.values() if df is not None and len(df)]
+        if not dates:
+            return None
+        m = pd.Timestamp(max(dates))
+        if getattr(m, "tzinfo", None) is not None:
+            m = m.tz_localize(None)
+        return m - pd.Timedelta(days=_MAX_STALE_DAYS)
+    except Exception:
+        return None
+
 
 
 @dataclass
@@ -645,6 +695,8 @@ class ScannerService:
             from app.services.strategy_analyzer import get_top_liquid_symbols
             tier1_set = set(get_top_liquid_symbols(max_symbols=settings.SIGNAL_TIER1_SIZE))
 
+        _stale_cutoff = _universe_stale_cutoff(self.data_cache)
+
         for symbol in self.data_cache:
             if signal_universe is not None and symbol not in signal_universe:
                 continue
@@ -656,6 +708,8 @@ class ScannerService:
             df = self.data_cache[symbol]
             if len(df) < settings.LONG_MOMENTUM_DAYS + 20:
                 continue
+            if not is_series_tradeable(df, _stale_cutoff):
+                continue   # stale or split-broken series — never rank corrupt data (ASST guard)
 
             # Ensure momentum indicators are computed
             df = self._ensure_momentum_indicators(df)
