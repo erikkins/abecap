@@ -234,13 +234,19 @@ def rebuild_calendar(symbols, years: int = 9, batch: int = 50) -> dict:
 
     cols = ["symbol", "type", "old_rate", "new_rate", "date"]
     new_df = pd.DataFrame(rows, columns=cols).drop_duplicates()
-    fetched = set(new_df["symbol"])
     existing = load_corp_actions()
     if existing is not None and not existing.empty and set(cols).issubset(existing.columns):
-        keep = existing[~existing["symbol"].isin(fetched)][cols]
-        merged = pd.concat([keep, new_df], ignore_index=True).drop_duplicates()
+        # UNION — never drop existing splits, only ADD genuinely-new ones. (The earlier REPLACE
+        # approach dropped a symbol's older rows, which risked re-breaking in-window bars.)
+        merged = pd.concat([existing[cols], new_df], ignore_index=True)
     else:
         merged = new_df
+    # Normalize types so existing rows (Timestamp/str) dedup cleanly against the fresh fetch —
+    # prevents both missed dedup (a split applied twice) and lost history.
+    merged["date"] = pd.to_datetime(merged["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    merged["old_rate"] = pd.to_numeric(merged["old_rate"], errors="coerce")
+    merged["new_rate"] = pd.to_numeric(merged["new_rate"], errors="coerce")
+    merged = merged.dropna(subset=["symbol", "type", "old_rate", "new_rate", "date"]).drop_duplicates()
 
     # Back up the current calendar before overwriting (rollback safety), then write + bust cache.
     try:
