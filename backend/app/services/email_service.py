@@ -105,7 +105,7 @@ class EmailService:
 <tr><td style="padding:32px 32px 0;">
 <table cellpadding="0" cellspacing="0" style="width:100%;border-bottom:2px solid #141210;padding-bottom:20px;">
 <tr>
-<td><img src="https://rigacap.com/email-header.png" alt="RigaCap." width="190" height="46" style="display:block;" /></td>
+<td><img src="https://rigacap.com/email-header.png" alt="RigaCap." width="240" height="58" style="display:block; width:240px; height:auto;" /></td>
 <td align="right" style="font-family:'Courier New',monospace;font-size:11px;font-weight:700;color:#3A342E;letter-spacing:1.2px;text-transform:uppercase;">{label}</td>
 </tr></table>
 </td></tr>
@@ -161,7 +161,7 @@ class EmailService:
   <tr><td style="padding:32px 32px 0;">
     <table cellpadding="0" cellspacing="0" style="width:100%;border-bottom:2px solid #141210;padding-bottom:20px;">
       <tr>
-        <td><img src="https://rigacap.com/email-header.png" alt="RigaCap." width="190" height="46" style="display:block;" /></td>
+        <td><img src="https://rigacap.com/email-header.png" alt="RigaCap." width="240" height="58" style="display:block; width:240px; height:auto;" /></td>
         <td align="right" style="font-family:'Courier New',monospace;font-size:11px;font-weight:700;color:#3A342E;letter-spacing:1.2px;text-transform:uppercase;">Two Settings</td>
       </tr>
     </table>
@@ -770,7 +770,7 @@ class EmailService:
                 <table cellpadding="0" cellspacing="0" style="width: 100%; border-bottom: 2px solid #141210; padding-bottom: 16px;">
                     <tr>
                         <td>
-                            <img src="https://rigacap.com/email-header.png" alt="RigaCap." width="190" height="46" style="display: block;" />
+                            <img src="https://rigacap.com/email-header.png" alt="RigaCap." width="240" height="58" style="display: block; width:240px; height:auto;" />
                         </td>
                         <td align="right" style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; color: #3A342E; letter-spacing: 1.2px; text-transform: uppercase;">
                             Daily Digest
@@ -2228,7 +2228,7 @@ Your friend gets their first month free, and you get a free month when they subs
             <td style="padding: 32px 32px 0;">
                 <table cellpadding="0" cellspacing="0" style="width: 100%; border-bottom: 2px solid #141210; padding-bottom: 20px;">
                     <tr>
-                        <td><img src="https://rigacap.com/email-header.png" alt="RigaCap." width="190" height="46" style="display: block;" /></td>
+                        <td><img src="https://rigacap.com/email-header.png" alt="RigaCap." width="240" height="58" style="display: block; width:240px; height:auto;" /></td>
                         <td align="right" style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; color: #3A342E; letter-spacing: 1.2px; text-transform: uppercase;">Welcome</td>
                     </tr>
                 </table>
@@ -2819,7 +2819,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 <table cellpadding="0" cellspacing="0" style="width: 100%; border-bottom: 2px solid #141210; padding-bottom: 20px;">
                     <tr>
                         <td>
-                            <img src="https://rigacap.com/email-header.png" alt="RigaCap." width="190" height="46" style="display: block;" />
+                            <img src="https://rigacap.com/email-header.png" alt="RigaCap." width="240" height="58" style="display: block; width:240px; height:auto;" />
                         </td>
                         <td align="right" style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; color: #3A342E; letter-spacing: 1.2px; text-transform: uppercase;">
                             {header_title}
