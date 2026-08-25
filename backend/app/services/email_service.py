@@ -1892,8 +1892,8 @@ class EmailService:
         <!-- Product pitch -->
         <tr><td style="padding: 28px 40px 0 40px; border-top: 1px solid #DDD5C7; margin-top: 24px;">
             <p style="margin: 0; font-size: 15px; line-height: 1.65; color: #5A544E; font-style: italic;">
-                RigaCap is a disciplined momentum signal service built by a former Chief Innovation Officer with 15 years of quantitative research. Walk-forward validated. $59/month founding rate (first 100 subscribers) with a 7-day free trial.
-                <a href="https://rigacap.com" style="color: #7A2430;">Start your trial &rarr;</a>
+                RigaCap is a disciplined momentum signal service built by a former Chief Innovation Officer with 15 years of quantitative research. Walk-forward validated. Start free — no credit card, with full access for your first two weeks.
+                <a href="https://rigacap.com" style="color: #7A2430;">Start free &rarr;</a>
             </p>
         </td></tr>
 
@@ -1948,7 +1948,7 @@ WHAT WOULD CHANGE THINGS
 
 Three-to-four signals a month, sometimes zero. We trade when the math is clear — not when the news is loud.
 
-Start a 7-day trial: https://rigacap.com
+Start free — no credit card, full access for your first two weeks: https://rigacap.com
 {('' if show_symbols else chr(10) + 'Was this forwarded to you? Subscribe — free, Sundays only: https://rigacap.com/?subscribe=market_measured#newsletter' + chr(10))}
 
 ---
@@ -2100,8 +2100,8 @@ Market, Measured. is a weekly reading from RigaCap.
 
         <tr><td style="padding: 28px 40px 0 40px; border-top: 1px solid #DDD5C7; margin-top: 24px;">
             <p style="margin: 0; font-size: 15px; line-height: 1.65; color: #5A544E; font-style: italic;">
-                RigaCap is a disciplined momentum signal service. Walk-forward validated. $59/month founding rate (first 100 subscribers) with a 7-day free trial.
-                <a href="https://rigacap.com" style="color: #7A2430;">Start your trial &rarr;</a>
+                RigaCap is a disciplined momentum signal service. Walk-forward validated. Start free — no credit card, with full access for your first two weeks.
+                <a href="https://rigacap.com" style="color: #7A2430;">Start free &rarr;</a>
             </p>
         </td></tr>
 
@@ -2270,7 +2270,7 @@ Your friend gets their first month free, and you get a free month when they subs
                 </div>
 
                 <p style="font-size: 17px; color: #141210; margin: 24px 0; line-height: 1.65;">
-                    Your <strong>7-day free trial</strong> starts now. Tomorrow you'll receive your first daily digest.
+                    <strong>You're subscribed — full access is live.</strong> Your daily digest lands around 6 PM ET on every trading day, and you're covered by a <strong>30-day money-back guarantee</strong> — if it's not for you, just reply and I'll refund you, no friction.
                 </p>
 
                 <!-- CTA -->
@@ -2314,7 +2314,7 @@ What you get:
 - Portfolio tracking; quiet when nothing qualifies
 - Works with any broker — you execute, we signal
 
-Your 7-day free trial starts now. Visit https://rigacap.com/app to see today's signals.
+You're subscribed — full access is live. Your daily digest lands around 6 PM ET on every trading day, and you're covered by a 30-day money-back guarantee — if it's not for you, just reply and I'll refund you, no friction. Visit https://rigacap.com/app to see today's signals.
 {referral_text}
 Reply to this anytime — it comes straight to me. — Erik
 
