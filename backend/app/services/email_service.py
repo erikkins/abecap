@@ -354,7 +354,7 @@ class EmailService:
             return ''
         return f'''<tr>
             <td style="padding: 0 24px 14px;">
-                <div style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7A2430; margin-bottom: 6px;">{label}</div>
+                <div style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #7A2430; margin-bottom: 6px;">{label}</div>
                 <div style="border-left: 2px solid #DDD5C7; padding: 10px 16px; background: #FAF7F0;">
                     <div style="font-family: Georgia, serif; font-style: italic; font-size: 14px; color: #141210; line-height: 1.6;">{text}</div>
                 </div>
@@ -590,7 +590,7 @@ class EmailService:
             moves_banner = f'''
         <tr><td style="padding: 0 24px 18px;">
             <div style="border: 1px solid #7A2430; background: #FFFFFF; padding: 12px 16px;">
-                <div style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7A2430; margin-bottom: 6px;">Today's moves &mdash; sync your broker</div>
+                <div style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #7A2430; margin-bottom: 6px;">Today's moves &mdash; sync your broker</div>
                 {"".join(_move_lines)}
             </div>
         </td></tr>'''
@@ -2190,7 +2190,7 @@ Market, Measured. is a weekly reading from RigaCap.
         if referral_code:
             referral_html = f'''
                 <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 28px 0; text-align: center;">
-                    <p style="margin: 0 0 8px; font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Give a Month, Get a Month</p>
+                    <p style="margin: 0 0 8px; font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E;">Give a Month, Get a Month</p>
                     <p style="margin: 0 0 12px; font-size: 14px; color: #141210; line-height: 1.5;">
                         Share your link with a friend. They get their first month free, you get a free month when they subscribe.
                     </p>
@@ -2548,11 +2548,11 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 <table cellpadding="0" cellspacing="0" style="width:100%; border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; margin: 28px 0;">
                     <tr>
                         <td style="padding: 14px 16px 14px 0; border-right: 1px solid #DDD5C7;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Entry Signal</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E;">Entry Signal</div>
                             <div style="font-family: Georgia, serif; font-size: 13px; color: #141210; margin-top: 4px;">Ticker, entry price, current stop level, position weight — you place it at your broker</div>
                         </td>
                         <td style="padding: 14px 16px;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Sell Alert</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E;">Sell Alert</div>
                             <div style="font-family: Georgia, serif; font-size: 13px; color: #141210; margin-top: 4px;">Stop breached — exit, no second-guessing</div>
                         </td>
                     </tr>
@@ -2582,13 +2582,13 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 </p>
 
                 <div style="border-top: 1px solid #DDD5C7; padding: 20px 0;">
-                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7A2430; margin: 0 0 8px;">Setting One / Preserver</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #7A2430; margin: 0 0 8px;">Setting One / Preserver</p>
                     <p style="font-family: Georgia, serif; font-size: 18px; color: #141210; margin: 0 0 8px; font-weight: 500;">Built to protect capital first.</p>
                     <p style="font-size: 15px; color: #5A544E; margin: 0; line-height: 1.6;">A wide 30% trailing stop lets positions breathe through normal noise and gets you out before a real break turns into a rout. It gives up bull-market bragging rights to almost never hand you a reason to panic. If your instinct is "don't lose the money," this is your setting.</p>
                 </div>
 
                 <div style="border-top: 1px solid #DDD5C7; padding: 20px 0;">
-                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7A2430; margin: 0 0 8px;">Setting Two / Maximizer</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #7A2430; margin: 0 0 8px;">Setting Two / Maximizer</p>
                     <p style="font-family: Georgia, serif; font-size: 18px; color: #141210; margin: 0 0 8px; font-weight: 500;">Built to grow — with a seatbelt.</p>
                     <p style="font-size: 15px; color: #5A544E; margin: 0; line-height: 1.6;">Leans into breakouts and adds a volatility brake that pulls in when conditions get rough, plus a roughly 29-day time-stop so capital doesn't sit dead in a name that stalls. More drawdown than Preserver, more upside in trending markets. If your instinct is "put it to work," this is your setting.</p>
                 </div>
@@ -2629,11 +2629,11 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 <table cellpadding="0" cellspacing="0" style="width:100%; border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; margin: 28px 0;">
                     <tr>
                         <td style="padding: 14px 16px 14px 0; border-right: 1px solid #DDD5C7;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">The Regime</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E;">The Regime</div>
                             <div style="font-family: Georgia, serif; font-size: 13px; color: #141210; margin-top: 4px;">What did the market read say each evening — was the model leaning in, or holding cash?</div>
                         </td>
                         <td style="padding: 14px 16px;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">The Book</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E;">The Book</div>
                             <div style="font-family: Georgia, serif; font-size: 13px; color: #141210; margin-top: 4px;">Did any signals fire? Did a stop move up under a position you were watching?</div>
                         </td>
                     </tr>
@@ -2679,7 +2679,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 </p>
 
                 <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0; text-align: center;">
-                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E; margin: 0 0 8px;">What You Keep</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E; margin: 0 0 8px;">What You Keep</p>
                     <p style="font-family: Georgia, serif; font-size: 22px; color: #141210; margin: 0 0 6px;">Live signals · both books · exit alerts</p>
                     <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 0; line-height: 1.7;">Introductory rate, locked 12 months · 30-day money-back<br>Choose your setting — Preserver or Maximizer — at checkout</p>
                 </div>
@@ -2715,7 +2715,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 </p>
 
                 <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0; text-align: center;">
-                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E; margin: 0 0 8px;">Unlock The Live Calls</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E; margin: 0 0 8px;">Unlock The Live Calls</p>
                     <p style="font-family: Georgia, serif; font-size: 22px; color: #141210; margin: 0 0 6px;">Introductory rate, locked 12 months</p>
                     <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 0;">30-day money-back · choose Preserver or Maximizer at checkout</p>
                 </div>
@@ -2742,16 +2742,16 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 <table cellpadding="0" cellspacing="0" style="width:100%; border-top: 2px solid #141210; border-bottom: 1px solid #141210; margin: 28px 0;">
                     <tr>
                         <td style="padding: 16px 16px 16px 0; border-right: 1px solid #DDD5C7; text-align: center;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">We Called It</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E;">We Called It</div>
                             <div style="font-family: Georgia, serif; font-size: 22px; color: #141210; margin-top: 4px;">Closed Winner</div>
                             <div style="font-family: 'Courier New', monospace; font-size: 11px; color: #6B6356; margin-top: 2px;">On the public record</div>
                         </td>
                         <td style="padding: 16px; border-right: 1px solid #DDD5C7; text-align: center;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Entered</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E;">Entered</div>
                             <div style="font-family: Georgia, serif; font-size: 20px; color: #141210; margin-top: 4px;">On signal</div>
                         </td>
                         <td style="padding: 16px 0 16px 16px; text-align: center;">
-                            <div style="font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E;">Exited</div>
+                            <div style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E;">Exited</div>
                             <div style="font-family: Georgia, serif; font-size: 20px; color: #141210; margin-top: 4px;">On the trail</div>
                         </td>
                     </tr>
@@ -2768,7 +2768,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 </div>
 
                 <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0; text-align: center;">
-                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E; margin: 0 0 8px;">The Offer, Plainly</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E; margin: 0 0 8px;">The Offer, Plainly</p>
                     <p style="font-family: Georgia, serif; font-size: 22px; color: #141210; margin: 0 0 6px;">Introductory rate, locked 12 months</p>
                     <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 0;">30-day money-back · choose your setting at checkout</p>
                 </div>
@@ -3102,7 +3102,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 </p>
 
                 <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0; text-align: center;">
-                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E; margin: 0 0 8px;">Your Reward</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E; margin: 0 0 8px;">Your Reward</p>
                     <p style="font-family: Georgia, serif; font-size: 28px; color: #141210; margin: 0;">1 Month Free</p>
                     <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 4px 0 0;">Applied to your next invoice</p>
                 </div>
@@ -3410,7 +3410,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 </div>
 
                 <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0; text-align: center;">
-                    <p style="font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A544E; margin: 0 0 8px;">Come Back</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E; margin: 0 0 8px;">Come Back</p>
                     <p style="font-family: Georgia, serif; font-size: 20px; color: #141210; margin: 0;">The door stays open &mdash; same price as everyone.</p>
                 </div>
 
