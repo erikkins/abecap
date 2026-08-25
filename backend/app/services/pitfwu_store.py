@@ -184,6 +184,79 @@ def split_adjusted(symbol: str, asof=None, ca=None) -> Optional[pd.DataFrame]:
     return df
 
 
+def rebuild_calendar(symbols, years: int = 9, batch: int = 50) -> dict:
+    """Rebuild the split calendar (CORP_ACTIONS_KEY) from Alpaca for `symbols` over the last
+    `years`. The read-veneer's split_adjusted() depends on this file; it was a STATIC offline
+    artifact with no refresh, so a new split (ASST reverse split, Aug 2026) was never applied ->
+    raw unadjusted bars -> phantom breakout. This makes it refreshable/schedulable.
+
+    Safe by construction: MERGE-preserves rows for symbols not in this fetch (delisted names with
+    historical splits), BACKS UP the current calendar before overwriting, only writes on a non-empty
+    fetch, and busts the in-memory cache. Column schema matches split_factors: symbol / type
+    ('forward_splits'|'reverse_splits') / old_rate / new_rate / date; factor = new_rate/old_rate."""
+    from datetime import date as _date, timedelta as _td
+    from alpaca.data.historical.corporate_actions import CorporateActionsClient
+    from alpaca.data.requests import CorporateActionsRequest
+    global _CA
+
+    symbols = [s for s in (symbols or []) if s]
+    if not symbols:
+        return {"error": "no symbols"}
+    client = CorporateActionsClient(api_key=settings.ALPACA_API_KEY, secret_key=settings.ALPACA_SECRET_KEY)
+    start, end = _date.today() - _td(days=365 * years + 30), _date.today()
+    rows, failed = [], 0
+    for i in range(0, len(symbols), batch):
+        chunk = symbols[i:i + batch]
+        try:
+            res = client.get_corporate_actions(CorporateActionsRequest(symbols=chunk, start=start, end=end))
+            data = getattr(res, "data", {}) or {}
+            for atype, actions in data.items():
+                if atype not in ("forward_splits", "reverse_splits"):
+                    continue
+                for a in (actions or []):
+                    ad = getattr(a, "model_dump", lambda: dict(a))()
+                    sym = ad.get("symbol")
+                    exd = ad.get("ex_date") or ad.get("process_date") or ad.get("effective_date")
+                    old, new = ad.get("old_rate"), ad.get("new_rate")
+                    if not (sym and exd is not None and old and new):
+                        continue
+                    try:
+                        rows.append({"symbol": sym, "type": atype, "old_rate": float(old),
+                                     "new_rate": float(new), "date": pd.Timestamp(exd).strftime("%Y-%m-%d")})
+                    except (TypeError, ValueError):
+                        continue
+        except Exception as e:
+            failed += 1
+            logger.warning(f"[PITFWU] corp-actions batch {i // batch} failed: {str(e)[:200]}")
+
+    if not rows:
+        return {"error": "no split rows fetched — refusing to overwrite calendar", "batches_failed": failed}
+
+    cols = ["symbol", "type", "old_rate", "new_rate", "date"]
+    new_df = pd.DataFrame(rows, columns=cols).drop_duplicates()
+    fetched = set(new_df["symbol"])
+    existing = load_corp_actions()
+    if existing is not None and not existing.empty and set(cols).issubset(existing.columns):
+        keep = existing[~existing["symbol"].isin(fetched)][cols]
+        merged = pd.concat([keep, new_df], ignore_index=True).drop_duplicates()
+    else:
+        merged = new_df
+
+    # Back up the current calendar before overwriting (rollback safety), then write + bust cache.
+    try:
+        cur = _s3().get_object(Bucket=BUCKET, Key=CORP_ACTIONS_KEY)["Body"].read()
+        _s3().put_object(Bucket=BUCKET, Key=f"{CORP_ACTIONS_KEY}.bak-{end.isoformat()}", Body=cur)
+    except Exception as e:
+        logger.warning(f"[PITFWU] calendar backup skipped ({str(e)[:120]})")
+    buf = io.BytesIO()
+    merged.to_parquet(buf, index=False)
+    _s3().put_object(Bucket=BUCKET, Key=CORP_ACTIONS_KEY, Body=buf.getvalue())
+    _CA = None
+    return {"status": "success", "splits_total": int(len(merged)), "splits_fetched": int(len(new_df)),
+            "symbols_scanned": len(symbols), "symbols_with_splits": int(new_df["symbol"].nunique()),
+            "batches_failed": failed}
+
+
 def load_scoped(symbols: List[str]) -> tuple:
     """Read split-adjusted bars for `symbols` from PITFWU. Returns
     ({sym: df}, missing[]) — `missing` = symbols with no PITFWU file (caller

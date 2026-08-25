@@ -6753,7 +6753,7 @@ def handler(event, context):
 
             # 3. Corp-actions poll
             print("📰 Polling corp-actions...")
-            corp_events = await symbol_metadata_service.poll_corp_actions(since_hours=36)
+            corp_events = await symbol_metadata_service.poll_corp_actions(since_hours=192)  # 8-day window (was 36h) so a split isn't missed if a night is skipped
             # Find splits specifically — these need force refetch
             split_symbols = set()
             for ev in corp_events:
@@ -6831,6 +6831,41 @@ def handler(event, context):
             except Exception as e:
                 diag = {"error": str(e)[:300]}
 
+            # 5b. Rebuild the split calendar from Alpaca (ASST guard, Aug 2026). split_adjusted()
+            # reads a static calendar.parquet with no other refresh path — a new split (ASST reverse
+            # split) was therefore never applied → raw unadjusted bars → phantom breakout. Rebuild
+            # nightly so a split is reflected within a day. Non-fatal; refuses to write on empty fetch.
+            ca_rebuild = None
+            try:
+                from app.services import pitfwu_store as _ps_cal
+                ca_rebuild = _ps_cal.rebuild_calendar(symbols)
+                print(f"🗓️ split calendar rebuild: {ca_rebuild}")
+            except Exception as e:
+                ca_rebuild = {"error": str(e)[:200]}
+                print(f"⚠️ split calendar rebuild failed: {e}")
+
+            # 5c. Icicle detection — symbols whose BARS have frozen (last bar lagging the freshest
+            # universe bar by > 7d) though the asset is still valid in Alpaca (what let ASST rot,
+            # frozen Jun 15). Detect + surface here; the rank/entry gate (is_series_tradeable)
+            # already blocks signals on them.
+            icicles = []
+            try:
+                import pandas as _pd_ic
+                lasts = {}
+                for _s, _df in scanner_service.data_cache.items():
+                    if _df is not None and len(_df):
+                        _l = _pd_ic.Timestamp(_df.index.max())
+                        if getattr(_l, "tzinfo", None) is not None:
+                            _l = _l.tz_localize(None)
+                        lasts[_s] = _l
+                if lasts:
+                    _fresh = max(lasts.values())
+                    _cut = _fresh - _pd_ic.Timedelta(days=7)
+                    icicles = sorted([(s, d) for s, d in lasts.items() if d < _cut], key=lambda x: x[1])
+                    print(f"🧊 icicle scan: freshest={_fresh.date()}, {len(icicles)} frozen symbol(s)")
+            except Exception as e:
+                print(f"⚠️ icicle detection failed: {e}")
+
             # 6. Confidence-tier scoring + AUTO tier execution.
             # The hygiene scorer classifies every flagged item as AUTO /
             # RECOMMEND / EXCEPTION using rules + cached AI verdicts. AUTO
@@ -6859,6 +6894,20 @@ def handler(event, context):
                 from app.services.email_service import admin_email_service
                 critical_flags = []
                 info_flags = []
+
+                # Icicle + calendar-rebuild surfacing (steps 5b/5c). Icicles holding a live position
+                # are critical; otherwise informational.
+                if icicles:
+                    _held_ic = [s for s, _ in icicles if s in (urgent_held or [])]
+                    _lst = ", ".join(f"{s}({d.date()})" for s, d in icicles[:10])
+                    _icemsg = (f"🧊 {len(icicles)} icicle(s) — bars frozen >7d, still valid in Alpaca: {_lst}"
+                               + (f" (+{len(icicles)-10} more)" if len(icicles) > 10 else ""))
+                    (critical_flags if _held_ic else info_flags).append(_icemsg)
+                if isinstance(ca_rebuild, dict) and ca_rebuild.get("status") == "success":
+                    info_flags.append(f"🗓️ Split calendar refreshed: {ca_rebuild.get('splits_total')} splits, "
+                                      f"{ca_rebuild.get('symbols_with_splits')} symbols")
+                elif isinstance(ca_rebuild, dict) and ca_rebuild.get("error"):
+                    info_flags.append(f"⚠️ Split calendar rebuild: {ca_rebuild.get('error')}")
 
                 if urgent_held:
                     critical_flags.append(
@@ -7303,6 +7352,23 @@ def handler(event, context):
     # Force-refetch specific symbols with SPLIT adjustment, overwrite in pickle.
     # Used to fix known-split symbols (NVDA, CMG, WMT) that were cached with
     # unadjusted prices. {"refetch_split_adjusted": {"symbols": ["NVDA"]}}
+    if event.get("rebuild_corp_actions_calendar"):
+        cfg = event.get("rebuild_corp_actions_calendar")
+        cfg = cfg if isinstance(cfg, dict) else {}
+        from app.services import pitfwu_store as _ps_rb
+        syms = cfg.get("symbols")
+        if not syms:
+            syms = sorted(scanner_service.data_cache.keys()) if scanner_service.data_cache else []
+        if not syms:
+            try:
+                from app.core.config import get_universe as _gu
+                syms = _gu()
+            except Exception:
+                syms = []
+        res = _ps_rb.rebuild_calendar(syms, years=int(cfg.get("years", 9)))
+        print(f"🗓️ corp-actions calendar rebuild: {res}")
+        return {"statusCode": 200, "body": res}
+
     if event.get("refetch_split_adjusted"):
         cfg = event.get("refetch_split_adjusted") or {}
         symbols = cfg.get("symbols") or []
