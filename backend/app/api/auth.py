@@ -257,6 +257,20 @@ async def _provision_free_account(db, user):
         print(f"⚠️ newsletter enroll failed for {getattr(user,'email','?')}: {_e}")
 
 
+async def _send_free_welcome(user):
+    """At-signup 'you're in' email. Fires immediately after signup (all 3 register paths); the
+    meaty how-to-act note is the Day-1 onboarding drip the next morning. Called AFTER commit so
+    a rolled-back signup never gets emailed, and so the DB transaction isn't held open during the
+    network send. Non-fatal — must NEVER block account creation."""
+    try:
+        from app.services.email_service import email_service
+        await email_service.send_free_welcome_email(
+            to_email=user.email, name=user.name or "", user_id=str(user.id),
+        )
+    except Exception as _e:
+        print(f"⚠️ free-welcome send failed for {getattr(user,'email','?')}: {_e}")
+
+
 @router.post("/register", response_model=TokenResponse)
 async def register(
     request: RegisterRequest,
@@ -323,6 +337,7 @@ async def register(
     print(f"✅ [SIGNUP] free account created (email): {user.email} id={user.id}")
 
     await _ping_admin_new_signup(user.email, "email", req)
+    await _send_free_welcome(user)
 
     # Generate tokens
     access_token = create_access_token(str(user.id))
@@ -601,6 +616,7 @@ async def google_auth(
             user.email,
             "google" if getattr(user, "google_id", None) else "apple",
             req)
+        await _send_free_welcome(user)
 
     # Welcome email now fires on subscription creation (founder/standard split),
     # not at registration — see billing.handle_subscription_created (Jun 23 2026).
@@ -731,6 +747,7 @@ async def apple_auth(
             user.email,
             "google" if getattr(user, "google_id", None) else "apple",
             req)
+        await _send_free_welcome(user)
 
     # Welcome email now fires on subscription creation (founder/standard split),
     # not at registration — see billing.handle_subscription_created (Jun 23 2026).
