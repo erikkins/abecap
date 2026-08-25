@@ -105,8 +105,8 @@ class EmailService:
 <tr><td style="padding:32px 32px 0;">
 <table cellpadding="0" cellspacing="0" style="width:100%;border-bottom:2px solid #141210;padding-bottom:20px;">
 <tr>
-<td><img src="https://rigacap.com/email-header.png" alt="RigaCap." width="150" height="36" style="display:block;" /></td>
-<td align="right" style="font-family:'Courier New',monospace;font-size:11px;color:#8A8279;letter-spacing:1px;text-transform:uppercase;">{label}</td>
+<td><img src="https://rigacap.com/email-header.png" alt="RigaCap." width="190" height="46" style="display:block;" /></td>
+<td align="right" style="font-family:'Courier New',monospace;font-size:11px;font-weight:700;color:#3A342E;letter-spacing:1.2px;text-transform:uppercase;">{label}</td>
 </tr></table>
 </td></tr>
 <tr><td style="padding:32px;">{content}</td></tr>
@@ -161,8 +161,8 @@ class EmailService:
   <tr><td style="padding:32px 32px 0;">
     <table cellpadding="0" cellspacing="0" style="width:100%;border-bottom:2px solid #141210;padding-bottom:20px;">
       <tr>
-        <td><img src="https://rigacap.com/email-header.png" alt="RigaCap." width="150" height="36" style="display:block;" /></td>
-        <td align="right" style="font-family:'Courier New',monospace;font-size:11px;color:#8A8279;letter-spacing:1px;text-transform:uppercase;">Two Tiers</td>
+        <td><img src="https://rigacap.com/email-header.png" alt="RigaCap." width="190" height="46" style="display:block;" /></td>
+        <td align="right" style="font-family:'Courier New',monospace;font-size:11px;font-weight:700;color:#3A342E;letter-spacing:1.2px;text-transform:uppercase;">Two Settings</td>
       </tr>
     </table>
   </td></tr>
@@ -203,13 +203,16 @@ class EmailService:
       </p>
     </div>
     <p style="font-size:17px;color:#141210;margin:24px 0;line-height:1.65;">
-      <strong>How to choose, honestly:</strong> what keeps you up at night &mdash; drawdowns, or missing out?
-      If it's drawdowns, Preserver. If it's missing the run and you can ride out the flat patches, Maximizer.
-      There's no wrong answer &mdash; only the one that fits how you actually behave when the market gets loud.
-      You can see each tier's live book and walk-forward track record in the app before you decide.
+      <strong>How this is priced:</strong> Preserver is the base plan &mdash; that's where everyone starts.
+      Maximizer is a <strong>+$100/mo add-on</strong> (+$79/mo at the introductory rate) that runs on top of it,
+      and you can toggle it on or off anytime. So the question isn't which one instead of the other &mdash; it's
+      whether Preserver alone fits you, or whether you'd want the offense switched on too. What keeps you up at
+      night: drawdowns, or missing out? If it's drawdowns, Preserver is plenty. If it's missing the run and you can
+      ride out the flat patches, add Maximizer. You can see both live books and their walk-forward track record in
+      the app before you decide.
     </p>
     <div style="text-align:center;margin:28px 0;">
-      <p style="font-size:16px;color:#141210;margin:0 0 4px;">Just reply <strong>"Preserver"</strong> or <strong>"Maximizer"</strong> and I'll get you set up.</p>
+      <p style="font-size:16px;color:#141210;margin:0 0 4px;">Just reply <strong>"Preserver"</strong> (the base) or <strong>"Preserver + Maximizer"</strong> and I'll get you set up.</p>
       <p style="font-size:14px;color:#5A544E;margin:0;">You're a beta member &mdash; first in line, and you keep your beta standing either way.</p>
     </div>
     <p style="font-size:17px;color:#141210;margin:24px 0 0;line-height:1.65;">Thanks for being here from the start,<br>Erik<br><span style="color:#5A544E;font-size:14px;">Founder, RigaCap</span></p>
@@ -228,9 +231,13 @@ class EmailService:
             "throttles exposure with a volatility brake when things get choppy. Higher-variance; over full cycles "
             "it's paid off handsomely. Choose this if your bigger fear is missing the big move and you won't bail "
             "during the quiet stretches.\n\n"
-            "How to choose: drawdowns or missing out? Drawdowns -> Preserver. Missing out (and you can ride the "
-            "flat patches) -> Maximizer. See each tier's live book + track record in the app.\n\n"
-            "Just reply \"Preserver\" or \"Maximizer\" and I'll set you up. You keep your beta standing either way.\n\n"
+            "How this is priced: Preserver is the base plan — that's where everyone starts. Maximizer is a "
+            "+$100/mo add-on (+$79/mo at the introductory rate) that runs on top of it; toggle it on or off "
+            "anytime. So it's not one instead of the other — it's whether Preserver alone fits you, or whether "
+            "you'd want the offense switched on too. Drawdowns your worry? Preserver is plenty. Missing out (and "
+            "you can ride the flat patches)? Add Maximizer. See both live books + track record in the app.\n\n"
+            "Just reply \"Preserver\" (the base) or \"Preserver + Maximizer\" and I'll set you up. You keep your "
+            "beta standing either way.\n\n"
             "Thanks for being here from the start,\nErik\nFounder, RigaCap\n\n"
             "Signals only — you execute through your own broker. Past performance is not a guarantee of future returns."
         )
@@ -763,9 +770,9 @@ class EmailService:
                 <table cellpadding="0" cellspacing="0" style="width: 100%; border-bottom: 2px solid #141210; padding-bottom: 16px;">
                     <tr>
                         <td>
-                            <img src="https://rigacap.com/email-header.png" alt="RigaCap." width="150" height="36" style="display: block;" />
+                            <img src="https://rigacap.com/email-header.png" alt="RigaCap." width="190" height="46" style="display: block;" />
                         </td>
-                        <td align="right" style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; letter-spacing: 1px; text-transform: uppercase;">
+                        <td align="right" style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; color: #3A342E; letter-spacing: 1.2px; text-transform: uppercase;">
                             Daily Digest
                         </td>
                     </tr>
@@ -2221,8 +2228,8 @@ Your friend gets their first month free, and you get a free month when they subs
             <td style="padding: 32px 32px 0;">
                 <table cellpadding="0" cellspacing="0" style="width: 100%; border-bottom: 2px solid #141210; padding-bottom: 20px;">
                     <tr>
-                        <td><img src="https://rigacap.com/email-header.png" alt="RigaCap." width="150" height="36" style="display: block;" /></td>
-                        <td align="right" style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; letter-spacing: 1px; text-transform: uppercase;">Welcome</td>
+                        <td><img src="https://rigacap.com/email-header.png" alt="RigaCap." width="190" height="46" style="display: block;" /></td>
+                        <td align="right" style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; color: #3A342E; letter-spacing: 1.2px; text-transform: uppercase;">Welcome</td>
                     </tr>
                 </table>
             </td>
@@ -2241,10 +2248,13 @@ Your friend gets their first month free, and you get a free month when they subs
                     Here's what you actually bought, and it isn't a hot-stock newsletter: RigaCap is built to do one thing exceptionally well &mdash; <strong>keep you invested through the part of the cycle where most people sell at the bottom.</strong> I built it because I got tired of overriding my own rules in a drawdown. The system doesn't have that problem.
                 </p>
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px; line-height: 1.65;">
-                    In 2008, the S&amp;P 500 fell about 37%. <strong>RigaCap's Preserver setting finished roughly flat.</strong> That's not one lucky year &mdash; across 21 walk-forward years its worst drawdown was <strong>13.7%</strong>, while the S&amp;P lost more than half its value <em>twice</em>. It still compounded at <strong>7.7% a year</strong> &mdash; market-like return, a quarter of the pain.
+                    Here's the whole point in one line: <strong>market-beating-or-matching returns, at a fraction of the pain.</strong> In 2008, the S&amp;P 500 fell about 37%. <strong>RigaCap finished roughly flat — about +0.1% — while the market halved.</strong> That's the asymmetry the engine is built for, on both settings.
                 </p>
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px; line-height: 1.65;">
-                    That's the Preserver setting &mdash; the gentle path, built so <strong>you never get a reason to sell at the bottom.</strong> When you want more, the same engine dials up to Maximizer: 13.5% a year over that span, at a deeper but still-bounded drawdown. One knob, your call.
+                    It's not a one-year fluke. In the modern era (2021&ndash;26), <strong>Preserver</strong> compounded about <strong>13.0% a year with a &minus;12.9% worst drawdown</strong>; the <strong>Maximizer add-on</strong> ran <strong>~31.4% a year at &minus;14.9%</strong>. Over the full 21-year walk-forward record, Maximizer's worst drawdown was <strong>&minus;20.8%</strong> at <strong>13.5% a year</strong> &mdash; roughly the return of raw momentum, but with about two-thirds of the drawdown cut away. Preserver held its worst drawdown to <strong>&minus;13.7%</strong> while the S&amp;P lost more than half its value <em>twice</em>. When the market has a bad month, these barely flinch: Preserver falls about &minus;1.0% and Maximizer &minus;1.0% for every &minus;3.9% the S&amp;P drops.
+                </p>
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px; line-height: 1.65;">
+                    That's <strong>Preserver</strong>, your base plan &mdash; the gentle path, built so <strong>you never get a reason to sell at the bottom.</strong> When you want more offense, <strong>Maximizer</strong> is a <strong>+$100/mo add-on</strong> (+$79 at the introductory rate) you can toggle on anytime &mdash; the same engine, dialed up. One knob, your call.
                     <a href="https://rigacap.com/track-record" style="color: #7A2430; text-decoration: underline;">See the full track record.</a>
                 </p>
 
@@ -2291,9 +2301,11 @@ Your friend gets their first month free, and you get a free month when they subs
 
 {founder_text}Here's what you actually bought, and it isn't a hot-stock newsletter: RigaCap is built to do one thing exceptionally well — keep you invested through the part of the cycle where most people sell at the bottom. I built it because I got tired of overriding my own rules in a drawdown. The system doesn't have that problem.
 
-In 2008, the S&P 500 fell about 37%. RigaCap's Preserver setting finished roughly flat. That's not one lucky year — across 21 walk-forward years its worst drawdown was 13.7%, while the S&P lost more than half its value twice. It still compounded at 7.7% a year — market-like return, a quarter of the pain.
+Here's the whole point in one line: market-beating-or-matching returns, at a fraction of the pain. In 2008, the S&P 500 fell about 37%. RigaCap finished roughly flat — about +0.1% — while the market halved. That's the asymmetry the engine is built for, on both settings.
 
-That's the Preserver setting — the gentle path, built so you never get a reason to sell at the bottom. When you want more, the same engine dials up to Maximizer: 13.5% a year over that span, at a deeper but still-bounded drawdown. One knob, your call. See it: https://rigacap.com/track-record
+It's not a one-year fluke. In the modern era (2021-26), Preserver compounded about 13.0% a year with a -12.9% worst drawdown; the Maximizer add-on ran ~31.4% a year at -14.9%. Over the full 21-year walk-forward record, Maximizer's worst drawdown was -20.8% at 13.5% a year — roughly the return of raw momentum, but with about two-thirds of the drawdown cut away. Preserver held its worst drawdown to -13.7% while the S&P lost more than half its value twice. When the market has a bad month, these barely flinch: Preserver falls about -1.0% and Maximizer -1.0% for every -3.9% the S&P drops.
+
+That's Preserver, your base plan — the gentle path, built so you never get a reason to sell at the bottom. When you want more offense, Maximizer is a +$100/mo add-on (+$79 at the introductory rate) you can toggle on anytime — the same engine, dialed up. One knob, your call. See the full track record: https://rigacap.com/track-record
 
 What you get:
 - Signals after every close: ticker, entry, and a trailing stop that only rises
@@ -2404,7 +2416,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
 
                 <div style="border-left: 2px solid #7A2430; padding: 14px 18px; background: #FAF7F0; margin: 24px 0;">
                     <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 15px; color: #141210; line-height: 1.6;">
-                        Preserver compounded 7.7% a year across a 21-year walk-forward — worst drawdown just 13.7% while the index lost half its value twice. Maximizer, the aggressive setting, ran 13.5%. The live record began June 2026.
+                        Preserver, the base plan, compounded 7.7% a year across a 21-year walk-forward — worst drawdown just 13.7% while the index lost half its value twice. Add the Maximizer setting (+$100/mo, +$79 introductory) and the same engine ran 13.5% a year at a -20.8% worst drawdown. The live record began June 2026.
                         <a href="https://rigacap.com/track-record" style="color: #7A2430; text-decoration: underline;">Full track record.</a>
                     </p>
                 </div>
@@ -2578,24 +2590,24 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                     {first_name},
                 </p>
                 <p style="font-size: 17px; color: #141210; margin: 0 0 24px 0; line-height: 1.65;">
-                    You've seen a digest or two by now. Time for the one real choice RigaCap gives you: which setting you want it in. It's <strong>one engine, two settings</strong> — the same signal machinery, tuned for two different jobs. You pick at checkout; both are open to you during the trial.
+                    You've seen a digest or two by now. Here's how the product is built: it's <strong>one engine, two settings</strong> — the same signal machinery, tuned for two different jobs. <strong>Preserver is the base plan.</strong> Maximizer is a <strong>+$100/mo add-on</strong> (+$79/mo at the introductory rate) you can toggle on or off anytime — it's not an either/or you pick for the same price. Both are open to you during the trial so you can feel the difference before you decide.
                 </p>
 
                 <div style="border-top: 1px solid #DDD5C7; padding: 20px 0;">
-                    <p style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #7A2430; margin: 0 0 8px;">Setting One / Preserver</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #7A2430; margin: 0 0 8px;">Preserver &middot; the base plan</p>
                     <p style="font-family: Georgia, serif; font-size: 18px; color: #141210; margin: 0 0 8px; font-weight: 500;">Built to protect capital first.</p>
-                    <p style="font-size: 15px; color: #5A544E; margin: 0; line-height: 1.6;">A wide 30% trailing stop lets positions breathe through normal noise and gets you out before a real break turns into a rout. It gives up bull-market bragging rights to almost never hand you a reason to panic. If your instinct is "don't lose the money," this is your setting.</p>
+                    <p style="font-size: 15px; color: #5A544E; margin: 0; line-height: 1.6;">A wide 30% trailing stop lets positions breathe through normal noise and gets you out before a real break turns into a rout. It gives up bull-market bragging rights to almost never hand you a reason to panic. If your instinct is "don't lose the money," this is where you start.</p>
                 </div>
 
                 <div style="border-top: 1px solid #DDD5C7; padding: 20px 0;">
-                    <p style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #7A2430; margin: 0 0 8px;">Setting Two / Maximizer</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #7A2430; margin: 0 0 8px;">Maximizer &middot; a +$100/mo add-on</p>
                     <p style="font-family: Georgia, serif; font-size: 18px; color: #141210; margin: 0 0 8px; font-weight: 500;">Built to grow — with a seatbelt.</p>
-                    <p style="font-size: 15px; color: #5A544E; margin: 0; line-height: 1.6;">Leans into breakouts and adds a volatility brake that pulls in when conditions get rough, plus a roughly 29-day time-stop so capital doesn't sit dead in a name that stalls. More drawdown than Preserver, more upside in trending markets. If your instinct is "put it to work," this is your setting.</p>
+                    <p style="font-size: 15px; color: #5A544E; margin: 0; line-height: 1.6;">Leans into breakouts and adds a volatility brake that pulls in when conditions get rough, plus a roughly 29-day time-stop so capital doesn't sit dead in a name that stalls. More drawdown than Preserver, more upside in trending markets. It's an add-on that runs on top of Preserver — <strong>+$100/mo (+$79/mo at the introductory rate), toggle it on or off anytime.</strong> If your instinct is "put it to work," add this.</p>
                 </div>
 
                 <div style="border-left: 2px solid #7A2430; padding: 16px 20px; background: #FAF7F0; margin: 24px 0;">
                     <p style="margin: 0; font-family: Georgia, serif; font-style: italic; font-size: 16px; color: #141210; line-height: 1.6;">
-                        Same product, graded two ways: an F for someone trying to beat the market every year, an A for someone trying to preserve and compound. The grade depends on who's holding it — which is exactly why you get to choose the setting.
+                        Same product, graded two ways: an F for someone trying to beat the market every year, an A for someone trying to preserve and compound. The grade depends on who's holding it — which is exactly why Preserver is the base, and the offense is an add-on you switch on only if it fits you.
                     </p>
                 </div>
 
@@ -2611,7 +2623,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 </div>
 
                 <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
-                    You don't have to decide today — both are live for you this week. Just start noticing which one you'd actually want to live in.
+                    You don't have to decide today — both are live for you this week. Start noticing whether Preserver alone is enough, or whether you'd want the Maximizer add-on switched on too.
                 </p>
             """,
             3: f"""
@@ -2681,7 +2693,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0; text-align: center;">
                     <p style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E; margin: 0 0 8px;">What You Keep</p>
                     <p style="font-family: Georgia, serif; font-size: 22px; color: #141210; margin: 0 0 6px;">Live signals · both books · exit alerts</p>
-                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 0; line-height: 1.7;">Introductory rate, locked 12 months · 30-day money-back<br>Choose your setting — Preserver or Maximizer — at checkout</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 0; line-height: 1.7;">Introductory rate, locked 12 months · 30-day money-back<br>Preserver is the base · add Maximizer for +$100/mo (+$79 introductory), toggle anytime</p>
                 </div>
 
                 <div style="text-align: center; margin: 32px 0;">
@@ -2717,7 +2729,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0; text-align: center;">
                     <p style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E; margin: 0 0 8px;">Unlock The Live Calls</p>
                     <p style="font-family: Georgia, serif; font-size: 22px; color: #141210; margin: 0 0 6px;">Introductory rate, locked 12 months</p>
-                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 0;">30-day money-back · choose Preserver or Maximizer at checkout</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 0;">30-day money-back · Preserver base, add Maximizer for +$100/mo (+$79 introductory)</p>
                 </div>
 
                 <div style="text-align: center; margin: 32px 0;">
@@ -2770,7 +2782,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 <div style="border-top: 1px solid #141210; border-bottom: 1px solid #DDD5C7; padding: 20px 0; margin: 24px 0; text-align: center;">
                     <p style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #3A342E; margin: 0 0 8px;">The Offer, Plainly</p>
                     <p style="font-family: Georgia, serif; font-size: 22px; color: #141210; margin: 0 0 6px;">Introductory rate, locked 12 months</p>
-                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 0;">30-day money-back · choose your setting at checkout</p>
+                    <p style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; margin: 0;">30-day money-back · Preserver base, add Maximizer for +$100/mo (+$79 introductory)</p>
                 </div>
 
                 <div style="text-align: center; margin: 32px 0;">
@@ -2807,9 +2819,9 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 <table cellpadding="0" cellspacing="0" style="width: 100%; border-bottom: 2px solid #141210; padding-bottom: 20px;">
                     <tr>
                         <td>
-                            <img src="https://rigacap.com/email-header.png" alt="RigaCap." width="150" height="36" style="display: block;" />
+                            <img src="https://rigacap.com/email-header.png" alt="RigaCap." width="190" height="46" style="display: block;" />
                         </td>
-                        <td align="right" style="font-family: 'Courier New', monospace; font-size: 11px; color: #8A8279; letter-spacing: 1px; text-transform: uppercase;">
+                        <td align="right" style="font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; color: #3A342E; letter-spacing: 1.2px; text-transform: uppercase;">
                             {header_title}
                         </td>
                     </tr>
