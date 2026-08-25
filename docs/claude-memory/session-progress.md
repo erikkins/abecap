@@ -7,7 +7,14 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 24 2026 (FREE-FIRST PIVOT, live-built all day)
+# Session snapshot — Aug 24–25 2026 (FREE-FIRST PIVOT, live-built)
+
+## ▶ LATEST (Aug 25) — read first
+- ✅ **Welcome-email stale copy FIXED + deployed [93675be], test-sent OK.** Confirmed welcome fires on PAID conversion only (billing.py:351/538, "fires HERE not at registration"), not trial-start → old "7-day free trial starts now" was wrong twice. Now paid welcome (full access live · digest ~6 PM ET every trading day · 30-day money-back). Also swept 3 newsletter footers (1895/1951/2103) stale founding/7-day → "Start free — no card, full access first two weeks". `trial_ending` still legacy but test/admin-only, won't send in prod.
+- 🎉 **FIRST REAL NON-BETA USER** (ex-colleague via Erik's LinkedIn post; not paying). Aggregate DB check (no PII): landed as 30-day `trial` = CORRECT (register→_provision_free_account always trial+30d, full access both books first 14d). No welcome email (paid-only); his intro = D1 onboarding drip ~10am ET next cron + auto newsletter enroll.
+- ✅ **AT-SIGNUP "YOU'RE IN" EMAIL — built, approved, LIVE.** New `email_service.send_free_welcome_email` (short immediate receipt: access live now, 1 CTA, honest day-14 shape) — distinct from paid welcome (Stripe) + D1 drip (next AM). Wired via `auth._send_free_welcome(user)` AFTER commit in all 3 register paths (email 340 / google 619 / apple 750), non-fatal. Erik: "this immediately and D1 next day." Test-sent to erik@rigacap.com OK. In test harness as `free_welcome`.
+- OPEN for Erik: one `status='free'` acct ~1d old that NO code writes → manual/QA artifact, glance at it.
+- Standing: only the 6 drips send going forward; Maximizer = +$100 add-on (not parity); verify before concluding.
 
 ## Frozen spec
 - "walk-forward" not "backtest"; never expose t30v/Core/Ensemble/DWAP PUBLIC; never "tape"; NO fabrication. Web deploy=push main→"Deploy RigaCap" GHA (~4min) + smoke api.rigacap.com/api/market-data-status→200. Worker events: `{"db_read":"SQL"}` (read-only), `{"run_migration":true,"sql":...}` (writes/commits), invoke `rigacap-prod-worker` AWS_PROFILE=rigacap. NO Google Ads API. **NO PICKLE — live=PARQUET/PITFWU** ([[feedback_no_pickle_parquet]]). perf_numbers SSOT. Verify before concluding.
@@ -36,7 +43,8 @@ metadata:
   - Logo bumped again 190→240px + inline style width [b7f0365] (190 attr wasn't reading bigger).
   - D1 digest-timing now DAY/TIME-AWARE [891aaeb]: `_next_digest_phrase()` → "This evening"/"Tomorrow evening"/"Monday evening" from ET-now vs 6PM trading-day send (was hardcoded "Tomorrow evening" — wrong when email lands weekday AM). Also D1 "one choice" line → Preserver-base/Maximizer-add-on.
   - ✅ **ERIK APPROVED THE 6 DRIPS.** Going forward: test-send ONLY the 6 drips (`{"test_emails":{"to_email":...,"only":["onboarding_1"..."onboarding_6"]}}`) — full-21 suite has dead templates we don't send.
-- ⚠️ FLAGGED (Erik's call, NOT fixed): older **welcome email** (`send_welcome_email`, email_service.py ~2273) still says "7-day free trial starts now. Tomorrow you'll receive your first digest" — stale for free-first. OPEN Q: is welcome still sent, on trial-start or paid-conversion? Fold into free-first welcome fix if Erik wants. (goodbye/trial_ending also legacy.)
+- ✅ **WELCOME EMAIL STALE-COPY FIXED [93675be]:** confirmed `send_welcome_email` fires on PAID conversion ONLY (billing.py:351 sync + :538 webhook subscription-created; comment "fires HERE not at registration"), NOT trial-start → old "7-day free trial starts now. Tomorrow..." was wrong twice. Reframed to paid welcome: "You're subscribed — full access is live. Daily digest ~6 PM ET every trading day. 30-day money-back." (HTML 2273 + text mirror). Also swept 2 newsletter product-pitch footers + text mirror (1895/1951/2103): stale "$59 founding (first 100) + 7-day trial" → "Start free — no card, full access first two weeks" (free-first CTA). Deployed + test-sent welcome to erik@rigacap.com (sent:1). trial_ending (2402/2438) still legacy BUT only test/admin-reachable (main.py 7886/9936), NOT in live drip → won't send in prod.
+- 🎉 **FIRST REAL NON-BETA USER (Aug 25)** — ex-colleague via Erik's LinkedIn post; signed up, NOT paying. Aggregate DB check (no PII): landed as 30-day `trial` (correct free-first provisioning; register→_provision_free_account always status='trial' +30d → full access both books first 14d). He gets NO welcome email (paid-only); his "welcome" = D1 onboarding drip at ~10am ET next cron + auto-newsletter-enroll. FLAGS for Erik: (a) one `status='free'` acct created ~1d ago that NO code path writes → manual/QA artifact, worth a glance; (b) free signups get NO immediate at-signup email (welcome is paid-gated, D1 drip is +1 day) — offer a lightweight "you're in" at signup?
 ## ⏳ QUEUED / OPEN (asked Erik, awaiting):
 - Add weekly `universe_refresh` cron (close universe-recalc gap)?
 - Idle-token-expiry guard (idle tab shows stale hybrid instead of re-auth) — offered.
