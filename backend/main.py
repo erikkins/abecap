@@ -7871,9 +7871,14 @@ def handler(event, context):
                 user_id=test_user_id,
             ))
 
-            # 2. Welcome
+            # 2. Welcome (paid conversion)
             await _try("welcome", email_service.send_welcome_email(
                 to_email=to, name="Erik Kinsman",
+            ))
+
+            # 2b. Free welcome (at-signup "you're in")
+            await _try("free_welcome", email_service.send_free_welcome_email(
+                to_email=to, name="Erik Kinsman", user_id=test_user_id,
             ))
 
             # 3. Password Reset

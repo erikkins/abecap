@@ -2331,6 +2331,71 @@ For information purposes only. RigaCap, LLC is not a registered investment advis
             email_type="welcome",
         )
 
+    async def send_free_welcome_email(self, to_email: str, name: str = "", user_id: str = None) -> bool:
+        """At-signup 'you're in' confirmation — fires the instant a free-first account is created
+        (all 3 register paths), BEFORE any Stripe conversion. Distinct from:
+          - send_welcome_email  → the PAID welcome (fires on subscription-created), and
+          - send_onboarding_email step 1 → the meaty how-to-act note that lands ~10 AM ET next day.
+        This one is deliberately short: an immediate receipt that says access is live now, one CTA
+        to open the dashboard, light expectations, and the honest day-14 shape. No card, no fabrication."""
+        first_name = name.split()[0] if name else "there"
+
+        content = f"""
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px; line-height: 1.65;">
+                    {first_name},
+                </p>
+                <p style="font-size: 17px; color: #141210; margin: 0 0 24px; line-height: 1.65;">
+                    Welcome &mdash; your RigaCap account is live, and so is your full access. No card, nothing to set up: for the <strong>next two weeks</strong> you can see everything the paid product shows &mdash; every live signal, both settings (<strong>Preserver</strong> and the <strong>Maximizer</strong> add-on), the daily market read, and the model's positions.
+                </p>
+
+                <div style="border-left: 2px solid #7A2430; padding: 20px 24px; background: #FAF7F0; margin: 28px 0;">
+                    <p style="margin: 0 0 4px; font-family: 'Courier New', monospace; font-size: 10px; font-weight: 500; letter-spacing: 3px; text-transform: uppercase; color: #5A544E;">What Happens Next</p>
+                    <ul style="margin: 12px 0 0; padding: 0 0 0 20px; color: #141210; line-height: 1.9; font-size: 15px;">
+                        <li><strong>Right now</strong> &mdash; open your dashboard and see exactly what the model is holding today.</li>
+                        <li><strong>~6 PM ET, every trading day</strong> &mdash; your daily digest lands: the market read, the model's moves, and any new signals. When nothing qualifies, it says so.</li>
+                        <li><strong>Over the next few days</strong> &mdash; I'll send a short series of notes on how to actually act on a signal at your own broker. RigaCap sends signals; it never touches your money.</li>
+                    </ul>
+                </div>
+
+                <div style="text-align: center; margin: 32px 0;">
+                    <a href="https://rigacap.com/app"
+                       style="display: inline-block; background: #141210; color: #F5F1E8; font-size: 13px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; padding: 14px 36px; text-decoration: none;">
+                        Open Your Dashboard
+                    </a>
+                </div>
+
+                <p style="font-size: 15px; color: #5A544E; margin: 0 0 24px; line-height: 1.6;">
+                    One thing worth knowing now: your full live access runs through <strong>day 14</strong>. After that your view settles onto the proof floor &mdash; the full track record and closed results, minus the live names &mdash; and you can unlock the full product anytime. I'll remind you before anything changes; nothing disappears without warning.
+                </p>
+
+                <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0; line-height: 1.5;">
+                    Reply to this email anytime &mdash; it comes straight to me. &mdash; Erik
+                </p>"""
+        html = self._email_wrapper("Welcome", content, user_id)
+
+        text = f"""{first_name},
+
+Welcome — your RigaCap account is live, and so is your full access. No card, nothing to set up: for the next two weeks you can see everything the paid product shows — every live signal, both settings (Preserver and the Maximizer add-on), the daily market read, and the model's positions.
+
+WHAT HAPPENS NEXT
+- Right now — open your dashboard and see exactly what the model is holding today: https://rigacap.com/app
+- ~6 PM ET, every trading day — your daily digest lands: the market read, the model's moves, and any new signals. When nothing qualifies, it says so.
+- Over the next few days — I'll send a short series of notes on how to actually act on a signal at your own broker. RigaCap sends signals; it never touches your money.
+
+One thing worth knowing now: your full live access runs through day 14. After that your view settles onto the proof floor — the full track record and closed results, minus the live names — and you can unlock the full product anytime. I'll remind you before anything changes; nothing disappears without warning.
+
+Reply to this email anytime — it comes straight to me. — Erik
+"""
+
+        return await self.send_email(
+            to_email=to_email,
+            subject="Welcome to RigaCap — you're in",
+            html_content=html,
+            text_content=text,
+            user_id=user_id,
+            email_type="free_welcome",
+        )
+
     async def send_password_reset_email(self, to_email: str, name: str, reset_url: str) -> bool:
         """Send a password reset email with a time-limited link."""
         first_name = name.split()[0] if name else "there"
