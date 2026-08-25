@@ -2519,6 +2519,20 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
         """
         first_name = name.split()[0] if name else "there"
 
+        # Day/time-aware first-digest timing: the daily digest sends ~6 PM ET on trading days, so a
+        # welcome landing on a weekday morning means the first digest is THIS evening, not "tomorrow".
+        def _next_digest_phrase():
+            from datetime import datetime as _dt, timedelta as _td
+            from zoneinfo import ZoneInfo as _ZI
+            now = _dt.now(_ZI("America/New_York"))
+            if now.weekday() <= 4 and now.hour < 18:   # weekday before the 6 PM send
+                return "This evening"
+            d = now + _td(days=1)
+            while d.weekday() > 4:                       # skip to the next weekday
+                d += _td(days=1)
+            return "Tomorrow evening" if (d.date() - now.date()).days == 1 else d.strftime("%A") + " evening"
+        digest_when = _next_digest_phrase()
+
         subjects = {
             1: "You're in — full access starts now",
             2: "One engine, two settings",
@@ -2582,7 +2596,7 @@ This link expires in 1 hour. If you didn't request this, you can safely ignore t
                 </div>
 
                 <p style="font-size: 14px; color: #8A8279; margin: 24px 0 0 0; line-height: 1.5;">
-                    Tomorrow evening you'll get your first daily digest. In a couple of days I'll explain the one choice you get to make: which of the two settings fits you.
+                    {digest_when} you'll get your first daily digest (it lands ~6 PM ET on trading days). In a couple of days I'll explain how the two settings work — Preserver's the base, Maximizer's the add-on when you want more.
                 </p>
             """,
             2: f"""
