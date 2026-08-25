@@ -65,6 +65,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
   // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen) {
+      logPublicEvent('signup_modal_open');   // auth-funnel base: modal opened from ANY entry point
       setEmail('');
       setPassword('');
       setName('');
@@ -220,15 +221,18 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
   // Shared credential handler for both the rendered GIS button and the click fallback.
   const handleGoogleCredential = async (credential) => {
     if (!credential) return;
+    logPublicEvent('oauth_google_credential');   // account picked, Google returned to us
     setLoading(true);
     if (mode === 'register') logPublicEvent('signup_submit');
     const result = await loginWithGoogle(credential);
     setLoading(false);
     if (result.success) {
+      logPublicEvent('oauth_google_success');
       if (mode === 'register') logPublicEvent('signup_success');
       if (result.requires_2fa) return;
       if (!result.redirecting) { onSuccess ? onSuccess() : onClose(); }
     } else {
+      logPublicEvent('oauth_google_backend_fail');   // credential OK but our /auth/google rejected it
       setLocalError(result.error || 'Google login failed');
     }
   };
@@ -256,6 +260,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
             theme: 'outline', size: 'large', width: '300',
             text: mode === 'register' ? 'signup_with' : 'continue_with',
           });
+          if (!gisReady) logPublicEvent('oauth_google_rendered');   // SDK loaded + button shown
           setGisReady(true);
         }
       } catch (e) {
@@ -266,11 +271,22 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
     };
     if (init()) return;
     // GIS script loads async — poll briefly until window.google is ready.
-    const iv = setInterval(() => { if (cancelled || init()) clearInterval(iv); }, 200);
-    const to = setTimeout(() => clearInterval(iv), 6000);
+    let done = false;
+    const iv = setInterval(() => {
+      if (cancelled || done) { clearInterval(iv); return; }
+      if (init()) { done = true; clearInterval(iv); }
+    }, 200);
+    const to = setTimeout(() => {
+      if (!done && !cancelled) { clearInterval(iv); logPublicEvent('oauth_google_sdk_timeout'); }
+    }, 6000);
     return () => { cancelled = true; clearInterval(iv); clearTimeout(to); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, inAppBrowser, mode, regStep]);
+
+  // Visibility into the in-app-browser wall — how many arrive in a webview where OAuth can't work.
+  useEffect(() => {
+    if (isOpen && inAppBrowser) logPublicEvent('oauth_inapp_blocked');
+  }, [isOpen, inAppBrowser]);
 
   const handleAppleLogin = async () => {
     logPublicEvent('oauth_apple_click');   // client-side visibility into OAuth attempts
@@ -305,6 +321,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
       setLoading(false);
 
       if (result.success) {
+        logPublicEvent('oauth_apple_success');
         if (mode === 'register') logPublicEvent('signup_success');
         if (result.requires_2fa) return;
         if (!result.redirecting) {

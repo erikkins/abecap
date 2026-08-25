@@ -4793,6 +4793,33 @@ async def pageviews_summary(
     sis_funnel = await _funnel("/should-i-sell")
     mom_funnel = await _funnel("/momentum")
 
+    # Global auth/signup funnel — the modal fires from ANY path, so this is not path-scoped.
+    # Shows where we lose people between opening signup and a created account, across Google /
+    # Apple / email, plus the failure modes (in-app browser wall, SDK never loaded, backend reject).
+    _auth_order = [
+        ("signup_modal_open", "Opened signup (modal)"),
+        ("signup_open", "CTA opened (ad doors)"),
+        ("oauth_inapp_blocked", "⚠ In-app browser (OAuth blocked)"),
+        ("oauth_google_rendered", "Google button shown"),
+        ("oauth_google_sdk_timeout", "⚠ Google SDK never loaded"),
+        ("oauth_google_click", "Clicked Google (fallback btn)"),
+        ("oauth_google_credential", "Google returned (picked acct)"),
+        ("oauth_google_backend_fail", "⚠ Google rejected by backend"),
+        ("oauth_google_error", "⚠ Google SDK error"),
+        ("oauth_google_success", "Google login OK"),
+        ("oauth_apple_click", "Clicked Apple"),
+        ("oauth_apple_error", "⚠ Apple error"),
+        ("oauth_apple_success", "Apple login OK"),
+        ("signup_submit", "Email submitted"),
+        ("signup_success", "Account created (any path)"),
+        ("checkout_redirect", "Reached Stripe"),
+    ]
+    auth_counts = dict((await db.execute(
+        select(PageView.event, func.count()).where(where, PageView.event.in_([k for k, _ in _auth_order]))
+        .group_by(PageView.event)
+    )).all())
+    auth_funnel = [{"step": k, "label": lbl, "count": int(auth_counts.get(k, 0))} for k, lbl in _auth_order]
+
     return {
         "days": days,
         "total": total,
@@ -4804,6 +4831,7 @@ async def pageviews_summary(
         "by_event": by_event,
         "sis_funnel": sis_funnel,
         "mom_funnel": mom_funnel,
+        "auth_funnel": auth_funnel,
     }
 
 

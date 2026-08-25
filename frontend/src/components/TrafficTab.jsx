@@ -158,6 +158,35 @@ export default function TrafficTab({ fetchWithAuth }) {
             );
           })}
 
+          {/* Global auth / signup funnel — the modal fires from any path, so not path-scoped. */}
+          {data.auth_funnel && (() => {
+            const f = data.auth_funnel;
+            const base = f.find((s) => s.step === 'signup_modal_open')?.count || 0;
+            const pct = (n) => (base ? `${Math.round((n / base) * 100)}%` : '—');
+            return (
+              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <div className="text-sm font-medium text-gray-900 mb-1">
+                  Auth / signup funnel <span className="font-normal text-gray-400">· all paths · Google / Apple / email</span>
+                </div>
+                <div className="text-xs text-gray-400 mb-3">Where we lose people between opening signup and a created account. % is of “Opened signup”. ⚠ rows are failure modes.</div>
+                <div className="space-y-1.5">
+                  {f.map((s) => {
+                    const warn = s.label.startsWith('⚠');
+                    return (
+                      <div key={s.step} className="flex items-center gap-3">
+                        <div className={`w-52 text-sm shrink-0 ${warn ? 'text-red-600' : 'text-gray-700'}`}>{s.label}</div>
+                        <div className="flex-1 bg-gray-100 rounded h-5 overflow-hidden">
+                          <div className={`h-full rounded ${warn ? 'bg-red-400' : 'bg-gray-800'}`} style={{ width: (base && s.count > 0) ? `${Math.max(2, (s.count / base) * 100)}%` : '0%' }} />
+                        </div>
+                        <div className="w-24 text-right font-mono text-sm text-gray-900 shrink-0">{s.count} <span className="text-gray-400">{pct(s.count)}</span></div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           <p className="text-xs text-gray-400">
             Cookieless first-party beacon — no cookie, no stored IP, no consent banner required. Bots filtered by user-agent.
           </p>
