@@ -6,6 +6,16 @@ import { logPublicEvent } from '../lib/publicEvent';
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
+// In-app browsers (LinkedIn, Instagram, Facebook, etc.) BLOCK Google/Apple OAuth by policy — the
+// redirect returns but the credential never reaches us, stranding the user on a login loop (first-
+// user report: LinkedIn → phone). Detect it so we can guide them to a real browser instead.
+const isInAppBrowser = () => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /(LinkedInApp|FBAN|FBAV|FB_IAB|Instagram|Twitter|Line\/|MicroMessenger|WhatsApp|Snapchat|TikTok|musical_ly|Pinterest|\bGSA\b)/i.test(ua)
+      || (/Android/.test(ua) && /; wv\)/.test(ua));   // generic Android WebView
+};
+
 export default function LoginModal({ isOpen = true, onClose, onSuccess, initialMode = 'login', selectedPlan = 'monthly' }) {
   const { login, register, loginWithGoogle, loginWithApple, verify2FA, cancel2FA, twoFactorRequired, error, clearError } = useAuth();
   const [mode, setMode] = useState(initialMode);
@@ -48,6 +58,9 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
     } catch { setLocalError('Could not subscribe — please try again.'); }
     finally { setNewsletterBusy(false); }
   };
+
+  const [inAppBrowser] = useState(() => isInAppBrowser());
+  const [gisReady, setGisReady] = useState(false);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -203,6 +216,61 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
       setLocalError('Google Sign-In failed. Please try again.');
     }
   };
+
+  // Shared credential handler for both the rendered GIS button and the click fallback.
+  const handleGoogleCredential = async (credential) => {
+    if (!credential) return;
+    setLoading(true);
+    if (mode === 'register') logPublicEvent('signup_submit');
+    const result = await loginWithGoogle(credential);
+    setLoading(false);
+    if (result.success) {
+      if (mode === 'register') logPublicEvent('signup_success');
+      if (result.requires_2fa) return;
+      if (!result.redirecting) { onSuccess ? onSuccess() : onClose(); }
+    } else {
+      setLocalError(result.error || 'Google login failed');
+    }
+  };
+
+  // Register the Google callback + render the official GIS button ON MOUNT (not on click), so the
+  // credential is always captured — including after a mobile redirect — instead of stranding the
+  // user on the login screen in a loop. Skipped in in-app browsers (OAuth is blocked there anyway).
+  useEffect(() => {
+    if (!isOpen || inAppBrowser || !GOOGLE_CLIENT_ID) return;
+    if (!(mode === 'login' || regStep === 1)) return;
+    let cancelled = false;
+    const init = () => {
+      const google = window.google;
+      if (!google?.accounts?.id) return false;
+      try {
+        google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: (resp) => handleGoogleCredential(resp?.credential),
+          ux_mode: 'popup',
+        });
+        const el = document.getElementById('google-signin-button');
+        if (el) {
+          el.innerHTML = '';
+          google.accounts.id.renderButton(el, {
+            theme: 'outline', size: 'large', width: '300',
+            text: mode === 'register' ? 'signup_with' : 'continue_with',
+          });
+          setGisReady(true);
+        }
+      } catch (e) {
+        console.error('GIS init/render failed:', e);
+        return false;
+      }
+      return true;
+    };
+    if (init()) return;
+    // GIS script loads async — poll briefly until window.google is ready.
+    const iv = setInterval(() => { if (cancelled || init()) clearInterval(iv); }, 200);
+    const to = setTimeout(() => clearInterval(iv), 6000);
+    return () => { cancelled = true; clearInterval(iv); clearTimeout(to); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, inAppBrowser, mode, regStep]);
 
   const handleAppleLogin = async () => {
     logPublicEvent('oauth_apple_click');   // client-side visibility into OAuth attempts
@@ -386,9 +454,17 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
         <div className="p-6">
           {(mode === 'login' || regStep === 1) && (
           <>
+          {inAppBrowser ? (
+            <div className="mb-6 rounded border border-rule bg-paper-deep p-4 text-sm text-ink-mute leading-relaxed">
+              <strong className="text-ink font-medium">Signing in with Google or Apple?</strong> They don&rsquo;t work inside in-app browsers (LinkedIn, Instagram, Facebook&hellip;). Open <span className="whitespace-nowrap">rigacap.com</span> in Safari or Chrome &mdash; or just continue with email below.
+            </div>
+          ) : (
+          <>
           {/* OAuth buttons */}
           <div className="space-y-3 mb-6">
-            <div id="google-signin-button" className="w-full">
+            {/* GIS renders its official button into this (React-empty) div on mount. */}
+            <div id="google-signin-button" className="w-full flex justify-center min-h-[44px]" />
+            {!gisReady && (
               <button
                 onClick={handleGoogleLogin}
                 className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-rule hover:bg-paper-deep transition-colors rounded"
@@ -396,7 +472,7 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
                 <Chrome size={20} className="text-ink-light" />
                 <span className="font-medium text-ink-mute">Continue with Google</span>
               </button>
-            </div>
+            )}
             <button
               onClick={handleAppleLogin}
               className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-ink text-ink hover:bg-paper-deep transition-colors rounded"
@@ -415,6 +491,8 @@ export default function LoginModal({ isOpen = true, onClose, onSuccess, initialM
               <span className="px-3 bg-paper text-ink-light">or continue with email</span>
             </div>
           </div>
+          </>
+          )}
           </>
           )}
 
