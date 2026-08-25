@@ -32,7 +32,11 @@ metadata:
   - **MAXIMIZER = +$100/mo ADD-ON clarity [86778cf]** (was misleading parity "choose your tier at intro rate"): fixed across Welcome, onboarding 2/4/5/6, beta tier-announcement, trial-ending → "Preserver base · Maximizer +$100/mo (+$79 intro), toggle anytime". Pricing model: Preserver base $59 intro→$129/$1099yr; Maximizer +$100 (+$79 intro) ADD-ON.
   - **Welcome proof rewrite** [86778cf]: leads with ASYMMETRY (market-match return/fraction of pain; 2008 ~flat vs S&P −37; DD cut ~2/3 vs raw-mom −57) + modern-era (2021-26 Pres 13%/−12.9, Max 31.4%/−14.9) + 21yr backbone. Honest, SSOT-accurate.
   - Header polish [86778cf]: logo 150×36→190×46 (~+27%); top-right header eyebrow #8A8279/no-weight→#3A342E/700/11px (was still light); "Two Tiers"→"Two Settings".
-  - Built via 2 subagents (drip + copy/style) — reviewed + deployed by me. NEXT: Erik reacts to the resent suite → tweak any copy.
+  - Built via 2 subagents (drip + copy/style) — reviewed + deployed by me.
+  - Logo bumped again 190→240px + inline style width [b7f0365] (190 attr wasn't reading bigger).
+  - D1 digest-timing now DAY/TIME-AWARE [891aaeb]: `_next_digest_phrase()` → "This evening"/"Tomorrow evening"/"Monday evening" from ET-now vs 6PM trading-day send (was hardcoded "Tomorrow evening" — wrong when email lands weekday AM). Also D1 "one choice" line → Preserver-base/Maximizer-add-on.
+  - ✅ **ERIK APPROVED THE 6 DRIPS.** Going forward: test-send ONLY the 6 drips (`{"test_emails":{"to_email":...,"only":["onboarding_1"..."onboarding_6"]}}`) — full-21 suite has dead templates we don't send.
+- ⚠️ FLAGGED (Erik's call, NOT fixed): older **welcome email** (`send_welcome_email`, email_service.py ~2273) still says "7-day free trial starts now. Tomorrow you'll receive your first digest" — stale for free-first. OPEN Q: is welcome still sent, on trial-start or paid-conversion? Fold into free-first welcome fix if Erik wants. (goodbye/trial_ending also legacy.)
 ## ⏳ QUEUED / OPEN (asked Erik, awaiting):
 - Add weekly `universe_refresh` cron (close universe-recalc gap)?
 - Idle-token-expiry guard (idle tab shows stale hybrid instead of re-auth) — offered.
