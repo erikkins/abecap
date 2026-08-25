@@ -104,6 +104,32 @@ EDUCATIONAL_TOPICS = [
     },
 ]
 
+from app.services.perf_numbers import PERF as _PERF
+
+
+def _canonical_numbers_block() -> str:
+    """Canonical performance lines from the SSOT (perf_numbers.PERF) so newsletter copy can't
+    drift from the site. NEVER hardcode these figures — change them in perf_numbers."""
+    p, m, b = _PERF["preserver"], _PERF["maximizer"], _PERF["benchmarks"]
+    s = _PERF["supporting"]
+    dd = lambda x: f"{abs(x):g}"
+    return (
+        f"- 21-year walk-forward (2007-2026): RigaCap Preserver {p['yr21']['cagr']:g}% a year, "
+        f"worst drawdown {dd(p['yr21']['maxdd'])}%; RigaCap Maximizer {m['yr21']['cagr']:g}% a year, "
+        f"worst drawdown {dd(m['yr21']['maxdd'])}%\n"
+        f"- The index (S&P 500) returned {b['spy_21yr']['cagr']:g}% a year and lost more than half its "
+        f"value twice in that span; raw momentum returned {b['raw_mom_21yr']['cagr']:g}% and drew down "
+        f"{dd(b['raw_mom_21yr']['maxdd'])}%\n"
+        f"- 2008: both settings ended the year roughly flat (about +{s['yr2008']['preserver']:g}%) while the index fell about 37%\n"
+        f"- A typical 2-year stretch (rolling, walk-forward): Preserver about +{p['typical_24mo']:g}%, "
+        f"Maximizer about +{m['typical_24mo']:g}%\n"
+        f"- Sharpe over 21 walk-forward years: Preserver {p['yr21']['sharpe']:g}, Maximizer {m['yr21']['sharpe']:g} "
+        f"(S&P 0.54; Buffett's lifetime is 0.79 — note our pre-2016 data carries a survivorship caveat that flatters the early years)"
+    )
+
+
+_CANON = _canonical_numbers_block()
+
 SYSTEM_PROMPT = """You write sections of a weekly financial newsletter called "Market, Measured." by Erik Kins, founder of RigaCap.
 
 VOICE: Thoughtful, specific, lightly self-aware. Like Matt Levine or Marc Rubinstein — a smart person explaining something they find genuinely interesting. You're a curious founder, not a financial media personality.
@@ -138,11 +164,7 @@ POSITIONING (Aug 2026): RigaCap is ONE engine with TWO settings, and the newslet
 The connective tissue is DISCIPLINE, not defense — the reader chooses how hard to push. Write with range and energy: confident about the upside (Maximizer), honest about the tradeoffs, never doom or hype, never predicting. If a section only ever talks about protecting/trailing/sitting-out, it has drifted Preserver-only — pull in the growth side.
 
 PERFORMANCE NUMBERS — these are the ONLY ones you may cite; always describe them as WALK-FORWARD, NEVER "backtest":
-- 21-year walk-forward (2007-2026): RigaCap Preserver 7.7% a year, worst drawdown 13.7%; RigaCap Maximizer 13.5% a year, worst drawdown 20.8%
-- The index (S&P 500) returned 9.8% a year and lost more than half its value twice in that span; raw momentum returned 13.2% and drew down 57%
-- 2008: both settings ended the year roughly flat (about +0.1%) while the index fell about 37%
-- A typical 2-year stretch (rolling, walk-forward): Preserver about +20.8%, Maximizer about +57.5%
-- Sharpe over 21 walk-forward years: Preserver 0.87, Maximizer 0.93 (S&P 0.54; Buffett's lifetime is 0.79 — note our pre-2016 data carries a survivorship caveat that flatters the early years)
+""" + _CANON + """
 - The LIVE record began June 11, 2026 — it is days old, and we say so plainly
 PRODUCT: one engine, two settings — Preserver (preserve) and Maximizer (push). Never cite any other performance figure, including from older marketing, and NEVER the internal "Core"/t30v numbers.
 

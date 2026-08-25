@@ -699,15 +699,15 @@ const LAUNCH_POSTS = [
     label: 'Now Live',
     imageUrl: '/launch-cards/launch-1.png',
     twitter: {
-      text: "RigaCap is live.\n\nFifteen years of building, rebuilt this year on honest data, now running with real capital.\n\nA momentum strategy designed around one number: the worst drawdown. 19% across a 21-year backtest — through 2008, COVID, and 2022 — while the index lost half its value twice.\n\nrigacap.com",
+      text: "RigaCap is live.\n\nFifteen years of building, rebuilt this year on honest data, now running with real capital.\n\nA momentum strategy designed around one number: the worst drawdown. 13.7% across a 21-year walk-forward — through 2008, COVID, and 2022 — while the index lost half its value twice.\n\nrigacap.com",
       hashtags: '',
     },
     instagram: {
-      text: "RigaCap is live.\n\nFifteen years of nights-and-weekends building, rebuilt this year from scratch on honest data, now running with real capital.\n\nIt is a momentum strategy designed around one number: the worst drawdown. Across a 21-year walk-forward backtest — through the 2008 financial crisis, COVID, and the 2022 bear — the worst peak-to-trough loss was 19%. The index lost half its value twice in that span.\n\nDiversified across ~20 names, sized by risk, with wide trailing stops and a regime filter that moves the whole book to cash when markets turn hostile. Selective, not silent.\n\nNo minimums. No performance fees. Same signals for everyone.\n\nrigacap.com",
+      text: "RigaCap is live.\n\nFifteen years of nights-and-weekends building, rebuilt this year from scratch on honest data, now running with real capital.\n\nIt is a momentum strategy designed around one number: the worst drawdown. Across a 21-year walk-forward — through the 2008 financial crisis, COVID, and the 2022 bear — the worst peak-to-trough loss was 13.7%. The index lost half its value twice in that span.\n\nDiversified across ~20 names, sized by risk, with wide trailing stops and a regime filter that moves the whole book to cash when markets turn hostile. Selective, not silent.\n\nNo minimums. No performance fees. Same signals for everyone.\n\nrigacap.com",
       hashtags: '#investing #momentum #disciplinedtrading #rigacap',
     },
     threads: {
-      text: "RigaCap is live.\n\nFifteen years of building, rebuilt this year on honest data, now running with real capital.\n\nDesigned around one number: the worst drawdown. 19% across 21 backtested years — the index lost half its value twice.\n\nrigacap.com",
+      text: "RigaCap is live.\n\nFifteen years of building, rebuilt this year on honest data, now running with real capital.\n\nDesigned around one number: the worst drawdown. 13.7% across 21 walk-forward years — the index lost half its value twice.\n\nrigacap.com",
     },
   },
   {
@@ -715,15 +715,15 @@ const LAUNCH_POSTS = [
     label: 'No Cherry-Picking',
     imageUrl: '/launch-cards/launch-2.png',
     twitter: {
-      text: "Most backtests cherry-pick the start date that flatters them. Ours runs 21 years, continuous, no hindsight — and when cleaner data made our numbers smaller, we published the smaller numbers.\n\n8.3% a year. Worst drawdown 19% — a third of raw momentum's 57%.\n\nThe honest version: rigacap.com/track-record",
+      text: "Most backtests cherry-pick the start date that flatters them. Ours runs 21 years, continuous, no hindsight — and when cleaner data made our numbers smaller, we published the smaller numbers.\n\n7.7% a year. Worst drawdown 13.7% — a quarter of raw momentum's 57%.\n\nThe honest version: rigacap.com/track-record",
       hashtags: '',
     },
     instagram: {
-      text:"Most backtests show you the result that flatters the strategy. Ours runs twenty-one years, continuous, with no hindsight — and when cleaner data made our numbers smaller, we published the smaller numbers.\n\nThe 21-year walk-forward backtest:\n\nReturn: 8.3% a year\nWorst drawdown: 19% — a third of raw momentum's 57%, while the index lost 55%\nLast 24 months (held-out): +32% annualized\n\nThe point was never the biggest number. It's a drawdown you can actually hold through — because the return you can hold through is the only one you collect.\n\nFull methodology, including the numbers that don't flatter us, on the track record page.\n\nrigacap.com/track-record",
+      text:"Most backtests show you the result that flatters the strategy. Ours runs twenty-one years, continuous, with no hindsight — and when cleaner data made our numbers smaller, we published the smaller numbers.\n\nThe 21-year walk-forward record:\n\nReturn: 7.7% a year\nWorst drawdown: 13.7% — a quarter of raw momentum's 57%, while the index lost 55%\nA typical two-year stretch: +20.8%\n\nThe point was never the biggest number. It's a drawdown you can actually hold through — because the return you can hold through is the only one you collect.\n\nFull methodology, including the numbers that don't flatter us, on the track record page.\n\nrigacap.com/track-record",
       hashtags: '#investing #backtest #walkforward #trackrecord #rigacap',
     },
     threads: {
-      text: "Most backtests cherry-pick the start date that flatters them.\n\nOurs runs 21 years, continuous, no hindsight — and when cleaner data made our numbers smaller, we published the smaller numbers.\n\n8.3% a year. Worst drawdown 19% — a third of raw momentum's 57%.\n\nrigacap.com/track-record",
+      text: "Most backtests cherry-pick the start date that flatters them.\n\nOurs runs 21 years, continuous, no hindsight — and when cleaner data made our numbers smaller, we published the smaller numbers.\n\n7.7% a year. Worst drawdown 13.7% — a quarter of raw momentum's 57%.\n\nrigacap.com/track-record",
     },
   },
   {
@@ -747,15 +747,15 @@ const LAUNCH_POSTS = [
     label: 'Seven Regimes',
     imageUrl: '/launch-cards/launch-4.png',
     twitter: {
-      text: "The index's six worst months of the last 21 years:\n\nOct 2008: −16.5%. Mar 2020: −13.1%. Feb 2009: −10.7%. Sep 2008: −9.9%. Sep 2022: −9.6%. Dec 2018: −9.3%.\n\nOur backtest's same months: 0.0%, −4.7%, 0.0%, 0.0%, 0.0%, −1.3%.\n\nFour of the six, it had already gone to cash.\n\nrigacap.com/track-record",
+      text: "The index's six worst months of the last 21 years:\n\nOct 2008: −16.5%. Mar 2020: −13.1%. Feb 2009: −10.7%. Sep 2008: −9.9%. Sep 2022: −9.6%. Dec 2018: −9.3%.\n\nOur walk-forward's same months: 0.0%, −4.7%, 0.0%, 0.0%, 0.0%, −1.3%.\n\nFour of the six, it had already gone to cash.\n\nrigacap.com/track-record",
       hashtags: '',
     },
     instagram: {
-      text: "The index's six worst months of the last twenty-one years — and where our backtest was when they hit:\n\nOct 2008: index −16.5% · system 0.0% (in cash)\nMar 2020: index −13.1% · system −4.7%\nFeb 2009: index −10.7% · system 0.0% (in cash)\nSep 2008: index −9.9% · system 0.0% (in cash)\nSep 2022: index −9.6% · system 0.0% (in cash)\nDec 2018: index −9.3% · system −1.3%\n\nFour of the six, the regime filter had already moved the entire book to cash before the month began. That is the whole design: participate in trends, step aside in storms.\n\nBacktested monthly returns, 2007–2026. Every number labeled on the track record page.\n\nrigacap.com/track-record",
+      text: "The index's six worst months of the last twenty-one years — and where our walk-forward was when they hit:\n\nOct 2008: index −16.5% · system 0.0% (in cash)\nMar 2020: index −13.1% · system −4.7%\nFeb 2009: index −10.7% · system 0.0% (in cash)\nSep 2008: index −9.9% · system 0.0% (in cash)\nSep 2022: index −9.6% · system 0.0% (in cash)\nDec 2018: index −9.3% · system −1.3%\n\nFour of the six, the regime filter had already moved the entire book to cash before the month began. That is the whole design: participate in trends, step aside in storms.\n\nWalk-forward monthly returns, 2007–2026. Every number labeled on the track record page.\n\nrigacap.com/track-record",
       hashtags: '#investing #marketregime #riskmanagement #rigacap',
     },
     threads: {
-      text: "The index's six worst months in 21 years: −16.5%, −13.1%, −10.7%, −9.9%, −9.6%, −9.3%.\n\nOur backtest's same months: 0.0%, −4.7%, 0.0%, 0.0%, 0.0%, −1.3%.\n\nFour of the six, it had already gone to cash.\n\nrigacap.com/track-record",
+      text: "The index's six worst months in 21 years: −16.5%, −13.1%, −10.7%, −9.9%, −9.6%, −9.3%.\n\nOur walk-forward's same months: 0.0%, −4.7%, 0.0%, 0.0%, 0.0%, −1.3%.\n\nFour of the six, it had already gone to cash.\n\nrigacap.com/track-record",
     },
   },
   {
@@ -763,15 +763,15 @@ const LAUNCH_POSTS = [
     label: 'External Discipline',
     imageUrl: '/launch-cards/launch-5.png',
     twitter: {
-      text: "You can find signals anywhere. Discipline is harder.\n\nSitting in cash when nothing's working. Honoring stops without second-guessing. Not doubling down on losers.\n\nRigaCap is an external discipline layer — it removes your own behavior as the biggest risk in your portfolio.\n\n$59/mo founding rate (first 100). 7-day trial.\n\nrigacap.com",
+      text: "You can find signals anywhere. Discipline is harder.\n\nSitting in cash when nothing's working. Honoring stops without second-guessing. Not doubling down on losers.\n\nRigaCap is an external discipline layer — it removes your own behavior as the biggest risk in your portfolio.\n\nStart free — no card, full access for two weeks.\n\nrigacap.com",
       hashtags: '',
     },
     instagram: {
-      text: "You can find signals anywhere. The internet is full of them.\n\nWhat is harder to find is the discipline to follow them. To sit in cash when nothing is working. To honor a stop without second-guessing it. To not double down on a loser because the chart looks oversold.\n\nRigaCap is an external discipline layer. It tells you when to enter, when to exit, and — just as importantly — when to do nothing. It removes your own behavior as the biggest risk in your portfolio.\n\nFounding rate: $59 per month for the first 100 members.\nStandard: $129 per month. Annual: $1,099.\nTrial: 7 days, full access.\n\nrigacap.com",
+      text: "You can find signals anywhere. The internet is full of them.\n\nWhat is harder to find is the discipline to follow them. To sit in cash when nothing is working. To honor a stop without second-guessing it. To not double down on a loser because the chart looks oversold.\n\nRigaCap is an external discipline layer. It tells you when to enter, when to exit, and — just as importantly — when to do nothing. It removes your own behavior as the biggest risk in your portfolio.\n\nStart free — no credit card, with full access for your first two weeks. Preserver is the base; Maximizer is an add-on when you want more offense.\n\nrigacap.com",
       hashtags: '#investing #disciplinedtrading #signals #rigacap',
     },
     threads: {
-      text: "You can find signals anywhere. Discipline is harder.\n\nSitting in cash when nothing's working. Honoring stops without second-guessing. Not doubling down on losers.\n\nRigaCap is an external discipline layer.\n\n$59/mo founding rate, first 100 members. 7-day trial.\n\nrigacap.com",
+      text: "You can find signals anywhere. Discipline is harder.\n\nSitting in cash when nothing's working. Honoring stops without second-guessing. Not doubling down on losers.\n\nRigaCap is an external discipline layer.\n\nStart free — no card, full access for two weeks.\n\nrigacap.com",
     },
   },
 ];

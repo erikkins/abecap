@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, AlertTriangle, Eye, Scissors, ShieldCheck, TrendingDown } from 'lucide-react';
 import MarketMeasuredSignup from './components/MarketMeasuredSignup';
 
+// Perf numbers below are the SSOT values (see perf_numbers.js, vintage 2026-07-31):
+// Preserver 7.7/0.87/-13.7. Kept literal for prose readability — if perf_numbers.js changes, update here.
 export default function BlogHonestBacktestPage() {
   useEffect(() => { document.title = 'We Found Our Own Backtest Was Lying | RigaCap'; }, []);
   return (

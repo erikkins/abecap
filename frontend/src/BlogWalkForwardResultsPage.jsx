@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, TrendingUp, BarChart3, Target, AlertTriangle, Zap, LineChart, ShieldCheck } from 'lucide-react';
 import MarketMeasuredSignup from './components/MarketMeasuredSignup';
 
+// Perf numbers below are the SSOT values (see perf_numbers.js, vintage 2026-07-31):
+// Preserver 7.7/0.87/-13.7, Maximizer 13.5/0.93/-20.8, SPY 9.8/-55, raw-mom 13.2/-57.
+// Kept literal for prose readability — if perf_numbers.js changes, update them here to match.
 export default function BlogWalkForwardResultsPage() {
   useEffect(() => { document.title = 'Inside Our 21-Year Walk-Forward | RigaCap';
     const DESC = 'RigaCap 21-year continuous walk-forward simulation (2007–2026): the Preserver at 7.7% / 0.87 Sharpe / −13.7% worst drawdown, the Maximizer at 13.5% — a fraction of the drawdown of raw momentum or the S&P.';

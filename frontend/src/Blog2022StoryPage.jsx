@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Shield, TrendingDown, Clock, BarChart3, ArrowRight } from 'lucide-react';
 import MarketMeasuredSignup from './components/MarketMeasuredSignup';
 
+// Perf numbers below are the SSOT values (see perf_numbers.js, vintage 2026-07-31):
+// Preserver 7.7/0.87/-13.7, 2022 -11.2 vs SPY -19.9. Kept literal for prose readability — sync with perf_numbers.js.
 export default function Blog2022StoryPage() {
   useEffect(() => { document.title = 'The 2022 Story | RigaCap'; }, []);
   return (

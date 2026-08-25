@@ -25,7 +25,6 @@ const MomentumPage = lazy(() => import('./MomentumPage'));
 const MethodologyPageV2 = lazy(() => import('./MethodologyPageV2'));
 const TrackRecordPageV2 = lazy(() => import('./TrackRecordPageV2'));
 const AboutPage = lazy(() => import('./AboutPage'));
-const TrackRecordPage = lazy(() => import('./TrackRecordPage'));
 const TrackRecord10YPage = lazy(() => import('./TrackRecord10YPage'));
 const MethodologyPage = lazy(() => import('./MethodologyPage'));
 const MarketRegimePage = lazy(() => import('./MarketRegimePage'));
@@ -5424,7 +5423,6 @@ export default function App() {
         <Route path="/should-i-sell" element={<ShouldISellPage />} />
         <Route path="/momentum" element={<MomentumPage />} />
         <Route path="/for-advisers" element={<ForAdvisersPage />} />
-        <Route path="/track-record-v1" element={<TrackRecordPage />} />
         <Route path="/track-record-10y" element={<TrackRecord10YPage />} />
         <Route path="/methodology" element={<MethodologyPageV2 />} />
         <Route path="/methodology-v1" element={<MethodologyPage />} />
