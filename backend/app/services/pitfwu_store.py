@@ -296,10 +296,20 @@ def list_pitfwu_symbols() -> List[str]:
     return out
 
 
-def append_pitfwu_bars(symbols: List[str], start, end, execute: bool = False, client=None) -> dict:
+def append_pitfwu_bars(symbols: List[str], start, end, execute: bool = False,
+                       client=None, full: bool = False) -> dict:
     """Fetch RAW bars [start,end] and append to each symbol's pitfwu/bars file.
     Only dates AFTER the symbol's current last bar are added (new fetch wins on
     overlaps, correcting any prior bad bar). DRY RUN unless execute=True.
+
+    full=True: UNION-merge the ENTIRE fetched window with the existing bars
+    (new-wins on overlap) instead of only appending after the last bar. This is
+    the targeted FULL BACKFILL path for a symbol re-entering the scoped universe
+    with a short/stale file — it fills interior gaps and extends history back so
+    the newcomer clears the >=250-bar / >=200-for-indicators bars needed to rank.
+    It NEVER deletes a bar (union keeps every date; new only overwrites a same-day
+    duplicate = a correction). last_len surfaces the resulting bar count so the
+    caller can verify the newcomer now has enough history.
 
     Returns a summary that SURFACES failures (no_fetch_symbols) and each symbol's resulting
     last-bar date (last_dates) so the caller can detect a frozen symbol — never swallow silently."""
@@ -307,6 +317,7 @@ def append_pitfwu_bars(symbols: List[str], start, end, execute: bool = False, cl
     summary = {"appended": 0, "new_symbol": 0, "skipped_no_new": 0, "no_fetch": 0}
     no_fetch_syms: List[str] = []
     last_dates: Dict[str, str] = {}
+    last_len: Dict[str, int] = {}
     for sym in symbols:
         new = fresh.get(sym)
         existing = _read_pitfwu_bars(sym)
@@ -315,22 +326,31 @@ def append_pitfwu_bars(symbols: List[str], start, end, execute: bool = False, cl
             no_fetch_syms.append(sym)
             if existing is not None and len(existing):
                 last_dates[sym] = pd.Timestamp(existing.index.max()).strftime("%Y-%m-%d")
+                last_len[sym] = int(len(existing))
             continue
         if existing is None:
             merged = new
             summary["new_symbol"] += 1
+        elif full:
+            # UNION-merge the whole window (fills interior gaps + extends back); new wins on overlap.
+            merged = pd.concat([existing, new]).sort_index()
+            merged = merged[~merged.index.duplicated(keep="last")]
+            summary["appended"] += 1
         else:
             add = new[new.index > existing.index.max()]
             if add.empty:
                 summary["skipped_no_new"] += 1
                 last_dates[sym] = pd.Timestamp(existing.index.max()).strftime("%Y-%m-%d")
+                last_len[sym] = int(len(existing))
                 continue
             merged = pd.concat([existing, add]).sort_index()
             merged = merged[~merged.index.duplicated(keep="last")]
             summary["appended"] += 1
         last_dates[sym] = pd.Timestamp(merged.index.max()).strftime("%Y-%m-%d")
+        last_len[sym] = int(len(merged))
         if execute:
             _write_pitfwu_bars(sym, merged)
     summary["no_fetch_symbols"] = no_fetch_syms
     summary["last_dates"] = last_dates
+    summary["last_len"] = last_len
     return summary

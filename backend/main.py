@@ -3193,6 +3193,10 @@ def handler(event, context):
             from app.services import pitfwu_store as ps
             _execute = bool(_cfg.get("execute", True)) if isinstance(_cfg, dict) else True
             _max_lag = int(_cfg.get("max_lag_days", 4)) if isinstance(_cfg, dict) else 4
+            # full_backfill: heal newcomers/stale files with a WIDE window + union merge
+            # (fills history back so a re-entering symbol clears the >=250-bar rank gate).
+            _full = bool(_cfg.get("full_backfill", False)) if isinstance(_cfg, dict) else False
+            _bf_days = int(_cfg.get("backfill_days", 420)) if isinstance(_cfg, dict) else 420
             syms = _cfg.get("symbols") if isinstance(_cfg, dict) else None
             if not syms:
                 # Daily append covers the SCOPED active universe (~600) only. The full store is ~21k
@@ -3201,14 +3205,17 @@ def handler(event, context):
                 # scoped set with a stale file is healed by a targeted FULL backfill, not by appending
                 # the whole store. Freeze detection below still flags any scoped symbol left stale.
                 syms = [s for s in scanner_service.data_cache.keys() if not s.startswith("^")]
-            last = ps.pitfwu_last_date()  # reference (AAPL) last bar
-            if last is not None:
-                start = (last - _pd.Timedelta(days=5)).date().isoformat()   # small overlap; per-symbol dedupe handles it
+            if _full:
+                start = (_pd.Timestamp.now().normalize() - _pd.Timedelta(days=_bf_days)).date().isoformat()
             else:
-                start = (_pd.Timestamp.now().normalize() - _pd.Timedelta(days=400)).date().isoformat()
+                last = ps.pitfwu_last_date()  # reference (AAPL) last bar
+                if last is not None:
+                    start = (last - _pd.Timedelta(days=5)).date().isoformat()   # small overlap; per-symbol dedupe handles it
+                else:
+                    start = (_pd.Timestamp.now().normalize() - _pd.Timedelta(days=400)).date().isoformat()
             end = _pd.Timestamp.now().date().isoformat()
-            print(f"📈 PITFWU append: {len(syms)} symbols, gap {start}..{end}, execute={_execute}")
-            summary = ps.append_pitfwu_bars(syms, start, end, execute=_execute)
+            print(f"📈 PITFWU append: {len(syms)} symbols, {'FULL backfill' if _full else 'gap'} {start}..{end}, execute={_execute}")
+            summary = ps.append_pitfwu_bars(syms, start, end, execute=_execute, full=_full)
             new_last = ps.pitfwu_last_date()
             # FREEZE DETECTION: any symbol whose last bar lags the market's last bar by > max_lag days
             # (still active in the store but not advancing) — surface it, never swallow.
@@ -3223,14 +3230,20 @@ def handler(event, context):
             except Exception as _fe:
                 print(f"⚠️ PITFWU freeze-detection failed: {_fe}")
             nf = summary.get("no_fetch_symbols") or []
+            # Backfill health: which symbols STILL lack enough history to rank (>=250 bars)
+            short_after = sorted(s for s, n in (summary.get("last_len") or {}).items() if n < 250)
             if frozen:
                 print(f"🧊 PITFWU FROZEN ({len(frozen)}, last bar >{_max_lag}d behind market): {', '.join(frozen[:40])}")
             if nf:
                 print(f"⚠️ PITFWU no-fetch ({len(nf)}): {', '.join(nf[:40])}")
+            if _full and short_after:
+                print(f"📏 PITFWU still-short after backfill ({len(short_after)}, <250 bars): {', '.join(short_after[:40])}")
             summary.pop("last_dates", None)   # keep the return compact
+            summary.pop("last_len", None)
             return {"status": "success", "symbols": len(syms), "gap": f"{start}..{end}",
                     "execute": _execute, "summary": summary,
                     "frozen_count": len(frozen), "frozen": frozen[:60],
+                    "short_after_count": len(short_after), "short_after": short_after[:60],
                     "pitfwu_last_date": str(new_last.date()) if new_last is not None else None}
         try:
             result = _do_pitfwu_append()
@@ -3375,8 +3388,10 @@ def handler(event, context):
         # snapshot so we can see the surgers we've been blind to before flipping.
         cfg = event.get("universe_refresh_v2") or {}
         do_write = bool(cfg.get("write", False)) if isinstance(cfg, dict) else False
+        do_heal = bool(cfg.get("heal_newcomers", False)) if isinstance(cfg, dict) else False
         lookback = int(cfg.get("lookback_days", 90)) if isinstance(cfg, dict) else 90
-        print(f"🌐 universe_refresh_v2 (fresh fetch, write={do_write}, lookback={lookback}d)")
+        bf_days = int(cfg.get("backfill_days", 420)) if isinstance(cfg, dict) else 420
+        print(f"🌐 universe_refresh_v2 (fresh fetch, write={do_write}, heal={do_heal}, lookback={lookback}d)")
         def _universe_refresh_v2():
             import os as _os, json as _json, boto3
             from datetime import date as _date, datetime as _dt, timedelta as _td
@@ -3448,6 +3463,7 @@ def handler(event, context):
                 'frozen_snapshot_date': frozen_date, 'topn': topn,
                 'new_in_top': len(surgers_in), 'dropped_from_top': len(dropped_out),
                 'sample_surgers': surgers_in[:40],
+                'new_in_top_symbols': surgers_in,
                 'fresh_top20': fresh_top[:20],
             }
 
@@ -3466,6 +3482,29 @@ def handler(event, context):
                 s3.put_object(Bucket=S3_BUCKET, Key=f'signals/universe-history/{snap_date}.json',
                               Body=_json.dumps(snapshot).encode('utf-8'), ContentType='application/json')
                 result['written_key'] = f'signals/universe-history/{snap_date}.json'
+
+                # HEAL NEWCOMERS: the surgers just added to the top-N aren't in the
+                # daily-append scope yet, so their PITFWU file is stale/absent → they'd
+                # fall back to the frozen all_data.parquet + get rejected by the display
+                # gate. Full-backfill them now (union merge, never deletes) so they clear
+                # the >=250-bar rank gate and can signal on THIS cycle. Additive + idempotent.
+                if do_heal and surgers_in:
+                    end_h = _date.today()
+                    start_h = end_h - _td(days=bf_days)
+                    print(f"🩹 healing {len(surgers_in)} newcomers via FULL backfill {start_h}..{end_h}")
+                    hsum = _ps.append_pitfwu_bars(surgers_in, start_h, end_h, execute=True, full=True)
+                    short_after = sorted(s for s, n in (hsum.get("last_len") or {}).items() if n < 250)
+                    if short_after:
+                        print(f"📏 still-short after heal ({len(short_after)}): {', '.join(short_after[:40])}")
+                    result['heal'] = {
+                        'healed': len(surgers_in),
+                        'new_symbol': hsum.get('new_symbol'),
+                        'appended': hsum.get('appended'),
+                        'no_fetch': hsum.get('no_fetch'),
+                        'no_fetch_symbols': (hsum.get('no_fetch_symbols') or [])[:40],
+                        'short_after_count': len(short_after),
+                        'short_after': short_after[:60],
+                    }
             return result
         try:
             r = _universe_refresh_v2()
