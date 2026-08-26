@@ -7352,6 +7352,57 @@ def handler(event, context):
     # Force-refetch specific symbols with SPLIT adjustment, overwrite in pickle.
     # Used to fix known-split symbols (NVDA, CMG, WMT) that were cached with
     # unadjusted prices. {"refetch_split_adjusted": {"symbols": ["NVDA"]}}
+    if event.get("read_perf_test"):
+        cfg = event.get("read_perf_test")
+        cfg = cfg if isinstance(cfg, dict) else {}
+        reps = int(cfg.get("reps", 3))
+        print(f"⏱️ read-perf test: all_data.parquet vs PITFWU, {reps} reps")
+
+        def _perf():
+            import time as _t, json as _j, boto3 as _b3
+            from app.services import pitfwu_store as _ps
+            bucket = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
+            s3 = _b3.client("s3", region_name="us-east-1")
+            topn = int(os.environ.get("PARQUET_SCOPE_TOPN", "600"))
+            objs = s3.list_objects_v2(Bucket=bucket, Prefix="signals/universe-history/")
+            keys = sorted(o["Key"] for o in objs.get("Contents", []) if o["Key"].endswith(".json"))
+            syms = []
+            if keys:
+                uni = _j.loads(s3.get_object(Bucket=bucket, Key=keys[-1])["Body"].read())
+                for r in uni.get("rankings", []):
+                    if len(syms) >= topn:
+                        break
+                    if r.get("symbol") and not r.get("is_excluded"):
+                        syms.append(r["symbol"])
+            syms_idx = syms + ["SPY", "^VIX", "^GSPC"]
+            non_idx = [s for s in syms if not s.startswith("^")]
+
+            def _timeit(fn):
+                ts, cnt = [], 0
+                for _ in range(reps):
+                    t0 = _t.time()
+                    res = fn()
+                    ts.append(round(_t.time() - t0, 2))
+                    cnt = len(res) if hasattr(res, "__len__") else 0
+                return ts, cnt
+
+            out = {"scoped_symbols": len(syms_idx), "reps": reps}
+            try:
+                ts, cnt = _timeit(lambda: data_export_service.import_parquet(symbols=syms_idx))
+                out["all_data_scoped"] = {"secs_per_rep": ts, "symbols_loaded": cnt}
+            except Exception as e:
+                out["all_data_error"] = str(e)[:250]
+            try:
+                ts, cnt = _timeit(lambda: _ps.load_scoped(non_idx)[0])
+                out["pitfwu_scoped"] = {"secs_per_rep": ts, "symbols_loaded": cnt}
+            except Exception as e:
+                out["pitfwu_error"] = str(e)[:250]
+            return out
+
+        result = _perf()
+        print(f"⏱️ read-perf: {result}")
+        return {"statusCode": 200, "body": result}
+
     if event.get("build_signaled_symbols_5y"):
         cfg = event.get("build_signaled_symbols_5y")
         cfg = cfg if isinstance(cfg, dict) else {}
