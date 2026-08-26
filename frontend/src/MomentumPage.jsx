@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { logPublicEvent, stashAdOrigin } from './lib/publicEvent';
 import LoginModal from './components/LoginModal';
+import PortfolioOverlay from './components/PortfolioOverlay';
 import MarketMeasuredSignup from './components/MarketMeasuredSignup';
 import ExploreMore from './components/ExploreMore';
 import TopNav from './components/TopNav';
@@ -133,6 +134,9 @@ export default function MomentumPage() {
           </button>
         </div>
       </section>
+
+      {/* Portfolio Overlay (Tier 1) — softer first click; public, counts only. */}
+      <PortfolioOverlay path="/momentum" onGetStarted={handleGetStarted} />
 
       {/* ② THE REAL RISK — momentum works; chasing it is what kills people */}
       <section id="why" className="bg-paper-card border-y border-rule py-16">
