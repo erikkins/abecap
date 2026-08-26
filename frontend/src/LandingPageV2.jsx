@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
 import LoginModal from './components/LoginModal';
+import PortfolioOverlay from './components/PortfolioOverlay';
 import MarketMeasuredSignup from './components/MarketMeasuredSignup';
 import TopNav from './components/TopNav';
 
@@ -720,6 +721,7 @@ export default function LandingPageV2() {
     <div className="min-h-screen bg-paper font-body text-ink text-[17px] leading-[1.65] antialiased">
       <Navbar onGetStarted={handleGetStarted} />
       <HeroSection onGetStarted={handleGetStarted} />
+      <PortfolioOverlay path="/" onGetStarted={handleGetStarted} />
       <ValuePropSection />
       <EdgeSection />
       <PerformanceSection />
