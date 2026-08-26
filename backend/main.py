@@ -2286,6 +2286,60 @@ def handler(event, context):
             print(f"❌ DIAG failed: {e}\n{traceback.format_exc()}")
             return {"error": str(e)}
 
+    if event.get("history_source_probe"):
+        # READ-ONLY: compare deep-history availability across sources for a symbol, to
+        # decide/validate the yfinance backfill fallback. Reports Alpaca RAW range+count,
+        # yfinance raw(auto_adjust=False) + adjusted(True) range+count, and the splits in
+        # both the corp-actions calendar and yfinance — so we can confirm (a) whether
+        # Alpaca truly lacks the history and (b) that storing a yfinance backfill won't
+        # double-adjust (the ASST failure mode). Writes nothing.
+        cfg = event.get("history_source_probe") or {}
+        syms = (cfg.get("symbols") if isinstance(cfg, dict) else None) or ["AZN"]
+        years = int(cfg.get("years", 6)) if isinstance(cfg, dict) else 6
+        def _probe():
+            import pandas as _pd, yfinance as _yf
+            from datetime import date as _date, timedelta as _td
+            from app.services import pitfwu_store as ps
+            start = _date.today() - _td(days=365 * years + 30)
+            end = _date.today()
+            araw = ps.fetch_raw_bars(syms, start, end)
+            out = {}
+            for s in syms:
+                d = {}
+                a = araw.get(s)
+                d['alpaca_raw'] = None if a is None or a.empty else {
+                    'bars': int(len(a)), 'first': str(a.index.min().date()),
+                    'last': str(a.index.max().date()), 'last_close': round(float(a['close'].iloc[-1]), 2)}
+                try:
+                    t = _yf.Ticker(s)
+                    def _yinfo(auto):
+                        h = t.history(start=start.isoformat(), end=end.isoformat(), auto_adjust=auto)
+                        if h is None or h.empty:
+                            return None
+                        info = {'bars': int(len(h)), 'first': str(h.index.min().date()),
+                                'last': str(h.index.max().date()), 'last_close': round(float(h['Close'].iloc[-1]), 2)}
+                        if 'Stock Splits' in h.columns:
+                            sp = h[h['Stock Splits'] != 0]['Stock Splits']
+                            info['yf_splits'] = [(str(_pd.Timestamp(ix).date()), float(v)) for ix, v in sp.items()]
+                        return info
+                    d['yf_raw'] = _yinfo(False)
+                    d['yf_adj'] = _yinfo(True)
+                except Exception as e:
+                    d['yf_error'] = str(e)[:200]
+                try:
+                    d['calendar_splits'] = [(str(_pd.Timestamp(ex).date()), round(float(f), 4))
+                                            for ex, f in ps.split_factors(s)]
+                except Exception as e:
+                    d['calendar_splits_error'] = str(e)[:120]
+                out[s] = d
+            return out
+        try:
+            return {"status": "success", "years": years, "probe": _probe()}
+        except Exception as e:
+            import traceback
+            print(f"❌ history_source_probe failed: {e}\n{traceback.format_exc()}")
+            return {"error": str(e), "trace": traceback.format_exc()[:600]}
+
     if event.get("scan_preview"):
         # READ-ONLY preview of what the NEXT daily scan will surface, on the CURRENT
         # (fresh) universe snapshot. Runs the same scan()+compute_shared_dashboard_data
