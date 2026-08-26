@@ -67,6 +67,7 @@ export default function TrafficTab({ fetchWithAuth }) {
             <Stat label="Total pageviews" value={data.total} />
             <Stat label="Paid clicks (gclid)" value={data.paid_clicks} sub={`${pct(data.paid_clicks)} of views`} />
             <Stat label="Mobile" value={data.mobile} sub={`${pct(data.mobile)} of views`} />
+            <Stat label="Portfolio checks" value={data.portfolio_checks ?? 0} sub={`${data.portfolio_check_ctas ?? 0} clicked CTA`} />
             <Stat label="Window" value={data.days === 1 ? '24h' : `${data.days}d`} />
           </div>
 

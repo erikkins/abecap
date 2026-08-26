@@ -163,6 +163,7 @@ export default function Ads() {
                 <StatCard label="Pageviews" value={int(traffic.total)} />
                 <StatCard label="Paid clicks" value={int(traffic.paid_clicks)} sub={pctOf(traffic.paid_clicks)} />
                 <StatCard label="Mobile" value={int(traffic.mobile)} sub={pctOf(traffic.mobile)} />
+                <StatCard label="Portfolio checks" value={int(traffic.portfolio_checks)} sub={`${int(traffic.portfolio_check_ctas)} clicked CTA`} />
               </View>
             </Section>
 

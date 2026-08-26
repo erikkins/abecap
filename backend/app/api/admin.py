@@ -4771,6 +4771,10 @@ async def pageviews_summary(
         .group_by(PageView.event).order_by(func.count().desc())
     )).all()
     by_event = [{"event": e, "count": int(n)} for e, n in ev_rows]
+    # Portfolio Overlay — first-class marketing metric (surfaced on web TrafficTab + mobile Ads tab).
+    _ev = {e: int(n) for e, n in ev_rows}
+    portfolio_checks = _ev.get("portfolio_check", 0)
+    portfolio_check_ctas = _ev.get("portfolio_check_cta", 0)
 
     # Ordered conversion funnel for the ad landing DOORS. Same step order for both so /should-i-sell
     # (Preserver / panic intent) and /momentum (Maximizer / breakout intent) are directly comparable
@@ -4832,6 +4836,8 @@ async def pageviews_summary(
         "sis_funnel": sis_funnel,
         "mom_funnel": mom_funnel,
         "auth_funnel": auth_funnel,
+        "portfolio_checks": portfolio_checks,
+        "portfolio_check_ctas": portfolio_check_ctas,
     }
 
 
