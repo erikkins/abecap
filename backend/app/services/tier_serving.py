@@ -241,12 +241,21 @@ def build_breakout_radar(data_cache: dict, held_syms=None, limit: int = 8) -> Li
     buffer = BREAKOUT["buffer"]
     mom_min = BREAKOUT["mom_min"]
     NEAR_BAND = 0.03  # within 3% below the prior 50d high
+    # Same data-quality gate the ranker/entry use — a stale or split-broken series must NEVER even
+    # SHOW as a candidate (a frozen, unadjusted reverse split reads as fake momentum otherwise).
+    try:
+        from app.services.scanner import is_series_tradeable, _universe_stale_cutoff
+        _cut = _universe_stale_cutoff(data_cache)
+    except Exception:
+        is_series_tradeable, _cut = (lambda *_a, **_k: True), None
     out: List[dict] = []
     for sym, df in data_cache.items():
         if sym in excluded or sym.startswith("^") or sym in held_syms:
             continue
         if df is None or len(df) < 200 or not {"close", "volume"}.issubset(df.columns):
             continue
+        if not is_series_tradeable(df, _cut):
+            continue   # stale / split-broken — never surface on the candidates radar
         try:
             c = df["close"]; v = df["volume"]
             price = float(c.iloc[-1]); vol = float(v.iloc[-1])
