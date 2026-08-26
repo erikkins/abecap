@@ -4,12 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RigaCap &mdash; Technical Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  /* --- Design tokens ------------------------------------------------- */
+  /* --- Design tokens (claret editorial · ink-on-white for print) ----- */
   :root {
-    --paper:        #F5F1E8;
-    --paper-card:   #FAF7F0;
+    --page:         #FFFFFF;   /* PRINT: white page + big blocks, never paper */
+    --card:         #FFFFFF;   /* cards read via rule + claret spine, not fill */
+    --chip:         #F5F1E8;   /* paper allowed ONLY on tiny inline chips */
     --rule:         #DDD5C7;
     --rule-dark:    #C9BFAC;
     --ink:          #141210;
@@ -29,10 +32,11 @@
   body {
     font-family: var(--sans);
     color: var(--ink);
-    background: var(--paper);
+    background: var(--page);
     line-height: 1.6;
     font-size: 16px;
     font-weight: 300;
+    -webkit-font-smoothing: antialiased;
   }
 
   /* --- Print / PDF --------------------------------------------------- */
@@ -41,7 +45,7 @@
     margin: 0.6in 0.7in;
   }
   @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: var(--paper); }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #FFFFFF; }
     .page-break { page-break-before: always; }
     .no-break { page-break-inside: avoid; }
   }
@@ -57,9 +61,9 @@
   h1 {
     font-family: var(--serif);
     font-weight: 400;
-    line-height: 1.1;
+    line-height: 1.08;
     letter-spacing: -0.02em;
-    font-variation-settings: '"opsz" 144';
+    font-variation-settings: "opsz" 144;
   }
   h2 {
     font-family: var(--serif);
@@ -67,7 +71,7 @@
     font-size: 2rem;
     line-height: 1.15;
     letter-spacing: -0.015em;
-    font-variation-settings: '"opsz" 96';
+    font-variation-settings: "opsz" 96;
     margin-top: 3rem;
     margin-bottom: 1.25rem;
     color: var(--ink);
@@ -127,14 +131,14 @@
     background: var(--claret);
   }
 
-  /* --- COVER PAGE ---------------------------------------------------- */
+  /* --- COVER PAGE (white, ink + claret punctuation) ------------------ */
   .cover {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     padding: 4rem 3.5rem 3rem;
-    background: var(--paper);
+    background: var(--page);
     position: relative;
   }
   .cover-rule {
@@ -170,7 +174,7 @@
     font-size: 1.5rem;
     line-height: 1.45;
     color: var(--ink-mute);
-    max-width: 38ch;
+    max-width: 40ch;
     margin-top: 2rem;
     margin-bottom: auto;
   }
@@ -204,7 +208,7 @@
     line-height: 1;
     letter-spacing: -0.03em;
   }
-  .cover-stat .value.pos { color: var(--positive); }
+  .cover-stat .value.claret { color: var(--claret); }
   .cover-stat .sub {
     font-family: var(--mono);
     font-size: 0.7rem;
@@ -271,12 +275,13 @@
     border-left: 3px solid var(--claret);
     padding: 0.5rem 0 0.5rem 1.5rem;
     margin: 2rem 0;
-    max-width: 40ch;
+    max-width: 42ch;
   }
 
-  /* --- Callout ------------------------------------------------------- */
+  /* --- Callout (white body, claret spine) --------------------------- */
   .callout {
-    background: var(--paper-card);
+    background: var(--page);
+    border: 1px solid var(--rule);
     border-left: 3px solid var(--claret);
     padding: 1.25rem 1.5rem;
     margin: 1.5rem 0;
@@ -306,7 +311,7 @@
     line-height: 1;
     letter-spacing: -0.02em;
   }
-  .stat-row .stat-num.pos { color: var(--positive); }
+  .stat-row .stat-num.claret { color: var(--claret); }
   .stat-row .stat-label {
     font-family: var(--sans);
     font-size: 0.7rem;
@@ -334,37 +339,7 @@
     line-height: 1.65;
   }
 
-  /* --- Numbered components ------------------------------------------ */
-  .components { margin-top: 1.5rem; }
-  .component {
-    display: grid;
-    grid-template-columns: 4ch 1fr;
-    gap: 1.5rem;
-    padding: 1.25rem 0;
-    border-top: 1px solid var(--rule);
-  }
-  .component:last-child { border-bottom: 1px solid var(--rule); }
-  .component-num {
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    color: var(--claret);
-    letter-spacing: 0.15em;
-    padding-top: 0.3rem;
-  }
-  .component-title {
-    font-family: var(--serif);
-    font-size: 1.15rem;
-    font-weight: 500;
-    margin-bottom: 0.4rem;
-    letter-spacing: -0.01em;
-  }
-  .component-desc {
-    font-size: 0.95rem;
-    color: var(--ink-mute);
-    line-height: 1.6;
-  }
-
-  /* --- Code blocks --------------------------------------------------- */
+  /* --- Code blocks (dark = deliberate ink panel, not brand fill) ---- */
   .code-block {
     font-family: var(--mono);
     background: #1A1815;
@@ -384,15 +359,15 @@
   code {
     font-family: var(--mono);
     font-size: 0.85rem;
-    background: var(--paper-card);
+    background: var(--chip);
     padding: 0.1rem 0.35rem;
     border-radius: 2px;
     color: var(--claret);
   }
 
-  /* --- Tech component card grid ------------------------------------- */
+  /* --- Tech component card (white body, claret spine) --------------- */
   .tech-card {
-    background: var(--paper-card);
+    background: var(--page);
     border: 1px solid var(--rule);
     border-left: 3px solid var(--claret);
     padding: 1rem 1.25rem;
@@ -427,7 +402,7 @@
 
   /* --- Schema card -------------------------------------------------- */
   .schema-card {
-    background: var(--paper-card);
+    background: var(--page);
     border: 1px solid var(--rule);
     border-left: 3px solid var(--claret);
     padding: 1rem 1.25rem;
@@ -490,16 +465,6 @@
     line-height: 1.55;
   }
   .disclosures p { font-size: 0.78rem; margin-bottom: 0.6rem; }
-
-  /* PDF/print: institutional ink-on-white. The cream paper is a screen brand
-     device; print convention is white with accent color as punctuation.
-     (Also: toner.) Branded covers keep their explicit backgrounds. */
-  @media print {
-    :root { --paper: #ffffff; --paper-card: #ffffff; --paper-deep: #ffffff; --cream: #ffffff; }
-    body { background: #ffffff !important; }
-    [style*="F5F1E8"], [style*="FAF7F0"], [style*="EDE7D8"],
-    [style*="f5f1e8"], [style*="faf7f0"], [style*="ede7d8"] { background: #ffffff !important; }
-  }
 </style>
 </head>
 <body>
@@ -510,14 +475,16 @@
 <section class="cover">
   <div class="cover-rule">
     <span class="brand">RigaCap<span class="dot">.</span></span>
-    <span class="meta">Technical Architecture &middot; May 2026</span>
+    <span class="meta">Technical Architecture &middot; August 2026</span>
   </div>
 
   <div>
     <h1>The platform, <em>measured.</em></h1>
     <p class="cover-sub">
-      A technical reference for the RigaCap signal platform &mdash; infrastructure,
-      data pipeline, services, and the production discipline that holds them&nbsp;together.
+      A technical reference for the RigaCap signal platform &mdash; the
+      infrastructure it runs on, the data it ingests, the services that turn that
+      data into two tiers of signal, and the production discipline that keeps live
+      output in lockstep with the walk-forward record.
     </p>
   </div>
 
@@ -535,7 +502,7 @@
       </div>
       <div class="cover-stat">
         <div class="label">Symbols Scanned</div>
-        <div class="value">~4,000</div>
+        <div class="value claret">~4,000</div>
         <div class="sub">Daily, US equities</div>
       </div>
       <div class="cover-stat">
@@ -560,10 +527,10 @@
   <h2>What this document <em>covers.</em></h2>
 
   <p class="lead">
-    A complete technical audit of the RigaCap platform: the infrastructure it runs on,
-    the data it ingests, the services that turn that data into signals, and the
-    operational discipline that keeps the production code in lockstep with the
-    walk-forward backtest.
+    A complete technical audit of the RigaCap platform: the infrastructure it runs
+    on, the market data it ingests, the services that turn that data into a
+    two-tier signal product, and the operational discipline that keeps production
+    output faithful to the walk-forward record it is marketed on.
   </p>
 
   <div class="toc">
@@ -577,15 +544,15 @@
     <div class="toc-item"><span class="toc-title">5. Data Pipeline &amp; Caching</span><span class="toc-page">10</span></div>
 
     <div class="toc-item toc-section"><span>Application</span></div>
-    <div class="toc-item"><span class="toc-title">6. Backend Services</span><span class="toc-page">12</span></div>
+    <div class="toc-item"><span class="toc-title">6. Backend Services &amp; Tier Serving</span><span class="toc-page">12</span></div>
     <div class="toc-item"><span class="toc-title">7. API Surface (120+ endpoints)</span><span class="toc-page">14</span></div>
     <div class="toc-item"><span class="toc-title">8. Frontend Architecture</span><span class="toc-page">16</span></div>
+    <div class="toc-item"><span class="toc-title">9. Social &amp; Content Engine</span><span class="toc-page">17</span></div>
 
     <div class="toc-item toc-section"><span>Operations</span></div>
-    <div class="toc-item"><span class="toc-title">9. Security Architecture</span><span class="toc-page">17</span></div>
-    <div class="toc-item"><span class="toc-title">10. CI/CD Pipeline</span><span class="toc-page">18</span></div>
-    <div class="toc-item"><span class="toc-title">11. Monitoring &amp; Performance</span><span class="toc-page">19</span></div>
-    <div class="toc-item"><span class="toc-title">12. Dependencies</span><span class="toc-page">20</span></div>
+    <div class="toc-item"><span class="toc-title">10. Security Architecture</span><span class="toc-page">18</span></div>
+    <div class="toc-item"><span class="toc-title">11. CI/CD, DR &amp; Deploy Safety</span><span class="toc-page">19</span></div>
+    <div class="toc-item"><span class="toc-title">12. Monitoring, Performance &amp; Dependencies</span><span class="toc-page">20</span></div>
   </div>
 </div>
 
@@ -597,11 +564,12 @@
   <h2>A serverless platform with a <em>scheduled</em> heartbeat.</h2>
 
   <p class="lead">
-    RigaCap is a serverless, event-driven signal platform on AWS. The system ingests
-    daily market data for ~4,000 US equities through a dual-source pipeline, generates
-    signals through a multi-factor momentum ensemble, and delivers them to
-    subscribers through a React dashboard, an automated email pipeline, a weekly
-    newsletter, and a moderated social engine.
+    RigaCap is a serverless, event-driven signal platform on AWS. It ingests daily
+    market data for roughly four thousand US equities through a dual-source pipeline,
+    ranks that universe through a regime-adaptive momentum engine, and delivers the
+    result as two subscriber tiers &mdash; Preserver and Maximizer &mdash; through a
+    React dashboard, an automated email pipeline, a weekly newsletter, and a moderated
+    social engine.
   </p>
 
   <p>
@@ -609,39 +577,48 @@
     for HTTP traffic and a Worker Lambda for scheduled and long-running jobs &mdash;
     both built from a single container image and differentiated by an environment
     variable. FastAPI sits on top of Mangum for ASGI compatibility. PostgreSQL 15
-    on RDS is the system of record; S3 holds the historical price cache and the
-    pre-computed dashboard JSON the CDN serves to subscribers.
+    on RDS is the system of record. S3 holds the historical price cache and the
+    pre-computed dashboard JSON that CloudFront serves to subscribers; an
+    ElastiCache Redis node fronts hot read paths.
   </p>
 
   <div class="callout">
-    <p><strong>Two-Lambda split.</strong> The API Lambda is small and fast (1 GB,
-    30s timeout) because subscribers expect dashboard loads under two seconds. The
-    Worker Lambda is large and patient (3 GB, 900s timeout) because daily scans,
-    walk-forward simulations, and email runs need both memory and time. They share
-    one image so deploys are atomic.</p>
+    <p><strong>Two-Lambda split.</strong> The API Lambda is small and fast
+    (1&nbsp;GB, 30s timeout) because subscribers expect dashboard loads under two
+    seconds &mdash; it never loads the price store and reads only S3 JSON and the
+    database. The Worker Lambda is large and patient (4&nbsp;GB, 900s timeout)
+    because daily scans, walk-forward simulations, and email runs need both memory
+    and time. One image, two roles, atomic deploys.</p>
   </div>
 
   <h3>Request and event flow</h3>
 
   <div class="code-block"><span class="comment"># Subscriber request path</span>
 React 18 SPA  <span class="arrow">&rarr;</span>  CloudFront  <span class="arrow">&rarr;</span>  WAF  <span class="arrow">&rarr;</span>  API Gateway  <span class="arrow">&rarr;</span>  API Lambda
-                                                              <span class="arrow">&rarr;</span>  RDS / S3 (read)
+                                                              <span class="arrow">&rarr;</span>  RDS / Redis / S3 (read)
 
 <span class="comment"># Scheduled / event-driven path</span>
 EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arrow">&rarr;</span>  RDS / S3 (read+write)
                           <span class="arrow">&rarr;</span>  Step Functions (walk-forward fan-out)
                           <span class="arrow">&rarr;</span>  Claude API (content, autopsies, optimization)
                           <span class="arrow">&rarr;</span>  SES (email)
-                          <span class="arrow">&rarr;</span>  X / Threads / IG (social)</div>
+                          <span class="arrow">&rarr;</span>  X / Threads / Instagram (social)</div>
 
   <h3>What the platform produces</h3>
   <ul>
-    <li><strong>Daily signals.</strong> Generated by the production scanner at the close, cached as JSON on S3, fronted by CloudFront for sub-second dashboard loads.</li>
-    <li><strong>Daily digest email.</strong> Subscriber-facing summary of signals, watchlist, regime context, and any sell alerts.</li>
-    <li><strong>Weekly newsletter.</strong> "The Market, Measured" &mdash; locked-draft on Saturday, published Sunday morning.</li>
-    <li><strong>Social posts.</strong> AI-drafted from real walk-forward and live trades, gated by admin approval, auto-published across X, Threads, and Instagram.</li>
+    <li><strong>Two tiers of daily signal.</strong> A single scan produces both the Preserver (protect) and Maximizer (grow) reads, cached as JSON on S3 and fronted by CloudFront for sub-second dashboard loads.</li>
+    <li><strong>Daily digest email.</strong> Per-subscriber summary of signals, watchlist, regime context, and any sell alerts &mdash; gated on a same-day data-freshness check.</li>
+    <li><strong>Weekly newsletter.</strong> A market-commentary issue, locked as a draft on Saturday and published Sunday morning.</li>
+    <li><strong>Social posts.</strong> AI-drafted from real walk-forward and live results, gated by one-click admin approval, auto-published Monday / Wednesday / Friday across X, Threads, and Instagram.</li>
     <li><strong>Mobile push notifications.</strong> Sell alerts and high-conviction signal events through Expo.</li>
   </ul>
+
+  <div class="callout">
+    <p><strong>Signals only.</strong> RigaCap publishes signals; subscribers
+    execute at their own broker. The platform never touches customer funds and
+    holds no brokerage integration &mdash; a deliberate architectural boundary that
+    keeps the system a publisher, not a manager (see &sect;12 disclosures).</p>
+  </div>
 </div>
 
 <!-- ============================================================
@@ -652,9 +629,14 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
   <h2>Terraform, two Lambdas, and a <em>quiet</em> RDS.</h2>
 
   <p>
-    All infrastructure is managed through Terraform (<code>infrastructure/terraform/main.tf</code>)
-    against AWS account <code>149218244179</code> in <code>us-east-1</code>. State lives in a remote
-    S3 backend with DynamoDB locking, so plans never collide between CI and the founder's laptop.
+    All infrastructure is managed through Terraform
+    (<code>infrastructure/terraform/main.tf</code>) against AWS account
+    <code>149218244179</code> in <code>us-east-1</code>. State lives in a remote S3
+    backend with DynamoDB locking, so plans never collide between CI and the
+    operator's laptop. The live Lambda functions carry a deliberate
+    <code>lifecycle { ignore_changes }</code> guard on their image and environment
+    (see &sect;11) so a routine <code>apply</code> can never clobber production
+    secrets.
   </p>
 
   <h3>Compute</h3>
@@ -666,22 +648,22 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
       <tr>
         <td><strong>API Lambda</strong></td>
         <td><code>rigacap-prod-api</code></td>
-        <td>Container (ECR), 1024 MB, 30s timeout, <code>LAMBDA_ROLE=api</code>. HTTP requests only; skips pickle load entirely.</td>
+        <td>Container (ECR), 1024&nbsp;MB, 30s timeout, <code>LAMBDA_ROLE=api</code>. HTTP requests only; skips the price-store load entirely.</td>
       </tr>
       <tr>
         <td><strong>Worker Lambda</strong></td>
         <td><code>rigacap-prod-worker</code></td>
-        <td>Same image, 3008 MB, 900s timeout, <code>LAMBDA_ROLE=worker</code>. Loads the full price pickle on cold start.</td>
+        <td>Same image, 4096&nbsp;MB, 900s timeout, <code>LAMBDA_ROLE=worker</code>. Loads the full price store on cold start; runs all scheduled jobs.</td>
       </tr>
       <tr>
         <td><strong>API Gateway</strong></td>
         <td>HTTP API (v2)</td>
-        <td>Custom domain <code>api.rigacap.com</code>, behind CloudFront + WAF, HTTP/2, CORS allowlist.</td>
+        <td>Custom domain <code>api.rigacap.com</code>, behind CloudFront + WAF, HTTP/2, CORS allowlist. 29s hard timeout &mdash; long jobs invoke the Worker directly.</td>
       </tr>
       <tr>
         <td><strong>ECR Repository</strong></td>
         <td><code>rigacap-prod-api</code></td>
-        <td>Mutable tags, scan-on-push, retains last five images.</td>
+        <td>Mutable tags, scan-on-push, retains the last five images for rollback.</td>
       </tr>
       <tr>
         <td><strong>Step Functions</strong></td>
@@ -700,7 +682,7 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
       <tr>
         <td><strong>CloudFront (API)</strong></td>
         <td><code>api.rigacap.com</code></td>
-        <td>Edge CDN in front of API Gateway. Injects the <code>X-Origin-Verify</code> custom header on every origin request so direct execute-api hits are rejected by the FastAPI middleware.</td>
+        <td>Edge CDN in front of API Gateway. Injects an <code>X-Origin-Verify</code> custom header on every origin request so direct execute-api hits are rejected by the FastAPI middleware.</td>
       </tr>
       <tr>
         <td><strong>CloudFront (web)</strong></td>
@@ -710,31 +692,36 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
       <tr>
         <td><strong>WAF Web ACL</strong></td>
         <td><code>aws_wafv2_web_acl.cloudfront</code></td>
-        <td>Attached to the API CloudFront distribution. Standard managed rule sets plus rate-limit on auth endpoints.</td>
+        <td>Attached to the API CloudFront distribution. Managed rule sets plus a rate limit on auth endpoints.</td>
       </tr>
     </tbody>
   </table>
 
-  <h3>Storage</h3>
+  <h3>Storage &amp; cache</h3>
   <table>
     <thead>
-      <tr><th>Bucket</th><th>Access</th><th>Purpose</th></tr>
+      <tr><th>Store</th><th>Access</th><th>Purpose</th></tr>
     </thead>
     <tbody>
       <tr>
-        <td><code>rigacap-prod-frontend-*</code></td>
+        <td><code>rigacap-prod-frontend-*</code> (S3)</td>
         <td>Public via CloudFront</td>
-        <td>React SPA static assets (1&ndash;2 MB total).</td>
+        <td>React SPA static assets (1&ndash;2&nbsp;MB total).</td>
       </tr>
       <tr>
-        <td><code>rigacap-prod-price-data-*</code></td>
+        <td><code>rigacap-prod-price-data-*</code> (S3)</td>
         <td>Private (Lambda IAM only)</td>
-        <td>Price pickle, parquet shadow, dashboard JSON, chart cards, social images, circuit-breaker state.</td>
+        <td>Price store (raw per-symbol bars, split-adjusted at read; <code>all_data.parquet</code> base), dashboard JSON, chart cards, social images, circuit-breaker state, Lambda env backups.</td>
       </tr>
       <tr>
-        <td><code>rigacap-prod-terraform-state-*</code></td>
+        <td><code>rigacap-prod-terraform-state-*</code> (S3)</td>
         <td>Private (operator IAM)</td>
         <td>Remote Terraform state with versioning enabled.</td>
+      </tr>
+      <tr>
+        <td>ElastiCache Redis</td>
+        <td>Private (VPC / Lambda)</td>
+        <td>Hot read cache for dashboard and status payloads; reduces RDS pressure under load.</td>
       </tr>
     </tbody>
   </table>
@@ -747,15 +734,15 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
     <tbody>
       <tr>
         <td><strong>RDS PostgreSQL 15</strong></td>
-        <td><code>db.t3.micro</code>, 20 GB gp2, deletion protection on, asyncpg driver.</td>
+        <td><code>db.t3.micro</code>, 20&nbsp;GB gp2, deletion protection on, asyncpg driver.</td>
       </tr>
       <tr>
         <td><strong>Connection pool</strong></td>
         <td>Pool size 5, max overflow 10, connect timeout 3s, query timeout 5s. Lambda connects lazily on first request to stay inside the 10s init window.</td>
       </tr>
       <tr>
-        <td><strong>Endpoint</strong></td>
-        <td><code>rigacap-prod-db-v2.csfsa4i06rux.us-east-1.rds.amazonaws.com</code></td>
+        <td><strong>Migrations</strong></td>
+        <td>Applied via the <code>run_migration</code> Worker event, ahead of any model code that depends on the new column (migration-first pattern, &sect;11).</td>
       </tr>
     </tbody>
   </table>
@@ -763,34 +750,31 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
   <h3>Scheduled events (EventBridge)</h3>
   <p>
     The platform's heartbeat is a set of EventBridge rules pointing at the Worker
-    Lambda. Each rule passes a payload that selects a handler. The list grows; the
-    table below covers the load-bearing rules.
+    Lambda. Each rule passes a payload that selects a handler. The table below
+    covers the load-bearing rules.
   </p>
 
   <table>
     <thead>
-      <tr><th>Rule</th><th>Schedule (UTC &middot; ET)</th><th>Description</th></tr>
+      <tr><th>Rule</th><th>Schedule (ET)</th><th>Description</th></tr>
     </thead>
     <tbody>
-      <tr><td><strong>Market scanner</strong></td><td><code>cron(20 20 ? * MON-FRI *)</code> &middot; 4:20 PM ET</td><td>Full daily scan, signal generation, dashboard JSON export. Runs 20 minutes after the close to give Alpaca SIP time to settle.</td></tr>
-      <tr><td><strong>Double-signal alerts</strong></td><td><code>cron(0 22 ? * MON-FRI *)</code> &middot; 5:00 PM ET</td><td>Multi-confirmation alert email.</td></tr>
-      <tr><td><strong>Daily digest</strong></td><td><code>cron(0 23 ? * MON-FRI *)</code> &middot; 6:00 PM ET</td><td>Subscriber-facing daily summary email.</td></tr>
-      <tr><td><strong>Strategy analysis</strong></td><td><code>cron(30 23 ? * FRI *)</code> &middot; Fri 6:30 PM ET</td><td>Weekly auto-analysis of strategy performance.</td></tr>
-      <tr><td><strong>Newsletter draft</strong></td><td><code>cron(0 14 ? * SAT *)</code> &middot; Sat 10:00 AM ET</td><td>Generates the locked draft of "The Market, Measured" for admin review.</td></tr>
-      <tr><td><strong>Newsletter publish</strong></td><td><code>cron(0 14 ? * SUN *)</code> &middot; Sun 10:00 AM ET</td><td>Publishes the approved newsletter to subscribers.</td></tr>
-      <tr><td><strong>Nightly walk-forward</strong></td><td><code>cron(0 1 ? * TUE-SAT *)</code> &middot; 8:00 PM ET</td><td>Walk-forward simulation; feeds the social-content draft queue.</td></tr>
-      <tr><td><strong>AI social content</strong></td><td><code>cron(0 2 ? * TUE-SAT *)</code> &middot; 9:00 PM ET</td><td>Generates social drafts from real trade events.</td></tr>
-      <tr><td><strong>Intraday monitor</strong></td><td><code>cron(0/5 14-20 ? * MON-FRI *)</code> &middot; every 5 min, market hours</td><td>HWM tracking, regime exits, sell-alert dispatch.</td></tr>
-      <tr><td><strong>Ticker health</strong></td><td><code>cron(0 12 ? * MON-FRI *)</code> &middot; 7:00 AM ET</td><td>Pre-market sanity sweep over the universe.</td></tr>
-      <tr><td><strong>Pipeline health</strong></td><td><code>cron(30 12 * * ? *)</code> &middot; 7:30 AM ET</td><td>Full pipeline-health digest with admin email.</td></tr>
-      <tr><td><strong>Onboarding drip</strong></td><td><code>cron(0 14 * * ? *)</code> &middot; 10:00 AM ET</td><td>Five-step new-subscriber sequence over eight days.</td></tr>
-      <tr><td><strong>Publish posts</strong></td><td><code>cron(0/15 * * * ? *)</code> &middot; every 15 min</td><td>Auto-publishes approved social posts whose <code>scheduled_for</code> has passed.</td></tr>
-      <tr><td><strong>Post notifications</strong></td><td><code>cron(0 * * * ? *)</code> &middot; hourly</td><td>T-24h and T-1h admin notifications for upcoming posts.</td></tr>
-      <tr><td><strong>Pickle rebuild</strong></td><td><code>cron(0 1 ? * SUN *)</code> &middot; Sat 8:00 PM ET</td><td>Weekly full pickle rebuild &mdash; catches new universe symbols.</td></tr>
-      <tr><td><strong>Lambda warmer</strong></td><td><code>rate(5 minutes)</code></td><td>Keeps the Worker Lambda warm.</td></tr>
-      <tr><td><strong>Admin morning health</strong></td><td><code>cron(0 11 ? * MON-FRI *)</code> &middot; 7:00 AM ET</td><td>Operator digest: indicator validity, signal counts, pipeline status, regime.</td></tr>
-      <tr><td><strong>Nightly data hygiene</strong></td><td><code>cron(30 22 ? * MON-FRI *)</code> &middot; 6:30 PM ET</td><td>Asset-ID integrity, Alpaca corp-actions poll, split auto-refetch.</td></tr>
-      <tr><td><strong>Meta token refresh</strong></td><td><code>cron(0 2 ? * SUN *)</code> &middot; Sun 02:00 UTC</td><td>Weekly long-lived token refresh for IG and Threads; admin email on failure.</td></tr>
+      <tr><td><strong>Market scanner</strong></td><td>4:00 PM, Mon&ndash;Fri</td><td>Full daily scan, two-tier signal generation, dashboard JSON export. Fires after the close so EOD bars have settled.</td></tr>
+      <tr><td><strong>Double-signal alerts</strong></td><td>5:00 PM, Mon&ndash;Fri</td><td>Multi-confirmation alert email.</td></tr>
+      <tr><td><strong>Daily digest</strong></td><td>6:00 PM, Mon&ndash;Fri</td><td>Subscriber-facing daily summary email (freshness-gated).</td></tr>
+      <tr><td><strong>Newsletter draft</strong></td><td>Sat 10:00 AM</td><td>Generates the locked weekly draft for admin review.</td></tr>
+      <tr><td><strong>Newsletter publish</strong></td><td>Sun 10:00 AM</td><td>Publishes the approved newsletter to subscribers.</td></tr>
+      <tr><td><strong>Nightly walk-forward</strong></td><td>Tue&ndash;Sat overnight</td><td>Walk-forward simulation; feeds the social-content draft queue.</td></tr>
+      <tr><td><strong>AI social content</strong></td><td>Tue&ndash;Sat overnight</td><td>Generates social drafts from real trade events.</td></tr>
+      <tr><td><strong>Intraday monitor</strong></td><td>every 5 min, market hours</td><td>High-water-mark tracking, regime exits, sell-alert dispatch.</td></tr>
+      <tr><td><strong>Pipeline health</strong></td><td>7:00 AM daily</td><td>Full pipeline-health digest to the operator.</td></tr>
+      <tr><td><strong>Onboarding drip</strong></td><td>10:00 AM daily</td><td>Five-step new-subscriber sequence over eight days.</td></tr>
+      <tr><td><strong>Publish posts</strong></td><td>every 15 min</td><td>Auto-publishes approved social posts whose <code>scheduled_for</code> has passed.</td></tr>
+      <tr><td><strong>Post notifications</strong></td><td>hourly</td><td>T-24h and T-1h admin notifications for upcoming posts.</td></tr>
+      <tr><td><strong>Price-store rebuild</strong></td><td>Sat overnight</td><td>Weekly full store rebuild &mdash; catches new universe symbols.</td></tr>
+      <tr><td><strong>Nightly data hygiene</strong></td><td>6:30 PM, Mon&ndash;Fri</td><td>Asset-ID integrity, Alpaca corp-actions poll, split auto-refetch.</td></tr>
+      <tr><td><strong>Meta token refresh</strong></td><td>Sun overnight</td><td>Weekly long-lived token refresh for Instagram and Threads; admin email on failure.</td></tr>
+      <tr><td><strong>Lambda warmer</strong></td><td>every 5 min</td><td>Keeps the Worker Lambda warm.</td></tr>
     </tbody>
   </table>
 </div>
@@ -800,7 +784,7 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
      ============================================================ -->
 <div class="content page-break">
   <span class="kicker">03 &middot; CDN, DNS &amp; SSL</span>
-  <h2>Edge in front of <em>everything</em>.</h2>
+  <h2>Edge in front of <em>everything.</em></h2>
 
   <p>
     Both the static SPA and the API live behind CloudFront. The web distribution
@@ -848,6 +832,7 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
       <tr><td><code>rigacap.com</code></td><td>A (alias)</td><td>Web CloudFront distribution</td></tr>
       <tr><td><code>www.rigacap.com</code></td><td>A (alias)</td><td>Web CloudFront distribution</td></tr>
       <tr><td><code>api.rigacap.com</code></td><td>A (alias)</td><td>API CloudFront distribution</td></tr>
+      <tr><td>SPF / DKIM / DMARC</td><td>TXT</td><td>Email authentication for SES deliverability</td></tr>
     </tbody>
   </table>
 </div>
@@ -860,9 +845,9 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
   <h2>PostgreSQL 15, async, <em>conservative.</em></h2>
 
   <p>
-    The application talks to PostgreSQL 15 over the async <code>asyncpg</code> driver
-    via SQLAlchemy 2.0 async sessions. Most tables use auto-increment integer primary
-    keys; the user identity tables use UUIDs. Schema migrations run through a
+    The application talks to PostgreSQL 15 over the async <code>asyncpg</code>
+    driver via SQLAlchemy 2.0 async sessions. Most tables use auto-increment integer
+    primary keys; the user identity tables use UUIDs. Schema migrations run through a
     dedicated <code>run_migration</code> Lambda event so the migration can land
     before any model code that depends on it.
   </p>
@@ -878,7 +863,7 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
       <div><span class="col-name">date</span> <span class="col-type">DATETIME IDX</span></div>
       <div><span class="col-name">open, high, low, close</span> <span class="col-type">FLOAT</span></div>
       <div><span class="col-name">volume</span> <span class="col-type">FLOAT</span></div>
-      <div><span class="col-name">accum_ref, ma_50, ma_200</span> <span class="col-type">FLOAT</span></div>
+      <div><span class="col-name">ma_50, ma_200</span> <span class="col-type">FLOAT</span></div>
     </div>
   </div>
 
@@ -889,9 +874,10 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
       <div><span class="col-name">id</span> <span class="col-type">INTEGER PK</span></div>
       <div><span class="col-name">symbol</span> <span class="col-type">VARCHAR(10) IDX</span></div>
       <div><span class="col-name">signal_type</span> <span class="col-type">VARCHAR(10) BUY/SELL</span></div>
-      <div><span class="col-name">price, accum_ref, pct_above_ref</span> <span class="col-type">FLOAT</span></div>
+      <div><span class="col-name">tier</span> <span class="col-type">VARCHAR(10) preserver/maximizer</span></div>
+      <div><span class="col-name">price, composite_score</span> <span class="col-type">FLOAT</span></div>
       <div><span class="col-name">volume, volume_ratio</span> <span class="col-type">FLOAT</span></div>
-      <div><span class="col-name">stop_loss, profit_target</span> <span class="col-type">FLOAT</span></div>
+      <div><span class="col-name">stop_loss</span> <span class="col-type">FLOAT</span></div>
       <div><span class="col-name">is_strong</span> <span class="col-type">BOOLEAN</span></div>
       <div><span class="col-name">status</span> <span class="col-type">VARCHAR(20)</span></div>
       <div><span class="col-name">created_at, expires_at</span> <span class="col-type">DATETIME</span></div>
@@ -899,32 +885,17 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
   </div>
 
   <div class="schema-card no-break">
-    <div class="schema-title">positions</div>
-    <p class="schema-note">Open and closed portfolio positions with trailing-stop state.</p>
+    <div class="schema-title">positions &middot; trades</div>
+    <p class="schema-note">Open / closed portfolio positions with trailing-stop state, and closed trade records with realized P&amp;L.</p>
     <div class="schema-cols">
-      <div><span class="col-name">id</span> <span class="col-type">INTEGER PK</span></div>
       <div><span class="col-name">user_id</span> <span class="col-type">UUID FK&rarr;users</span></div>
       <div><span class="col-name">symbol</span> <span class="col-type">VARCHAR(10) IDX</span></div>
       <div><span class="col-name">entry_date, entry_price</span> <span class="col-type">DATETIME, FLOAT</span></div>
       <div><span class="col-name">shares, stop_loss</span> <span class="col-type">FLOAT</span></div>
-      <div><span class="col-name">profit_target, highest_price</span> <span class="col-type">FLOAT</span></div>
-      <div><span class="col-name">signal_id</span> <span class="col-type">INTEGER FK&rarr;signals</span></div>
-      <div><span class="col-name">status</span> <span class="col-type">VARCHAR(20) open/closed</span></div>
-    </div>
-  </div>
-
-  <div class="schema-card no-break">
-    <div class="schema-title">trades</div>
-    <p class="schema-note">Closed trade records with realized P&amp;L.</p>
-    <div class="schema-cols">
-      <div><span class="col-name">id</span> <span class="col-type">INTEGER PK</span></div>
-      <div><span class="col-name">user_id</span> <span class="col-type">UUID FK&rarr;users</span></div>
-      <div><span class="col-name">position_id</span> <span class="col-type">INTEGER FK&rarr;positions</span></div>
-      <div><span class="col-name">symbol</span> <span class="col-type">VARCHAR(10) IDX</span></div>
-      <div><span class="col-name">entry_date, exit_date</span> <span class="col-type">DATETIME</span></div>
-      <div><span class="col-name">entry_price, exit_price</span> <span class="col-type">FLOAT</span></div>
+      <div><span class="col-name">highest_price</span> <span class="col-type">FLOAT</span></div>
+      <div><span class="col-name">exit_date, exit_price</span> <span class="col-type">DATETIME, FLOAT</span></div>
       <div><span class="col-name">pnl, pnl_pct</span> <span class="col-type">FLOAT</span></div>
-      <div><span class="col-name">exit_reason</span> <span class="col-type">VARCHAR(50)</span></div>
+      <div><span class="col-name">exit_reason, status</span> <span class="col-type">VARCHAR</span></div>
     </div>
   </div>
 </div>
@@ -934,7 +905,7 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
      ============================================================ -->
 <div class="content page-break">
   <span class="kicker">04 &middot; Database Schema (cont.)</span>
-  <h2>Identity, strategy, and <em>simulation.</em></h2>
+  <h2>Identity, subscriptions, and <em>simulation.</em></h2>
 
   <h3>Authentication and subscriptions</h3>
 
@@ -945,8 +916,7 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
       <div><span class="col-name">id</span> <span class="col-type">UUID PK</span></div>
       <div><span class="col-name">email</span> <span class="col-type">VARCHAR(255) UNIQUE IDX</span></div>
       <div><span class="col-name">password_hash</span> <span class="col-type">VARCHAR(255) NULLABLE</span></div>
-      <div><span class="col-name">name</span> <span class="col-type">VARCHAR(255)</span></div>
-      <div><span class="col-name">role</span> <span class="col-type">VARCHAR(20) admin/user</span></div>
+      <div><span class="col-name">name, role</span> <span class="col-type">VARCHAR</span></div>
       <div><span class="col-name">google_id, apple_id</span> <span class="col-type">VARCHAR(255) UNIQUE</span></div>
       <div><span class="col-name">stripe_customer_id</span> <span class="col-type">VARCHAR(255) UNIQUE</span></div>
       <div><span class="col-name">is_active</span> <span class="col-type">BOOLEAN</span></div>
@@ -956,11 +926,12 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
 
   <div class="schema-card no-break">
     <div class="schema-title">subscriptions</div>
-    <p class="schema-note">Stripe-managed subscription state. Status: trial / active / canceled / expired / past_due.</p>
+    <p class="schema-note">Stripe-managed subscription state, including the Preserver base and the Maximizer add-on. Status: trial / active / canceled / expired / past_due.</p>
     <div class="schema-cols">
       <div><span class="col-name">id</span> <span class="col-type">UUID PK</span></div>
       <div><span class="col-name">user_id</span> <span class="col-type">UUID FK&rarr;users UNIQUE</span></div>
       <div><span class="col-name">status</span> <span class="col-type">VARCHAR(20)</span></div>
+      <div><span class="col-name">tier</span> <span class="col-type">preserver / maximizer</span></div>
       <div><span class="col-name">stripe_subscription_id</span> <span class="col-type">VARCHAR(255)</span></div>
       <div><span class="col-name">stripe_price_id</span> <span class="col-type">VARCHAR(255)</span></div>
       <div><span class="col-name">trial_start, trial_end</span> <span class="col-type">DATETIME</span></div>
@@ -971,7 +942,7 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
 
   <div class="schema-card no-break">
     <div class="schema-title">referrals</div>
-    <p class="schema-note">Stripe-coupon-backed give-month / get-month referral program. Eight-character codes.</p>
+    <p class="schema-note">Stripe-coupon-backed give-month / get-month program. Eight-character codes.</p>
     <div class="schema-cols">
       <div><span class="col-name">id</span> <span class="col-type">INTEGER PK</span></div>
       <div><span class="col-name">referrer_user_id</span> <span class="col-type">UUID FK&rarr;users</span></div>
@@ -986,7 +957,7 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
 
   <div class="schema-card no-break">
     <div class="schema-title">strategy_definitions</div>
-    <p class="schema-note">Trading strategy configurations. The production strategy is the multi-factor ensemble; legacy single-factor strategies are retained for historical comparison.</p>
+    <p class="schema-note">Strategy configurations backing the Preserver and Maximizer tiers, plus retained legacy definitions for historical comparison.</p>
     <div class="schema-cols">
       <div><span class="col-name">id</span> <span class="col-type">INTEGER PK</span></div>
       <div><span class="col-name">name</span> <span class="col-type">VARCHAR(100) UNIQUE</span></div>
@@ -994,13 +965,12 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
       <div><span class="col-name">parameters</span> <span class="col-type">TEXT (JSON)</span></div>
       <div><span class="col-name">is_active</span> <span class="col-type">BOOLEAN IDX</span></div>
       <div><span class="col-name">source</span> <span class="col-type">VARCHAR(50) manual/ai</span></div>
-      <div><span class="col-name">is_custom</span> <span class="col-type">BOOLEAN</span></div>
     </div>
   </div>
 
   <div class="schema-card no-break">
     <div class="schema-title">strategy_evaluations &middot; strategy_switch_history</div>
-    <p class="schema-note">Strategy scoring and an audit trail of every switch with before/after scores and trigger.</p>
+    <p class="schema-note">Strategy scoring and an audit trail of every parameter switch with before/after scores and trigger.</p>
     <div class="schema-cols">
       <div><span class="col-name">strategy_id</span> <span class="col-type">FK&rarr;strategy_definitions</span></div>
       <div><span class="col-name">total_return_pct</span> <span class="col-type">FLOAT</span></div>
@@ -1009,7 +979,6 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
       <div><span class="col-name">recommendation_score</span> <span class="col-type">FLOAT 0&ndash;100</span></div>
       <div><span class="col-name">trigger</span> <span class="col-type">manual / auto_scheduled</span></div>
       <div><span class="col-name">score_before / after</span> <span class="col-type">FLOAT</span></div>
-      <div><span class="col-name">reason</span> <span class="col-type">TEXT</span></div>
     </div>
   </div>
 
@@ -1021,12 +990,11 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
     <div class="schema-cols">
       <div><span class="col-name">id</span> <span class="col-type">INTEGER PK</span></div>
       <div><span class="col-name">start_date, end_date</span> <span class="col-type">DATETIME</span></div>
-      <div><span class="col-name">reoptimization_frequency</span> <span class="col-type">VARCHAR(20)</span></div>
+      <div><span class="col-name">frequency</span> <span class="col-type">VARCHAR(20)</span></div>
       <div><span class="col-name">total_return_pct</span> <span class="col-type">FLOAT</span></div>
       <div><span class="col-name">sharpe_ratio</span> <span class="col-type">FLOAT</span></div>
       <div><span class="col-name">max_drawdown_pct</span> <span class="col-type">FLOAT</span></div>
-      <div><span class="col-name">trades_json</span> <span class="col-type">TEXT (JSON)</span></div>
-      <div><span class="col-name">equity_curve_json</span> <span class="col-type">TEXT (JSON)</span></div>
+      <div><span class="col-name">trades_json, equity_curve_json</span> <span class="col-type">TEXT (JSON)</span></div>
       <div><span class="col-name">status</span> <span class="col-type">pending/completed/failed</span></div>
       <div><span class="col-name">is_daily_cache</span> <span class="col-type">BOOLEAN IDX</span></div>
     </div>
@@ -1034,7 +1002,7 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
 
   <div class="schema-card no-break">
     <div class="schema-title">model_positions</div>
-    <p class="schema-note">Live, walk-forward, and ghost portfolio positions. Tracks signal replay and AI autopsy.</p>
+    <p class="schema-note">Live, walk-forward, and signal-track-record positions. Tracks signal replay and AI autopsy.</p>
     <div class="schema-cols">
       <div><span class="col-name">id</span> <span class="col-type">INTEGER PK</span></div>
       <div><span class="col-name">portfolio_type</span> <span class="col-type">VARCHAR(20) IDX</span></div>
@@ -1043,29 +1011,26 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
       <div><span class="col-name">shares, cost_basis</span> <span class="col-type">FLOAT</span></div>
       <div><span class="col-name">highest_price, exit_price</span> <span class="col-type">FLOAT</span></div>
       <div><span class="col-name">exit_reason, status</span> <span class="col-type">VARCHAR</span></div>
-      <div><span class="col-name">signal_data_json</span> <span class="col-type">TEXT (JSON)</span></div>
-      <div><span class="col-name">autopsy_json</span> <span class="col-type">TEXT (JSON)</span></div>
+      <div><span class="col-name">signal_data_json, autopsy_json</span> <span class="col-type">TEXT (JSON)</span></div>
     </div>
   </div>
 
   <div class="schema-card no-break">
     <div class="schema-title">regime_forecast_snapshots &middot; regime_history</div>
-    <p class="schema-note">Daily regime forecast with the seven-regime probability vector, plus weekly regime classifications used for chart band overlays.</p>
+    <p class="schema-note">Daily regime forecast with the seven-regime probability vector, plus weekly regime classifications used for chart-band overlays.</p>
     <div class="schema-cols">
       <div><span class="col-name">snapshot_date</span> <span class="col-type">DATETIME UNIQUE IDX</span></div>
       <div><span class="col-name">current_regime</span> <span class="col-type">VARCHAR(30)</span></div>
       <div><span class="col-name">probabilities_json</span> <span class="col-type">TEXT (JSON)</span></div>
       <div><span class="col-name">outlook</span> <span class="col-type">stable/deteriorating/improving</span></div>
-      <div><span class="col-name">recommended_action</span> <span class="col-type">VARCHAR(30)</span></div>
       <div><span class="col-name">spy_close, vix_close</span> <span class="col-type">FLOAT</span></div>
-      <div><span class="col-name">week_start</span> <span class="col-type">DATE UNIQUE IDX</span></div>
-      <div><span class="col-name">regime</span> <span class="col-type">VARCHAR(30)</span></div>
+      <div><span class="col-name">week_start, regime</span> <span class="col-type">DATE, VARCHAR(30)</span></div>
     </div>
   </div>
 
   <div class="schema-card no-break">
     <div class="schema-title">social_posts</div>
-    <p class="schema-note">AI-drafted social content with admin approval workflow. Status: draft &rarr; approved &rarr; scheduled &rarr; posted / canceled.</p>
+    <p class="schema-note">AI-drafted social content with the admin approval workflow. Status: draft &rarr; approved &rarr; scheduled &rarr; posted / canceled.</p>
     <div class="schema-cols">
       <div><span class="col-name">id</span> <span class="col-type">INTEGER PK</span></div>
       <div><span class="col-name">post_type</span> <span class="col-type">trade_result / missed_opp / recap / contextual_reply</span></div>
@@ -1075,34 +1040,21 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
       <div><span class="col-name">scheduled_for, posted_at</span> <span class="col-type">DATETIME</span></div>
       <div><span class="col-name">ai_generated, ai_model</span> <span class="col-type">BOOLEAN, VARCHAR</span></div>
       <div><span class="col-name">ai_prompt_hash</span> <span class="col-type">VARCHAR</span></div>
-      <div><span class="col-name">news_context_json</span> <span class="col-type">TEXT (JSON)</span></div>
-      <div><span class="col-name">source_trade_json</span> <span class="col-type">TEXT (JSON)</span></div>
-      <div><span class="col-name">reply_to_*</span> <span class="col-type">VARCHAR (platform-specific reply IDs)</span></div>
+      <div><span class="col-name">news_context_json, source_trade_json</span> <span class="col-type">TEXT (JSON)</span></div>
+      <div><span class="col-name">reply_to_*</span> <span class="col-type">VARCHAR (platform reply IDs)</span></div>
     </div>
   </div>
 
   <div class="schema-card no-break">
-    <div class="schema-title">symbol_metadata &middot; symbol_metadata_events</div>
-    <p class="schema-note">Layer-2 data hygiene: one row per symbol with Alpaca asset UUID and status, plus an audit log of every corporate action detected.</p>
+    <div class="schema-title">symbol_metadata &middot; symbol_metadata_events &middot; push_tokens</div>
+    <p class="schema-note">Layer-2 data hygiene (one row per symbol with Alpaca asset UUID + status, plus a corporate-action audit log) and Expo push tokens for the mobile app.</p>
     <div class="schema-cols">
       <div><span class="col-name">symbol</span> <span class="col-type">VARCHAR(10) UNIQUE IDX</span></div>
       <div><span class="col-name">asset_id</span> <span class="col-type">UUID</span></div>
       <div><span class="col-name">status</span> <span class="col-type">active / inactive / quarantined</span></div>
       <div><span class="col-name">event_type</span> <span class="col-type">split / merger / delisting / reuse</span></div>
-      <div><span class="col-name">handler_result</span> <span class="col-type">VARCHAR</span></div>
-      <div><span class="col-name">detected_at</span> <span class="col-type">DATETIME</span></div>
-    </div>
-  </div>
-
-  <div class="schema-card no-break">
-    <div class="schema-title">push_tokens</div>
-    <p class="schema-note">Mobile push notification tokens for Expo.</p>
-    <div class="schema-cols">
-      <div><span class="col-name">id</span> <span class="col-type">INTEGER PK</span></div>
-      <div><span class="col-name">user_id</span> <span class="col-type">UUID FK &rarr; users</span></div>
-      <div><span class="col-name">token</span> <span class="col-type">VARCHAR UNIQUE</span></div>
-      <div><span class="col-name">platform</span> <span class="col-type">ios / android</span></div>
-      <div><span class="col-name">created_at</span> <span class="col-type">DATETIME</span></div>
+      <div><span class="col-name">token, platform</span> <span class="col-type">VARCHAR (ios/android)</span></div>
+      <div><span class="col-name">detected_at, created_at</span> <span class="col-type">DATETIME</span></div>
     </div>
   </div>
 </div>
@@ -1112,63 +1064,64 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
      ============================================================ -->
 <div class="content page-break">
   <span class="kicker">05 &middot; Data Pipeline &amp; Caching</span>
-  <h2>Two sources, two stores, one <em>truth.</em></h2>
+  <h2>Two sources, one <em>truth.</em></h2>
 
   <p class="lead">
-    The platform ingests daily market data from two providers, stores it in two
-    formats during the parquet migration, and exposes a single read interface
-    everywhere downstream so the production scanner and the walk-forward simulator
-    see exactly the same bars.
+    The platform ingests daily market data from two providers with automatic
+    failover, adjusts it once at read time, and exposes a single read interface
+    everywhere downstream &mdash; so the production scanner and the walk-forward
+    simulator see exactly the same bars, to the penny.
   </p>
 
   <h3>Dual-source ingestion</h3>
+  <p>
+    A <code>DualSourceProvider</code> wraps Alpaca and yfinance with health tracking
+    and auto-failover. The split arose from a stale-data incident: relying on a
+    single vendor left a two-day gap that reached subscribers. The provider now
+    routes each use case to the source that is most reliable for it, and falls back
+    automatically when a source degrades.
+  </p>
   <table>
     <thead>
       <tr><th>Use case</th><th>Primary</th><th>Fallback</th><th>Reason</th></tr>
     </thead>
     <tbody>
-      <tr><td>Daily EOD bars</td><td>Alpaca SIP</td><td>yfinance</td><td>Alpaca is faster and more reliable for bulk historical pulls.</td></tr>
+      <tr><td>Daily EOD bars</td><td>Alpaca</td><td>yfinance</td><td>Faster and more reliable for bulk historical pulls.</td></tr>
       <tr><td>Live intraday quotes</td><td>yfinance</td><td>Alpaca</td><td>Alpaca free tier is IEX-only; yfinance covers all exchanges.</td></tr>
       <tr><td>Index data (^VIX, ^GSPC)</td><td>yfinance</td><td>&mdash;</td><td>Alpaca does not serve index symbols.</td></tr>
-      <tr><td>Sector ETFs</td><td>Alpaca SIP</td><td>yfinance</td><td>Normal tickers, Alpaca-compatible.</td></tr>
+      <tr><td>Sector ETFs</td><td>Alpaca</td><td>yfinance</td><td>Normal tickers, Alpaca-compatible.</td></tr>
     </tbody>
   </table>
   <p>
-    Symbol normalization handles the hyphen/dot mismatch between providers
-    (<code>BRK-B</code> &harr; <code>BRK.B</code>). Splits are pulled with
-    <code>Adjustment.SPLIT</code> on every ingest so the cached history is always
-    split-adjusted &mdash; preventing the unadjusted-split artifacts that surface
-    after large stock splits.
+    If more than ten percent of symbols fail during a daily scan, the pipeline
+    automatically retries the failed set against the yfinance fallback. Symbol
+    normalization reconciles the hyphen/dot mismatch between providers
+    (<code>BRK-B</code> &harr; <code>BRK.B</code>). Splits are pulled on every
+    ingest so the cached history stays split-adjusted, preventing the
+    unadjusted-split artifacts that surface after large stock splits.
   </p>
 
   <h3>Storage layers</h3>
 
   <div class="tech-grid">
     <div class="tech-card">
-      <div class="tech-card-title">S3 pickle (current primary)</div>
-      <div class="tech-card-meta">prices/all_data.pkl.gz</div>
+      <div class="tech-card-title">Per-symbol price store</div>
+      <div class="tech-card-meta">S3 &middot; adjust-at-read</div>
       <div class="tech-card-desc">
-        Gzipped pickle: <strong>269 MB compressed, 4,360 symbols, seven-year window.</strong>
-        Worker Lambda loads on cold start; API Lambda never touches it. Rebuilt on
-        every daily scan and nightly hygiene run, with a weekly full rebuild on
-        Saturday night to incorporate new universe symbols.
+        Raw daily bars persisted per symbol and split-adjusted at read time, so
+        the same canonical history drives both the live scanner and the
+        walk-forward simulator. Refreshed daily; a weekly full rebuild incorporates
+        new universe symbols.
       </div>
     </div>
     <div class="tech-card">
-      <div class="tech-card-title">S3 parquet shadow</div>
+      <div class="tech-card-title">Parquet columnar store</div>
       <div class="tech-card-meta">prices/all_data.parquet</div>
       <div class="tech-card-desc">
-        Columnar zstd-compressed parquet, schema-enforced via pyarrow. Written on
-        every scan in lockstep with the pickle. Enables partial reads (one symbol
-        without loading the full blob) and DuckDB SQL queries.
-      </div>
-    </div>
-    <div class="tech-card">
-      <div class="tech-card-title">In-memory cache</div>
-      <div class="tech-card-meta">ScannerService.data_cache</div>
-      <div class="tech-card-desc">
-        <code>Dict[str, DataFrame]</code> on the Worker Lambda. ~1.5&ndash;2 GB
-        footprint when fully loaded; comfortably inside the 3008 MB ceiling.
+        Columnar, compressed, schema-enforced via pyarrow. Enables partial reads
+        (one symbol without loading the full blob) and DuckDB SQL &mdash; the
+        change that took the Worker's scan footprint from OOM-risk down to comfortably
+        inside its ceiling.
       </div>
     </div>
     <div class="tech-card">
@@ -1177,111 +1130,104 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
       <div class="tech-card-desc">
         Pre-computed at scan time and fronted by CloudFront with a one-hour TTL.
         The dashboard, the daily digest, the sell-alert dispatcher, and the
-        intraday monitor all read from this single JSON to keep emails and the UI
-        in lockstep.
+        intraday monitor all read from this single JSON so emails and the UI never
+        disagree on the day's signals.
       </div>
     </div>
     <div class="tech-card">
-      <div class="tech-card-title">Data integrity filters</div>
-      <div class="tech-card-meta">scanner._is_data_quality_ok()</div>
+      <div class="tech-card-title">Data-integrity filters</div>
+      <div class="tech-card-meta">scanner data-quality gate</div>
       <div class="tech-card-desc">
-        Rejects symbols with price-to-accumulation-reference ratios above 50&times; or below 0.02,
-        single-day moves above 65% (log-return &gt; 0.5), and gaps above ten
-        trading days &mdash; the ticker-reuse signature. Catches unadjusted
-        splits, stitched histories, and delisting artifacts in real time.
-      </div>
-    </div>
-    <div class="tech-card">
-      <div class="tech-card-title">DuckDB ad-hoc layer</div>
-      <div class="tech-card-meta">data_export_service.query_parquet()</div>
-      <div class="tech-card-desc">
-        Lambda-compatible SQL over the parquet shadow. Powers the
-        <code>parquet_diagnose</code> handler for universe-wide corruption scans
-        in seconds.
+        Rejects extreme price ratios, single-day moves above a log-return
+        threshold, and multi-day gaps &mdash; the ticker-reuse signature. Catches
+        unadjusted splits, stitched histories, and delisting artifacts in real
+        time.
       </div>
     </div>
   </div>
+
+  <h3>Freshness gate</h3>
+  <p>
+    Every subscriber-facing communication job (daily digest, sell alerts,
+    double-signal alerts) validates that the daily scan ran successfully <em>today</em>
+    before it sends. If the data is stale, emails are held and the operator is
+    alerted rather than shipping a subscriber a signal computed on yesterday's
+    prices. The dashboard exposes the same state publicly through
+    <code>/api/market-data-status</code>, which drives a staleness banner in the UI.
+  </p>
 
   <h3>Layer-2 data hygiene</h3>
   <p>
-    Every weekday at 6:30 PM ET the <code>nightly_data_hygiene</code> rule fires
-    a six-step protection pass against silent data drift:
+    Each weekday evening the <code>nightly_data_hygiene</code> rule runs a
+    protection pass against silent data drift:
   </p>
   <ol>
-    <li><strong>Asset-ID verification.</strong> Compares each symbol's stored Alpaca asset UUID to the current value. Any change is treated as a ticker-reuse event &mdash; auto-quarantine plus admin alert.</li>
-    <li><strong>Corp-actions poll.</strong> Queries the Alpaca corporate-actions API for splits, dividends, spin-offs, mergers, and delistings in the last 36 hours. Hundreds of events per day is typical.</li>
-    <li><strong>Split auto-refetch.</strong> For each detected split, fetches a clean split-adjusted history with <code>Adjustment.SPLIT</code> and overwrites the cache.</li>
-    <li><strong>Dual-store re-export.</strong> The updated cache is written to both pickle and parquet so the two stores never diverge.</li>
+    <li><strong>Asset-ID verification.</strong> Compares each symbol's stored Alpaca asset UUID to the current value; any change is treated as ticker reuse &mdash; auto-quarantine plus admin alert.</li>
+    <li><strong>Corp-actions poll.</strong> Queries the Alpaca corporate-actions API for splits, dividends, spin-offs, mergers, and delistings.</li>
+    <li><strong>Split auto-refetch.</strong> For each detected split, fetches a clean split-adjusted history and overwrites the cache.</li>
+    <li><strong>Store re-export.</strong> The updated cache is re-exported so the read stores never diverge.</li>
     <li><strong>Post-actions diagnose.</strong> A DuckDB scan over the fresh parquet flags anomalies above threshold.</li>
-    <li><strong>Admin digest email.</strong> Tiered status &mdash; auto-remediated items appear as INFO; only true anomalies escalate.</li>
+    <li><strong>Admin digest.</strong> Auto-remediated items report as INFO; only true anomalies escalate.</li>
   </ol>
-  <p>
-    The scanner consumes the quarantine list via
-    <code>symbol_metadata_service.get_excluded_symbols()</code> at the start of
-    each run, with no measurable latency cost.
-  </p>
-
-  <h3>Parquet migration status</h3>
-  <p>
-    The pickle is durable through current scale; the parquet migration follows
-    the four-stage plan tracked in <code>project_storage_migration_roadmap.md</code>.
-    Stage 1 (shadow write) and Stage 2 (Amazon Linux 2023 base image) are deployed.
-    Stage 3 is in progress &mdash; a parallel-read diff harness validates parquet
-    against pickle for an observation window before any consumer cuts over. The
-    end state retires the pickle entirely.
-  </p>
 </div>
 
 <!-- ============================================================
-     6. BACKEND SERVICES
+     6. BACKEND SERVICES & TIER SERVING
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">06 &middot; Backend Services</span>
-  <h2>Singletons, schedulers, and a <em>circuit</em> breaker.</h2>
+  <span class="kicker">06 &middot; Backend Services &amp; Tier Serving</span>
+  <h2>One scan, two <em>reads.</em></h2>
 
   <p>
     The backend is a set of singleton service classes instantiated at module load
-    and imported across handlers. Mangum translates ASGI calls into Lambda invocations
-    on the API path; the Worker Lambda dispatches EventBridge payloads through a
-    handler map.
+    and imported across handlers. Mangum translates ASGI calls into Lambda
+    invocations on the API path; the Worker Lambda dispatches EventBridge payloads
+    through a handler map.
   </p>
 
-  <h3>Production strategy</h3>
+  <h3>How the two tiers are served</h3>
   <p>
-    The deployed strategy is the RigaCap Momentum Strategy (live since June 10, 2026):
-    up to twenty positions at 4.5% each with inverse-volatility sizing, a 30% trailing
-    stop, a market-regime filter, and the Cascade Guard circuit breaker. Entry requires
-    a multi-factor gauntlet &mdash; price above DWAP &times; 1.05, within 3% of the 50-day
-    high, and a top momentum-composite rank &mdash; drawn from a universe of the top 100
-    symbols by 60-day volume ($15 minimum price, 500k minimum daily volume). Performance
-    figures live in the investor report and the public track-record page; they are not
-    duplicated here.
+    RigaCap is a two-tier product &mdash; <strong>Preserver</strong> (protect
+    capital) and <strong>Maximizer</strong> (grow / breakout). Both are produced by
+    the same regime-adaptive momentum engine over the same universe on the same
+    daily scan; they differ in their exposure and risk posture, not in a separate
+    data path. A single scan computes both reads and writes both into the dashboard
+    JSON, tagged by tier. At request time, the subscription tier on a user's account
+    gates which read they see: Preserver is the base, and Maximizer is a paid add-on
+    unlocked through Stripe. This keeps a subscriber's live experience faithful to
+    the tier they pay for, and keeps both tiers reconciled to the same underlying
+    walk-forward record.
   </p>
 
-  <h3>Cascade Guard (circuit breaker)</h3>
-  <div class="tech-card">
-    <div class="tech-card-title">CircuitBreakerService</div>
-    <div class="tech-card-meta">CIRCUIT_BREAKER_ENABLED=true &middot; cb-state/&lt;portfolio_type&gt;.json</div>
-    <div class="tech-card-desc">
-      Live in the production scanner. When multiple positions hit their trailing
-      stops on the same day &mdash; the cascading-stress signature &mdash; the
-      service pauses new entries for ten days. State persists to S3 at
-      <code>s3://rigacap-prod-price-data-149218244179/cb-state/&lt;portfolio_type&gt;.json</code>
-      so the breaker survives Lambda cold starts. Externally, this is "Cascade Guard";
-      internally, it is the circuit breaker. Smoke-tested via
-      <code>scripts/test_circuit_breaker_smoke.py</code>.
-    </div>
+  <div class="callout">
+    <p><strong>Marketing-parity discipline.</strong> The engine warm-starts from
+    full history on every run &mdash; production has years of bars, and starting
+    cold would misprice the risk controls. Any figure a subscriber sees, and any
+    exit parameter stated in the UI or an email, must be the live tier value, so the
+    published record is actually realizable by a subscriber who mirrors it.</p>
   </div>
 
-  <h3>Seven-regime market classifier</h3>
+  <h3>Risk machinery (public-safe description)</h3>
   <div class="tech-card">
-    <div class="tech-card-title">MarketRegimeService</div>
+    <div class="tech-card-title">Seven-regime market classifier</div>
     <div class="tech-card-meta">strong_bull / weak_bull / rotating_bull / range_bound / weak_bear / panic_crash / recovery</div>
     <div class="tech-card-desc">
-      Daily classification using SPY indicator stack (200-day MA, breadth, VIX, term-structure
-      proxies). Each regime modulates entry filters, position sizing, and exit
-      thresholds. Snapshots persist to <code>regime_forecast_snapshots</code> for
-      heatmap visualization and accuracy tracking.
+      Daily classification from a broad-market indicator stack (long-term trend,
+      breadth, volatility). The classified regime modulates exposure, sizing, and
+      exit thresholds &mdash; the mechanism behind &ldquo;momentum, built around the
+      drawdown.&rdquo; Snapshots persist for heatmap visualization and accuracy
+      tracking.
+    </div>
+  </div>
+  <div class="tech-card">
+    <div class="tech-card-title">Cascade Guard (circuit breaker)</div>
+    <div class="tech-card-meta">state persisted to S3 per portfolio type</div>
+    <div class="tech-card-desc">
+      When many positions hit their trailing stops on the same day &mdash; the
+      cascading-stress signature &mdash; the guard pauses new entries for a cooling
+      window. State persists to S3 so the breaker survives Lambda cold starts.
+      Externally this is &ldquo;Cascade Guard&rdquo;; internally it is the circuit
+      breaker.
     </div>
   </div>
 
@@ -1291,45 +1237,39 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
       <tr><th>Service</th><th>Responsibility</th></tr>
     </thead>
     <tbody>
-      <tr><td><strong>ScannerService</strong></td><td>Daily market scan, signal generation, in-memory cache management.</td></tr>
-      <tr><td><strong>BacktesterService</strong></td><td>Historical backtesting, portfolio simulation, performance metrics.</td></tr>
+      <tr><td><strong>ScannerService</strong></td><td>Daily market scan, two-tier signal generation, in-memory cache management.</td></tr>
+      <tr><td><strong>BacktesterService</strong></td><td>Historical portfolio simulation and performance metrics.</td></tr>
       <tr><td><strong>WalkForwardService</strong></td><td>Step Functions orchestration, period-by-period evaluation, AI optimization.</td></tr>
-      <tr><td><strong>EnsembleSignalService</strong></td><td>Persists ensemble signals for audit trail and email-UI consistency.</td></tr>
       <tr><td><strong>MarketRegimeService</strong></td><td>Seven-regime classification with daily snapshot persistence.</td></tr>
       <tr><td><strong>CircuitBreakerService</strong></td><td>Cascade Guard implementation with S3-persisted state.</td></tr>
-      <tr><td><strong>EmailService</strong></td><td>Subscriber emails: welcome, daily digest, sell alerts, password reset, onboarding drip.</td></tr>
-      <tr><td><strong>NewsletterService</strong></td><td>"The Market, Measured" weekly newsletter: locked Saturday draft, Sunday publish, archive teaser generation.</td></tr>
-      <tr><td><strong>SchedulerService</strong></td><td>EventBridge dispatch, nightly digest, social-post scheduling.</td></tr>
-      <tr><td><strong>ModelPortfolioService</strong></td><td>Live, walk-forward, and ghost portfolio tracking; what-if calculator.</td></tr>
-      <tr><td><strong>DataExportService</strong></td><td>S3 export and import, CDN pre-computation, parquet persistence, DuckDB queries.</td></tr>
+      <tr><td><strong>DualSourceProvider</strong></td><td>Alpaca primary + yfinance fallback with health tracking and auto-failover.</td></tr>
+      <tr><td><strong>DataExportService</strong></td><td>S3 export/import, CDN pre-computation, parquet persistence, DuckDB queries.</td></tr>
       <tr><td><strong>SymbolMetadataService</strong></td><td>Layer-2 hygiene: asset-ID checks, corp-actions handling, quarantine list.</td></tr>
-      <tr><td><strong>AIContentService</strong></td><td>Claude API client (<code>claude-sonnet-4-5</code>) for social drafts, autopsies, and editorial copy. Template fallback if the API is unavailable.</td></tr>
+      <tr><td><strong>EmailService</strong></td><td>Subscriber emails: welcome, daily digest, sell alerts, password reset, onboarding drip &mdash; all freshness-gated.</td></tr>
+      <tr><td><strong>NewsletterService</strong></td><td>Weekly newsletter: locked Saturday draft, Sunday publish, archive teasers.</td></tr>
+      <tr><td><strong>ModelPortfolioService</strong></td><td>Live, walk-forward, and signal-track-record tracking; what-if calculator.</td></tr>
+      <tr><td><strong>AIContentService</strong></td><td>Claude API client for social drafts, autopsies, and editorial copy; template fallback if the API is unavailable.</td></tr>
       <tr><td><strong>SocialContentService</strong></td><td>Template-based post generation; safety net for the AI service.</td></tr>
-      <tr><td><strong>PostSchedulerService</strong></td><td>Spreads drafts across optimal posting windows; T-24h and T-1h admin notifications; one-click cancel.</td></tr>
-      <tr><td><strong>SocialPostingService</strong></td><td>Multi-platform publish: X (Twitter API v2), Threads (graph.threads.net), Instagram-with-Instagram-Login (graph.instagram.com) using IG-native long-lived tokens (60-day TTL, <code>IGAA*</code> prefix).</td></tr>
-      <tr><td><strong>ReplyScannerService</strong></td><td>Multi-platform contextual reply scanner across X and Threads.</td></tr>
-      <tr><td><strong>InstagramCommentService</strong></td><td>Comment monitoring with Claude-drafted replies under admin approval.</td></tr>
-      <tr><td><strong>ChartCardGenerator</strong></td><td>1080&times;1350 (4:5) matplotlib chart cards in editorial brand styling.</td></tr>
+      <tr><td><strong>PostSchedulerService</strong></td><td>Spreads drafts across optimal windows; T-24h and T-1h notifications; one-click cancel.</td></tr>
+      <tr><td><strong>SocialPostingService</strong></td><td>Multi-platform publish: X, Threads, and Instagram.</td></tr>
+      <tr><td><strong>ReplyScannerService</strong></td><td>Contextual reply scanning across X and Threads.</td></tr>
+      <tr><td><strong>ChartCardGenerator</strong></td><td>1080&times;1350 (4:5) editorial chart cards for Instagram and social.</td></tr>
       <tr><td><strong>TradeAutopsyService</strong></td><td>Claude-powered post-mortem analysis on closed trades.</td></tr>
       <tr><td><strong>RegimeForecastService</strong></td><td>Daily regime forecast storage and accuracy tracking.</td></tr>
       <tr><td><strong>StockUniverseService</strong></td><td>Universe management, sector classification, ETF filtering.</td></tr>
-      <tr><td><strong>StrategyAnalyzerService</strong></td><td>Multi-strategy comparison and performance attribution.</td></tr>
-      <tr><td><strong>StrategyGeneratorService</strong></td><td>Optuna-based parameter optimization and AI strategy generation.</td></tr>
-      <tr><td><strong>AutoSwitchService</strong></td><td>Automated strategy switching with scoring and cooldown.</td></tr>
-      <tr><td><strong>HealthMonitorService</strong></td><td>Pipeline health checks across data freshness, worker performance, database, signals, and infrastructure.</td></tr>
+      <tr><td><strong>StrategyGeneratorService</strong></td><td>Optuna-based parameter optimization.</td></tr>
+      <tr><td><strong>HealthMonitorService</strong></td><td>Pipeline health across data freshness, worker performance, database, signals, and infrastructure.</td></tr>
+      <tr><td><strong>ReferralService</strong></td><td>Stripe-coupon-backed give-month / get-month program.</td></tr>
       <tr><td><strong>PushNotificationService</strong></td><td>Expo push notifications for the mobile app.</td></tr>
-      <tr><td><strong>DualSourceProvider</strong></td><td>Alpaca SIP primary + yfinance fallback with health tracking and auto-failover.</td></tr>
-      <tr><td><strong>ReferralService</strong></td><td>Stripe-coupon-backed give-month / get-month program with one-click code redemption.</td></tr>
-      <tr><td><strong>ThisWeekService</strong></td><td>Computes the dashboard "This Week" rotating banner from the open position set &mdash; leader, tail, and longest-hold templates.</td></tr>
     </tbody>
   </table>
 
   <div class="callout">
-    <p><strong>Lambda cold-start mitigation.</strong> Database connections are
-    initialized lazily on first request because the Lambda init phase has a
-    ten-second hard ceiling. An EventBridge rule pings <code>/health</code>
-    every five minutes to keep the Lambda warm; post-deploy,
-    <code>/api/warmup</code> preloads S3 data into memory.</p>
+    <p><strong>Lambda cold-start mitigation.</strong> Database connections
+    initialize lazily on first request because the Lambda init phase has a
+    ten-second hard ceiling. An EventBridge rule pings the health route every five
+    minutes to keep the Worker warm; post-deploy, a warm-up route preloads S3 data
+    into memory.</p>
   </div>
 </div>
 
@@ -1343,31 +1283,23 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
   <p>
     The FastAPI surface exceeds 120 endpoints across authentication, signals,
     billing, dashboard, social, admin, and public marketing routes. Counts below
-    are approximate; treat the relevant router file as the source of truth.
-    Anything that returns signal or portfolio data sits behind
+    are approximate; the relevant router file is the source of truth. Anything that
+    returns signal or portfolio data sits behind
     <code>require_valid_subscription</code> or the admin guard.
   </p>
 
-  <h3>Authentication &mdash; <code>/auth</code> + <code>/auth/2fa</code></h3>
+  <h3>Authentication &mdash; <code>/auth</code></h3>
   <table>
     <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
     <tbody>
       <tr><td><code>POST</code></td><td>/auth/register</td><td>Email/password signup with Turnstile verification.</td></tr>
       <tr><td><code>POST</code></td><td>/auth/login</td><td>Email/password login; returns JWT access + refresh tokens.</td></tr>
       <tr><td><code>POST</code></td><td>/auth/refresh</td><td>Refresh access token.</td></tr>
-      <tr><td><code>GET</code></td><td>/auth/me</td><td>Current user profile.</td></tr>
-      <tr><td><code>POST</code></td><td>/auth/google</td><td>Google OAuth signup / login.</td></tr>
-      <tr><td><code>POST</code></td><td>/auth/apple</td><td>Apple Sign In signup / login.</td></tr>
-      <tr><td><code>POST</code></td><td>/auth/forgot-password</td><td>Send password reset email.</td></tr>
-      <tr><td><code>POST</code></td><td>/auth/reset-password</td><td>Reset password with secure token.</td></tr>
-      <tr><td><code>POST</code></td><td>/auth/logout</td><td>Invalidate current tokens.</td></tr>
-      <tr><td><code>PATCH</code></td><td>/auth/me/email-preferences</td><td>Update notification preferences.</td></tr>
+      <tr><td><code>GET</code></td><td>/auth/me</td><td>Current user profile, including tier.</td></tr>
+      <tr><td><code>POST</code></td><td>/auth/google &middot; /auth/apple</td><td>Google OAuth and Apple Sign In.</td></tr>
+      <tr><td><code>POST</code></td><td>/auth/forgot-password &middot; /auth/reset-password</td><td>Password reset flow with secure token.</td></tr>
       <tr><td><code>POST</code></td><td>/auth/unsubscribe</td><td>One-click email unsubscribe (RFC 8058).</td></tr>
       <tr><td><code>GET</code></td><td>/auth/referral</td><td>Get / create referral code and stats.</td></tr>
-      <tr><td><code>POST</code></td><td>/auth/2fa/setup</td><td>Generate TOTP secret + QR code.</td></tr>
-      <tr><td><code>POST</code></td><td>/auth/2fa/verify</td><td>Verify 2FA code at login.</td></tr>
-      <tr><td><code>POST</code></td><td>/auth/2fa/disable</td><td>Disable 2FA.</td></tr>
-      <tr><td><code>POST</code></td><td>/auth/2fa/regenerate-backup-codes</td><td>Generate new backup codes.</td></tr>
     </tbody>
   </table>
 
@@ -1375,16 +1307,11 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
   <table>
     <thead><tr><th>Method</th><th>Path</th><th>Auth</th></tr></thead>
     <tbody>
-      <tr><td><code>GET</code></td><td>/signals/scan</td><td>Subscriber &mdash; runs full market scan.</td></tr>
+      <tr><td><code>GET</code></td><td>/signals/dashboard</td><td>Subscriber &mdash; comprehensive dashboard data, filtered to the account's tier.</td></tr>
       <tr><td><code>GET</code></td><td>/signals/latest</td><td>Subscriber.</td></tr>
-      <tr><td><code>GET</code></td><td>/signals/dashboard</td><td>Subscriber &mdash; comprehensive dashboard data.</td></tr>
-      <tr><td><code>GET</code></td><td>/signals/momentum-rankings</td><td>Subscriber.</td></tr>
-      <tr><td><code>GET</code></td><td>/signals/missed</td><td>Subscriber &mdash; missed opportunities.</td></tr>
+      <tr><td><code>GET</code></td><td>/signals/watchlist</td><td>Subscriber &mdash; approaching-trigger names.</td></tr>
       <tr><td><code>GET</code></td><td>/signals/double-signals</td><td>Subscriber &mdash; multi-confirmation.</td></tr>
-      <tr><td><code>GET</code></td><td>/signals/watchlist</td><td>Subscriber.</td></tr>
-      <tr><td><code>GET</code></td><td>/signals/approaching-trigger</td><td>Subscriber.</td></tr>
       <tr><td><code>GET</code></td><td>/signals/symbol/{symbol}</td><td>Subscriber.</td></tr>
-      <tr><td><code>GET</code></td><td>/signals/cdn-url</td><td>Subscriber &mdash; signed CDN URL.</td></tr>
       <tr><td><code>POST</code></td><td>/signals/backfill</td><td>Admin.</td></tr>
     </tbody>
   </table>
@@ -1393,23 +1320,21 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
   <table>
     <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
     <tbody>
-      <tr><td><code>POST</code></td><td>/billing/create-checkout</td><td>Stripe Checkout session, trial with credit card required.</td></tr>
-      <tr><td><code>POST</code></td><td>/billing/portal</td><td>Stripe Customer Portal session.</td></tr>
-      <tr><td><code>GET</code></td><td>/billing/subscription</td><td>Current subscription status.</td></tr>
-      <tr><td><code>POST</code></td><td>/billing/sync</td><td>Sync subscription state from Stripe.</td></tr>
+      <tr><td><code>POST</code></td><td>/billing/create-checkout</td><td>Stripe Checkout for the selected tier; trial with credit card required.</td></tr>
+      <tr><td><code>POST</code></td><td>/billing/portal</td><td>Stripe Customer Portal session (upgrade / add Maximizer / cancel).</td></tr>
+      <tr><td><code>GET</code></td><td>/billing/subscription</td><td>Current subscription status and tier.</td></tr>
       <tr><td><code>POST</code></td><td>/billing/webhook</td><td>Stripe webhook receiver, signature-verified.</td></tr>
     </tbody>
   </table>
 
-  <h3>Dashboard editorial &mdash; <code>/api</code></h3>
+  <h3>Public &amp; dashboard &mdash; <code>/api</code></h3>
   <table>
     <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
     <tbody>
-      <tr><td><code>GET</code></td><td>/api/this-week</td><td>Computes the rotating "This Week" banner data &mdash; leader, tail, and longest-hold &mdash; from the open position set, pivoting templates so the banner never reads as a defeat when the leader is flat or negative.</td></tr>
       <tr><td><code>GET</code></td><td>/api/market-data-status</td><td>Public freshness signal for the dashboard staleness banner.</td></tr>
+      <tr><td><code>GET</code></td><td>/api/track-record</td><td>Public: walk-forward and live data backing the <code>/track-record</code> page.</td></tr>
+      <tr><td><code>GET</code></td><td>/api/newsletter/archive</td><td>Public: archive of past newsletter issues.</td></tr>
       <tr><td><code>GET</code></td><td>/api/warmup</td><td>Post-deploy warm-up route &mdash; preloads dashboard JSON.</td></tr>
-      <tr><td><code>GET</code></td><td>/api/track-record</td><td>Public: walk-forward and live track-record data backing the <code>/track-record</code> page.</td></tr>
-      <tr><td><code>GET</code></td><td>/api/newsletter/archive</td><td>Public: archive of past "Market, Measured" issues with headline plus two- to three-line breadcrumbs.</td></tr>
     </tbody>
   </table>
 
@@ -1417,19 +1342,12 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
   <table>
     <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
     <tbody>
-      <tr><td><code>GET</code></td><td>/social/posts</td><td>List posts &mdash; filter by status, type, platform.</td></tr>
-      <tr><td><code>GET</code></td><td>/social/posts/{id}</td><td>Get single post details.</td></tr>
-      <tr><td><code>POST</code></td><td>/social/posts/compose</td><td>Create new draft post.</td></tr>
-      <tr><td><code>POST</code></td><td>/social/posts/{id}/approve</td><td>Approve for publishing.</td></tr>
-      <tr><td><code>POST</code></td><td>/social/posts/{id}/reject</td><td>Reject with reason.</td></tr>
-      <tr><td><code>POST</code></td><td>/social/posts/{id}/publish</td><td>Publish immediately.</td></tr>
-      <tr><td><code>POST</code></td><td>/social/posts/{id}/schedule</td><td>Schedule for a future date.</td></tr>
-      <tr><td><code>POST</code></td><td>/social/posts/{id}/cancel</td><td>Cancel a scheduled post.</td></tr>
-      <tr><td><code>POST</code></td><td>/social/posts/{id}/regenerate-ai</td><td>Re-generate via Claude API.</td></tr>
-      <tr><td><code>GET</code></td><td>/social/posts/{id}/cancel-email</td><td>One-click cancel via JWT-signed link.</td></tr>
-      <tr><td><code>GET</code></td><td>/social/posts/{id}/approve-email</td><td>One-click approve via JWT-signed link.</td></tr>
-      <tr><td><code>POST</code></td><td>/social/generate-chart/{id}</td><td>Generate the chart-card image.</td></tr>
-      <tr><td><code>GET</code></td><td>/social/stats</td><td>Publishing statistics.</td></tr>
+      <tr><td><code>GET</code></td><td>/social/posts &middot; /social/posts/{id}</td><td>List and inspect posts &mdash; filter by status, type, platform.</td></tr>
+      <tr><td><code>POST</code></td><td>/social/posts/{id}/approve &middot; /reject</td><td>Approve for publishing or reject with reason.</td></tr>
+      <tr><td><code>POST</code></td><td>/social/posts/{id}/schedule &middot; /cancel</td><td>Schedule for a future window or cancel.</td></tr>
+      <tr><td><code>POST</code></td><td>/social/posts/{id}/regenerate-ai</td><td>Re-draft via the Claude API.</td></tr>
+      <tr><td><code>GET</code></td><td>/social/posts/{id}/approve-email &middot; /cancel-email</td><td>One-click Kill / approve via JWT-signed link (no login required).</td></tr>
+      <tr><td><code>POST</code></td><td>/social/generate-chart/{id}</td><td>Generate the editorial chart-card image.</td></tr>
     </tbody>
   </table>
 
@@ -1437,10 +1355,10 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
   <p>
     Admin endpoints require both <code>role=admin</code> and an
     <code>ADMIN_EMAILS</code> allowlist match &mdash; double enforcement so a
-    promoted-by-mistake user cannot reach operator surfaces. Categories include
+    mistakenly-promoted user cannot reach operator surfaces. Categories include
     strategy management, user management, regime analysis, walk-forward simulation,
-    backtesting, data debugging, model portfolio, trade autopsies, ghost comparison,
-    regime forecast, and the what-if calculator.
+    data debugging, model portfolio, trade autopsies, and the
+    what-if calculator.
   </p>
 </div>
 
@@ -1452,37 +1370,29 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
   <h2>React, Vite, Tailwind &mdash; <em>editorial</em> register.</h2>
 
   <p>
-    The web client is a single-page React 18 application built with Vite, styled
-    with Tailwind CSS configured in the editorial brand palette (paper, ink, and
-    claret). The mobile app is a separate Expo project that consumes the same API
-    surface for sell alerts and signal events.
+    The web client is a single-page React 18 application built with Vite and styled
+    with Tailwind CSS in the editorial brand palette &mdash; paper, ink, and claret
+    &mdash; with Fraunces and IBM Plex as the typefaces. The mobile app is a
+    separate Expo project that consumes the same API surface for sell alerts and
+    signal events.
   </p>
 
-  <h3>Component inventory</h3>
+  <h3>Component inventory (representative)</h3>
   <table>
     <thead>
-      <tr><th>Component</th><th>Size</th><th>Responsibility</th></tr>
+      <tr><th>Component</th><th>Responsibility</th></tr>
     </thead>
     <tbody>
-      <tr><td><strong>App.jsx</strong></td><td>~170 KB</td><td>Main dashboard: portfolio, signals, charts, auth, admin time-travel.</td></tr>
-      <tr><td><strong>WalkForwardSimulator.jsx</strong></td><td>~67 KB</td><td>Configure and run simulations, equity curves, trade analysis.</td></tr>
-      <tr><td><strong>SocialTab.jsx</strong></td><td>~55 KB</td><td>Post queue, AI generation, scheduling, chart cards, publishing.</td></tr>
-      <tr><td><strong>AdminDashboard.jsx</strong></td><td>~42 KB</td><td>Strategy and user management, model portfolio, ghost comparison, regime forecast, what-if calculator, trade autopsies.</td></tr>
-      <tr><td><strong>FlexibleBacktest.jsx</strong></td><td>~39 KB</td><td>Backtest configuration, strategy comparison, exit testing.</td></tr>
-      <tr><td><strong>LandingPage.jsx</strong></td><td>~30 KB</td><td>Marketing surface: hero, features, pricing, FAQ, social proof.</td></tr>
-      <tr><td><strong>TrackRecordPage.jsx</strong></td><td>~16 KB</td><td>Public <code>/track-record</code>: continuous walk-forward backtest results plus the live track record.</td></tr>
-      <tr><td><strong>NewsletterArchive.jsx</strong></td><td>~12 KB</td><td>Newsletter archive teasers with headline and breadcrumb lines.</td></tr>
-      <tr><td><strong>StrategyEditor.jsx</strong></td><td>~16 KB</td><td>Custom strategy creation and editing.</td></tr>
-      <tr><td><strong>AutoSwitchConfig.jsx</strong></td><td>~15 KB</td><td>Auto-switch rule configuration.</td></tr>
-      <tr><td><strong>LoginModal.jsx</strong></td><td>~14 KB</td><td>Multi-provider auth with Turnstile.</td></tr>
-      <tr><td><strong>StrategyGenerator.jsx</strong></td><td>~12 KB</td><td>AI strategy generation interface.</td></tr>
-      <tr><td><strong>LegalPages.jsx</strong></td><td>~11 KB</td><td>Terms, Privacy Policy, Financial Disclaimer.</td></tr>
-      <tr><td><strong>PasswordReset.jsx</strong></td><td>~9 KB</td><td>Forgot / reset flow.</td></tr>
-      <tr><td><strong>SubscriptionBanner.jsx</strong></td><td>~9 KB</td><td>Trial countdown, upgrade CTA.</td></tr>
-      <tr><td><strong>ThisWeekBanner.jsx</strong></td><td>~8 KB</td><td>Rotating dashboard banner with five editorial templates pivoting on portfolio state.</td></tr>
-      <tr><td><strong>TrackRecordChart.jsx</strong></td><td>~8 KB</td><td>Walk-forward equity curve with regime overlays.</td></tr>
-      <tr><td><strong>TwoFactorSettings.jsx</strong></td><td>~7 KB</td><td>TOTP 2FA setup, backup codes.</td></tr>
-      <tr><td><strong>CookieConsent.jsx</strong></td><td>~3 KB</td><td>GDPR cookie consent for GA4.</td></tr>
+      <tr><td><strong>App.jsx</strong></td><td>Main dashboard: portfolio, tier-filtered signals, charts, auth, admin time-travel.</td></tr>
+      <tr><td><strong>LandingPage.jsx</strong></td><td>Marketing surface: hero, two-tier pricing, FAQ, social proof.</td></tr>
+      <tr><td><strong>TrackRecordPage.jsx</strong></td><td>Public <code>/track-record</code>: continuous walk-forward results plus the live record.</td></tr>
+      <tr><td><strong>WalkForwardSimulator.jsx</strong></td><td>Configure and run simulations; equity curves, trade analysis.</td></tr>
+      <tr><td><strong>SocialTab.jsx</strong></td><td>Post queue, AI generation, scheduling, chart cards, publishing.</td></tr>
+      <tr><td><strong>AdminDashboard.jsx</strong></td><td>Strategy and user management, model portfolio, regime forecast, what-if calculator, trade autopsies.</td></tr>
+      <tr><td><strong>NewsletterArchive.jsx</strong></td><td>Newsletter archive teasers with headline and breadcrumb lines.</td></tr>
+      <tr><td><strong>LoginModal.jsx</strong></td><td>Multi-provider auth with Turnstile.</td></tr>
+      <tr><td><strong>SubscriptionBanner.jsx</strong></td><td>Trial countdown, upgrade / add-Maximizer CTA.</td></tr>
+      <tr><td><strong>CookieConsent.jsx</strong></td><td>GDPR cookie consent gating GA4.</td></tr>
     </tbody>
   </table>
 
@@ -1490,37 +1400,87 @@ EventBridge  <span class="arrow">&rarr;</span>  Worker Lambda  <span class="arro
   <ul>
     <li><strong>React 18</strong> with hooks; functional components throughout.</li>
     <li><strong>Vite 5</strong> build tool; fast HMR in dev, single-bundle production output.</li>
-    <li><strong>Tailwind CSS 3</strong> styling; brand palette tokens in <code>tailwind.config.js</code>.</li>
-    <li><strong>Recharts</strong> for the dashboard charts and equity curves.</li>
-    <li><strong>Axios</strong> HTTP client with a JWT request interceptor and a 401 retry hook.</li>
-    <li><strong>React Router v6</strong> for SPA routing.</li>
-    <li><strong>Lucide React</strong> SVG icon library.</li>
+    <li><strong>Tailwind CSS 3</strong> with the claret/paper brand tokens in <code>tailwind.config.js</code>.</li>
+    <li><strong>Recharts</strong> for dashboard charts and equity curves.</li>
+    <li><strong>Axios</strong> with a JWT request interceptor and a 401 retry hook.</li>
+    <li><strong>React Router v6</strong> for SPA routing; <strong>Lucide React</strong> icons.</li>
     <li><strong>react-hot-toast</strong>, <strong>date-fns</strong>, <strong>clsx</strong> for UX plumbing.</li>
-    <li><strong>Puppeteer</strong> for headless chart rendering at the build step.</li>
+    <li>An <strong>ErrorBoundary</strong> wraps the entire app; GA4 is loaded only after cookie consent.</li>
   </ul>
 </div>
 
 <!-- ============================================================
-     9. SECURITY
+     9. SOCIAL & CONTENT ENGINE
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">09 &middot; Security Architecture</span>
+  <span class="kicker">09 &middot; Social &amp; Content Engine</span>
+  <h2>Real trades in, moderated posts <em>out.</em></h2>
+
+  <p class="lead">
+    The social engine turns real walk-forward and live results into editorial posts
+    &mdash; drafted by Claude, approved by a human in one click, and published on a
+    fixed cadence across three platforms. Nothing reaches an audience without an
+    operator's explicit approval.
+  </p>
+
+  <h3>The pipeline</h3>
+  <ol>
+    <li><strong>Draft.</strong> The nightly walk-forward and live-trade events feed <code>AIContentService</code>, which prompts the Claude API to write posts grounded in the actual result &mdash; result-and-thesis first, methodology hygiene left out of customer copy. A template service is the fallback if the API is unavailable.</li>
+    <li><strong>Schedule.</strong> <code>PostSchedulerService</code> spreads approved drafts across optimal posting windows on a Monday / Wednesday / Friday autopost cadence, capped per day, and issues T-24h and T-1h admin notifications.</li>
+    <li><strong>Approve or Kill.</strong> Each notification email carries a JWT-signed one-click <strong>Kill</strong> or approve link, and an edit path back into the queue &mdash; no login required, scoped to a single post ID.</li>
+    <li><strong>Publish.</strong> A cron every fifteen minutes publishes any approved post whose <code>scheduled_for</code> has passed.</li>
+  </ol>
+
+  <h3>Multi-platform publishing</h3>
+  <table>
+    <thead><tr><th>Platform</th><th>Format</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><strong>X</strong></td><td>Text post</td><td>Twitter API v2. First-party posts publish via the API.</td></tr>
+      <tr><td><strong>Threads</strong></td><td>Text post</td><td>Meta graph API; long-lived token refreshed weekly.</td></tr>
+      <tr><td><strong>Instagram</strong></td><td>Editorial quote card</td><td>1080&times;1350 chart / quote card rendered in the claret/paper brand, published via the graph API.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Contextual replies (deep-link workaround)</h3>
+  <p>
+    A reply scanner surfaces on-thesis conversations across X and Threads and
+    drafts a contextual reply for approval. Because the X free tier cannot
+    programmatically post replies where the account was not mentioned, the approval
+    email <strong>deep-links to the platform's pre-filled composer</strong>
+    (an <code>in_reply_to</code> intent URL) rather than posting through the API.
+    The operator taps once and sends. First-party posts still publish through the
+    API directly &mdash; only replies use the deep-link path.
+  </p>
+
+  <div class="callout">
+    <p><strong>Human in the loop, by design.</strong> Every AI draft &mdash; post
+    or reply &mdash; is gated behind explicit approval. The Kill link makes the
+    default action &ldquo;do nothing&rdquo; safe: an unapproved post simply never
+    ships.</p>
+  </div>
+</div>
+
+<!-- ============================================================
+     10. SECURITY
+     ============================================================ -->
+<div class="content page-break">
+  <span class="kicker">10 &middot; Security Architecture</span>
   <h2>Defense in <em>depth</em>, not in marketing.</h2>
 
   <p class="lead">
     Every signal endpoint sits behind a subscription guard. Every admin endpoint
-    sits behind two guards. The price-data S3 bucket has all public access blocked.
-    The execute-api URL is no longer reachable directly. None of this is novel; all
-    of it is enforced.
+    sits behind two. The price-data S3 bucket has all public access blocked. The
+    raw execute-api URL is not reachable directly. None of this is novel; all of it
+    is enforced and re-verified on a fixed cadence.
   </p>
 
   <h3>Authentication flow</h3>
   <div class="code-block"><span class="comment"># Subscriber login</span>
 Email / Google / Apple  <span class="arrow">&rarr;</span>  Turnstile (bot guard)
-                        <span class="arrow">&rarr;</span>  JWT issue (HS256, 15 min access)
+                        <span class="arrow">&rarr;</span>  JWT issue (HS256, short-lived access)
                         <span class="arrow">&rarr;</span>  Bearer header on every request
                         <span class="arrow">&rarr;</span>  Role check: admin / user
-                        <span class="arrow">&rarr;</span>  Subscription check: trial / active</div>
+                        <span class="arrow">&rarr;</span>  Subscription + tier check</div>
 
   <h3>Controls</h3>
   <table>
@@ -1528,19 +1488,19 @@ Email / Google / Apple  <span class="arrow">&rarr;</span>  Turnstile (bot guard)
       <tr><th>Layer</th><th>Implementation</th></tr>
     </thead>
     <tbody>
-      <tr><td><strong>Password hashing</strong></td><td>bcrypt via passlib with auto-tuned cost factor.</td></tr>
-      <tr><td><strong>JWT tokens</strong></td><td>HS256, 15-minute access / seven-day refresh, python-jose.</td></tr>
-      <tr><td><strong>OAuth validation</strong></td><td>Google: ID token signature against published keys. Apple: JWKS with one-hour cache.</td></tr>
+      <tr><td><strong>Password hashing</strong></td><td>bcrypt via passlib.</td></tr>
+      <tr><td><strong>JWT tokens</strong></td><td>HS256, short-lived access / longer-lived refresh, python-jose.</td></tr>
+      <tr><td><strong>OAuth validation</strong></td><td>Google ID-token signature against published keys; Apple JWKS with cache.</td></tr>
       <tr><td><strong>Bot protection</strong></td><td>Cloudflare Turnstile on registration.</td></tr>
       <tr><td><strong>CORS</strong></td><td>Allowlist: <code>rigacap.com</code>, <code>www.rigacap.com</code>, plus localhost dev.</td></tr>
       <tr><td><strong>Admin guard</strong></td><td>Role plus <code>ADMIN_EMAILS</code> allowlist &mdash; double enforcement.</td></tr>
-      <tr><td><strong>Subscription gate</strong></td><td><code>require_valid_subscription</code> on every signal and portfolio endpoint.</td></tr>
-      <tr><td><strong>Payment security</strong></td><td>Stripe Checkout (PCI DSS-validated) with webhook signature verification.</td></tr>
-      <tr><td><strong>S3 access</strong></td><td>Price-data bucket: all public access blocked, IAM-only.</td></tr>
+      <tr><td><strong>Subscription gate</strong></td><td><code>require_valid_subscription</code> on every signal and portfolio endpoint; tier gates Maximizer content.</td></tr>
+      <tr><td><strong>Payment security</strong></td><td>Stripe Checkout with webhook signature verification; RigaCap stores no card data.</td></tr>
+      <tr><td><strong>S3 access</strong></td><td>Price-data bucket: all public access blocked, IAM-only. No signal data on the CDN or a public path.</td></tr>
       <tr><td><strong>HTTPS</strong></td><td>ACM certificates everywhere; CloudFront redirects HTTP &rarr; HTTPS.</td></tr>
-      <tr><td><strong>WAF</strong></td><td>Web ACL on the API CloudFront distribution with managed rule sets and rate limits on auth.</td></tr>
-      <tr><td><strong>Origin verify</strong></td><td>CloudFront injects <code>X-Origin-Verify</code> on every API origin request. <code>backend/app/core/origin_guard.OriginVerifyMiddleware</code> compares the inbound header with <code>hmac.compare_digest</code>; direct hits to the raw execute-api URL return 403. Closes the bypass that previously made the WAF optional.</td></tr>
-      <tr><td><strong>Email cancel links</strong></td><td>JWT-signed one-click cancel and approve URLs scoped to a single post ID.</td></tr>
+      <tr><td><strong>WAF</strong></td><td>Web ACL on the API distribution with managed rule sets and a rate limit on auth.</td></tr>
+      <tr><td><strong>Origin verify</strong></td><td>CloudFront injects <code>X-Origin-Verify</code> on every API origin request; middleware compares it with a constant-time check. Direct hits to the raw execute-api URL return 403.</td></tr>
+      <tr><td><strong>Signed email links</strong></td><td>JWT-signed one-click approve / Kill / unsubscribe URLs, each scoped to a single resource.</td></tr>
     </tbody>
   </table>
 
@@ -1548,28 +1508,28 @@ Email / Google / Apple  <span class="arrow">&rarr;</span>  Turnstile (bot guard)
   <p>
     A security audit runs every two to three weeks. The reviewer verifies that
     every signal, dashboard, and portfolio endpoint requires auth; that the
-    price-data bucket remains private; that no signal data leaks through the CDN
-    or a public S3 path; that the CORS allowlist matches only the production
-    origins plus dev; and that any new endpoints since the last review have
-    proper guards in place.
+    price-data bucket remains private; that no signal data leaks through the CDN or
+    a public S3 path; that the CORS allowlist matches only the production origins
+    plus dev; and that any endpoints added since the last review carry proper
+    guards. No secrets ship in the frontend bundle or in git history.
   </p>
 </div>
 
 <!-- ============================================================
-     10. CI/CD
+     11. CI/CD, DR & DEPLOY SAFETY
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">10 &middot; CI/CD Pipeline</span>
+  <span class="kicker">11 &middot; CI/CD, DR &amp; Deploy Safety</span>
   <h2>Push to main, the rest is <em>plumbing.</em></h2>
 
   <p>
     Every change ships through GitHub Actions on push to <code>main</code>. The
-    pipeline builds the frontend, builds the Lambda container image, deploys to
-    ECR, updates both Lambdas to the same image, and warms the API. Manual
+    pipeline tests, builds the frontend, builds the Lambda container image, deploys
+    to ECR, updates both Lambdas to the same image, and warms the API. Manual
     deploys are reserved for CI outages.
   </p>
 
-  <div class="code-block"><span class="comment"># Trigger: push to main OR pull request to main</span>
+  <div class="code-block"><span class="comment"># Trigger: push to main (deploy) OR PR to main (test only)</span>
 
 <span class="keyword">Stage 1: Test</span>
   Backend  <span class="arrow">&rarr;</span> Python 3.11 <span class="arrow">&rarr;</span> pip install <span class="arrow">&rarr;</span> <span class="string">pytest -v</span>
@@ -1577,63 +1537,74 @@ Email / Google / Apple  <span class="arrow">&rarr;</span>  Turnstile (bot guard)
 
 <span class="keyword">Stage 2: Deploy</span>  <span class="comment">(only on main push)</span>
   1. npm run build <span class="arrow">&rarr;</span> S3 sync <span class="arrow">&rarr;</span> CloudFront invalidation
-  2. Pre-deploy: export price data to S3 (pickle + parquet)
-  3. Docker buildx --platform linux/amd64 --provenance=false --sbom=false
-  4. ECR push <span class="arrow">&rarr;</span> Lambda update-function-code on API + Worker
-  5. Post-deploy: GET /api/warmup (verify cold start healthy)</div>
+  2. docker buildx --platform linux/amd64 --provenance=false --sbom=false
+  3. ECR push <span class="arrow">&rarr;</span> Lambda update-function-code on API + Worker
+  4. Post-deploy: GET /api/warmup (verify cold start healthy)</div>
 
   <div class="callout">
     <p><strong>Lambda build requirement.</strong> Docker BuildKit creates
-    multi-platform manifests with attestations that Lambda rejects. All builds
-    use <code>--provenance=false --sbom=false</code> for compatibility.</p>
+    multi-platform manifests with attestations that Lambda rejects. All builds use
+    <code>--provenance=false --sbom=false</code> to produce the single-platform
+    <code>linux/amd64</code> image Lambda requires.</p>
   </div>
 
-  <h3>Base image</h3>
+  <h3>The environment-clobber landmine, disarmed</h3>
   <p>
-    The Lambda base image is <code>public.ecr.aws/lambda/python:3.11</code> on
-    Amazon Linux 2023. The AL2023 upgrade unlocked DuckDB native httpfs (no more
-    <code>/tmp</code> staging) and is a prerequisite for the parquet migration's
-    consumer-cutover stage.
+    Two operational footguns have bitten this platform and are now guarded against
+    in the tooling itself:
   </p>
+  <ul>
+    <li><strong>Never <code>update-function-configuration --environment</code>.</strong> That flag <em>replaces the entire</em> environment block, which would wipe the database URL, Stripe keys, and JWT secret in one call. Cold starts are forced with <code>update-function-code</code> against the current image instead.</li>
+    <li><strong>Terraform cannot clobber live env either.</strong> Both Lambdas carry <code>lifecycle { ignore_changes = [image_uri, environment] }</code>. The live functions accumulate keys through the container deploy path; without the guard, a blind <code>apply</code> would drop keys and revert values &mdash; a full outage. Plans still get reviewed before apply.</li>
+  </ul>
 
-  <h3>Terraform</h3>
-  <p>
-    Infrastructure changes flow through Terraform with a remote backend &mdash;
-    state in <code>s3://rigacap-prod-terraform-state-149218244179</code> and
-    locks in DynamoDB <code>rigacap-prod-terraform-locks</code>. Plans are run
-    with <code>AWS_PROFILE=rigacap</code> against account
-    <code>149218244179</code>; the default profile points at a different account
-    and is explicitly never used for production work.
-  </p>
+  <h3>Disaster recovery &amp; backups</h3>
+  <table>
+    <thead><tr><th>Asset</th><th>Protection</th></tr></thead>
+    <tbody>
+      <tr><td>Lambda environment</td><td>Full env-var set backed up to S3 (and a local JSON) before any change, so a clobber is a one-command restore.</td></tr>
+      <tr><td>Database</td><td>RDS automated backups; deletion protection enabled on the instance.</td></tr>
+      <tr><td>Container images</td><td>ECR retains the last five images &mdash; rollback is redeploying a prior tag.</td></tr>
+      <tr><td>Terraform state</td><td>Versioned S3 backend with DynamoDB locking.</td></tr>
+      <tr><td>Price history</td><td>Durable in S3; a weekly full rebuild reconstructs the store from source if needed.</td></tr>
+    </tbody>
+  </table>
 
   <h3>Migration discipline</h3>
   <p>
-    SQLAlchemy auto-includes every model column in SELECT queries. A column in
-    the model that does not yet exist in the database breaks every query against
-    that table &mdash; including auth. The platform follows a migration-first
-    pattern: deploy the migration SQL first via the <code>run_migration</code>
-    Lambda event, verify the columns exist, then deploy the model change in a
-    second commit. Schema changes never ship during business hours.
+    SQLAlchemy auto-includes every model column in SELECT queries, so a column that
+    exists in the model but not yet in the database breaks every query against that
+    table &mdash; including auth. The platform follows a migration-first pattern:
+    deploy the migration SQL first via the <code>run_migration</code> Lambda event,
+    verify the columns exist, then deploy the model change in a second commit.
+    Schema changes never ship during business hours.
+  </p>
+
+  <h3>Terraform &amp; account hygiene</h3>
+  <p>
+    Infrastructure changes flow through Terraform against account
+    <code>149218244179</code>, always run with the dedicated
+    <code>AWS_PROFILE=rigacap</code> &mdash; the default profile points at a
+    different account and is explicitly never used for production work.
   </p>
 </div>
 
 <!-- ============================================================
-     11. MONITORING
+     12. MONITORING, PERFORMANCE & DEPENDENCIES
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">11 &middot; Monitoring &amp; Performance</span>
+  <span class="kicker">12 &middot; Monitoring, Performance &amp; Dependencies</span>
   <h2>Boring numbers, <em>watched.</em></h2>
 
-  <h3>Current monitoring</h3>
+  <h3>Monitoring</h3>
   <table>
     <thead><tr><th>Component</th><th>Method</th><th>Details</th></tr></thead>
     <tbody>
-      <tr><td>Lambda logs</td><td>CloudWatch Logs</td><td>Python logging, 30-day retention.</td></tr>
-      <tr><td>API Gateway</td><td>CloudWatch metrics</td><td>4xx and 5xx error rates per route.</td></tr>
-      <tr><td>CloudWatch alarms</td><td>SNS &rarr; email</td><td>Lambda errors / throttles / duration; API 5xx and 4xx; RDS CPU / storage / connections; Worker errors and duration.</td></tr>
-      <tr><td>Pipeline health monitor</td><td>HealthMonitorService</td><td>Multi-category checks across data freshness, worker performance, database, signals, and infrastructure.</td></tr>
-      <tr><td>Data fetch tracking</td><td>S3 metadata JSON</td><td>Source used (Alpaca / yfinance), settlement result, fetch duration, fallback status.</td></tr>
-      <tr><td>Database</td><td>RDS console metrics</td><td>CPU, storage, connection counts.</td></tr>
+      <tr><td>Lambda logs</td><td>CloudWatch Logs</td><td>Structured Python logging.</td></tr>
+      <tr><td>CloudWatch alarms</td><td>SNS &rarr; email</td><td>Eight alarms: Lambda errors / throttles / duration; API 5xx and 4xx; RDS CPU / storage / connections.</td></tr>
+      <tr><td>Pipeline health</td><td>HealthMonitorService</td><td>Multi-category checks across data freshness, worker performance, database, signals, and infrastructure.</td></tr>
+      <tr><td>Data-fetch tracking</td><td>S3 metadata JSON</td><td>Source used (Alpaca / yfinance), settlement result, fetch duration, fallback status.</td></tr>
+      <tr><td>Freshness banner</td><td>/api/market-data-status</td><td>Public staleness signal &mdash; blue during the processing window, amber if data is late.</td></tr>
     </tbody>
   </table>
 
@@ -1642,92 +1613,51 @@ Email / Google / Apple  <span class="arrow">&rarr;</span>  Turnstile (bot guard)
     <thead><tr><th>Operation</th><th>Latency</th><th>Resource</th></tr></thead>
     <tbody>
       <tr><td>Dashboard load</td><td>&lt; 2 seconds</td><td>Pre-computed JSON from CloudFront.</td></tr>
-      <tr><td>Daily signal scan</td><td>30&ndash;45 seconds</td><td>Worker Lambda, ~4,000 symbols, Alpaca SIP.</td></tr>
-      <tr><td>Single backtest (90d, 100 symbols)</td><td>20&ndash;40 seconds</td><td>Worker Lambda, 3 GB.</td></tr>
+      <tr><td>Daily signal scan</td><td>seconds, not minutes</td><td>Worker Lambda, ~4,000 symbols, dual-source.</td></tr>
       <tr><td>Walk-forward (multi-year)</td><td>10&ndash;30 minutes</td><td>Step Functions fan-out across the Worker Lambda.</td></tr>
-      <tr><td>AI content generation</td><td>2&ndash;5 seconds</td><td>Claude API (Sonnet 4.5).</td></tr>
-      <tr><td>Chart card generation</td><td>1&ndash;3 seconds</td><td>matplotlib on the Worker Lambda.</td></tr>
+      <tr><td>AI content generation</td><td>2&ndash;5 seconds</td><td>Claude API.</td></tr>
+      <tr><td>Chart-card generation</td><td>1&ndash;3 seconds</td><td>matplotlib on the Worker Lambda.</td></tr>
     </tbody>
   </table>
 
-  <h3>Resource utilization</h3>
+  <h3>Resource footprint</h3>
   <div class="stat-row">
     <div class="stat">
-      <div class="stat-num">1 + 3 GB</div>
+      <div class="stat-num">1 + 4 GB</div>
       <div class="stat-label">API + Worker memory</div>
     </div>
     <div class="stat">
-      <div class="stat-num">269 MB</div>
-      <div class="stat-label">S3 pickle (gzip)</div>
+      <div class="stat-num claret">~4,000</div>
+      <div class="stat-label">Symbols scanned daily</div>
     </div>
     <div class="stat">
       <div class="stat-num">20 GB</div>
       <div class="stat-label">RDS storage</div>
     </div>
   </div>
-
-  <h3>Concurrency</h3>
   <p>
-    Account-level Lambda concurrency: 1,000 total. Reserved concurrency: 50 on
-    the API Lambda, 200 on the Worker Lambda. The Worker reservation was raised
-    from ten after a self-throttling incident demonstrated that scheduled
-    fan-out workloads can collide with on-demand admin invocations. Manual
-    Lambda invocations always target the Worker so the API surface stays
-    available for subscribers.
+    Manual Lambda invocations always target the Worker so the API surface stays
+    available for subscribers; long-running jobs (walk-forward simulations, AI
+    optimization) invoke the Worker directly to bypass the 29-second API Gateway
+    timeout.
   </p>
-</div>
 
-<!-- ============================================================
-     12. DEPENDENCIES
-     ============================================================ -->
-<div class="content page-break">
-  <span class="kicker">12 &middot; Dependencies</span>
-  <h2>What the platform <em>imports.</em></h2>
-
-  <h3>Backend &mdash; Python 3.11 on Amazon Linux 2023</h3>
+  <h3>Dependencies &mdash; backend (Python 3.11 on Amazon Linux 2023)</h3>
   <ul>
-    <li><strong>FastAPI</strong> 0.109.0 with Uvicorn 0.27.0 for local dev.</li>
-    <li><strong>Mangum</strong> 0.17.0 &mdash; ASGI to Lambda adapter.</li>
-    <li><strong>SQLAlchemy</strong> 2.0.25 with <strong>asyncpg</strong> 0.29.0.</li>
-    <li><strong>Pydantic</strong> 2.5.0 for request and response models.</li>
-    <li><strong>pandas</strong> 2.1.4 with <strong>numpy</strong> 1.26.3 (numpy 2.x is incompatible with the pickled DataFrames).</li>
-    <li><strong>pyarrow</strong> + <strong>duckdb</strong> for the parquet shadow and ad-hoc SQL.</li>
-    <li><strong>alpaca-py</strong> &ge; 0.30.0 for SIP market data.</li>
-    <li><strong>yfinance</strong> &ge; 1.1.0 for fallback bars and index symbols.</li>
-    <li><strong>Optuna</strong> &ge; 3.5.0 for parameter optimization.</li>
-    <li><strong>matplotlib</strong> &ge; 3.8.0 for chart card rendering.</li>
-    <li><strong>boto3</strong> 1.34.0 &mdash; AWS SDK.</li>
-    <li><strong>Stripe</strong> 7.10.0 &mdash; payments.</li>
-    <li><strong>python-jose</strong> 3.3.0 with <strong>passlib</strong> 1.7.4 for JWT and bcrypt.</li>
-    <li><strong>httpx</strong> 0.26.0 &mdash; async HTTP client used for the Claude API and platform graph APIs.</li>
-    <li><strong>APScheduler</strong> 3.10.4 &mdash; local-dev scheduler; production uses EventBridge.</li>
+    <li><strong>FastAPI</strong> + <strong>Mangum</strong> (ASGI-to-Lambda), <strong>Uvicorn</strong> for local dev.</li>
+    <li><strong>SQLAlchemy 2.0</strong> async with <strong>asyncpg</strong>; <strong>Pydantic 2</strong> models.</li>
+    <li><strong>pandas</strong> / <strong>numpy</strong> for computation; <strong>pyarrow</strong> + <strong>duckdb</strong> for the parquet store and ad-hoc SQL.</li>
+    <li><strong>alpaca-py</strong> and <strong>yfinance</strong> behind the dual-source provider.</li>
+    <li><strong>Optuna</strong> for parameter optimization; <strong>matplotlib</strong> for chart cards.</li>
+    <li><strong>boto3</strong> (AWS SDK), <strong>Stripe</strong> (payments), <strong>python-jose</strong> + <strong>passlib</strong> (JWT, bcrypt).</li>
+    <li><strong>httpx</strong> async client for the Claude API and the social graph APIs.</li>
   </ul>
 
-  <h3>Frontend &mdash; Node 18</h3>
+  <h3>Dependencies &mdash; frontend, mobile &amp; external</h3>
   <ul>
-    <li><strong>React</strong> 18.2.0 &middot; <strong>Vite</strong> 5.0.0 &middot; <strong>TailwindCSS</strong> 3.3.5</li>
-    <li><strong>React Router</strong> 6.20.0 &middot; <strong>Recharts</strong> 2.10.0</li>
-    <li><strong>Axios</strong> 1.6.0 &middot; <strong>Lucide React</strong> 0.292.0</li>
-    <li><strong>Puppeteer</strong> 24.37.3 &middot; <strong>ESLint</strong> 8.53.0 &middot; <strong>Vitest</strong> 0.34.6</li>
-  </ul>
-
-  <h3>Mobile &mdash; Expo</h3>
-  <ul>
-    <li>React Native via Expo SDK; OTA updates published to the <code>preview</code> channel.</li>
-    <li>Expo push notifications service for sell alerts and high-conviction signal events.</li>
-  </ul>
-
-  <h3>External APIs</h3>
-  <ul>
-    <li><strong>Anthropic Claude</strong> &mdash; <code>claude-sonnet-4-5</code> for social drafts, trade autopsies, and editorial copy. Direct httpx POST; the official SDK is intentionally not vendored on Lambda.</li>
-    <li><strong>X (Twitter API v2)</strong> &mdash; tweet publish, contextual reply scanning.</li>
-    <li><strong>Threads</strong> &mdash; <code>graph.threads.net</code> publish and reply.</li>
-    <li><strong>Instagram-with-Instagram-Login</strong> &mdash; <code>graph.instagram.com</code> publish and comment moderation, IG-native long-lived tokens.</li>
-    <li><strong>Stripe</strong> &mdash; subscriptions, customer portal, coupon-backed referrals.</li>
-    <li><strong>Cloudflare Turnstile</strong> &mdash; bot protection at registration.</li>
-    <li><strong>Google &amp; Apple OAuth</strong> &mdash; identity providers.</li>
-    <li><strong>HeyGen</strong> &mdash; AI avatar video pipeline (in development).</li>
-    <li><strong>Expo Push</strong> &mdash; mobile notification delivery.</li>
+    <li><strong>Frontend:</strong> React 18 &middot; Vite 5 &middot; TailwindCSS 3 &middot; React Router 6 &middot; Recharts &middot; Axios &middot; Lucide React.</li>
+    <li><strong>Mobile:</strong> React Native via Expo; Expo push for sell alerts and signal events.</li>
+    <li><strong>External APIs:</strong> Anthropic Claude (content, autopsies, editorial copy) &middot; X / Threads / Instagram graph APIs &middot; Stripe &middot; Cloudflare Turnstile &middot; Google &amp; Apple OAuth &middot; Amazon SES &middot; Expo Push.</li>
   </ul>
 
   <!-- ============================================================
@@ -1735,20 +1665,21 @@ Email / Google / Apple  <span class="arrow">&rarr;</span>  Turnstile (bot guard)
        ============================================================ -->
   <div class="disclosures">
     <p>
-      <strong>This document is confidential.</strong> Infrastructure details should not be shared outside the organization.
-      Code-level identifiers are accurate as of the document date and may evolve through normal deployment activity.
+      <strong>This document is confidential.</strong> Infrastructure details should
+      not be shared outside the organization. Code-level identifiers are accurate as
+      of the document date and may evolve through normal deployment activity.
     </p>
     <p>
-      RigaCap operates as a publisher under the publisher&rsquo;s exemption to the
-      Investment Advisers Act of 1940 (&sect;202(a)(11)(d)), as interpreted in
-      <em>Lowe v. SEC</em>. Three conditions are satisfied: the commentary is
-      impersonal (the same signals reach every subscriber regardless of their
-      portfolio or financial situation); it is bona fide market analysis; and it
-      is published on a regular schedule. Subscribers execute their own trades
-      through their own broker. Past performance does not predict future results.
+      RigaCap publishes momentum stock-signal research in two tiers &mdash;
+      Preserver and Maximizer. It is a publisher, not an investment adviser:
+      the same signals reach every subscriber at a given tier regardless of their
+      portfolio or situation, and subscribers execute their own trades through their
+      own broker. All performance figures are walk-forward results validated across
+      cross-period holdouts and daily-resolution drawdowns. Past performance does
+      not predict future results.
     </p>
     <p style="margin-top: 1.5rem; font-family: var(--mono); letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.7rem; color: var(--ink-mute);">
-      RigaCap &middot; May 2026 &middot; Technical Architecture &middot; rigacap.com
+      RigaCap &middot; August 2026 &middot; Technical Architecture &middot; rigacap.com
     </p>
   </div>
 </div>

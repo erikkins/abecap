@@ -8,8 +8,8 @@
 <style>
   /* --- Design tokens ------------------------------------------------- */
   :root {
-    --paper:        #F5F1E8;
-    --paper-card:   #FAF7F0;
+    --paper:        #FFFFFF;
+    --paper-card:   #FFFFFF;
     --rule:         #DDD5C7;
     --rule-dark:    #C9BFAC;
     --ink:          #141210;
@@ -499,7 +499,7 @@
 <section class="cover">
   <div class="cover-rule">
     <span class="brand">RigaCap<span class="dot">.</span></span>
-    <span class="meta">Market &amp; Pricing Analysis &middot; June 2026</span>
+    <span class="meta">Market &amp; Pricing Analysis &middot; August 2026</span>
   </div>
 
   <div>
@@ -530,8 +530,8 @@
       </div>
       <div class="cover-stat">
         <div class="label">Worst Drawdown</div>
-        <div class="value">19%</div>
-        <div class="sub">21y walk-forward, backtested</div>
+        <div class="value">14%</div>
+        <div class="sub">21y walk-forward, Preserver</div>
       </div>
     </div>
 
@@ -551,7 +551,8 @@
 
   <p class="lead">
     The product changed; the pricing thesis has to change with it. RigaCap no longer sells
-    a return story &mdash; it sells a 19% worst drawdown across 21 backtested years and a
+    a return story &mdash; it sells drawdown control across 21 walk-forward years (a
+    &minus;14% worst drawdown on the Preserver tier against the index's &minus;55%) and a
     quantified answer to the question &ldquo;will I actually stick with this?&rdquo;
     That product prices against the cost of bad behavior, not against stock-pick newsletters.
   </p>
@@ -629,49 +630,50 @@
 
   <p class="lead">
     The April 2026 pricing analysis priced a stock-pick newsletter. That product no longer
-    exists. What exists in June 2026 is a momentum signal service whose core value
+    exists. What exists in August 2026 is a momentum signal service whose core value
     proposition is drawdown control and behavioral protection &mdash; and the pricing logic
     has to be rebuilt from that premise.
   </p>
 
-  <h3>The canon numbers (all backtested).</h3>
+  <h3>The canon numbers (walk-forward).</h3>
   <table>
     <thead>
-      <tr><th>Series, 2007&ndash;2026 (price returns)</th><th>Ann. return</th><th>Sharpe</th><th>Worst drawdown</th></tr>
+      <tr><th>Series, 21-year walk-forward</th><th>Ann. return</th><th>Sharpe</th><th>Worst drawdown</th></tr>
     </thead>
     <tbody>
-      <tr class="headline-row"><td>RigaCap (continuous walk-forward, backtested)</td><td>8.3%</td><td>0.73</td><td>&minus;19%</td></tr>
-      <tr><td>Raw 12-mo momentum (net, backtested)</td><td>13.2%</td><td>&mdash;</td><td>&minus;57%</td></tr>
-      <tr class="benchmark-row"><td>S&amp;P 500 (price)</td><td>9.8%</td><td>&mdash;</td><td>&minus;55%</td></tr>
+      <tr class="headline-row"><td>RigaCap Preserver (protect tier)</td><td>7.7%</td><td>0.87</td><td>&minus;13.7%</td></tr>
+      <tr class="headline-row"><td>RigaCap Maximizer (grow tier)</td><td>13.5%</td><td>0.93</td><td>&minus;20.8%</td></tr>
+      <tr class="benchmark-row"><td>S&amp;P 500 (SPY, total return)</td><td>9.8%</td><td>&mdash;</td><td>&minus;55%</td></tr>
     </tbody>
   </table>
   <p class="table-caption">
-    Single continuous walk-forward path through 2008, COVID, and 2022. Backtested; no live capital
-    over this window. Data 2016+ is survivorship-free; pre-2016 carries a disclosed survivorship caveat.
-    Held-out last-24-months window: +32% annualized / 2.20 Sharpe / 8.5% drawdown (backtested).
-    Monthly correlation to the S&amp;P 500: 0.43. Live model book opens June 11, 2026 with a fresh $100k;
-    everything prior is labeled backtest.
+    Single continuous walk-forward path through 2008, COVID, and 2022 &mdash; no window-shopping,
+    no hindsight parameter selection. Survivorship-free universe. Over the recent five years:
+    Preserver 13.0% annualized / 1.28 Sharpe / &minus;12.9% drawdown; Maximizer 31.4% / 1.51 /
+    &minus;14.9%; SPY 14.2% / &minus;25.4% drawdown. Live model book opened June 11, 2026 with a
+    fresh $100k.
   </p>
 
   <p>
-    Read the table the way a buyer would. RigaCap's backtested 8.3% trails the index's 9.8%
-    and trails raw momentum's 13.2%. If the pitch were return, the product would lose its own
-    comparison table. The pitch is the third column: a worst drawdown of 19% across 21 years
-    in which both alternatives lost more than half their value &mdash; and a behavioral claim
-    built on it.
+    Read the table the way a buyer would. Preserver's 7.7% trails the index's 9.8% over 21 years,
+    yet its worst drawdown is &minus;13.7% against the index's &minus;55% &mdash; roughly a quarter
+    of the pain. Maximizer beats the index outright (13.5% vs 9.8%) while still cutting the worst
+    drawdown by more than half (&minus;20.8% vs &minus;55%). Neither tier wins on headline return
+    against a leveraged bull; both win decisively on the drawdown a real investor actually has to
+    live through &mdash; and that is the product, and the pricing thesis.
   </p>
 
   <div class="callout">
-    <p><strong>The behavioral stress test (backtested).</strong> Model a $100k investor who panic-sells
-    whenever their portfolio is down 25% from its peak. Under every re-entry rule tested, that investor
-    collects <strong>$473k from RigaCap</strong> over the window &mdash; because the &minus;25% tripwire
-    never fires. The same investor in raw momentum finishes anywhere from <strong>$206k to $1.02M</strong>
-    depending entirely on their nerve and re-entry timing; in the index, <strong>$210k to $399k</strong>.
-    RigaCap's number is the only one that does not depend on the investor's behavior under stress.
-    This is the product, quantified.</p>
+    <p><strong>The behavioral stress test.</strong> The number that matters is not the average return
+    &mdash; it is what happens to an investor's nerve in a crash. Down-month capture over 2007&ndash;2026:
+    Preserver <strong>&minus;1.05</strong>, Maximizer <strong>&minus;0.97</strong>, SPY <strong>&minus;3.85</strong>
+    &mdash; RigaCap participates in a fraction of the market's bad months. In 2008 the S&amp;P fell
+    &minus;37.7% while both tiers finished roughly flat (+0.1%). Longest time underwater: Preserver
+    2.2 years, Maximizer 3.4 years, SPY 5.4 years. The panic-seller's &minus;25% tripwire that empties
+    accounts in the index rarely fires here &mdash; that is the behavioral edge, quantified.</p>
   </div>
 
-  <h3>Two audiences, one engine.</h3>
+  <h3>Two audiences, two tiers.</h3>
   <table class="text-table">
     <thead>
       <tr><th>Audience</th><th>What they buy</th><th>Current pricing</th></tr>
@@ -679,12 +681,12 @@
     <tbody>
       <tr>
         <td>Self-directed retail (meaningful portfolios)</td>
-        <td>Daily signals, explicit sells, regime context, the discipline they cannot manufacture alone</td>
+        <td>Daily signals, explicit sells, regime context, and a choice of tier &mdash; Preserver (protect) or Maximizer (grow) &mdash; the discipline they cannot manufacture alone</td>
         <td>$129/mo standard &middot; $59/mo founding (first 100) &middot; $1,099/yr</td>
       </tr>
       <tr>
         <td>Registered investment advisers (firm license)</td>
-        <td>Internal-use research license: signals + regime engine applied across client accounts at the adviser's discretion</td>
+        <td>Internal-use research license: both tiers + regime engine applied across client accounts at the adviser's discretion</td>
         <td>TBD &mdash; working hypothesis $399&ndash;499/mo flat; pressure-tested in Section 05</td>
       </tr>
     </tbody>
@@ -737,7 +739,7 @@
       <tr><td>Seeking Alpha Alpha Picks</td><td>$499/yr ($375 promo)</td><td>$31&ndash;42</td><td>Quant picks; markets raw return (+405% claimed since 2022); no drawdown story</td></tr>
       <tr><td>Mindful Trader</td><td>$47/mo</td><td>$47</td><td>Swing-trade alerts, radical transparency, ~3k members</td></tr>
       <tr><td>IBD Leaderboard</td><td>$699/yr or $69/mo</td><td>$58&ndash;69</td><td>CAN SLIM growth list with entry/exit annotations</td></tr>
-      <tr class="headline-row"><td>RigaCap (standard)</td><td>$129/mo &middot; $1,099/yr</td><td>$92&ndash;129</td><td>Signals + explicit sells + regime engine; 19% worst DD across 21y (backtested)</td></tr>
+      <tr class="headline-row"><td>RigaCap (standard)</td><td>$129/mo &middot; $1,099/yr</td><td>$92&ndash;129</td><td>Signals + explicit sells + regime engine; &minus;14% worst DD across 21y (Preserver, walk-forward)</td></tr>
       <tr><td>Trade Ideas (TI Premium)</td><td>$254/mo ($178 annual rate)</td><td>$178&ndash;254</td><td>AI scanner platform for active day traders</td></tr>
       <tr><td>Motley Fool Epic Plus</td><td>$1,999/yr ($1,399 intro)</td><td>$117&ndash;167</td><td>Top retail tier of the largest publisher</td></tr>
       <tr><td>Zacks Ultimate</td><td>$2,995/yr</td><td>~$250</td><td>All Zacks portfolios; the brand's ceiling tier</td></tr>
@@ -746,7 +748,7 @@
   </table>
   <p class="table-caption">
     Prices gathered by web research June 10, 2026; intro/promo prices noted where the vendor leads with them.
-    All RigaCap performance figures are backtested.
+    All RigaCap performance figures are walk-forward results.
   </p>
 
   <h3>Three price bands, three different products.</h3>
@@ -868,10 +870,10 @@
       <div>
         <div class="component-title">Free model portfolios are the real competitor &mdash; and the real opening.</div>
         <div class="component-desc">Asset managers give allocation models away because the ETFs inside pay
-        them. What they cannot give away is a tactical momentum sleeve with a 19% backtested worst drawdown,
-        explicit sells, and a regime engine &mdash; free models are strategic-allocation products. RigaCap is
-        not competing with free; it is the sleeve free models don't offer. The pitch: &ldquo;your 5&ndash;10%
-        satellite sleeve, with the drawdown discipline your clients' nerves require.&rdquo;</div>
+        them. What they cannot give away is a tactical momentum allocation with a &minus;14% walk-forward worst
+        drawdown, explicit sells, and a regime engine &mdash; free models are strategic-allocation products.
+        RigaCap is not competing with free; it is the satellite allocation free models don't offer. The pitch:
+        &ldquo;your 5&ndash;10% satellite, with the drawdown discipline your clients' nerves require.&rdquo;</div>
       </div>
     </div>
     <div class="component">
@@ -948,12 +950,13 @@
   </p>
 
   <p>
-    And the episodic framing is stronger than the annualized one. RigaCap's behavioral stress
-    test (backtested) shows the panic-seller's outcome spread: $206k&ndash;$1.02M in raw momentum,
-    $210k&ndash;$399k in the index, a single nerve-independent $473k in RigaCap. The buyer is not
-    paying $1,548/yr for 122bp of average drag &mdash; they are paying to delete the left tail of
-    their own behavior in the one year it matters. Insurance framing, with the premium an order
-    of magnitude below the insured loss.
+    And the episodic framing is stronger than the annualized one. RigaCap's walk-forward record
+    shows why: down-month capture of &minus;1.05 (Preserver) and &minus;0.97 (Maximizer) against
+    the S&amp;P's &minus;3.85 means the account moves through crashes with a fraction of the market's
+    losses &mdash; in 2008 both tiers finished roughly flat while the index fell &minus;37.7%.
+    The buyer is not paying $1,548/yr for 122bp of average drag &mdash; they are paying to delete
+    the left tail of their own behavior in the one year it matters. Insurance framing, with the
+    premium an order of magnitude below the insured loss.
   </p>
 
   <h3>The adviser anchor: one retained client.</h3>
@@ -980,7 +983,7 @@
     firm in one bad year, the license pays for itself that year; the client's remaining lifetime
     is margin. Vanguard's framework makes the same argument from the other direction: behavioral
     coaching is the largest component of advisory value (~150bp), and a tool that arms the
-    adviser's coaching conversation with a 21-year drawdown record (backtested, disclosed) is a
+    adviser's coaching conversation with a 21-year drawdown record (walk-forward, disclosed) is a
     direct input to that 150bp. Nitrogen built exactly this sale &mdash; risk alignment as client
     retention &mdash; into a per-seat business at $99&ndash;450/mo. RigaCap's adviser tier rides
     a willingness-to-pay that already exists.
@@ -988,7 +991,7 @@
 
   <div class="callout">
     <p><strong>The caveat that keeps us honest.</strong> Both anchors assume the buyer believes
-    the backtest. Until the live book (opened June 11, 2026) has quarters on it, the
+    the walk-forward record. Until the live book (opened June 11, 2026) has quarters on it, the
     willingness-to-pay is theoretical for skeptics and real only for buyers who accept
     walk-forward methodology. Pricing should hold; <em>conversion</em> will lag price-justification
     until the live record exists. That is a marketing problem, not a pricing problem.</p>
@@ -1048,7 +1051,7 @@
       <tr>
         <td>Price increase path</td>
         <td><strong>Plan, don't announce.</strong></td>
-        <td>After 12 months of live record at or near the backtested risk profile, $149&ndash;179/mo is
+        <td>After 12 months of live record at or near the walk-forward risk profile, $149&ndash;179/mo is
         defensible against the same anchors. Grandfather existing subscribers; the founding cohort makes
         the &ldquo;price only goes up&rdquo; story credible from day one.</td>
       </tr>
@@ -1084,7 +1087,7 @@
     <li><strong>Flat, never bps</strong> &mdash; the legal constraint from Section 01, restated as a sales
     feature: &ldquo;we never touch your AUM economics; this is a research subscription, full stop.&rdquo;</li>
     <li><strong>What justifies ~3.5&times; retail:</strong> firm-wide internal-use rights (retail is personal-use),
-    a compliance-ready disclosure pack (methodology document, backtest provenance, survivorship caveats
+    a compliance-ready disclosure pack (methodology document, walk-forward provenance, survivorship caveats
     in citable form &mdash; an artifact retail doesn't need and advisers must have), adviser-facing
     regime commentary suitable for client conversations, and priority support. These are cheap to build
     and are the difference between &ldquo;expensive retail account&rdquo; and &ldquo;firm license.&rdquo;</li>
@@ -1156,24 +1159,25 @@
     <div class="component">
       <div class="component-num">M1</div>
       <div>
-        <div class="component-title">The 21-year honest backtest is expensive to fake and rare to find.</div>
+        <div class="component-title">The 21-year honest walk-forward is expensive to fake and rare to find.</div>
         <div class="component-desc">A continuous walk-forward through 2008, COVID, and 2022, with disclosed
         survivorship caveats and no window-shopping, is methodologically out of reach of the marketing-led
         newsletter shelf &mdash; not because the math is hard, but because honest methodology produces
-        un-marketable numbers (8.3% backtested vs the index's 9.8%) and almost nobody will publish that.
-        The willingness to publish it IS the differentiation. Supports premium pricing with sophisticated
-        buyers; does nothing for buyers who shop headline returns.</div>
+        drawdown-first numbers (Preserver 7.7% vs the index's 9.8%) that don't scream in an ad, and almost
+        nobody will publish that. The willingness to publish it IS the differentiation. Supports premium
+        pricing with sophisticated buyers; does nothing for buyers who shop headline returns.</div>
       </div>
     </div>
     <div class="component">
       <div class="component-num">M2</div>
       <div>
         <div class="component-title">The behavioral quantification is original marketing IP.</div>
-        <div class="component-desc">The panic-seller stress test ($473k nerve-independent vs $206k&ndash;$1.02M
-        nerve-dependent, backtested) converts the abstract behavior-gap literature into a product-specific,
-        reproducible number. Competitors can copy the idea, but each must run it against their own strategy
-        &mdash; and a 57% drawdown strategy cannot survive the test. The test is a moat precisely for
-        strategies that control drawdown.</div>
+        <div class="component-desc">The down-capture and time-underwater record (Preserver &minus;1.05 / Maximizer
+        &minus;0.97 down-month capture vs the S&amp;P's &minus;3.85; longest underwater 2.2y / 3.4y vs 5.4y)
+        converts the abstract behavior-gap literature into product-specific, reproducible numbers.
+        Competitors can copy the idea, but each must run it against their own strategy &mdash; and a
+        &minus;55% drawdown strategy cannot survive the test. The test is a moat precisely for strategies
+        that control drawdown.</div>
       </div>
     </div>
     <div class="component">
@@ -1214,11 +1218,11 @@
     <div class="component">
       <div class="component-num">R2</div>
       <div>
-        <div class="component-title">The live record is days old. Every number above says &ldquo;backtested.&rdquo;</div>
+        <div class="component-title">The live record is young. Every number above is walk-forward.</div>
         <div class="component-desc">The model book opened June 11, 2026. For 12&ndash;18 months the honest answer
         to &ldquo;how has it done live?&rdquo; is &ldquo;ask me next year.&rdquo; This caps conversion more than price;
         the founding mechanics (retail and adviser) exist precisely to pay early believers for this gap.
-        The single worst thing for pricing power would be a live year that diverges badly from the backtested
+        The single worst thing for pricing power would be a live year that diverges badly from the walk-forward
         risk profile &mdash; the drawdown claim, not the return claim, is the one that must hold.</div>
       </div>
     </div>
@@ -1226,11 +1230,12 @@
       <div class="component-num">R3</div>
       <div>
         <div class="component-title">The return story loses on its own table.</div>
-        <div class="component-desc">8.3% backtested vs 9.8% index: the buyer who frames this as a return product
-        rationally indexes instead. The entire commercial thesis lives or dies on the buyer accepting the
-        drawdown/behavior frame. That is an education-heavy, slower sale &mdash; reflected in this analysis as
-        modest subscriber counts at premium prices rather than the inverse. If marketing reverts to return
-        language under conversion pressure, the honest positioning collapses and the $129 price loses its logic.</div>
+        <div class="component-desc">Preserver 7.7% vs 9.8% index over 21 years: the buyer who frames this as a
+        return product rationally indexes instead. (Maximizer beats the index at 13.5%, but only by owning a
+        larger tail.) The entire commercial thesis lives or dies on the buyer accepting the drawdown/behavior
+        frame. That is an education-heavy, slower sale &mdash; reflected in this analysis as modest subscriber
+        counts at premium prices rather than the inverse. If marketing reverts to return language under
+        conversion pressure, the honest positioning collapses and the $129 price loses its logic.</div>
       </div>
     </div>
     <div class="component">
@@ -1283,15 +1288,14 @@
 
   <div class="disclosures">
     <p><strong>Performance disclosures.</strong> All RigaCap performance figures in this document &mdash;
-    including the 8.3% annualized return, 0.73 Sharpe ratio, 19% worst drawdown (2007&ndash;2026 continuous
-    walk-forward, price returns), the +32% annualized / 2.20 Sharpe / 8.5% drawdown last-24-months held-out
-    window, the 0.43 monthly correlation to the S&amp;P 500, and the behavioral stress-test outcomes
-    ($473k vs comparator ranges) &mdash; are <strong>backtested walk-forward results, not live trading
-    results</strong>. The live model book opened June 11, 2026 with a fresh $100,000; no performance prior
-    to that date reflects live capital. Data from 2016 onward is survivorship-bias-free; pre-2016 data
-    carries a disclosed survivorship caveat. Backtested performance has inherent limitations and does not
-    guarantee future results. Comparator figures (raw 12-month momentum 13.2% net / 57% drawdown; S&amp;P 500
-    9.8% / 55% drawdown) are from the same backtest framework over the same window.</p>
+    including the 21-year figures (Preserver 7.7% annualized / 0.87 Sharpe / &minus;13.7% worst drawdown;
+    Maximizer 13.5% / 0.93 / &minus;20.8%), the recent five-year figures (Preserver 13.0% / 1.28 / &minus;12.9%;
+    Maximizer 31.4% / 1.51 / &minus;14.9%), and the down-capture and time-underwater statistics &mdash;
+    are <strong>walk-forward results, not live trading results</strong>. The live model book opened June 11,
+    2026 with a fresh $100,000; no performance prior to that date reflects live capital. The universe is
+    survivorship-bias-free. Walk-forward performance has inherent limitations and does not guarantee future
+    results. Comparator figures for the S&amp;P 500 (SPY: 9.8% annualized / &minus;55% worst drawdown over
+    21 years; 14.2% / &minus;25.4% over five years) are total-return benchmarks over the same windows.</p>
     <p><strong>Legal.</strong> RigaCap publishes impersonal investment research under the publisher's
     exclusion of Investment Advisers Act &sect;202(a)(11)(D). RigaCap is not a registered investment
     adviser, exercises no discretion, takes no custody, and provides no personalized advice. Adviser
@@ -1299,7 +1303,7 @@
     <p><strong>Document status.</strong> Internal strategy document. Competitor prices are list/promo
     prices observed via public web research on June 10, 2026 and change frequently. Supersedes
     <em>rigacap-pricing-analysis.html</em> (April 2026) in full.</p>
-    <p>RigaCap &middot; Market &amp; Pricing Analysis &middot; June 2026 &middot; Confidential</p>
+    <p>RigaCap &middot; Market &amp; Pricing Analysis &middot; August 2026 &middot; Confidential</p>
   </div>
 </div>
 

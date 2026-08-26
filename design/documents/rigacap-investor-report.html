@@ -4,1196 +4,847 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RigaCap — Investor Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
-  :root {
-    --navy: #172554;
-    --navy-mid: #1e3a5f;
-    --navy-light: #1e40af;
-    --gold: #f59e0b;
-    --gold-light: #fbbf24;
-    --gold-pale: #fef3c7;
-    --green: #22c55e;
-    --green-light: #dcfce7;
-    --red: #ef4444;
-    --red-light: #fee2e2;
-    --dark: #111827;
-    --gray: #64748b;
-    --light-gray: #f8fafc;
-    --border: #e2e8f0;
+  :root{
+    --white:#FFFFFF;
+    --ink:#141210; --mute:#5A544E; --light:#8A8279;
+    --claret:#7A2430; --claret-lt:#9A3444; --claret-pale:#F3E7E7;
+    --rule:#DDD5C7; --rule-dk:#C9BFAC;
+    --pos:#2D5F3F; --neg:#8F2D3D;
+    --paper-chip:#F5F1E8;
   }
+  *{box-sizing:border-box;margin:0;padding:0}
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    color: var(--dark);
-    line-height: 1.6;
-    background: #fff;
+  body{
+    background:var(--white);
+    color:var(--ink);
+    font-family:'IBM Plex Sans',system-ui,sans-serif;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    print-color-adjust:exact;-webkit-print-color-adjust:exact;
   }
 
-  @page {
-    size: letter;
-    margin: 0.6in 0.7in;
+  @page{ size:letter; margin:0.6in 0.7in; }
+  @media print{
+    body{ -webkit-print-color-adjust:exact; print-color-adjust:exact; background:var(--white) !important; }
+    .page-break{ page-break-before:always; }
+    .no-break{ page-break-inside:avoid; }
+    .cover{ page-break-after:always; }
   }
 
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .page-break { page-break-before: always; }
-    .no-break { page-break-inside: avoid; }
+  .serif{font-family:'Fraunces','Georgia',serif}
+  .mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+
+  /* ---------- COVER ---------- */
+  .cover{
+    min-height:100vh;
+    display:flex; flex-direction:column; justify-content:center;
+    padding:4rem 3.4rem;
+    background:var(--white);
+    position:relative;
+    border-top:6px solid var(--claret);
+  }
+  .cover .frame{
+    position:absolute; inset:2.2rem;
+    border:1px solid var(--rule-dk);
+    pointer-events:none;
+  }
+  .cover .frame::before,.cover .frame::after{
+    content:''; position:absolute; width:34px; height:34px; border:2px solid var(--claret);
+  }
+  .cover .frame::before{ top:-2px; left:-2px; border-width:2px 0 0 2px; }
+  .cover .frame::after{ bottom:-2px; right:-2px; border-width:0 2px 2px 0; }
+  .cover-inner{ position:relative; z-index:1; max-width:640px; }
+  .brand{
+    letter-spacing:.34em; font-size:12px; color:var(--claret);
+    font-weight:600; text-transform:uppercase;
+  }
+  .cover h1{
+    font-family:'Fraunces','Georgia',serif;
+    font-size:3.4rem; font-weight:600; line-height:1.08;
+    letter-spacing:-1px; margin:1.6rem 0 1.1rem;
+  }
+  .cover h1 .c{ color:var(--claret); font-style:italic; }
+  .cover .lede{
+    font-size:1.12rem; color:var(--mute); max-width:560px; line-height:1.55;
+  }
+  .cover .lede b{ color:var(--ink); font-weight:600; }
+  .cover .claret-rule{ width:70px; height:2px; background:var(--claret); margin:1.9rem 0; }
+  .hero-stats{ display:flex; gap:2.6rem; margin-top:.6rem; flex-wrap:wrap; }
+  .hero-stat .v{
+    font-family:'Fraunces',serif; font-size:2.1rem; font-weight:600; color:var(--claret); line-height:1;
+  }
+  .hero-stat .v.ink{ color:var(--ink); }
+  .hero-stat .l{
+    font-size:.68rem; text-transform:uppercase; letter-spacing:.1em;
+    color:var(--light); margin-top:.4rem;
+  }
+  .cover .foot{
+    position:absolute; left:3.4rem; bottom:3.2rem; z-index:1;
+    font-size:.78rem; color:var(--light); letter-spacing:.04em;
+  }
+  .cover .foot .conf{ color:var(--claret); font-weight:600; letter-spacing:.14em; text-transform:uppercase; }
+
+  /* ---------- CONTENT ---------- */
+  .content{ max-width:820px; margin:0 auto; padding:3rem 2rem; }
+
+  h2{
+    font-family:'Fraunces','Georgia',serif;
+    font-size:1.75rem; font-weight:600; color:var(--ink);
+    letter-spacing:-.4px; line-height:1.15;
+    margin-top:2.6rem; margin-bottom:.5rem;
+    padding-bottom:.55rem; border-bottom:2px solid var(--claret);
+    display:inline-block;
+  }
+  h2 + .kicker{ margin-top:.3rem; }
+  h2:first-child{ margin-top:0; }
+  .section-head{ margin-bottom:1rem; }
+
+  h3{
+    font-family:'Fraunces','Georgia',serif;
+    font-size:1.18rem; font-weight:600; color:var(--claret);
+    margin-top:1.7rem; margin-bottom:.45rem; letter-spacing:-.2px;
+  }
+  h4{
+    font-family:'IBM Plex Sans',sans-serif;
+    font-size:.95rem; font-weight:700; color:var(--ink); margin-bottom:.35rem;
   }
 
-  /* Cover */
-  .cover {
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    background: linear-gradient(145deg, #0c1a3a 0%, var(--navy) 40%, var(--navy-mid) 100%);
-    color: #fff;
-    padding: 4rem;
-    position: relative;
-    overflow: hidden;
-  }
-  .cover::before {
-    content: '';
-    position: absolute;
-    top: -30%; right: -20%;
-    width: 60%; height: 80%;
-    background: radial-gradient(circle, rgba(245,158,11,0.12) 0%, transparent 70%);
-    border-radius: 50%;
-  }
-  .cover::after {
-    content: '';
-    position: absolute;
-    bottom: -20%; left: -10%;
-    width: 50%; height: 60%;
-    background: radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 70%);
-    border-radius: 50%;
-  }
-  .cover * { position: relative; z-index: 1; }
+  p{ margin-bottom:.8rem; color:var(--ink); font-size:.94rem; }
+  p.mute{ color:var(--mute); }
+  strong{ font-weight:600; color:var(--ink); }
+  em.c{ color:var(--claret); font-style:italic; }
 
-  /* Gold corner brackets on cover */
-  .cover-corners {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 1;
-  }
-  .cover-corners::before,
-  .cover-corners::after {
-    content: '';
-    position: absolute;
-    width: 60px; height: 60px;
-    border-color: var(--gold);
-    border-style: solid;
-  }
-  .cover-corners::before {
-    top: 40px; left: 40px;
-    border-width: 2px 0 0 2px;
-  }
-  .cover-corners::after {
-    top: 40px; right: 40px;
-    border-width: 2px 2px 0 0;
-  }
-  .cover-corners-bottom {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 1;
-  }
-  .cover-corners-bottom::before,
-  .cover-corners-bottom::after {
-    content: '';
-    position: absolute;
-    width: 60px; height: 60px;
-    border-color: var(--gold);
-    border-style: solid;
-  }
-  .cover-corners-bottom::before {
-    bottom: 40px; left: 40px;
-    border-width: 0 0 2px 2px;
-  }
-  .cover-corners-bottom::after {
-    bottom: 40px; right: 40px;
-    border-width: 0 2px 2px 0;
+  .eyebrow{
+    letter-spacing:.2em; font-size:.7rem; text-transform:uppercase;
+    color:var(--claret); font-weight:600; margin-bottom:.35rem;
   }
 
-  .cover .logo {
-    font-size: 1.1rem;
-    letter-spacing: 0.35em;
-    text-transform: uppercase;
-    font-weight: 600;
-    color: var(--gold);
-    margin-bottom: 2rem;
+  /* thought-block / engine callout */
+  .thought{
+    background:var(--white);
+    border:1px solid var(--rule-dk);
+    border-left:3px solid var(--claret);
+    border-radius:4px;
+    padding:1.15rem 1.4rem;
+    margin:1.4rem 0;
   }
-  .cover .logo .beacon {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    background: var(--gold);
-    border-radius: 50%;
-    margin-right: 8px;
-    vertical-align: middle;
-    box-shadow: 0 0 12px rgba(245,158,11,0.6);
+  .thought .h{
+    font-size:.72rem; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--claret); font-weight:600; margin-bottom:.4rem;
   }
-  .cover h1 {
-    font-size: 3.2rem;
-    font-weight: 800;
-    line-height: 1.15;
-    margin-bottom: 1.5rem;
-    background: linear-gradient(135deg, #fff 0%, var(--gold-light) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+  .thought p{ margin:0; font-size:.92rem; color:var(--mute); }
+  .thought p + p{ margin-top:.55rem; }
+  .thought b{ color:var(--ink); }
+
+  .pull{
+    font-family:'Fraunces',serif; font-style:italic;
+    font-size:1.28rem; line-height:1.4; color:var(--ink);
+    border-left:3px solid var(--claret); padding:.2rem 0 .2rem 1.2rem;
+    margin:1.6rem 0;
   }
-  .cover .subtitle {
-    font-size: 1.25rem;
-    font-weight: 300;
-    color: rgba(255,255,255,0.75);
-    max-width: 560px;
-    margin-bottom: 3rem;
+  .pull .c{ color:var(--claret); }
+
+  /* metric strip */
+  .metrics{
+    display:grid; grid-template-columns:repeat(4,1fr);
+    gap:1px; background:var(--rule);
+    border:1px solid var(--rule); border-radius:6px; overflow:hidden;
+    margin:1.4rem 0;
   }
-  .cover .date {
-    font-size: 0.85rem;
-    color: rgba(255,255,255,0.4);
-  }
-  .hero-stats {
-    display: flex;
-    gap: 3rem;
-    margin-bottom: 3rem;
-  }
-  .hero-stat { text-align: center; }
-  .hero-stat .value {
-    font-size: 2.6rem;
-    font-weight: 800;
-    color: var(--gold-light);
-  }
-  .hero-stat .value.green { color: var(--green); }
-  .hero-stat .label {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: rgba(255,255,255,0.5);
-    margin-top: 0.25rem;
+  .metric{ background:var(--white); padding:1rem .6rem; text-align:center; }
+  .metric .v{ font-family:'Fraunces',serif; font-size:1.6rem; font-weight:600; color:var(--ink); }
+  .metric .v.c{ color:var(--claret); }
+  .metric .v.pos{ color:var(--pos); }
+  .metric .l{
+    font-size:.66rem; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--light); margin-top:.3rem;
   }
 
-  /* Gold divider */
-  .gold-divider {
-    width: 80px;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--gold), transparent);
-    margin: 2rem auto;
+  /* tables */
+  table{ width:100%; border-collapse:collapse; margin:1.1rem 0; font-size:.86rem; }
+  thead th{
+    text-align:left; font-weight:600;
+    padding:.55rem .7rem; border-bottom:2px solid var(--rule-dk);
+    font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--light);
   }
+  thead th.num, tbody td.num{ text-align:right; font-family:'IBM Plex Mono',monospace; }
+  tbody td{ padding:.55rem .7rem; border-bottom:1px solid var(--rule); color:var(--ink); }
+  tbody tr:last-child td{ border-bottom:none; }
+  .row-hi{ background:var(--claret-pale); }
+  .row-hi td{ font-weight:600; }
+  .pos{ color:var(--pos); font-weight:600; }
+  .neg{ color:var(--neg); font-weight:600; }
 
-  /* Content pages */
-  .content { max-width: 800px; margin: 0 auto; padding: 3rem 2rem; }
+  /* two tier cards */
+  .tiers{ display:grid; grid-template-columns:1fr 1fr; gap:1.4rem; margin:1.4rem 0; }
+  .tier{
+    border:1px solid var(--rule-dk); border-radius:6px; padding:1.5rem;
+    background:var(--white);
+  }
+  .tier.pres{ border-top:3px solid var(--pos); }
+  .tier.max{ border-top:3px solid var(--claret); }
+  .badge{
+    display:inline-block; font-size:.62rem; letter-spacing:.14em; text-transform:uppercase;
+    font-weight:600; padding:4px 10px; border-radius:3px; margin-bottom:.7rem;
+  }
+  .badge.pres{ background:rgba(45,95,63,.1); color:var(--pos); }
+  .badge.max{ background:var(--claret-pale); color:var(--claret); }
+  .tier h3{ margin-top:0; font-size:1.5rem; color:var(--ink); }
+  .tier .one{ font-family:'Fraunces',serif; font-style:italic; color:var(--claret); font-size:.98rem; margin:.2rem 0; }
+  .tier .who{ font-size:.76rem; color:var(--light); margin-bottom:.9rem; }
+  .tier-stats{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
+    background:var(--rule); border:1px solid var(--rule); border-radius:5px; overflow:hidden; margin:.5rem 0;
+  }
+  .tier-stats .s{ background:var(--white); padding:.7rem .3rem; text-align:center; }
+  .tier-stats .s .v{ font-family:'Fraunces',serif; font-size:1.3rem; font-weight:600; }
+  .tier-stats .s .v.c{ color:var(--claret); } .tier-stats .s .v.pos{ color:var(--pos); }
+  .tier-stats .s .l{ font-size:.6rem; text-transform:uppercase; letter-spacing:.04em; color:var(--light); margin-top:.2rem; }
+  .tier .note{ font-size:.8rem; color:var(--mute); margin-top:.8rem; }
+  .tier .note b{ color:var(--ink); }
+  .tier .risk{
+    font-size:.78rem; color:var(--mute); margin-top:.9rem;
+    padding:.65rem .8rem; border-radius:4px; background:var(--paper-chip); border:1px solid var(--rule);
+  }
+  .tier .risk .k{ font-weight:600; color:var(--claret); }
 
-  h2 {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: var(--navy);
-    margin-top: 2.5rem;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid var(--gold-pale);
+  /* feature grid */
+  .features{ display:grid; grid-template-columns:1fr 1fr; gap:1.1rem; margin:1.2rem 0; }
+  .feature{
+    border:1px solid var(--rule); border-left:3px solid var(--claret);
+    border-radius:5px; padding:1.1rem 1.15rem; background:var(--white);
   }
-  h2:first-child { margin-top: 0; }
+  .feature p{ font-size:.82rem; color:var(--mute); margin:0; }
 
-  h3 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--dark);
-    margin-top: 1.5rem;
-    margin-bottom: 0.5rem;
+  /* regime grid */
+  .regimes{ display:grid; grid-template-columns:repeat(4,1fr); gap:.7rem; margin:1.1rem 0; }
+  .regime{
+    border:1px solid var(--rule); border-radius:6px; padding:.7rem .6rem; text-align:center;
+    font-size:.72rem; color:var(--mute); background:var(--white);
   }
+  .regime .name{ font-weight:700; font-size:.8rem; color:var(--ink); margin-bottom:.15rem; font-family:'Fraunces',serif; }
+  .regime.def{ border-color:var(--claret); border-width:1px 1px 1px 3px; }
+  .regime.def .name{ color:var(--claret); }
 
-  p { margin-bottom: 0.75rem; color: #374151; font-size: 0.92rem; }
-  strong { font-weight: 600; }
+  /* compare bars */
+  .bars{ margin:1rem 0 1.4rem; }
+  .bar-row{ display:flex; align-items:center; margin-bottom:.5rem; font-size:.8rem; }
+  .bar-label{ width:110px; font-weight:600; color:var(--mute); }
+  .bar-wrap{ flex:1; background:#F1EDE4; border-radius:5px; height:26px; overflow:hidden; }
+  .bar{
+    height:100%; border-radius:5px; display:flex; align-items:center;
+    padding-left:10px; font-size:.72rem; font-weight:600; color:#fff;
+    font-family:'IBM Plex Mono',monospace; white-space:nowrap;
+  }
+  .bar.pres{ background:var(--pos); }
+  .bar.max{ background:var(--claret); }
+  .bar.spy{ background:#B8AE9C; color:var(--ink); }
 
-  /* Metric cards */
-  .metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    margin: 1.5rem 0;
+  /* architecture flow */
+  .flow{ display:flex; align-items:center; justify-content:center; gap:.4rem; margin:1.3rem 0; flex-wrap:wrap; }
+  .flow-box{
+    border:1px solid var(--rule-dk); border-radius:6px; padding:.5rem .8rem;
+    font-size:.74rem; font-weight:600; color:var(--ink); text-align:center; background:var(--white);
   }
-  .metric-card {
-    background: var(--light-gray);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1rem;
-    text-align: center;
-  }
-  .metric-card .value {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: var(--navy);
-  }
-  .metric-card .value.green { color: var(--green); }
-  .metric-card .value.gold { color: var(--gold); }
-  .metric-card .label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--gray);
-    margin-top: 0.25rem;
-  }
+  .flow-box small{ font-weight:400; color:var(--light); font-size:.66rem; }
+  .flow-box.end{ border-color:var(--claret); color:var(--claret); border-width:1px 1px 1px 3px; }
+  .flow-arrow{ color:var(--claret); font-size:1.1rem; }
 
-  /* Tables */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1rem 0;
-    font-size: 0.85rem;
-  }
-  thead th {
-    background: var(--light-gray);
-    font-weight: 600;
-    text-align: left;
-    padding: 0.6rem 0.75rem;
-    border-bottom: 2px solid var(--border);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--gray);
-  }
-  tbody td {
-    padding: 0.55rem 0.75rem;
-    border-bottom: 1px solid var(--border);
-  }
-  tbody tr:last-child td { border-bottom: none; }
-  tbody tr:hover { background: #fafafa; }
-  .positive { color: var(--green); font-weight: 600; }
-  .negative { color: var(--red); font-weight: 600; }
-  .highlight-row { background: var(--gold-pale) !important; font-weight: 600; }
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:2rem; margin:1rem 0; }
+  ul{ padding-left:1.15rem; margin-bottom:.8rem; }
+  li{ font-size:.86rem; color:var(--ink); margin-bottom:.28rem; }
 
-  /* Regime badges */
-  .regime-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.75rem;
-    margin: 1rem 0;
-  }
-  .regime-badge {
-    border-radius: 10px;
-    padding: 0.75rem;
-    text-align: center;
-    font-size: 0.8rem;
-    font-weight: 500;
-  }
-  .regime-badge .name { font-weight: 700; font-size: 0.85rem; margin-bottom: 0.2rem; }
+  .timeline{ margin:.9rem 0; }
+  .tl-item{ display:flex; gap:1rem; margin-bottom:.9rem; align-items:flex-start; }
+  .tl-dot{ width:11px; height:11px; border-radius:50%; background:var(--claret); margin-top:5px; flex-shrink:0; }
+  .tl-dot.o{ background:var(--white); border:2px solid var(--claret); }
+  .tl-item h4{ margin-bottom:2px; }
+  .tl-item p{ font-size:.82rem; color:var(--mute); margin:0; }
 
-  /* Feature cards */
-  .feature-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.25rem;
-    margin: 1.25rem 0;
+  .footer{
+    text-align:center; padding:2.2rem 1rem 1rem; margin-top:2.4rem;
+    border-top:1px solid var(--rule-dk); font-size:.72rem; color:var(--light); line-height:1.6;
   }
-  .feature-card {
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.25rem;
-    border-left: 4px solid var(--navy);
-  }
-  .feature-card h4 {
-    font-size: 0.95rem;
-    font-weight: 700;
-    margin-bottom: 0.4rem;
-    color: var(--dark);
-  }
-  .feature-card p {
-    font-size: 0.82rem;
-    margin-bottom: 0;
-    color: var(--gray);
-  }
-
-  /* Architecture flow */
-  .arch-flow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    margin: 1.5rem 0;
-    flex-wrap: wrap;
-  }
-  .arch-box {
-    background: linear-gradient(135deg, #eff6ff, #dbeafe);
-    border: 1px solid #93c5fd;
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--navy);
-    text-align: center;
-  }
-  .arch-arrow { color: var(--gold); font-size: 1.2rem; }
-
-  /* Callouts */
-  .callout {
-    background: linear-gradient(135deg, #eff6ff, #f0f9ff);
-    border-left: 4px solid var(--navy);
-    border-radius: 0 10px 10px 0;
-    padding: 1.25rem 1.5rem;
-    margin: 1.5rem 0;
-  }
-  .callout p { margin: 0; font-size: 0.9rem; }
-  .callout strong { color: var(--navy); }
-
-  .callout-gold {
-    background: linear-gradient(135deg, #fef3c7, #fffbeb);
-    border-left: 4px solid var(--gold);
-  }
-  .callout-gold strong { color: #92400e; }
-
-  .callout-green {
-    background: linear-gradient(135deg, #dcfce7, #f0fdf4);
-    border-left: 4px solid var(--green);
-  }
-  .callout-green strong { color: #166534; }
-
-  /* Comparison bars */
-  .compare-bars { margin: 1rem 0 1.5rem; }
-  .compare-row {
-    display: flex;
-    align-items: center;
-    margin-bottom: 0.5rem;
-    font-size: 0.82rem;
-  }
-  .compare-label { width: 120px; font-weight: 500; color: var(--gray); }
-  .compare-bar-wrap {
-    flex: 1;
-    background: #f1f5f9;
-    border-radius: 6px;
-    height: 22px;
-    position: relative;
-    overflow: hidden;
-  }
-  .compare-bar {
-    height: 100%;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    padding-left: 8px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: #fff;
-  }
-  .compare-bar.navy { background: linear-gradient(90deg, var(--navy), var(--navy-light)); }
-  .compare-bar.gray { background: linear-gradient(90deg, #9ca3af, #d1d5db); color: #374151; }
-
-  /* Two-column */
-  .two-col {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
-    margin: 1rem 0;
-  }
-
-  ul { padding-left: 1.25rem; margin-bottom: 0.75rem; }
-  li { font-size: 0.85rem; color: #374151; margin-bottom: 0.3rem; }
-
-  /* Footer */
-  .footer {
-    text-align: center;
-    padding: 2rem;
-    font-size: 0.7rem;
-    color: var(--gray);
-    border-top: 1px solid var(--border);
-    margin-top: 2rem;
-  }
-  .footer strong { color: var(--navy); }
-
-  /* New badge */
-  .new-badge {
-    display: inline-block;
-    background: var(--gold);
-    color: var(--navy);
-    font-size: 0.6rem;
-    font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    vertical-align: middle;
-    margin-left: 6px;
-  }
-
-  /* Timeline */
-  .timeline { margin: 0.75rem 0; }
-  .timeline-item {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
-    align-items: flex-start;
-  }
-  .timeline-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--gold);
-    margin-top: 4px;
-    flex-shrink: 0;
-  }
-  .timeline-content h4 {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--dark);
-    margin-bottom: 2px;
-  }
-  .timeline-content p {
-    font-size: 0.82rem;
-    color: var(--gray);
-    margin: 0;
-  }
-
-  /* PDF/print: institutional ink-on-white. The cream paper is a screen brand
-     device; print convention is white with accent color as punctuation.
-     (Also: toner.) Branded covers keep their explicit backgrounds. */
-  @media print {
-    :root { --paper: #ffffff; --paper-card: #ffffff; --paper-deep: #ffffff; --cream: #ffffff; }
-    body { background: #ffffff !important; }
-    [style*="F5F1E8"], [style*="FAF7F0"], [style*="EDE7D8"],
-    [style*="f5f1e8"], [style*="faf7f0"], [style*="ede7d8"] { background: #ffffff !important; }
-  }
+  .footer .mark{ font-family:'Fraunces',serif; font-size:1.15rem; color:var(--claret); font-weight:600; letter-spacing:.02em; }
+  .footer a,.footer .url{ color:var(--claret); text-decoration:none; font-family:'IBM Plex Mono',monospace; }
 </style>
 </head>
 <body>
 
-<!-- COVER PAGE -->
+<!-- ===================== COVER ===================== -->
 <div class="cover">
-  <div class="cover-corners"></div>
-  <div class="cover-corners-bottom"></div>
-  <div class="logo" style="margin-bottom: 2.5rem;">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 60" width="220" height="51">
-      <circle cx="30" cy="30" r="28" fill="#ffffff"/>
-      <svg x="4" y="4" width="52" height="52" viewBox="0 0 1090 1090">
-        <path fill="#67B3E9" d="M 271.02 540.82 C 271.02 525.03 282.96 512.15 298.27 510.37 L 332.7 376.25 C 324.86 370.67 319.7 361.55 319.7 351.19 C 319.7 334.17 333.5 320.37 350.52 320.37 C 366.29 320.37 379.15 332.27 380.97 347.55 L 491.99 375.79 C 497.57 367.92 506.71 362.75 517.1 362.75 C 526.94 362.75 535.59 367.44 541.24 374.62 L 685.88 330.24 C 687.0 314.25 700.2 301.58 716.48 301.58 C 718.18 301.58 719.83 301.81 721.45 302.08 L 754.3 246.01 C 695.43 203.71 623.26 178.76 545.23 178.76 C 347.11 178.76 186.51 339.37 186.51 537.49 C 186.51 561.88 189.0 585.68 193.65 608.7 L 272.34 549.28 C 271.57 546.57 271.02 543.78 271.02 540.82 z"/>
-        <path fill="#3298E2" d="M 771.95 259.53 L 740.47 313.27 C 744.68 318.54 747.3 325.13 747.3 332.39 C 747.3 349.41 733.5 363.21 716.48 363.21 C 706.64 363.21 697.98 358.52 692.34 351.34 L 547.7 395.71 C 546.58 411.71 533.38 424.38 517.1 424.38 C 501.32 424.38 488.47 412.49 486.65 397.2 L 375.63 368.96 C 370.7 375.91 362.97 380.61 354.09 381.65 L 319.66 515.76 C 327.5 521.34 332.66 530.46 332.66 540.82 C 332.66 557.84 318.86 571.64 301.84 571.64 C 295.86 571.64 290.32 569.86 285.6 566.91 L 199.19 632.16 C 209.45 669.66 225.63 704.73 246.68 736.27 L 572.95 455.89 L 725.14 455.89 L 860.89 366.94 C 838.48 325.55 808.14 289.09 771.95 259.53 z"/>
-        <polygon fill="#172554" points="870.22,315.99 1083.92,256.77 947.01,442.81 936.83,357.53"/>
-        <path fill="#172554" d="M 464.89 930.55 C 451.12 927.74 437.63 924.2 424.41 920.01 L 424.41 675.65 L 312.7 771.66 L 312.7 864.06 C 210.74 791.25 144.07 672.05 144.07 537.49 C 144.07 477.96 157.21 421.48 180.57 370.62 L 124.6 370.62 C 104.03 422.3 92.59 478.57 92.59 537.49 C 92.59 787.07 295.65 990.12 545.23 990.12 C 555.79 990.12 566.22 989.63 576.6 988.91 L 576.6 544.87 L 464.89 640.87 L 464.89 930.55 z"/>
-        <path fill="#172554" d="M 996.65 506.04 L 945.04 506.04 C 945.85 516.43 946.39 526.89 946.39 537.49 C 946.39 618.34 922.3 693.63 880.98 756.67 L 880.98 437.3 L 769.26 510.51 L 769.26 869.88 C 756.28 878.65 742.79 886.7 728.79 893.93 L 728.79 525.76 L 617.07 525.76 L 617.07 984.36 C 832.63 949.83 997.87 762.62 997.87 537.49 C 997.87 526.9 997.37 516.44 996.65 506.04 z"/>
-        <path fill="#172554" d="M 545.22 119.08 C 683.67 119.08 806.61 186.69 882.81 290.61 L 902.09 285.27 C 822.83 173.45 692.41 100.33 545.22 100.33 C 371.42 100.33 220.99 202.29 150.58 349.53 L 171.48 349.53 C 240.44 212.96 382.07 119.08 545.22 119.08 z"/>
-      </svg>
-      <text x="68" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="30" font-weight="700" letter-spacing="-0.5" fill="#ffffff">RigaCap</text>
-    </svg>
-  </div>
-  <h1>Adaptive AI<br>Trading Platform</h1>
-  <p class="subtitle">
-    An autonomous, regime-aware trading system combining ensemble signal intelligence,
-    walk-forward validation, and AI-powered content generation to deliver
-    market-like compounding with a fraction of the market's drawdown.
-  </p>
-  <div class="hero-stats">
-    <div class="hero-stat">
-      <div class="value green">8.3%</div>
-      <div class="label">Annualized (21-Yr Backtest)</div>
-    </div>
-    <div class="hero-stat">
-      <div class="value">0.73</div>
-      <div class="label">Sharpe Ratio</div>
-    </div>
-    <div class="hero-stat">
-      <div class="value green">19%</div>
-      <div class="label">Worst Drawdown</div>
-    </div>
-    <div class="hero-stat">
-      <div class="value">+32%</div>
-      <div class="label">Last 24 Mo (Annualized)</div>
-    </div>
-  </div>
-  <div class="date">Confidential &mdash; June 2026</div>
-</div>
-
-<!-- PAGE 2: EXECUTIVE SUMMARY -->
-<div class="content page-break">
-  <h2>Executive Summary</h2>
-  <p>
-    RigaCap is a <strong>fully autonomous, AI-driven equity trading platform</strong> that identifies
-    high-conviction momentum breakouts across 4,000+ US stocks. A market-regime filter
-    automatically moves the portfolio to cash when conditions are unfavorable &mdash; a discipline
-    that limited 2022 to &minus;7.5% while the S&amp;P 500 fell &minus;19.9%, and held 2008 to
-    &minus;0.5% while the index lost &minus;37.7%.
-  </p>
-  <p>
-    The production <strong>RigaCap Momentum Strategy</strong> &mdash; combining breakout timing, momentum quality ranking,
-    and disciplined risk controls &mdash; has been validated through a continuous 21-year walk-forward backtest
-    (2007&ndash;2026, price returns) with <strong>zero hindsight bias</strong>: 8.3% annualized, 0.73 Sharpe,
-    0.43 Calmar, and a worst drawdown of 19% through the 2008 financial crisis, COVID, and the 2022 bear.
-    Over the held-out last 24 months (Jun 2024&ndash;May 2026) it returned +32.0% annualized
-    (2.20 Sharpe, 8.5% max drawdown) versus +19.9% for the S&amp;P 500.
-  </p>
-  <p>
-    In April 2026, RigaCap launched its <strong>Social Intelligence Engine</strong> &mdash;
-    an autonomous growth flywheel that transforms real trade results into social content,
-    distributes that proof into active market conversations, and builds community through
-    intelligent engagement across Twitter/X, Instagram, Threads, and TikTok.
-  </p>
-
-  <div class="callout-green callout">
-    <p><strong>Key Differentiator:</strong> Every return figure cited in this document is from
-    walk-forward backtesting &mdash; the system was tested on data it had never seen during optimization.
-    Data from 2016 onward is survivorship-free and point-in-time; the pre-2016 extension carries a
-    survivorship caveat. The live track record began June 11, 2026 with a fresh $100k model book &mdash;
-    all figures before that date are backtested.</p>
-  </div>
-
-  <h2>Walk-Forward Performance (2007&ndash;2026, Backtested)</h2>
-  <p>A continuous 21-year walk-forward backtest on price returns. The edge is not raw return &mdash;
-  it is surviving every crisis fully intact. The S&amp;P 500 lost more than half its value twice in
-  this window; RigaCap's worst drawdown was 19%.</p>
-
-  <table>
-    <thead>
-      <tr>
-        <th>Strategy (2007&ndash;2026)</th>
-        <th>Annualized</th>
-        <th>Sharpe</th>
-        <th>Worst Drawdown</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr class="highlight-row">
-        <td>RigaCap Momentum Strategy</td>
-        <td class="positive">8.3%</td>
-        <td>0.73</td>
-        <td class="positive">19%</td>
-      </tr>
-      <tr>
-        <td>Raw 12-month momentum (net of costs)</td>
-        <td>13.2%</td>
-        <td>0.69</td>
-        <td class="negative">57%</td>
-      </tr>
-      <tr>
-        <td>S&amp;P 500 (price only)</td>
-        <td>9.8%</td>
-        <td>0.54</td>
-        <td class="negative">55%</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <h3>Crisis-Year Performance</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Year</th>
-        <th>RigaCap</th>
-        <th>S&amp;P 500</th>
-        <th>Context</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>2008</td>
-        <td class="positive">&minus;0.5%</td>
-        <td class="negative">&minus;37.7%</td>
-        <td>Financial crisis &mdash; regime filter held the portfolio in cash</td>
-      </tr>
-      <tr>
-        <td>2020</td>
-        <td class="positive">+31.9%</td>
-        <td>+15.2%</td>
-        <td>COVID crash and recovery</td>
-      </tr>
-      <tr>
-        <td>2022</td>
-        <td class="positive">&minus;7.5%</td>
-        <td class="negative">&minus;19.9%</td>
-        <td>Rate-hike bear market</td>
-      </tr>
-      <tr>
-        <td>2018</td>
-        <td class="negative">&minus;12.3%</td>
-        <td>&minus;7.0%</td>
-        <td>Honest wart: whipsaw year where the filter underperformed</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <h3>Held-Out Recent Window (Jun 2024&ndash;May 2026)</h3>
-  <div class="compare-bars">
-    <div class="compare-row">
-      <div class="compare-label">RigaCap</div>
-      <div class="compare-bar-wrap">
-        <div class="compare-bar navy" style="width:90%">+32.0% annualized &middot; 2.20 Sharpe &middot; 8.5% max DD</div>
+  <div class="frame"></div>
+  <div class="cover-inner">
+    <div class="brand">RigaCap · Regime-Adaptive Momentum</div>
+    <h1>Momentum,<br>built around the <span class="c">drawdown.</span></h1>
+    <p class="lede">
+      A momentum stock-signals platform with one adaptive engine and <b>two tiers</b> —
+      Preserver to protect, Maximizer to grow. Both compound through the market's best
+      trends while stepping aside from its worst. The edge isn't chasing the biggest
+      number; it's <b>the number you can actually hold onto.</b>
+    </p>
+    <div class="claret-rule"></div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="v">13.0<span style="font-size:1.1rem">%</span></div>
+        <div class="l">Preserver · 5-yr CAGR</div>
       </div>
-    </div>
-    <div class="compare-row">
-      <div class="compare-label">S&amp;P 500</div>
-      <div class="compare-bar-wrap">
-        <div class="compare-bar gray" style="width:56%">+19.9% annualized &middot; 1.18 Sharpe &middot; 19.0% max DD</div>
+      <div class="hero-stat">
+        <div class="v">31.4<span style="font-size:1.1rem">%</span></div>
+        <div class="l">Maximizer · 5-yr CAGR</div>
+      </div>
+      <div class="hero-stat">
+        <div class="v ink">&minus;12.9<span style="font-size:1.1rem">%</span></div>
+        <div class="l">Preserver · worst drawdown</div>
+      </div>
+      <div class="hero-stat">
+        <div class="v ink">1.51</div>
+        <div class="l">Maximizer · Sharpe (5-yr)</div>
       </div>
     </div>
   </div>
-
-  <div class="callout">
-    <p><strong>The behavioral edge:</strong> Strategies only compound if investors can hold them.
-    Stress-testing a $100k investor who panic-sells after a &minus;25% drawdown: RigaCap finishes at
-    <strong>$473k under every re-entry rule</strong> &mdash; it never trips the panic threshold. Raw momentum
-    finishes anywhere from $206k to $1.02M depending on nerve (6&ndash;10 panic-sales), and the S&amp;P 500
-    from $210k to $399k. RigaCap also runs at just 0.43 monthly correlation to the S&amp;P: averaging
-    &minus;1.0% in months the index falls (vs. &minus;3.9% for the index) and +1.7% when it rises.</p>
-  </div>
+  <div class="foot"><span class="conf">Confidential</span> &nbsp;·&nbsp; Investor Report &nbsp;·&nbsp; rigacap.com</div>
 </div>
 
-<!-- PAGE 3: HOW IT WORKS -->
+<!-- ===================== EXECUTIVE SUMMARY ===================== -->
 <div class="content page-break">
-  <h2>How It Works: The Ensemble Approach</h2>
-  <p>RigaCap's production strategy requires <strong>three independent factors</strong> to align before entering a trade, dramatically reducing false signals:</p>
+  <div class="section-head"><h2>Executive Summary</h2></div>
 
-  <div class="feature-grid no-break">
-    <div class="feature-card">
-      <h4>1. Breakout Timing</h4>
-      <p>Price must clear its long-term accumulation zone (DWAP &times; 1.05) &mdash; a proprietary breakout signal refined from 127 legacy stored procedures and 20+ years of data.</p>
-    </div>
-    <div class="feature-card">
-      <h4>2. Momentum Quality</h4>
-      <p>Stock must rank in the top momentum tier via a composite score blending short-term and long-term momentum, penalized for volatility.</p>
-    </div>
-    <div class="feature-card">
-      <h4>3. Breakout Confirmation</h4>
-      <p>Price must sit within 3% of its 50-day high, drawn from a liquid universe (top 100 by 60-day volume, $15 minimum price, 500k minimum daily volume).</p>
-    </div>
-    <div class="feature-card">
-      <h4>4. Wide Trailing Exit</h4>
-      <p>30% trailing stop from the high water mark &mdash; wide enough to let winners run through normal volatility, firm enough to cap any single failure.</p>
-    </div>
-  </div>
-
-  <div class="callout">
-    <p><strong>Portfolio Construction:</strong> Up to 20 positions at 4.5% allocation each, sized by
-    inverse volatility so calmer names carry more weight. Diversification &mdash; not concentration &mdash;
-    is what keeps the worst drawdown near 19% while raw momentum loses 57%.</p>
-  </div>
-
-  <h2 style="page-break-before: always;">Market Regime Intelligence</h2>
   <p>
-    The core risk lever is the <strong>market-regime filter</strong>: when broad-market conditions break down,
-    the portfolio moves to cash. Behind it, the platform classifies conditions into 7 regimes using a
-    multi-factor model analyzing SPY trend, VIX percentile, market breadth, new highs/lows, and momentum
-    acceleration &mdash; powering the dashboard, forecasts, and subscriber context:
+    RigaCap is a momentum stock-signals product built on a single principle: an investor only
+    keeps the returns they can survive. Most momentum strategies post extraordinary long-run
+    numbers on paper, then hand back half of an investor's capital in a crash — at which point
+    most people sell and never come back. RigaCap runs the same trend-following engine but
+    <strong>governs it around the drawdown</strong>, raising cash as market stress builds and
+    re-deploying as conditions repair.
   </p>
 
-  <div class="regime-grid no-break">
-    <div class="regime-badge" style="background:#dcfce7; color:#166534;">
-      <div class="name">Strong Bull</div>
-      Fully invested
-    </div>
-    <div class="regime-badge" style="background:#f0fdf4; color:#166534;">
-      <div class="name">Weak Bull</div>
-      Invested, watchful
-    </div>
-    <div class="regime-badge" style="background:#eff6ff; color:#1e40af;">
-      <div class="name">Rotating Bull</div>
-      Sector-aware context
-    </div>
-    <div class="regime-badge" style="background:#fef3c7; color:#92400e;">
-      <div class="name">Range-Bound</div>
-      Caution flagged
-    </div>
-  </div>
-  <div class="regime-grid no-break" style="margin-top:0;">
-    <div class="regime-badge" style="background:#fff7ed; color:#9a3412;">
-      <div class="name">Weak Bear</div>
-      Elevated risk warnings
-    </div>
-    <div class="regime-badge" style="background:#fee2e2; color:#991b1b;">
-      <div class="name">Panic / Crash</div>
-      Defensive: go to cash
-    </div>
-    <div class="regime-badge" style="background:#ecfeff; color:#155e75;">
-      <div class="name">Recovery</div>
-      Gradual re-entry
-    </div>
-    <div class="regime-badge" style="background:#f1f5f9; color:#334155;">
-      <div class="name">+ Forecasting</div>
-      1&ndash;2 week outlook
-    </div>
+  <p>
+    The product ships in <strong>two tiers off one engine</strong>. <strong>Preserver</strong>
+    is the flagship — market-like growth with roughly half the market's drawdown, for investors
+    who want to stay invested through the cycle. <strong>Maximizer</strong> is the aggressive
+    tier — a higher-return breakout book with a mechanical brake on the momentum-crash tail,
+    for growth-seekers who can stomach a rougher year.
+  </p>
+
+  <div class="thought">
+    <div class="h">The thesis in one line</div>
+    <p><b>Behavior beats selection.</b> The dominant driver of real-world returns isn't which
+    stocks you pick — it's whether you stay in your seat. RigaCap is engineered to be
+    <b>holdable</b>: shallow enough drawdowns that a disciplined investor never hits the
+    panic threshold, and a track record built entirely on <b>walk-forward</b> testing so
+    the results reflect data the system had never seen.</p>
   </div>
 
-  <p>
-    The regime detector also provides <strong>transition forecasting</strong> &mdash; computing indicator
-    trajectories (VIX delta, breadth acceleration, trend momentum) to predict where the market
-    is heading in the next 1&ndash;2 weeks, enabling proactive risk management rather than reactive.
+  <div class="metrics">
+    <div class="metric"><div class="v pos">13.0%</div><div class="l">Preserver 5-yr CAGR</div></div>
+    <div class="metric"><div class="v">1.28</div><div class="l">Preserver Sharpe</div></div>
+    <div class="metric"><div class="v c">31.4%</div><div class="l">Maximizer 5-yr CAGR</div></div>
+    <div class="metric"><div class="v">1.51</div><div class="l">Maximizer Sharpe</div></div>
+  </div>
+
+  <p class="mute" style="font-size:.82rem">
+    All figures on this page are <strong>walk-forward</strong> results (out-of-sample; the system
+    was never optimized on the data it was tested against). SPY over the same five-year window:
+    14.2% CAGR with a &minus;25.4% worst drawdown.
   </p>
 </div>
 
-<!-- PAGE 4: AI & TECHNOLOGY -->
+<!-- ===================== WALK-FORWARD PERFORMANCE ===================== -->
 <div class="content page-break">
-  <h2>AI &amp; Machine Learning</h2>
+  <div class="section-head"><h2>Walk-Forward Performance</h2></div>
+  <p class="eyebrow" style="margin-top:.4rem">Both tiers · out-of-sample · vs. S&amp;P 500</p>
 
-  <h3>Parameter Discovery &amp; Validation</h3>
   <p>
-    RigaCap's parameters were discovered through a <strong>tournament-based approach</strong>: each parameter
-    was tested independently across its full range, isolating which levers actually move returns.
-    This identified that <strong>entry quality</strong> (breakout proximity) is the dominant factor &mdash;
-    not stop levels, position sizing, or regime-adaptive adjustments.
-  </p>
-  <p>
-    Walk-forward testing across 50+ configurations validated that <strong>fixed parameters outperform
-    AI-optimized parameters</strong> by a wide margin. Bayesian optimizers (Optuna TPE) were tested
-    extensively but consistently added noise without improving returns. The final strategy uses
-    a single, robust parameter set across all market conditions.
+    Every number below is walk-forward: the engine trades forward into data it never saw during
+    development. We report two horizons — a recent <strong>five-year</strong> window and a
+    long <strong>twenty-one-year</strong> window spanning the 2008 crisis, COVID, and the 2022
+    bear. The point of the long window isn't the headline return; it's <em class="c">surviving
+    every crisis with the drawdown intact.</em> The S&amp;P 500 lost more than half its value
+    twice in that span.
   </p>
 
-  <h3>Binary Regime Response</h3>
-  <p>
-    Rather than adjusting parameters per regime (which was tested and reduced returns),
-    the system uses a binary approach: <strong>invested</strong> (market trend healthy) or
-    <strong>cash</strong> (market trend broken). This simple rule held 2008 to &minus;0.5% while the
-    S&amp;P 500 lost &minus;37.7%, and limited 2022 to &minus;7.5% against the index's &minus;19.9%.
-    It is not free: in whipsaw years like 2018 the filter cost performance (&minus;12.3% vs. &minus;7.0%).
-  </p>
-
-  <h3>Walk-Forward Validation (Anti-Overfitting)</h3>
-  <p>
-    The system was validated across a continuous 21 years of history (2007&ndash;2026) using walk-forward
-    methodology: at each step the system trades forward into unseen data using fixed parameters, producing an
-    <strong>out-of-sample equity curve</strong> &mdash; 8.3% annualized with a 19% worst drawdown, entirely on
-    data the system never saw during development. The most recent 24 months (Jun 2024&ndash;May 2026) were held
-    out entirely: +32.0% annualized, 2.20 Sharpe, 8.5% max drawdown. Data from 2016 onward is survivorship-free
-    and point-in-time; the pre-2016 extension carries a survivorship caveat.
-  </p>
-
-  <div class="callout">
-    <p><strong>Metrics tracked per period:</strong> Sharpe, Sortino, Calmar, profit factor, win rate,
-    max consecutive losses, recovery factor, Ulcer index. The system logs every parameter change
-    and strategy switch for full investor transparency.</p>
-  </div>
-</div>
-
-<!-- PAGE 5: SOCIAL INTELLIGENCE ENGINE -->
-<div class="content page-break">
-  <h2>Social Intelligence Engine <span class="new-badge">New</span></h2>
-  <p>
-    RigaCap's Social Intelligence Engine is an autonomous growth flywheel that no competitor in the retail trading signal space
-    has replicated. It transforms real trade results into social content, distributes that proof into active market conversations,
-    and builds community through intelligent engagement &mdash; across Twitter/X, Instagram, Threads, and TikTok. The system operates
-    with near-zero marginal cost per subscriber acquired.
-  </p>
-
-  <div class="feature-grid no-break">
-    <div class="feature-card" style="border-left-color: var(--gold);">
-      <h4>AI Content Generation</h4>
-      <p>Claude generates witty, data-driven posts from real trade data. Each post type (trade result, missed opportunity, "we called it") has tailored prompts for Twitter, Instagram, and Threads.</p>
-    </div>
-    <div class="feature-card" style="border-left-color: var(--green);">
-      <h4>News-Aware Messaging</h4>
-      <p>Integrates real-time news headlines via market data APIs, connecting profitable exits to breaking news with a "we saw that coming" angle &mdash; without hype or financial advice.</p>
-    </div>
-    <div class="feature-card" style="border-left-color: var(--navy);">
-      <h4>Branded Chart Cards</h4>
-      <p>1080&times;1350 (4:5 ratio) Instagram-ready chart cards with price charts, entry/exit markers, return badges, and gold-accented branding &mdash; generated server-side via matplotlib.</p>
-    </div>
-    <div class="feature-card" style="border-left-color: #8b5cf6;">
-      <h4>Admin Approval Pipeline</h4>
-      <p>24-hour and 1-hour pre-publish notifications with one-click cancel links. JWT-signed email buttons let admins kill posts without logging in.</p>
-    </div>
-    <div class="feature-card" style="border-left-color: #06b6d4;">
-      <h4>Contextual Reply Engine</h4>
-      <p>Scans 25+ influential fintwit accounts for stock mentions, matches to our proven trades, and generates Claude-powered replies that insert RigaCap into active market conversations. Runs across Twitter/X and Threads.</p>
-    </div>
-    <div class="feature-card" style="border-left-color: #ec4899;">
-      <h4>Community Engagement</h4>
-      <p>AI-powered comment replies on Instagram posts. When followers engage, the system generates warm, on-brand responses that build community and encourage subscription.</p>
-    </div>
-  </div>
-
-  <h3 style="page-break-before: always;">Three-Leg Flywheel</h3>
-  <div class="arch-flow no-break">
-    <div class="arch-box">Walk-Forward<br>Trades</div>
-    <div class="arch-arrow">&rarr;</div>
-    <div class="arch-box">Claude AI<br>Content Gen</div>
-    <div class="arch-arrow">&rarr;</div>
-    <div class="arch-box">Chart Cards</div>
-    <div class="arch-arrow">&rarr;</div>
-    <div class="arch-box">Admin<br>Approval</div>
-    <div class="arch-arrow">&rarr;</div>
-    <div class="arch-box">Auto-Publish<br>Twitter + IG + Threads</div>
-  </div>
-  <div class="arch-flow no-break" style="margin-top: 0.5rem;">
-    <div class="arch-box">Published<br>Posts</div>
-    <div class="arch-arrow">&rarr;</div>
-    <div class="arch-box">Follower<br>Comments</div>
-    <div class="arch-arrow">&rarr;</div>
-    <div class="arch-box">AI<br>Replies</div>
-    <div class="arch-arrow">&rarr;</div>
-    <div class="arch-box" style="background: var(--gold); color: var(--navy); font-weight: 600;">Community<br>Growth</div>
-  </div>
-  <div class="arch-flow no-break" style="margin-top: 0.5rem;">
-    <div class="arch-box">Influencer<br>Posts</div>
-    <div class="arch-arrow">&rarr;</div>
-    <div class="arch-box">Symbol<br>Match</div>
-    <div class="arch-arrow">&rarr;</div>
-    <div class="arch-box">Contextual<br>Replies</div>
-    <div class="arch-arrow">&rarr;</div>
-    <div class="arch-box" style="background: var(--gold); color: var(--navy); font-weight: 600;">Audience<br>Acquisition</div>
-  </div>
-
-  <h3>Post Types</h3>
-  <table>
+  <h3>Five-Year (recent) — annualized</h3>
+  <table class="no-break">
     <thead>
-      <tr><th>Type</th><th>Purpose</th><th>Timing</th></tr>
+      <tr>
+        <th>Strategy</th>
+        <th class="num">CAGR</th>
+        <th class="num">Sharpe</th>
+        <th class="num">Worst Drawdown</th>
+      </tr>
     </thead>
     <tbody>
-      <tr>
-        <td><strong>Trade Result</strong></td>
-        <td>Celebrate a winning trade with entry/exit details and return percentage</td>
-        <td>1&ndash;2 days after exit</td>
+      <tr class="row-hi">
+        <td>RigaCap Preserver</td>
+        <td class="num pos">13.0%</td>
+        <td class="num">1.28</td>
+        <td class="num pos">&minus;12.9%</td>
+      </tr>
+      <tr class="row-hi">
+        <td>RigaCap Maximizer</td>
+        <td class="num pos">31.4%</td>
+        <td class="num">1.51</td>
+        <td class="num pos">&minus;14.9%</td>
       </tr>
       <tr>
-        <td><strong>Missed Opportunity</strong></td>
-        <td>FOMO-angle post showing the return non-subscribers missed</td>
-        <td>2&ndash;3 days after exit</td>
-      </tr>
-      <tr>
-        <td><strong>"We Called It"</strong></td>
-        <td>Connects trade result to breaking news &mdash; proves the signal anticipated the move</td>
-        <td>When matching news breaks</td>
-      </tr>
-      <tr>
-        <td><strong>Contextual Reply</strong></td>
-        <td>Responds to influencer posts about stocks we traded &mdash; inserts RigaCap into active conversations</td>
-        <td>Within 4 hours</td>
-      </tr>
-      <tr>
-        <td><strong>Comment Reply</strong></td>
-        <td>Engages with followers commenting on our posts &mdash; builds community</td>
-        <td>Within 4 hours</td>
+        <td>S&amp;P 500</td>
+        <td class="num">14.2%</td>
+        <td class="num">&mdash;</td>
+        <td class="num neg">&minus;25.4%</td>
       </tr>
     </tbody>
   </table>
 
-  <div class="callout-gold callout" style="page-break-before: always;">
-    <p><strong>Signal-to-Social Flywheel:</strong> Most trading signal services post screenshots of their best weeks.
-    RigaCap's Social Intelligence Engine automatically generates content from every walk-forward trade,
-    proactively engages in market conversations with proven results, and builds community across three platforms
-    &mdash; all AI-powered, all from real data, all admin-approved. More trades &rarr; more content &rarr;
-    more engagement &rarr; more subscribers &rarr; more credibility.</p>
-  </div>
-
-  <div class="callout-gold callout">
-    <p><strong>Real Example (Jan 2026):</strong> SLV delivered +17.3% in 11 days. Our signal fired Jan 5 at $69.08,
-    exit Jan 16 at $81.02. The engine connected this to the precious metals rally
-    and generated platform-specific posts for Twitter (186 chars), Instagram (591 chars), and Threads (350 chars) with branded chart cards.</p>
-  </div>
-
-  <h3>Recent AI-Generated Trade Results (Jan 2026)</h3>
-  <table>
+  <h3>Twenty-One-Year — annualized</h3>
+  <table class="no-break">
     <thead>
-      <tr><th>Symbol</th><th>Entry</th><th>Exit</th><th>Return</th><th>Days</th></tr>
+      <tr>
+        <th>Strategy</th>
+        <th class="num">CAGR</th>
+        <th class="num">Sharpe</th>
+        <th class="num">Worst Drawdown</th>
+      </tr>
     </thead>
     <tbody>
-      <tr>
-        <td><strong>SLV</strong> (iShares Silver)</td>
-        <td>$69.08</td>
-        <td>$81.02</td>
-        <td class="positive">+17.3%</td>
-        <td>11</td>
+      <tr class="row-hi">
+        <td>RigaCap Preserver</td>
+        <td class="num">7.7%</td>
+        <td class="num">0.87</td>
+        <td class="num pos">&minus;13.7%</td>
+      </tr>
+      <tr class="row-hi">
+        <td>RigaCap Maximizer</td>
+        <td class="num">13.5%</td>
+        <td class="num">0.93</td>
+        <td class="num pos">&minus;20.8%</td>
       </tr>
       <tr>
-        <td><strong>MU</strong> (Micron Tech)</td>
-        <td>$312.15</td>
-        <td>$362.75</td>
-        <td class="positive">+16.2%</td>
-        <td>11</td>
-      </tr>
-      <tr>
-        <td><strong>RKT</strong> (Rocket Mortgage)</td>
-        <td>$21.10</td>
-        <td>$23.24</td>
-        <td class="positive">+10.1%</td>
-        <td>11</td>
+        <td>S&amp;P 500</td>
+        <td class="num">9.8%</td>
+        <td class="num">&mdash;</td>
+        <td class="num neg">&minus;55%</td>
       </tr>
     </tbody>
   </table>
-</div>
 
-<!-- PAGE 5.5: DEEP INTELLIGENCE SUITE -->
-<div class="content page-break">
-  <h2>Deep Intelligence Suite <span class="new-badge">New</span></h2>
+  <div class="pull">
+    Preserver produced a market-beating five-year return at roughly <span class="c">half</span>
+    the market's drawdown. Over twenty-one years it grew capital while never giving back more
+    than <span class="c">14%</span> — versus 55% for the index.
+  </div>
+
+  <h3>What a typical holding period looks like</h3>
+  <table class="no-break">
+    <thead>
+      <tr>
+        <th>Tier</th>
+        <th class="num">Typical 12-mo</th>
+        <th class="num">Positive 12-mo windows</th>
+        <th class="num">Typical 24-mo</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Preserver</td>
+        <td class="num pos">+10.7%</td>
+        <td class="num">77%</td>
+        <td class="num pos">+20.8%</td>
+      </tr>
+      <tr>
+        <td>Maximizer</td>
+        <td class="num pos">+26.5%</td>
+        <td class="num">77%</td>
+        <td class="num pos">+57.5%</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="page-break-before:always">Behavior through the crises</h3>
   <p>
-    Beyond signal generation, RigaCap provides institutional-grade trade intelligence
-    that continuously improves system performance and subscriber confidence.
+    The engine's defining trait is what it does when the market breaks. Across the long
+    window it captured far less of the market's down-months than the market itself — and
+    it recovered faster.
   </p>
 
-  <div class="metrics-grid" style="grid-template-columns: repeat(2, 1fr);">
-    <div class="metric-card">
-      <h3 style="margin-top: 0; font-size: 1rem;">AI Trade Autopsies</h3>
-      <p style="font-size: 0.85rem; color: var(--text-secondary);">
-        Every closed trade receives a Claude-powered forensic post-mortem analyzing entry timing,
-        exit execution, and market regime impact. Each autopsy includes a verdict, score (1&ndash;10),
-        and actionable lesson for system improvement.
-      </p>
-    </div>
-    <div class="metric-card">
-      <h3 style="margin-top: 0; font-size: 1rem;">Ghost Portfolios</h3>
-      <p style="font-size: 0.85rem; color: var(--text-secondary);">
-        Three parallel universes run alongside our model portfolio with different parameters
-        (aggressive, conservative, top-3 concentrated). We prove in real-time that our chosen
-        configuration outperforms alternatives.
-      </p>
-    </div>
-    <div class="metric-card">
-      <h3 style="margin-top: 0; font-size: 1rem;">Regime Shift Forecast</h3>
-      <p style="font-size: 0.85rem; color: var(--text-secondary);">
-        Our market-regime intelligence doesn't just detect&mdash;it predicts.
-        Daily probability forecasts with historical accuracy tracking give
-        subscribers early warning of market regime shifts.
-      </p>
-    </div>
-    <div class="metric-card">
-      <h3 style="margin-top: 0; font-size: 1rem;">Personalized Impact Calculator</h3>
-      <p style="font-size: 0.85rem; color: var(--text-secondary);">
-        Every subscriber sees exactly what following our signals would have earned them,
-        calculated from their signup date, compared against the S&amp;P 500.
-        Shareable results drive organic word-of-mouth growth.
-      </p>
-    </div>
+  <table class="no-break">
+    <thead>
+      <tr>
+        <th>Crisis year</th>
+        <th class="num">Preserver</th>
+        <th class="num">Maximizer</th>
+        <th class="num">S&amp;P 500</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>2008 — financial crisis</td>
+        <td class="num pos">+0.1%</td>
+        <td class="num pos">+0.1%</td>
+        <td class="num neg">&minus;37.7%</td>
+      </tr>
+      <tr>
+        <td>2020 — COVID crash &amp; recovery</td>
+        <td class="num pos">+9.2%</td>
+        <td class="num pos">+34.9%</td>
+        <td class="num">+15.2%</td>
+      </tr>
+      <tr>
+        <td>2022 — rate-hike bear</td>
+        <td class="num neg">&minus;11.2%</td>
+        <td class="num neg">&minus;6.4%</td>
+        <td class="num neg">&minus;19.9%</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Down-month capture &amp; recovery</h3>
+  <table class="no-break">
+    <thead>
+      <tr>
+        <th>Metric (2007&ndash;2026)</th>
+        <th class="num">Preserver</th>
+        <th class="num">Maximizer</th>
+        <th class="num">S&amp;P 500</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Average return in down months</td>
+        <td class="num pos">&minus;1.05%</td>
+        <td class="num pos">&minus;0.97%</td>
+        <td class="num neg">&minus;3.85%</td>
+      </tr>
+      <tr>
+        <td>Longest time underwater</td>
+        <td class="num pos">2.2 yrs</td>
+        <td class="num">3.4 yrs</td>
+        <td class="num neg">5.4 yrs</td>
+      </tr>
+      <tr>
+        <td>Beats SPY over rolling 1 / 3 / 5-yr windows</td>
+        <td class="num">36 / 17 / 14%</td>
+        <td class="num">50 / 45 / 31%</td>
+        <td class="num">&mdash;</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="thought">
+    <div class="h">Read the last row honestly</div>
+    <p>RigaCap does <b>not</b> beat the market every year — and it isn't meant to. In a smooth
+    melt-up it will trail. The trade is deliberate: give up a little in the calm years to lose
+    far less in the violent ones, so the compounding never resets and the investor never
+    capitulates at the bottom. That asymmetry — a &minus;1% average down-month against the
+    market's &minus;3.85% — is the whole product.</p>
   </div>
 </div>
 
-<!-- PAGE 6: PLATFORM & INFRASTRUCTURE -->
+<!-- ===================== THE TWO-TIER PRODUCT ===================== -->
 <div class="content page-break">
-  <h2>Platform Architecture</h2>
+  <div class="section-head"><h2>The Two-Tier Product</h2></div>
+  <p class="eyebrow" style="margin-top:.4rem">One engine · your risk, your call</p>
 
-  <div class="arch-flow no-break">
-    <div class="arch-box">React Dashboard<br><small>TailwindCSS + Recharts</small></div>
-    <div class="arch-arrow">&rarr;</div>
-    <div class="arch-box">CloudFront CDN<br><small>Global edge cache</small></div>
-    <div class="arch-arrow">&rarr;</div>
-    <div class="arch-box">API Gateway<br><small>REST endpoints</small></div>
-    <div class="arch-arrow">&rarr;</div>
-    <div class="arch-box">AWS Lambda<br><small>FastAPI (serverless)</small></div>
-    <div class="arch-arrow">&rarr;</div>
-    <div class="arch-box">PostgreSQL + Redis<br><small>RDS + ElastiCache</small></div>
+  <p>
+    Most services hand you a single strategy and hope it fits. RigaCap is a <strong>risk
+    dial</strong>: the same regime-adaptive engine, tuned to two appetites. An investor picks
+    the tier that matches how much of a rough year they can actually sit through — and we tell
+    them the cost of each choice up front.
+  </p>
+
+  <div class="tiers no-break">
+    <div class="tier pres">
+      <span class="badge pres">Flagship · Protect</span>
+      <h3>Preserver</h3>
+      <div class="one">"Stay invested through the cycle."</div>
+      <div class="who">For capital-preservers, retirees, advisers, and larger accounts.</div>
+      <div class="tier-stats">
+        <div class="s"><div class="v pos">13.0%</div><div class="l">5-yr CAGR</div></div>
+        <div class="s"><div class="v">1.28</div><div class="l">Sharpe</div></div>
+        <div class="s"><div class="v">&minus;12.9%</div><div class="l">Max DD</div></div>
+      </div>
+      <div class="note">Market-like growth at roughly <b>half the market's drawdown</b>. A typical
+        year is <b>+10.7%</b>, and 77% of rolling twelve-month windows finish positive.</div>
+      <div class="risk"><span class="k">Cost owned:</span> gives up some upside in a calm
+        melt-up. That underperformance in the good years is the premium paid for the shallow
+        losses in the bad ones.</div>
+    </div>
+
+    <div class="tier max">
+      <span class="badge max">Aggressive · Grow</span>
+      <h3>Maximizer</h3>
+      <div class="one">"Offense with a seatbelt."</div>
+      <div class="who">For growth-seekers who can stomach a rougher year.</div>
+      <div class="tier-stats">
+        <div class="s"><div class="v c">31.4%</div><div class="l">5-yr CAGR</div></div>
+        <div class="s"><div class="v c">1.51</div><div class="l">Sharpe</div></div>
+        <div class="s"><div class="v c">&minus;14.9%</div><div class="l">Max DD</div></div>
+      </div>
+      <div class="note">A higher-return breakout book. A typical year is <b>+26.5%</b>, and a
+        typical two-year hold compounds to <b>+57.5%</b> — with a mechanical brake on the
+        momentum-crash tail.</div>
+      <div class="risk"><span class="k">Cost owned:</span> a momentum-crash tail — the rare
+        year the trade unwinds. The brake tames it; it is <b>reduced, not eliminated.</b>
+        Choose this only if a rough year is one you can live with.</div>
+    </div>
+  </div>
+
+  <div class="thought">
+    <div class="h">Marketing as filtration, not conversion</div>
+    <p>The same product is a poor fit for a return-maximizer and an ideal fit for a
+    capital-preserver. So our job is to route each investor to the right tier — not to sell
+    everyone the same thing. We state each tier's cost plainly: Preserver trails in a smooth
+    melt-up; Maximizer owns a tamed crash tail. <b>Signals only</b> — the investor executes
+    at their own broker and retains full discretion.</p>
+  </div>
+</div>
+
+<!-- ===================== REGIME INTELLIGENCE ===================== -->
+<div class="content page-break">
+  <div class="section-head"><h2>Regime Intelligence</h2></div>
+  <p class="eyebrow" style="margin-top:.4rem">The lever that governs the drawdown</p>
+
+  <p>
+    The engine reads the market's state continuously and sizes its exposure to match. When
+    breadth deteriorates, volatility spikes, and trend rolls over together, it raises cash —
+    stepping out of the way of the worst months rather than riding them down. As conditions
+    repair, it re-deploys. This is the single mechanism behind the shallow drawdowns and the
+    low down-month capture shown earlier.
+  </p>
+
+  <p>
+    A multi-factor model classifies conditions into a spectrum of regimes using broad-market
+    trend, volatility percentile, market breadth, new-high/new-low behavior, and momentum
+    acceleration. The classification drives exposure, the dashboard context subscribers see,
+    and a short-horizon transition forecast.
+  </p>
+
+  <div class="regimes no-break">
+    <div class="regime"><div class="name">Strong Bull</div>Fully invested</div>
+    <div class="regime"><div class="name">Weak Bull</div>Invested, watchful</div>
+    <div class="regime"><div class="name">Rotating Bull</div>Sector-aware context</div>
+    <div class="regime"><div class="name">Range-Bound</div>Caution flagged</div>
+  </div>
+  <div class="regimes no-break" style="margin-top:0">
+    <div class="regime"><div class="name">Weak Bear</div>Exposure trimmed</div>
+    <div class="regime def"><div class="name">Panic / Crash</div>Defensive: raise cash</div>
+    <div class="regime"><div class="name">Recovery</div>Gradual re-entry</div>
+    <div class="regime"><div class="name">Forecast</div>1&ndash;2 week outlook</div>
+  </div>
+
+  <div class="thought">
+    <div class="h">Not a switch — a governor</div>
+    <p>The system doesn't just flip between "in" and "out." It scales exposure and raises cash
+    in proportion to stress, then re-enters as the tape repairs. The result across twenty-one
+    walk-forward years: an average down-month of about <b>&minus;1%</b> for both tiers, against
+    the market's <b>&minus;3.85%</b>, and a longest-underwater stretch of <b>2.2 years</b> for
+    Preserver versus <b>5.4 years</b> for the index.</p>
+  </div>
+</div>
+
+<!-- ===================== AI / ML APPROACH ===================== -->
+<div class="content page-break">
+  <div class="section-head"><h2>AI &amp; Machine Learning</h2></div>
+  <p class="eyebrow" style="margin-top:.4rem">Discipline over cleverness</p>
+
+  <p>
+    RigaCap uses machine learning where it earns its keep and refuses it where it doesn't.
+    Parameters were discovered through systematic search across their full ranges — isolating
+    which levers actually move risk-adjusted returns and which only add noise. The consistent
+    finding: <strong>entry quality and exposure discipline dominate</strong>; over-tuning the
+    rest degrades out-of-sample results.
+  </p>
+
+  <div class="features">
+    <div class="feature">
+      <h4>Robust over optimized</h4>
+      <p>Across many configurations, a single robust parameter set beat aggressively
+        auto-optimized ones out-of-sample. Bayesian optimizers were tested extensively and
+        consistently added noise without adding return. We ship the robust set.</p>
+    </div>
+    <div class="feature">
+      <h4>Walk-forward, always</h4>
+      <p>Validation is out-of-sample by construction: at each step the engine trades forward
+        into unseen data with fixed parameters, producing an honest equity curve. Every
+        number in this report comes from that process — never a curve fit to its own data.</p>
+    </div>
+    <div class="feature">
+      <h4>Regime as a governor</h4>
+      <p>Rather than micro-tuning parameters per regime, exposure scales with measured market
+        stress. Simpler, more robust, and directly responsible for the low down-month capture.</p>
+    </div>
+    <div class="feature">
+      <h4>Content generation, on rails</h4>
+      <p>Language models turn real, completed trades into social proof — data-driven posts from
+        actual results, every one passing through human approval before it publishes. AI does
+        the drafting; a person keeps the keys.</p>
+    </div>
+  </div>
+
+  <div class="thought">
+    <div class="h">Full-history, penny-to-penny validation</div>
+    <p>Research results are only trusted once they reproduce through the exact production
+    day-step on the same warm-started history that live trading uses. A promising idea that
+    can't survive that reproduction never ships. Metrics tracked per period include Sharpe,
+    Sortino, Calmar, profit factor, win rate, recovery factor, and the Ulcer index.</p>
+  </div>
+</div>
+
+<!-- ===================== PLATFORM ARCHITECTURE ===================== -->
+<div class="content page-break">
+  <div class="section-head"><h2>Platform Architecture</h2></div>
+  <p class="eyebrow" style="margin-top:.4rem">Serverless · resilient · low-cost to scale</p>
+
+  <div class="flow no-break">
+    <div class="flow-box">React Dashboard<br><small>Tailwind + charts</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box">CDN<br><small>Global edge cache</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box">API Gateway<br><small>REST</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box">Serverless API<br><small>FastAPI on Lambda</small></div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-box end">Data Layer<br><small>PostgreSQL + cache</small></div>
   </div>
 
   <div class="two-col">
     <div>
       <h3>Data Pipeline</h3>
       <ul>
-        <li><strong>4,000+ US equities</strong> scanned daily</li>
-        <li><strong>20+ years</strong> of historical OHLCV data</li>
-        <li>Dual-source: Alpaca (primary) + yfinance (fallback)</li>
-        <li>Split/dividend-adjusted prices</li>
-        <li>S3-cached universe with 7-day TTL</li>
-        <li>45+ technical indicators per stock</li>
-        <li>Pre-computed dashboard JSON on CDN</li>
+        <li>Broad US-equity universe scanned daily</li>
+        <li>20+ years of split/dividend-adjusted history</li>
+        <li>Dual-source market data with automatic failover</li>
+        <li>Point-in-time, survivorship-free construction</li>
+        <li>Pre-computed dashboard cache served from the edge</li>
       </ul>
     </div>
     <div>
       <h3>Operational Cadence</h3>
       <ul>
-        <li><strong>Daily 4 PM ET:</strong> Full market scan</li>
-        <li><strong>Daily 5 PM ET:</strong> Breakout alert check</li>
-        <li><strong>Daily 6 PM ET:</strong> Subscriber email digest</li>
-        <li><strong>Daily 8 PM ET:</strong> Walk-forward + social posts</li>
-        <li><strong>Every 15 min:</strong> Auto-publish scheduled posts</li>
-        <li><strong>Daily:</strong> Model portfolio update from fresh signals</li>
+        <li>End-of-day market scan after the close</li>
+        <li>Intraday exit / sell alerts</li>
+        <li>Subscriber email digest each evening</li>
+        <li>Nightly walk-forward &amp; social pipeline</li>
+        <li>Data-freshness gate holds any stale communication</li>
       </ul>
     </div>
   </div>
 
-  <h3>Subscriber Experience</h3>
-  <div class="feature-grid">
-    <div class="feature-card" style="border-left-color: var(--green);">
-      <h4>Buy Signals</h4>
-      <p>Ensemble-validated picks with momentum rank, breakout strength, and confidence score. Fresh signals marked "BUY NOW" with pulsing indicator.</p>
+  <h3>What subscribers see</h3>
+  <div class="features">
+    <div class="feature">
+      <h4>Buy signals</h4>
+      <p>Ranked, regime-aware picks with a clear instruction — enter now, or watch — never a
+        raw list to guess at.</p>
     </div>
-    <div class="feature-card" style="border-left-color: var(--gold);">
-      <h4>Market Regime</h4>
-      <p>Current regime classification with color-coded severity, SPY level, VIX reading, and 1&ndash;2 week directional forecast.</p>
+    <div class="feature">
+      <h4>Portfolio guidance</h4>
+      <p>Position-level exit guidance and trailing-stop distances for open positions, matched
+        exactly to the live engine's rules.</p>
     </div>
-    <div class="feature-card" style="border-left-color: #3b82f6;">
-      <h4>Portfolio Guidance</h4>
-      <p>Position-level sell signals, trailing stop distances, and regime-based exit recommendations for open positions.</p>
+    <div class="feature">
+      <h4>Market regime</h4>
+      <p>The current regime with a plain-language read and a one-to-two-week outlook, so the
+        context behind every signal is visible.</p>
     </div>
-    <div class="feature-card" style="border-left-color: var(--red);">
-      <h4>Missed Opportunities</h4>
-      <p>Stocks that triggered signals but weren't purchased, showing the return left on the table &mdash; a powerful conversion tool.</p>
-    </div>
-  </div>
-
-  <h2>Risk Management Summary</h2>
-  <div class="metrics-grid">
-    <div class="metric-card">
-      <div class="value gold">20</div>
-      <div class="label">Max Positions</div>
-    </div>
-    <div class="metric-card">
-      <div class="value gold">4.5%</div>
-      <div class="label">Per Position (inverse-vol sized)</div>
-    </div>
-    <div class="metric-card">
-      <div class="value gold">30%</div>
-      <div class="label">Trailing Stop</div>
-    </div>
-    <div class="metric-card">
-      <div class="value gold">Cash</div>
-      <div class="label">Regime Filter Default</div>
+    <div class="feature">
+      <h4>Your journey</h4>
+      <p>A personalized, shareable view of what following the signals would have earned from a
+        given start date, versus the market.</p>
     </div>
   </div>
 
-  <div class="callout-green callout">
-    <p><strong>Downside Protection (backtested):</strong> In 2008, the regime filter held the portfolio in
-    cash &mdash; finishing the year at &minus;0.5% while the S&amp;P 500 lost &minus;37.7%. In the 2022 bear
-    it limited losses to &minus;7.5% against the index's &minus;19.9%. Across the full 21-year backtest the
-    worst drawdown was 19%, versus 55% for the index and 57% for raw momentum.</p>
-  </div>
-  <div class="callout-green callout" style="margin-top: 8px;">
-    <p><strong>Cascade Guard:</strong> A portfolio-level circuit breaker pauses all new entries when multiple positions hit their trailing stops on the same day &mdash; the signature of cascading market stress &mdash; preventing automatic re-entry into a falling market.</p>
+  <div class="thought">
+    <div class="h">Security posture</div>
+    <p>Google / Apple / email sign-in with hashed passwords and JWT sessions; bot protection at
+    the edge; private storage with no public signal data; strict CORS; admin-only routes; and
+    payments handled entirely by a PCI-compliant processor. Signals are impersonal — no custody,
+    no client trading authority.</p>
   </div>
 </div>
 
-<!-- PAGE 7: GROWTH & ROADMAP -->
-<div class="content page-break" style="padding-top: 1.5rem;">
-  <h2 style="margin-top: 0;">Growth Engine &amp; Roadmap</h2>
+<!-- ===================== GROWTH & ROADMAP ===================== -->
+<div class="content page-break">
+  <div class="section-head"><h2>Growth &amp; Roadmap</h2></div>
+  <p class="eyebrow" style="margin-top:.4rem">Two channels · one engine</p>
+
   <p>
-    RigaCap now sells into <strong>two channels</strong>. The retail channel grows through social proof,
-    automated content, and conversion-optimized funnels at $129/month per subscriber. The second channel —
-    opened June 2026 with a dedicated adviser product surface — is <strong>registered investment advisers</strong>,
-    who license the strategy at the firm level for internal use across client accounts.
-  </p>
-  <p>
-    The adviser channel changes the unit economics: a firm license is priced at a multiple of a retail seat,
-    is applied across millions in client AUM (making the fee trivial relative to delivered value), is acquired
-    through a single conversation rather than a paid funnel, and carries near-zero marginal cost. The product
-    is unusually well-shaped for this buyer — an adviser's core business risk is the client who capitulates at
-    the bottom, and RigaCap's pitch is exactly that risk, quantified: a 19% worst drawdown across twenty-one
-    backtested years versus 55&ndash;57% for the index and raw momentum, 0.43 monthly correlation to the S&amp;P,
-    and a sit-out-the-crash record through the index's worst months. RigaCap remains a publisher throughout:
-    impersonal signals, the adviser retains all discretion and fiduciary duty, no custody, no client data.
+    RigaCap sells into two channels off the same product. The <strong>retail</strong> channel
+    grows through social proof from real trades, automated content, and conversion-optimized
+    funnels. The <strong>adviser</strong> channel — independent RIAs — licenses the strategy as
+    a sleeve inside client portfolios, changing the unit economics entirely: a firm license is
+    priced well above a retail seat, spread across client assets, closed through a conversation
+    rather than a paid funnel, and near-zero marginal cost.
   </p>
 
-  <h3>Current Capabilities (Launched)</h3>
-  <div class="metrics-grid" style="grid-template-columns: repeat(3, 1fr);">
-    <div class="metric-card">
-      <div class="value" style="color: var(--navy);">155+</div>
-      <div class="label">API Endpoints</div>
-    </div>
-    <div class="metric-card">
-      <div class="value" style="color: var(--navy);">23</div>
-      <div class="label">Database Tables</div>
-    </div>
-    <div class="metric-card">
-      <div class="value" style="color: var(--navy);">28+</div>
-      <div class="label">Backend Services</div>
-    </div>
+  <div class="thought">
+    <div class="h">Why the product fits the adviser</div>
+    <p>An adviser's core business risk is the client who capitulates at the bottom. RigaCap's
+    entire pitch is that exact risk, quantified: a shallow worst drawdown across twenty-one
+    walk-forward years, a down-month capture near a third of the market's, and a
+    <b>sit-out-the-crash record</b> through the market's worst months. Positioned as a
+    10&ndash;20% sleeve, it lets an adviser add behavioral protection without abandoning their
+    core allocation. Signals only — the adviser keeps all discretion and fiduciary duty.</p>
   </div>
 
-  <h3 style="margin-bottom: 0.3rem;">Revenue Model</h3>
-  <table>
-    <thead>
-      <tr><th>Plan</th><th>Price</th><th>Features</th></tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>Monthly</strong></td>
-        <td>$129/month &middot; $59 founding (first 100, locked 12 months)</td>
-        <td>Daily signals, email alerts, portfolio guidance, market regime</td>
-      </tr>
-      <tr>
-        <td><strong>Annual</strong></td>
-        <td>$1,099/year</td>
-        <td>Same features, three months free</td>
-      </tr>
-      <tr>
-        <td><strong>Advisory firms</strong></td>
-        <td>$449/mo (1&ndash;3 advisers) &middot; $899/mo (4&ndash;10) &middot; custom 11+</td>
-        <td>Internal-use firm license across client accounts; adviser retains all discretion</td>
-      </tr>
-      <tr>
-        <td><strong>Trial</strong></td>
-        <td>7 days free</td>
-        <td>Full access, credit card required (Stripe-managed)</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <h3 style="margin-bottom: 0.3rem;">Roadmap to 5,000 Subscribers</h3>
+  <h3>Roadmap</h3>
   <div class="timeline">
-    <div class="timeline-item">
-      <div class="timeline-dot"></div>
-      <div class="timeline-content">
-        <h4>Phase 1: Social Intelligence Engine (Live)</h4>
-        <p>AI-generated social content from real trades across Twitter/X, Instagram, Threads, and TikTok. Contextual reply engine scans influencer accounts. Instagram comment auto-replies build community. All admin-approved.</p>
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div>
+        <h4>Now — social proof engine (live)</h4>
+        <p>AI-drafted, human-approved posts generated nightly from real completed trades;
+          public track-record page; referral program; onboarding drip that pre-sets honest
+          expectations to reduce churn.</p>
       </div>
     </div>
-    <div class="timeline-item">
-      <div class="timeline-dot" style="background: var(--navy-light);"></div>
-      <div class="timeline-content">
-        <h4>Phase 2: Organic Growth</h4>
-        <p>Public track record page, referral program ("give a month, get a month"), onboarding email drip (5-7 day sequence)</p>
+    <div class="tl-item">
+      <div class="tl-dot o"></div>
+      <div>
+        <h4>Next — two-tier rollout</h4>
+        <p>Preserver as the flagship base with Maximizer as a paid add-on; adviser product
+          surface with sleeve framing, re-entry explanation, and client-education one-pagers.</p>
       </div>
     </div>
-    <div class="timeline-item">
-      <div class="timeline-dot" style="background: var(--green);"></div>
-      <div class="timeline-content">
-        <h4>Phase 3: Retention &amp; Engagement</h4>
-        <p>User performance dashboard (personal ROI tracking), cancel survey + win-back emails, usage-based retention alerts</p>
+    <div class="tl-item">
+      <div class="tl-dot o"></div>
+      <div>
+        <h4>Then — retention &amp; engagement</h4>
+        <p>Personalized performance dashboard, cancel-survey and win-back flows, usage-based
+          retention alerts, and expectation-setting content for multi-year holds.</p>
       </div>
     </div>
-    <div class="timeline-item">
-      <div class="timeline-dot" style="background: var(--gray);"></div>
-      <div class="timeline-content">
-        <h4>Phase 4: Scale</h4>
-        <p>SEO/content strategy (blog, market commentary), paid acquisition (Google Ads, social ads), institutional tier</p>
+    <div class="tl-item">
+      <div class="tl-dot o"></div>
+      <div>
+        <h4>Later — scale</h4>
+        <p>Organic content and SEO, disciplined paid acquisition on on-thesis queries, and a
+          deepening independent-RIA channel as the live record lengthens.</p>
       </div>
     </div>
   </div>
 
-  <h2>Authentication &amp; Security</h2>
-  <div class="two-col">
-    <div>
-      <h3>User Authentication</h3>
-      <ul>
-        <li>Google OAuth + Apple Sign In</li>
-        <li>Email/password with bcrypt hashing</li>
-        <li>JWT tokens (15-min access, 7-day refresh)</li>
-        <li>Cloudflare Turnstile bot protection</li>
-        <li>Secure password reset via email</li>
-      </ul>
-    </div>
-    <div>
-      <h3>Infrastructure Security</h3>
-      <ul>
-        <li>CORS whitelist (rigacap.com only)</li>
-        <li>Private S3 buckets (no public signal data)</li>
-        <li>Admin-only routes with email allowlist</li>
-        <li>HTTPS everywhere (ACM certificates)</li>
-        <li>Stripe-managed payment security (PCI DSS)</li>
-      </ul>
-    </div>
+  <div class="pull">
+    The credibility that unlocks the adviser channel is <span class="c">time</span>. Every month
+    of live results compounds the case — which is exactly why the honest, walk-forward posture
+    of this document is the strategy, not the disclaimer.
   </div>
-
-  <div class="gold-divider"></div>
 
   <div class="footer">
-    <div style="margin-bottom: 0.75rem;">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 60" width="130" height="30">
-        <circle cx="30" cy="30" r="28" fill="#ffffff"/>
-        <svg x="4" y="4" width="52" height="52" viewBox="0 0 1090 1090">
-          <path fill="#67B3E9" d="M 271.02 540.82 C 271.02 525.03 282.96 512.15 298.27 510.37 L 332.7 376.25 C 324.86 370.67 319.7 361.55 319.7 351.19 C 319.7 334.17 333.5 320.37 350.52 320.37 C 366.29 320.37 379.15 332.27 380.97 347.55 L 491.99 375.79 C 497.57 367.92 506.71 362.75 517.1 362.75 C 526.94 362.75 535.59 367.44 541.24 374.62 L 685.88 330.24 C 687.0 314.25 700.2 301.58 716.48 301.58 C 718.18 301.58 719.83 301.81 721.45 302.08 L 754.3 246.01 C 695.43 203.71 623.26 178.76 545.23 178.76 C 347.11 178.76 186.51 339.37 186.51 537.49 C 186.51 561.88 189.0 585.68 193.65 608.7 L 272.34 549.28 C 271.57 546.57 271.02 543.78 271.02 540.82 z"/>
-          <path fill="#3298E2" d="M 771.95 259.53 L 740.47 313.27 C 744.68 318.54 747.3 325.13 747.3 332.39 C 747.3 349.41 733.5 363.21 716.48 363.21 C 706.64 363.21 697.98 358.52 692.34 351.34 L 547.7 395.71 C 546.58 411.71 533.38 424.38 517.1 424.38 C 501.32 424.38 488.47 412.49 486.65 397.2 L 375.63 368.96 C 370.7 375.91 362.97 380.61 354.09 381.65 L 319.66 515.76 C 327.5 521.34 332.66 530.46 332.66 540.82 C 332.66 557.84 318.86 571.64 301.84 571.64 C 295.86 571.64 290.32 569.86 285.6 566.91 L 199.19 632.16 C 209.45 669.66 225.63 704.73 246.68 736.27 L 572.95 455.89 L 725.14 455.89 L 860.89 366.94 C 838.48 325.55 808.14 289.09 771.95 259.53 z"/>
-          <polygon fill="#172554" points="870.22,315.99 1083.92,256.77 947.01,442.81 936.83,357.53"/>
-          <path fill="#172554" d="M 464.89 930.55 C 451.12 927.74 437.63 924.2 424.41 920.01 L 424.41 675.65 L 312.7 771.66 L 312.7 864.06 C 210.74 791.25 144.07 672.05 144.07 537.49 C 144.07 477.96 157.21 421.48 180.57 370.62 L 124.6 370.62 C 104.03 422.3 92.59 478.57 92.59 537.49 C 92.59 787.07 295.65 990.12 545.23 990.12 C 555.79 990.12 566.22 989.63 576.6 988.91 L 576.6 544.87 L 464.89 640.87 L 464.89 930.55 z"/>
-          <path fill="#172554" d="M 996.65 506.04 L 945.04 506.04 C 945.85 516.43 946.39 526.89 946.39 537.49 C 946.39 618.34 922.3 693.63 880.98 756.67 L 880.98 437.3 L 769.26 510.51 L 769.26 869.88 C 756.28 878.65 742.79 886.7 728.79 893.93 L 728.79 525.76 L 617.07 525.76 L 617.07 984.36 C 832.63 949.83 997.87 762.62 997.87 537.49 C 997.87 526.9 997.37 516.44 996.65 506.04 z"/>
-          <path fill="#172554" d="M 545.22 119.08 C 683.67 119.08 806.61 186.69 882.81 290.61 L 902.09 285.27 C 822.83 173.45 692.41 100.33 545.22 100.33 C 371.42 100.33 220.99 202.29 150.58 349.53 L 171.48 349.53 C 240.44 212.96 382.07 119.08 545.22 119.08 z"/>
-        </svg>
-        <text x="68" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="30" font-weight="700" letter-spacing="-0.5" fill="#0f172a">RigaCap</text>
-      </svg>
-    </div>
-    <p>Adaptive AI Trading Platform &mdash; rigacap.com</p>
-    <p style="margin-top: 0.5rem;">This document is confidential and intended solely for the recipient. Past performance does not guarantee future results.
-    Trading involves risk of loss. Walk-forward results are out-of-sample but simulated &mdash; not live trading results.
-    The live track record began June 11, 2026 with a fresh $100k model book; all performance before that date is backtested.
-    Backtest data from 2016 onward is survivorship-free and point-in-time; pre-2016 data carries a survivorship caveat.
-    RigaCap provides trading signals only &mdash; users execute trades via their own brokerage accounts.</p>
+    <div class="mark">RigaCap</div>
+    <p>Regime-Adaptive Momentum &nbsp;·&nbsp; <span class="url">rigacap.com</span></p>
+    <p style="margin-top:.6rem; max-width:640px; margin-left:auto; margin-right:auto;">
+      Confidential and intended solely for the recipient. All performance figures are
+      <strong>walk-forward</strong> (out-of-sample but simulated) — not live trading results.
+      Data is survivorship-free and point-in-time where noted. RigaCap provides trading signals
+      only; subscribers and advisers execute at their own brokers and retain full discretion.
+      This is not financial advice. Past results do not guarantee future returns; trading
+      involves risk of loss.
+    </p>
   </div>
 </div>
 

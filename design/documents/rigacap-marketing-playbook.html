@@ -3,1481 +3,571 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RigaCap — Marketing & Growth Playbook</title>
+<title>RigaCap — Marketing &amp; Growth Playbook (Internal)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  :root{
+    --paper:#F5F1E8;            /* inline chips ONLY — never a page/section fill */
+    --ink:#141210; --mute:#5A544E; --light:#8A8279;
+    --claret:#7A2430; --claret-lt:#9A3444;
+    --rule:#DDD5C7; --rule-dk:#C9BFAC;
+    --pos:#2D5F3F; --neg:#8F2D3D;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
 
-  :root {
-    --navy: #172554;
-    --navy-mid: #1e3a5f;
-    --navy-light: #1e40af;
-    --gold: #f59e0b;
-    --gold-light: #fbbf24;
-    --gold-pale: #fef3c7;
-    --green: #22c55e;
-    --green-light: #dcfce7;
-    --red: #ef4444;
-    --red-light: #fee2e2;
-    --dark: #111827;
-    --gray: #64748b;
-    --light-gray: #f8fafc;
-    --border: #e2e8f0;
-    --purple: #7c3aed;
-    --purple-light: #ede9fe;
-    --blue: #3b82f6;
-    --blue-light: #dbeafe;
+  body{
+    background:#FFFFFF;color:var(--ink);
+    font-family:'IBM Plex Sans',system-ui,sans-serif;line-height:1.6;
+    -webkit-font-smoothing:antialiased;print-color-adjust:exact;-webkit-print-color-adjust:exact;
   }
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    color: var(--dark);
-    line-height: 1.6;
-    background: #fff;
+  @page{ size:letter; margin:0.6in 0.7in }
+  @media print{
+    body{ -webkit-print-color-adjust:exact; print-color-adjust:exact }
+    .page-break{ page-break-before:always }
+    .no-break{ page-break-inside:avoid }
   }
 
-  @page {
-    size: letter;
-    margin: 0.6in 0.7in;
+  .serif{font-family:'Fraunces','Georgia',serif}
+  .mono{font-family:'IBM Plex Mono',monospace}
+
+  /* ---------- COVER ---------- */
+  .cover{
+    min-height:100vh;display:flex;flex-direction:column;justify-content:center;
+    padding:4rem 3.4rem;background:#FFFFFF;position:relative;
+    border-top:6px solid var(--claret);border-bottom:1px solid var(--rule);
+  }
+  .cover .brand{
+    letter-spacing:.34em;font-size:12px;color:var(--claret);font-weight:600;
+    text-transform:uppercase;margin-bottom:2.6rem;
+  }
+  .cover .kicker{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--light);margin-bottom:1rem;
+  }
+  .cover h1{
+    font-family:'Fraunces','Georgia',serif;font-size:3.6rem;font-weight:600;
+    line-height:1.05;letter-spacing:-1px;margin-bottom:1.4rem;max-width:15ch;
+  }
+  .cover h1 .c{color:var(--claret);font-style:italic}
+  .cover .lede{
+    font-size:1.2rem;color:var(--mute);max-width:60ch;font-weight:400;margin-bottom:2.8rem;
+  }
+  .cover .lede b{color:var(--ink);font-weight:600}
+  .cover-strip{
+    display:flex;gap:0;border:1px solid var(--rule-dk);border-radius:4px;overflow:hidden;
+    max-width:640px;margin-bottom:2.8rem;
+  }
+  .cover-strip .cell{flex:1;padding:16px 18px;border-right:1px solid var(--rule)}
+  .cover-strip .cell:last-child{border-right:0}
+  .cover-strip .cell .t{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--light)}
+  .cover-strip .cell .n{font-family:'Fraunces',serif;font-size:1.25rem;font-weight:600;margin-top:3px}
+  .cover-strip .cell .n.c{color:var(--claret)}
+  .cover .meta{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--light);
+    letter-spacing:.06em;border-top:1px solid var(--rule);padding-top:1.2rem;
   }
 
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .page-break { page-break-before: always; }
-    .no-break { page-break-inside: avoid; }
-  }
+  /* ---------- CONTENT ---------- */
+  .content{max-width:820px;margin:0 auto;padding:3.2rem 2rem}
 
-  /* Cover */
-  .cover {
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    background: linear-gradient(145deg, #0c1a3a 0%, var(--navy) 40%, var(--navy-mid) 100%);
-    color: #fff;
-    padding: 4rem;
-    position: relative;
-    overflow: hidden;
+  h2{
+    font-family:'Fraunces','Georgia',serif;font-size:1.75rem;font-weight:600;color:var(--ink);
+    letter-spacing:-.4px;margin:2.6rem 0 1rem;padding-bottom:.55rem;border-bottom:2px solid var(--claret);
   }
-  .cover::before {
-    content: '';
-    position: absolute;
-    top: -30%; right: -20%;
-    width: 60%; height: 80%;
-    background: radial-gradient(circle, rgba(245,158,11,0.12) 0%, transparent 70%);
-    border-radius: 50%;
+  h2:first-child{margin-top:0}
+  h2 .tag{
+    font-family:'IBM Plex Mono',monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--claret);border:1px solid var(--rule-dk);border-radius:3px;padding:3px 8px;
+    vertical-align:middle;margin-left:10px;font-weight:500;
   }
-  .cover::after {
-    content: '';
-    position: absolute;
-    bottom: -20%; left: -10%;
-    width: 50%; height: 60%;
-    background: radial-gradient(circle, rgba(124,58,237,0.08) 0%, transparent 70%);
-    border-radius: 50%;
+  h3{
+    font-family:'Fraunces',serif;font-size:1.18rem;font-weight:600;color:var(--claret);
+    margin:1.7rem 0 .6rem;letter-spacing:-.2px;
   }
-  .cover * { position: relative; z-index: 1; }
+  h4{font-size:.95rem;font-weight:700;color:var(--ink);margin-bottom:.35rem}
+  p{margin-bottom:.8rem;color:#33302B;font-size:.95rem}
+  p b, p strong{color:var(--ink);font-weight:600}
+  em{font-style:italic}
+  a{color:var(--claret);text-decoration:none}
+  .lead{font-size:1.05rem;color:var(--mute)}
+  .lead b{color:var(--ink)}
 
-  .cover-corners {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 1;
-  }
-  .cover-corners::before,
-  .cover-corners::after {
-    content: '';
-    position: absolute;
-    width: 60px; height: 60px;
-    border-color: var(--gold);
-    border-style: solid;
-  }
-  .cover-corners::before { top: 40px; left: 40px; border-width: 2px 0 0 2px; }
-  .cover-corners::after { top: 40px; right: 40px; border-width: 2px 2px 0 0; }
-  .cover-corners-bottom {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 1;
-  }
-  .cover-corners-bottom::before,
-  .cover-corners-bottom::after {
-    content: '';
-    position: absolute;
-    width: 60px; height: 60px;
-    border-color: var(--gold);
-    border-style: solid;
-  }
-  .cover-corners-bottom::before { bottom: 40px; left: 40px; border-width: 0 0 2px 2px; }
-  .cover-corners-bottom::after { bottom: 40px; right: 40px; border-width: 0 2px 2px 0; }
+  ul{padding-left:1.2rem;margin-bottom:.9rem}
+  li{font-size:.92rem;color:#33302B;margin-bottom:.35rem}
+  li b{color:var(--ink)}
 
-  .cover .logo {
-    font-size: 1.1rem;
-    letter-spacing: 0.35em;
-    text-transform: uppercase;
-    font-weight: 600;
-    color: var(--gold);
-    margin-bottom: 2.5rem;
+  /* thought-block / callout */
+  .think{
+    background:#FFFFFF;border:1px solid var(--rule-dk);border-left:3px solid var(--claret);
+    border-radius:4px;padding:1.1rem 1.4rem;margin:1.4rem 0;
   }
-  .cover h1 {
-    font-size: 3.2rem;
-    font-weight: 800;
-    line-height: 1.15;
-    margin-bottom: 1.5rem;
-    background: linear-gradient(135deg, #fff 0%, var(--gold-light) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .cover .subtitle {
-    font-size: 1.25rem;
-    font-weight: 300;
-    color: rgba(255,255,255,0.75);
-    max-width: 600px;
-    margin-bottom: 3rem;
-  }
-  .cover .date {
-    font-size: 0.85rem;
-    color: rgba(255,255,255,0.4);
-  }
-  .hero-stats {
-    display: flex;
-    gap: 3rem;
-    margin-bottom: 3rem;
-  }
-  .hero-stat { text-align: center; }
-  .hero-stat .value {
-    font-size: 2.4rem;
-    font-weight: 800;
-    color: var(--gold-light);
-  }
-  .hero-stat .value.green { color: var(--green); }
-  .hero-stat .value.purple { color: #a78bfa; }
-  .hero-stat .label {
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: rgba(255,255,255,0.5);
-    margin-top: 0.25rem;
-  }
+  .think .h{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--claret);font-weight:600;margin-bottom:.4rem}
+  .think p{margin:0;font-size:.95rem;color:var(--mute)}
+  .think p b{color:var(--ink)}
+  .think.quote p{font-family:'Fraunces',serif;font-style:italic;font-size:1.1rem;color:var(--ink)}
 
-  .gold-divider {
-    width: 80px;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--gold), transparent);
-    margin: 2rem auto;
-  }
+  /* metric row */
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);
+           border:1px solid var(--rule);border-radius:5px;overflow:hidden;margin:1.4rem 0}
+  .metrics.m3{grid-template-columns:repeat(3,1fr)}
+  .metric{background:#FFFFFF;padding:1rem .6rem;text-align:center}
+  .metric .v{font-family:'Fraunces',serif;font-size:1.6rem;font-weight:600}
+  .metric .v.c{color:var(--claret)} .metric .v.g{color:var(--pos)} .metric .v.n{color:var(--neg)}
+  .metric .l{font-size:.62rem;text-transform:uppercase;letter-spacing:.05em;color:var(--light);margin-top:.25rem}
 
-  /* Content pages */
-  .content { max-width: 800px; margin: 0 auto; padding: 3rem 2rem; }
+  /* two tier cards */
+  .tiers{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;margin:1.4rem 0}
+  .tier{background:#FFFFFF;border:1px solid var(--rule-dk);border-radius:6px;padding:1.4rem}
+  .tier.pres{border-top:3px solid var(--pos)}
+  .tier.max{border-top:3px solid var(--claret)}
+  .tier .badge{display:inline-block;font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+               font-weight:600;padding:3px 9px;border-radius:3px;margin-bottom:.7rem}
+  .tier.pres .badge{background:rgba(45,95,63,.1);color:var(--pos)}
+  .tier.max .badge{background:rgba(122,36,48,.1);color:var(--claret)}
+  .tier h4{font-family:'Fraunces',serif;font-size:1.4rem;font-weight:600}
+  .tier .one{font-family:'Fraunces',serif;color:var(--claret);font-style:italic;font-size:1rem;margin:.2rem 0 .1rem}
+  .tier .who{font-size:.78rem;color:var(--light);margin-bottom:.7rem}
+  .tier p{font-size:.85rem}
 
-  h2 {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: var(--navy);
-    margin-top: 2.5rem;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid var(--gold-pale);
-  }
-  h2:first-child { margin-top: 0; }
+  /* feature grid */
+  .feat{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.2rem 0}
+  .fcard{background:#FFFFFF;border:1px solid var(--rule-dk);border-left:3px solid var(--claret);
+         border-radius:4px;padding:1.05rem 1.15rem}
+  .fcard.pos{border-left-color:var(--pos)}
+  .fcard p{font-size:.82rem;color:var(--mute);margin-bottom:0}
+  .fcard p b{color:var(--ink)}
 
-  h3 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--dark);
-    margin-top: 1.5rem;
-    margin-bottom: 0.5rem;
-  }
+  /* table */
+  table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem}
+  thead th{background:#FFFFFF;font-weight:600;text-align:left;padding:.55rem .7rem;
+           border-bottom:2px solid var(--claret);font-size:.68rem;text-transform:uppercase;
+           letter-spacing:.05em;color:var(--claret);font-family:'IBM Plex Mono',monospace}
+  tbody td{padding:.5rem .7rem;border-bottom:1px solid var(--rule);color:#33302B}
+  tbody tr:last-child td{border-bottom:none}
+  td b{color:var(--ink)}
+  .pos{color:var(--pos);font-weight:600}
+  .neg{color:var(--neg);font-weight:600}
+  .hl td{background:#FBF9F4;font-weight:600}
 
-  p { margin-bottom: 0.75rem; color: #374151; font-size: 0.92rem; }
-  strong { font-weight: 600; }
+  /* flow */
+  .flow{display:flex;flex-direction:column;align-items:center;margin:1.3rem 0}
+  .fbox{background:#FFFFFF;border:1px solid var(--rule-dk);border-radius:5px;padding:.55rem 1.3rem;
+        font-size:.82rem;font-weight:600;color:var(--ink);text-align:center;min-width:320px}
+  .fbox.c{border-color:var(--claret);color:var(--claret)}
+  .fbox.g{border-color:var(--pos);color:var(--pos)}
+  .farrow{color:var(--claret);font-size:1.1rem;line-height:1;padding:.15rem 0}
 
-  /* Metric cards */
-  .metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    margin: 1.5rem 0;
-  }
-  .metrics-grid-3 {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin: 1.5rem 0;
-  }
-  .metric-card {
-    background: var(--light-gray);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1rem;
-    text-align: center;
-  }
-  .metric-card .value {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: var(--navy);
-  }
-  .metric-card .value.green { color: var(--green); }
-  .metric-card .value.gold { color: var(--gold); }
-  .metric-card .value.purple { color: var(--purple); }
-  .metric-card .label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--gray);
-    margin-top: 0.25rem;
-  }
+  /* compare bars */
+  .bars{margin:1rem 0}
+  .brow{display:flex;align-items:center;margin-bottom:.45rem;font-size:.8rem}
+  .blabel{width:105px;font-weight:500;color:var(--mute)}
+  .bwrap{flex:1;background:#F1EEE6;border-radius:5px;height:22px;overflow:hidden}
+  .bfill{height:100%;border-radius:5px;display:flex;align-items:center;padding-left:9px;
+         font-size:.68rem;font-weight:600;color:#fff}
+  .bfill.c{background:var(--claret)} .bfill.p{background:var(--pos)}
+  .bfill.mute{background:var(--rule-dk);color:var(--ink)}
 
-  /* Tables */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1rem 0;
-    font-size: 0.85rem;
-  }
-  thead th {
-    background: var(--light-gray);
-    font-weight: 600;
-    text-align: left;
-    padding: 0.6rem 0.75rem;
-    border-bottom: 2px solid var(--border);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--gray);
-  }
-  tbody td {
-    padding: 0.55rem 0.75rem;
-    border-bottom: 1px solid var(--border);
-  }
-  tbody tr:last-child td { border-bottom: none; }
-  tbody tr:hover { background: #fafafa; }
-  .positive { color: var(--green); font-weight: 600; }
-  .negative { color: var(--red); font-weight: 600; }
-  .highlight-row { background: var(--gold-pale) !important; font-weight: 600; }
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:1.6rem;margin:1rem 0}
 
-  /* Feature cards */
-  .feature-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.25rem;
-    margin: 1.25rem 0;
-  }
-  .feature-card {
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.25rem;
-    border-left: 4px solid var(--navy);
-  }
-  .feature-card.gold-border { border-left-color: var(--gold); }
-  .feature-card.purple-border { border-left-color: var(--purple); }
-  .feature-card.green-border { border-left-color: var(--green); }
-  .feature-card h4 {
-    font-size: 0.95rem;
-    font-weight: 700;
-    margin-bottom: 0.4rem;
-    color: var(--dark);
-  }
-  .feature-card p {
-    font-size: 0.82rem;
-    margin-bottom: 0;
-    color: var(--gray);
-  }
+  /* timeline */
+  .tl{margin:1.2rem 0}
+  .tli{display:flex;gap:.9rem;margin-bottom:.9rem;align-items:flex-start}
+  .tld{width:10px;height:10px;border-radius:50%;background:var(--claret);margin-top:5px;flex-shrink:0}
+  .tld.p{background:var(--pos)}
+  .tli h4{font-size:.9rem;margin-bottom:2px}
+  .tli p{font-size:.82rem;color:var(--mute);margin:0}
 
-  /* Callouts */
-  .callout {
-    background: linear-gradient(135deg, #eff6ff, #f0f9ff);
-    border-left: 4px solid var(--navy);
-    border-radius: 0 10px 10px 0;
-    padding: 1.25rem 1.5rem;
-    margin: 1.5rem 0;
-  }
-  .callout p { margin: 0; font-size: 0.9rem; }
-  .callout strong { color: var(--navy); }
+  /* persona */
+  .persona{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin:1.2rem 0}
+  .pcard{background:#FFFFFF;border:1px solid var(--rule-dk);border-radius:6px;padding:1.2rem}
+  .pcard .role{font-family:'Fraunces',serif;font-size:1.1rem;font-weight:600;color:var(--claret)}
+  .pcard .demo{font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:var(--light);margin:.2rem 0 .6rem}
+  .pcard p{font-size:.83rem;margin-bottom:0}
 
-  .callout-gold {
-    background: linear-gradient(135deg, #fef3c7, #fffbeb);
-    border-left: 4px solid var(--gold);
-  }
-  .callout-gold strong { color: #92400e; }
+  .chip{display:inline-block;background:var(--paper);border:1px solid var(--rule-dk);border-radius:3px;
+        padding:1px 7px;font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:var(--ink)}
 
-  .callout-green {
-    background: linear-gradient(135deg, #dcfce7, #f0fdf4);
-    border-left: 4px solid var(--green);
-  }
-  .callout-green strong { color: #166534; }
-
-  .callout-purple {
-    background: linear-gradient(135deg, #ede9fe, #f5f3ff);
-    border-left: 4px solid var(--purple);
-  }
-  .callout-purple strong { color: #5b21b6; }
-
-  /* Architecture flow */
-  .flow-vertical {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0;
-    margin: 1.5rem 0;
-  }
-  .flow-box {
-    background: linear-gradient(135deg, #eff6ff, #dbeafe);
-    border: 1px solid #93c5fd;
-    border-radius: 10px;
-    padding: 0.6rem 1.5rem;
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--navy);
-    text-align: center;
-    min-width: 280px;
-  }
-  .flow-box.gold-box {
-    background: linear-gradient(135deg, #fef3c7, #fde68a);
-    border-color: var(--gold);
-    color: #92400e;
-  }
-  .flow-box.purple-box {
-    background: linear-gradient(135deg, #ede9fe, #ddd6fe);
-    border-color: #a78bfa;
-    color: #5b21b6;
-  }
-  .flow-box.green-box {
-    background: linear-gradient(135deg, #dcfce7, #bbf7d0);
-    border-color: #4ade80;
-    color: #166534;
-  }
-  .flow-arrow {
-    color: var(--gold);
-    font-size: 1.4rem;
-    line-height: 1;
-    padding: 0.15rem 0;
-  }
-
-  /* Comparison bars */
-  .compare-bars { margin: 1rem 0 1.5rem; }
-  .compare-row {
-    display: flex;
-    align-items: center;
-    margin-bottom: 0.5rem;
-    font-size: 0.82rem;
-  }
-  .compare-label { width: 110px; font-weight: 500; color: var(--gray); }
-  .compare-bar-wrap {
-    flex: 1;
-    background: #f1f5f9;
-    border-radius: 6px;
-    height: 24px;
-    position: relative;
-    overflow: hidden;
-  }
-  .compare-bar {
-    height: 100%;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    padding-left: 10px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: #fff;
-  }
-  .compare-bar.navy { background: linear-gradient(90deg, var(--navy), var(--navy-light)); }
-  .compare-bar.gold-bar { background: linear-gradient(90deg, #d97706, var(--gold)); }
-  .compare-bar.purple-bar { background: linear-gradient(90deg, #6d28d9, var(--purple)); }
-  .compare-bar.green-bar { background: linear-gradient(90deg, #16a34a, var(--green)); }
-  .compare-bar.gray { background: linear-gradient(90deg, #9ca3af, #d1d5db); color: #374151; }
-
-  .two-col {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
-    margin: 1rem 0;
-  }
-
-  ul { padding-left: 1.25rem; margin-bottom: 0.75rem; }
-  li { font-size: 0.85rem; color: #374151; margin-bottom: 0.3rem; }
-
-  /* Platform cards */
-  .platform-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin: 1.25rem 0;
-  }
-  .platform-card {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.25rem;
-    text-align: center;
-    position: relative;
-  }
-  .platform-card .platform-icon {
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
-  }
-  .platform-card .platform-name {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--dark);
-    margin-bottom: 0.3rem;
-  }
-  .platform-card .platform-stat {
-    font-size: 0.78rem;
-    color: var(--gray);
-  }
-  .platform-card .tier-badge {
-    position: absolute;
-    top: 8px; right: 8px;
-    font-size: 0.55rem;
-    font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .tier-1 { background: var(--gold); color: var(--navy); }
-  .tier-2 { background: var(--blue-light); color: var(--navy); }
-
-  /* Persona cards */
-  .persona-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.25rem;
-    margin: 1.25rem 0;
-  }
-  .persona-card {
-    background: var(--light-gray);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.25rem;
-  }
-  .persona-card .persona-avatar {
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-  }
-  .persona-card h4 {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--dark);
-    margin-bottom: 0.2rem;
-  }
-  .persona-card .persona-demo {
-    font-size: 0.75rem;
-    color: var(--gray);
-    margin-bottom: 0.5rem;
-  }
-  .persona-card p {
-    font-size: 0.82rem;
-    margin-bottom: 0;
-    color: #374151;
-  }
-
-  /* Timeline */
-  .timeline { margin: 1.5rem 0; }
-  .timeline-item {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    align-items: flex-start;
-  }
-  .timeline-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--gold);
-    margin-top: 4px;
-    flex-shrink: 0;
-  }
-  .timeline-dot.purple-dot { background: var(--purple); }
-  .timeline-dot.green-dot { background: var(--green); }
-  .timeline-content h4 {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--dark);
-    margin-bottom: 2px;
-  }
-  .timeline-content p {
-    font-size: 0.82rem;
-    color: var(--gray);
-    margin: 0;
-  }
-
-  .new-badge {
-    display: inline-block;
-    background: var(--gold);
-    color: var(--navy);
-    font-size: 0.6rem;
-    font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    vertical-align: middle;
-    margin-left: 6px;
-  }
-
-  /* Footer */
-  .footer {
-    text-align: center;
-    padding: 2rem;
-    font-size: 0.7rem;
-    color: var(--gray);
-    border-top: 1px solid var(--border);
-    margin-top: 2rem;
-  }
-  .footer strong { color: var(--navy); }
-
-  /* PDF/print: institutional ink-on-white. The cream paper is a screen brand
-     device; print convention is white with accent color as punctuation.
-     (Also: toner.) Branded covers keep their explicit backgrounds. */
-  @media print {
-    :root { --paper: #ffffff; --paper-card: #ffffff; --paper-deep: #ffffff; --cream: #ffffff; }
-    body { background: #ffffff !important; }
-    [style*="F5F1E8"], [style*="FAF7F0"], [style*="EDE7D8"],
-    [style*="f5f1e8"], [style*="faf7f0"], [style*="ede7d8"] { background: #ffffff !important; }
-  }
+  .footer{max-width:820px;margin:0 auto;text-align:center;padding:2rem;font-size:.72rem;
+          color:var(--light);border-top:1px solid var(--rule-dk)}
+  .footer b{color:var(--mute)}
+  .footer p{font-size:.72rem;color:var(--light);margin-bottom:.4rem}
 </style>
 </head>
 <body>
 
-<!-- COVER PAGE -->
+<!-- ========== COVER ========== -->
 <div class="cover">
-  <div class="cover-corners"></div>
-  <div class="cover-corners-bottom"></div>
-  <div class="logo" style="margin-bottom: 2.5rem;">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 60" width="220" height="51">
-      <circle cx="30" cy="30" r="28" fill="#ffffff"/>
-      <svg x="4" y="4" width="52" height="52" viewBox="0 0 1090 1090">
-        <path fill="#67B3E9" d="M 271.02 540.82 C 271.02 525.03 282.96 512.15 298.27 510.37 L 332.7 376.25 C 324.86 370.67 319.7 361.55 319.7 351.19 C 319.7 334.17 333.5 320.37 350.52 320.37 C 366.29 320.37 379.15 332.27 380.97 347.55 L 491.99 375.79 C 497.57 367.92 506.71 362.75 517.1 362.75 C 526.94 362.75 535.59 367.44 541.24 374.62 L 685.88 330.24 C 687.0 314.25 700.2 301.58 716.48 301.58 C 718.18 301.58 719.83 301.81 721.45 302.08 L 754.3 246.01 C 695.43 203.71 623.26 178.76 545.23 178.76 C 347.11 178.76 186.51 339.37 186.51 537.49 C 186.51 561.88 189.0 585.68 193.65 608.7 L 272.34 549.28 C 271.57 546.57 271.02 543.78 271.02 540.82 z"/>
-        <path fill="#3298E2" d="M 771.95 259.53 L 740.47 313.27 C 744.68 318.54 747.3 325.13 747.3 332.39 C 747.3 349.41 733.5 363.21 716.48 363.21 C 706.64 363.21 697.98 358.52 692.34 351.34 L 547.7 395.71 C 546.58 411.71 533.38 424.38 517.1 424.38 C 501.32 424.38 488.47 412.49 486.65 397.2 L 375.63 368.96 C 370.7 375.91 362.97 380.61 354.09 381.65 L 319.66 515.76 C 327.5 521.34 332.66 530.46 332.66 540.82 C 332.66 557.84 318.86 571.64 301.84 571.64 C 295.86 571.64 290.32 569.86 285.6 566.91 L 199.19 632.16 C 209.45 669.66 225.63 704.73 246.68 736.27 L 572.95 455.89 L 725.14 455.89 L 860.89 366.94 C 838.48 325.55 808.14 289.09 771.95 259.53 z"/>
-        <polygon fill="#172554" points="870.22,315.99 1083.92,256.77 947.01,442.81 936.83,357.53"/>
-        <path fill="#172554" d="M 464.89 930.55 C 451.12 927.74 437.63 924.2 424.41 920.01 L 424.41 675.65 L 312.7 771.66 L 312.7 864.06 C 210.74 791.25 144.07 672.05 144.07 537.49 C 144.07 477.96 157.21 421.48 180.57 370.62 L 124.6 370.62 C 104.03 422.3 92.59 478.57 92.59 537.49 C 92.59 787.07 295.65 990.12 545.23 990.12 C 555.79 990.12 566.22 989.63 576.6 988.91 L 576.6 544.87 L 464.89 640.87 L 464.89 930.55 z"/>
-        <path fill="#172554" d="M 996.65 506.04 L 945.04 506.04 C 945.85 516.43 946.39 526.89 946.39 537.49 C 946.39 618.34 922.3 693.63 880.98 756.67 L 880.98 437.3 L 769.26 510.51 L 769.26 869.88 C 756.28 878.65 742.79 886.7 728.79 893.93 L 728.79 525.76 L 617.07 525.76 L 617.07 984.36 C 832.63 949.83 997.87 762.62 997.87 537.49 C 997.87 526.9 997.37 516.44 996.65 506.04 z"/>
-        <path fill="#172554" d="M 545.22 119.08 C 683.67 119.08 806.61 186.69 882.81 290.61 L 902.09 285.27 C 822.83 173.45 692.41 100.33 545.22 100.33 C 371.42 100.33 220.99 202.29 150.58 349.53 L 171.48 349.53 C 240.44 212.96 382.07 119.08 545.22 119.08 z"/>
-      </svg>
-      <text x="68" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="30" font-weight="700" letter-spacing="-0.5" fill="#ffffff">RigaCap</text>
-    </svg>
+  <div class="brand">RigaCap · Regime-Adaptive Momentum</div>
+  <div class="kicker">Internal — Marketing &amp; Growth</div>
+  <h1>Marketing is <span class="c">filtration,</span><br>not conversion.</h1>
+  <p class="lede">The job isn't to sell everyone. It's to route the <b>right buyer</b> to the
+    <b>right tier</b> — the calm capital-preserver to Preserver, the growth-seeker to Maximizer —
+    and to send everyone else away before they churn. This is how we do that.</p>
+
+  <div class="cover-strip">
+    <div class="cell"><div class="t">Two tiers</div><div class="n">Preserver / <span class="c">Maximizer</span></div></div>
+    <div class="cell"><div class="t">Direction</div><div class="n">Momentum, around the drawdown</div></div>
+    <div class="cell"><div class="t">Method</div><div class="n">Walk-forward, honest</div></div>
   </div>
-  <h1>Marketing &amp;<br>Growth Playbook</h1>
-  <p class="subtitle">
-    How the Social Intelligence Engine transforms verified trade results into autonomous
-    multi-platform growth &mdash; powered by AI content generation, contextual engagement,
-    and data-driven audience targeting.
-  </p>
-  <div class="hero-stats">
-    <div class="hero-stat">
-      <div class="value purple">3</div>
-      <div class="label">Active Platforms</div>
-    </div>
-    <div class="hero-stat">
-      <div class="value gold">24/7</div>
-      <div class="label">Autonomous Engine</div>
-    </div>
-    <div class="hero-stat">
-      <div class="value green">100+</div>
-      <div class="label">Content Templates</div>
-    </div>
-    <div class="hero-stat">
-      <div class="value">26</div>
-      <div class="label">Target Accounts</div>
-    </div>
-  </div>
-  <div class="date">Confidential &mdash; April 2026</div>
+
+  <div class="meta">CONFIDENTIAL — INTERNAL USE ONLY · Performance vintage 2026-07-31 · Playbook rev. August 2026</div>
 </div>
 
-<!-- PAGE 2: EXECUTIVE SUMMARY -->
+<!-- ========== PAGE: THE THESIS ========== -->
 <div class="content page-break">
-  <h2>Executive Summary</h2>
-  <p>
-    RigaCap isn't just a trading signal service &mdash; it's a <strong>self-marketing machine</strong>.
-    Every trade the system executes becomes a piece of social proof. Every market regime shift becomes
-    thought leadership content. Every competitor's stock mention becomes an engagement opportunity.
-  </p>
-  <p>
-    The <strong>Social Intelligence Engine</strong> is a fully autonomous content pipeline that transforms
-    real, walk-forward-verified trade results into platform-optimized social content across Twitter/X,
-    Instagram, and Threads. It generates, schedules, notifies, and publishes &mdash; with human approval as
-    the only manual step.
-  </p>
-  <p>
-    This document covers the complete marketing technology stack, target audience research,
-    platform strategy, paid acquisition plan, and growth roadmap.
-  </p>
+  <h2>What We Are Actually Selling</h2>
+  <p class="lead">RigaCap is a momentum stock-signals product built around one uncommon promise:
+    <b>we manage the drawdown as carefully as the return.</b> Most momentum services sell the
+    upside and bury the crash. We lead with the crash — because that's the reason to pay us.</p>
 
-  <div class="callout-purple callout">
-    <p><strong>The Flywheel:</strong> Real trades generate content &rarr; content builds credibility &rarr;
-    credibility drives trials &rarr; subscribers generate revenue &rarr; revenue funds more content.
-    The engine gets stronger with every trade.</p>
+  <p>Everything in this playbook flows from a single strategic idea our analyst review surfaced:
+    the same product earns an <b>F for a "Market Maximizer" and an A for a "Capital Preserver."</b>
+    The disappointed customer and the delighted customer bought the identical signals — the
+    difference was <em>expectation</em>. So the marketing function's real work is not persuasion.
+    It is <b>filtration</b>: setting expectations so precisely that the people who sign up are the
+    people who stay.</p>
+
+  <div class="think quote no-break">
+    <div class="h">Positioning canon (keep using this language)</div>
+    <p>"Behavioral capital insurance." The anti-capitulation engine. You are structurally buying a
+      put option on your own worst instinct — the premium is paid in bull-run underperformance.</p>
   </div>
 
-  <h2>The Product We're Marketing</h2>
-  <p>Before diving into growth strategy, here's what makes RigaCap's product genuinely differentiated &mdash; these are the proof points every piece of marketing content should reinforce.</p>
+  <h3>The two tiers, one engine</h3>
+  <p>One regime-adaptive momentum engine, tuned to two risk appetites. We never expose the internal
+    machinery in customer copy — only the outcome and who each tier is for.</p>
 
-  <div class="metrics-grid">
-    <div class="metric-card no-break">
-      <div class="value green">8.3%</div>
-      <div class="label">Annualized (21-Yr Backtest)</div>
+  <div class="tiers no-break">
+    <div class="tier pres">
+      <span class="badge">Base · Flagship</span>
+      <h4>Preserver</h4>
+      <div class="one">"Keep the growth, cut the pain."</div>
+      <div class="who">The calm, capital-preservation buyer · retirees · advisers · larger accounts.</div>
+      <div class="metrics m3" style="margin:.7rem 0">
+        <div class="metric"><div class="v g">13.0%</div><div class="l">5-yr CAGR</div></div>
+        <div class="metric"><div class="v">1.28</div><div class="l">Sharpe</div></div>
+        <div class="metric"><div class="v n">&minus;12.9%</div><div class="l">Max drawdown</div></div>
+      </div>
+      <p><b>Owns the least risk.</b> Gives up some ground in a smooth melt-up — that is the premium.
+        Sells calm, not adrenaline.</p>
     </div>
-    <div class="metric-card no-break">
-      <div class="value">19%</div>
-      <div class="label">Worst Drawdown (vs 55% S&amp;P)</div>
-    </div>
-    <div class="metric-card no-break">
-      <div class="value green">&minus;0.5%</div>
-      <div class="label">2008 (S&amp;P: &minus;37.7%)</div>
-    </div>
-    <div class="metric-card no-break">
-      <div class="value gold">+32%</div>
-      <div class="label">Last 24 Mo, Annualized (Held-Out)</div>
+    <div class="tier max">
+      <span class="badge">Growth · Add-on</span>
+      <h4>Maximizer</h4>
+      <div class="one">"Offense, with a seatbelt."</div>
+      <div class="who">The growth buyer who can genuinely stomach a rough year.</div>
+      <div class="metrics m3" style="margin:.7rem 0">
+        <div class="metric"><div class="v c">31.4%</div><div class="l">5-yr CAGR</div></div>
+        <div class="metric"><div class="v">1.51</div><div class="l">Sharpe</div></div>
+        <div class="metric"><div class="v n">&minus;14.9%</div><div class="l">Max drawdown</div></div>
+      </div>
+      <p><b>Higher return, honestly disclosed tail.</b> Priced and positioned for investors who
+        accept that a hard year is one they can hold through.</p>
     </div>
   </div>
 
-  <div class="feature-grid">
-    <div class="feature-card no-break">
-      <h4>3-Factor Ensemble</h4>
-      <p>Breakout timing + momentum ranking + breakout proximity. Three independent signals must agree before entry, across up to 20 inverse-volatility-sized positions.</p>
-    </div>
-    <div class="feature-card gold-border no-break">
-      <h4>Market Regime Filter</h4>
-      <p>When the market trend breaks, the portfolio goes to cash &mdash; the discipline behind &minus;0.5% in 2008 and &minus;7.5% in 2022 while the index fell &minus;37.7% and &minus;19.9%.</p>
-    </div>
-    <div class="feature-card green-border no-break">
-      <h4>Walk-Forward Backtested</h4>
-      <p>Every return is from walk-forward backtesting &mdash; the system traded forward into unseen data across 21 continuous years. Zero hindsight bias, always labeled as backtested.</p>
-    </div>
-    <div class="feature-card purple-border no-break">
-      <h4>Signal Persistence</h4>
-      <p>Every signal is persisted to database with full audit trail &mdash; when it fired, its scores, and whether it was later invalidated. Provable track record.</p>
-    </div>
+  <div class="think no-break">
+    <div class="h">Rule for every asset</div>
+    <p>Lead with <b>result + thesis</b>, never methodology. Say <b>"walk-forward"</b>, never
+      "backtest." Never name internal strategy mechanics in public. "Survivorship-free" is
+      internal table-stakes rigor — it stays out of customer copy.</p>
   </div>
 </div>
 
-<!-- PAGE 3: TARGET AUDIENCE -->
+<!-- ========== PAGE: RETIRED LANGUAGE ========== -->
 <div class="content page-break">
-  <h2>Target Audience</h2>
-  <p>Our ideal subscriber is a self-directed retail investor with enough capital and sophistication to value systematic signals, but not so institutional that they'd build their own. Here are the two primary personas.</p>
+  <h2>Voice &amp; The Language We Retired</h2>
+  <p>Our category is loud, over-promised, and distrusted. We win on the opposite posture:
+    <b>growth-forward but honest.</b> We state the upside plainly and we name the cost of each tier
+    out loud. Honesty is not a compliance footnote here — it is the differentiator.</p>
 
-  <div class="persona-grid">
-    <div class="persona-card no-break">
-      <div class="persona-avatar">&#x1F4C8;</div>
-      <h4>The Active Self-Director</h4>
-      <div class="persona-demo">Male, 30-42 &bull; Income $85K-$150K &bull; Schwab/Fidelity</div>
-      <p>Manages his own brokerage account. Follows FinTwit. Has tried free newsletters but wants something more systematic. Values transparency &mdash; wants to see the track record before paying. Will pay $129/mo for a real edge he can verify.</p>
-    </div>
-    <div class="persona-card no-break">
-      <div class="persona-avatar">&#x1F4F1;</div>
-      <h4>The App-First Optimizer</h4>
-      <div class="persona-demo">Male/Female, 26-35 &bull; Income $75K-$120K &bull; Robinhood/IBKR</div>
-      <p>Tech-savvy, open to AI-assisted investing (41% of Gen Z/Millennials). Mobile-first &mdash; 75% of retail trades are via apps. Discovers tools through social media. Wants signals delivered to their phone, not a Bloomberg terminal.</p>
-    </div>
-  </div>
-
-  <h3>Audience by the Numbers</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Attribute</th>
-        <th>Detail</th>
-        <th>Source</th>
-      </tr>
-    </thead>
+  <h3>Kill list — do not use</h3>
+  <table class="no-break">
+    <thead><tr><th>Retired</th><th>Why it's dead</th><th>Use instead</th></tr></thead>
     <tbody>
-      <tr>
-        <td><strong>Core age range</strong></td>
-        <td>28&ndash;45 (avg new investor: 30-35, avg trader: 43)</td>
-        <td>BestBrokers 2026</td>
-      </tr>
-      <tr>
-        <td><strong>Gender split</strong></td>
-        <td>~85% male (active stock traders)</td>
-        <td>BestBrokers 2026</td>
-      </tr>
-      <tr>
-        <td><strong>Income threshold</strong></td>
-        <td>$75K+ household (enough to invest AND subscribe)</td>
-        <td>CoinLaw 2026</td>
-      </tr>
-      <tr>
-        <td><strong>Retail inflows (2025)</strong></td>
-        <td>$302B into US stocks (+53% YoY)</td>
-        <td>CoinLaw 2026</td>
-      </tr>
-      <tr>
-        <td><strong>Gen Z + Millennial share</strong></td>
-        <td>60%+ of retail trading activity</td>
-        <td>WEF 2025</td>
-      </tr>
-      <tr>
-        <td><strong>Social media as input</strong></td>
-        <td>50% of retail investors use social for investment decisions</td>
-        <td>CoinLaw 2026</td>
-      </tr>
-      <tr>
-        <td><strong>AI openness</strong></td>
-        <td>41% of Gen Z/Millennials would let AI manage investments</td>
-        <td>WEF 2025</td>
-      </tr>
-      <tr>
-        <td><strong>Mobile trading</strong></td>
-        <td>75% of retail trades are executed via mobile apps</td>
-        <td>CoinLaw 2026</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-<!-- PAGE 4: PLATFORM STRATEGY -->
-<div class="content page-break">
-  <h2>Platform Strategy</h2>
-  <p>Our platform selection is driven by one question: <em>where do self-directed investors with disposable income spend their attention?</em> Not all social platforms are equal for fintech subscription conversion.</p>
-
-  <h3>Tier 1: Primary Channels (Organic + Paid)</h3>
-
-  <div class="feature-grid">
-    <div class="feature-card no-break" style="border-left-color: #1d9bf0;">
-      <h4>&#x1D54F; Twitter / X</h4>
-      <p><strong>Our #1 channel.</strong> 70% of users are under 35. 61% male. 29% earn $100K+. FinTwit is the largest organic investing community &mdash; real-time format is perfect for "we called it" proof posts and contextual replies.</p>
-    </div>
-    <div class="feature-card no-break" style="border-left-color: #E4405F;">
-      <h4>&#x1F4F7; Instagram</h4>
-      <p><strong>Brand credibility + discovery.</strong> 81% Millennial usage. 1.69B ad reach. Visual format for polished trade cards, carousel education, and Reels for algorithmic discovery beyond our followers.</p>
-    </div>
-  </div>
-
-  <h3>Tier 2: Emerging Channels (Organic Only)</h3>
-
-  <div class="platform-grid">
-    <div class="platform-card no-break">
-      <span class="tier-badge tier-2">HIGH POTENTIAL</span>
-      <div class="platform-icon">&#x25B6;</div>
-      <div class="platform-name">YouTube</div>
-      <div class="platform-stat">#1 for Gen Z (91%) and Millennials (90%). Finance YouTube builds deep trust. Start Month 2-3.</div>
-    </div>
-    <div class="platform-card no-break">
-      <span class="tier-badge tier-2">CROSS-POST</span>
-      <div class="platform-icon">&#x1F9F5;</div>
-      <div class="platform-name">Threads</div>
-      <div class="platform-stat">25-34 dominant. Auto cross-post from X. Zero incremental effort. Re-evaluate when ads launch.</div>
-    </div>
-    <div class="platform-card no-break">
-      <span class="tier-badge tier-2">CREDIBILITY</span>
-      <div class="platform-icon">&#x1F4AC;</div>
-      <div class="platform-name">Reddit</div>
-      <div class="platform-stat">r/stocks, r/investing. Organic credibility play only. Genuine participation, never self-promo.</div>
-    </div>
-  </div>
-
-  <h3>Why Not Facebook or TikTok?</h3>
-  <div class="two-col">
-    <div>
-      <p><strong>Facebook</strong> &mdash; Demographics actually overlap (25-34 is 31%), but investing culture is weak. Use only for Meta pixel retargeting alongside Instagram ads.</p>
-    </div>
-    <div>
-      <p><strong>TikTok</strong> &mdash; Skews 18-24. Great for awareness, terrible for converting paid subscribers. Users have less capital. Consider only for free cross-posting of YouTube Shorts.</p>
-    </div>
-  </div>
-
-  <h3>Platform Demographic Fit</h3>
-  <div class="compare-bars">
-    <div class="compare-row">
-      <div class="compare-label">Twitter/X</div>
-      <div class="compare-bar-wrap"><div class="compare-bar navy" style="width: 92%;">92% &mdash; Best fit (FinTwit, income, age)</div></div>
-    </div>
-    <div class="compare-row">
-      <div class="compare-label">Instagram</div>
-      <div class="compare-bar-wrap"><div class="compare-bar gold-bar" style="width: 80%;">80% &mdash; Visual credibility + Meta ads</div></div>
-    </div>
-    <div class="compare-row">
-      <div class="compare-label">YouTube</div>
-      <div class="compare-bar-wrap"><div class="compare-bar purple-bar" style="width: 75%;">75% &mdash; Highest potential (Month 2+)</div></div>
-    </div>
-    <div class="compare-row">
-      <div class="compare-label">Threads</div>
-      <div class="compare-bar-wrap"><div class="compare-bar green-bar" style="width: 50%;">50% &mdash; Free, zero-effort cross-post</div></div>
-    </div>
-    <div class="compare-row">
-      <div class="compare-label">Facebook</div>
-      <div class="compare-bar-wrap"><div class="compare-bar gray" style="width: 30%;">30% &mdash; Retargeting only</div></div>
-    </div>
-    <div class="compare-row">
-      <div class="compare-label">TikTok</div>
-      <div class="compare-bar-wrap"><div class="compare-bar gray" style="width: 15%;">15%</div></div>
-    </div>
-  </div>
-</div>
-
-<!-- PAGE 5: SOCIAL INTELLIGENCE ENGINE -->
-<div class="content page-break">
-  <h2>The Social Intelligence Engine <span class="new-badge">Core Asset</span></h2>
-  <p>
-    This is not a social media scheduler. It's an <strong>autonomous growth machine</strong> that turns every
-    trade the system makes into discoverable, provable, platform-optimized social proof &mdash; and then
-    injects that proof into the exact conversations where potential subscribers are already paying attention.
-  </p>
-
-  <h3>How It Works</h3>
-  <div class="flow-vertical">
-    <div class="flow-box">Walk-Forward Simulation Completes &rarr; Real Trades Extracted</div>
-    <div class="flow-arrow">&darr;</div>
-    <div class="flow-box purple-box">Claude Sonnet 4.5 Generates 3 Platform Variants per Trade</div>
-    <div class="flow-arrow">&darr;</div>
-    <div class="flow-box gold-box">Auto-Scheduled Across Optimal Windows (9 AM / 12 PM / 5 PM ET)</div>
-    <div class="flow-arrow">&darr;</div>
-    <div class="flow-box">T-24h &amp; T-1h Admin Notifications (One-Click Cancel via Email)</div>
-    <div class="flow-arrow">&darr;</div>
-    <div class="flow-box green-box">Auto-Published to Twitter + Instagram + Threads</div>
-    <div class="flow-arrow">&darr;</div>
-    <div class="flow-box purple-box">Reply Scanner Monitors 26 Influencer Accounts for Mentions</div>
-    <div class="flow-arrow">&darr;</div>
-    <div class="flow-box green-box">Contextual Replies Inject Our Track Record Into Their Conversations</div>
-  </div>
-
-  <div class="callout-gold callout no-break">
-    <p><strong>Key Insight:</strong> The highest-leverage social activity isn't posting &mdash; it's replying.
-    When @unusual_whales (500K followers) mentions a stock we've already traded, our system automatically
-    generates a contextual reply with our verified results and sends it for one-click admin approval.
-    We use <em>their</em> audience, <em>their</em> context, and <em>our</em> real track record.</p>
-  </div>
-
-  <h3>AI Content Generation</h3>
-  <div class="feature-grid">
-    <div class="feature-card purple-border no-break">
-      <h4>Claude Sonnet 4.5</h4>
-      <p>Not ChatGPT. Anthropic's Claude produces witty, confident, data-driven copy that reads like a sharp human, not a bot. Platform-specific character limits enforced (260 Twitter, 500 Threads, 600+ Instagram).</p>
-    </div>
-    <div class="feature-card gold-border no-break">
-      <h4>3 Post Types</h4>
-      <p><strong>Trade Result:</strong> Celebrate verified wins. <strong>Missed Opportunity:</strong> FOMO/education angle. <strong>"We Called It":</strong> News-driven social proof linking our signal to a recent catalyst.</p>
-    </div>
-    <div class="feature-card no-break">
-      <h4>100+ Template Variations</h4>
-      <p>48 win openers, 51 miss openers, 7 regime flavor pools. Deterministic selection (same trade = same template) ensures consistency with zero repetition across different trades.</p>
-    </div>
-    <div class="feature-card green-border no-break">
-      <h4>News Enrichment</h4>
-      <p>Automatic headline fetching via market data APIs. "We Called It" posts connect our signal timing to real-world catalysts &mdash; the most shareable content type.</p>
-    </div>
-  </div>
-</div>
-
-<!-- PAGE 6: CONTEXTUAL REPLY SYSTEM -->
-<div class="content page-break">
-  <h2>Contextual Reply System <span class="new-badge">Growth Engine</span></h2>
-  <p>
-    The reply system is our highest-ROI social feature. Rather than broadcasting into the void, we insert ourselves
-    into existing conversations where investors are already engaged &mdash; with proof, not promotion.
-  </p>
-
-  <h3>26 Monitored Accounts Across 5 Categories</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Category</th>
-        <th>Example Accounts</th>
-        <th>Why</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>FinTwit / Quant</strong> (7)</td>
-        <td>@unusual_whales, @PeterLBrandt, @QuantConnect</td>
-        <td>500K+ followers in our exact target demo</td>
-      </tr>
-      <tr>
-        <td><strong>Fintech Companies</strong> (7)</td>
-        <td>@TradingView, @TrendSpider, @AlpacaHQ</td>
-        <td>Their users are our subscribers</td>
-      </tr>
-      <tr>
-        <td><strong>Financial Media</strong> (4)</td>
-        <td>@morganhousel, @ritholtz, @KateRooney</td>
-        <td>Thought leadership credibility</td>
-      </tr>
-      <tr>
-        <td><strong>Trading Educators</strong> (5)</td>
-        <td>@markminervini, @LindaRaschke, @UmarAshraf</td>
-        <td>Engaged audiences, momentum/systematic overlap</td>
-      </tr>
-      <tr>
-        <td><strong>Partners</strong> (3)</td>
-        <td>@Quantpedia, @QuantStart, @TradersPost</td>
-        <td>Potential integration partners</td>
-      </tr>
+      <tr><td><b>"Your edge, quantified"</b></td><td>Generic quant-cliché; says nothing about drawdown.</td><td>"Momentum, built around the drawdown."</td></tr>
+      <tr><td><b>"Beat the Market with AI-Powered Signals"</b></td><td>Over-promise + AI-hype; attracts churners.</td><td>Lead with the risk story, then the return.</td></tr>
+      <tr><td><b>"Ensemble" / single-strategy framing</b></td><td>We are a 2-tier product now, not one strategy.</td><td>Preserver &amp; Maximizer.</td></tr>
+      <tr><td>Internal mechanic names in public</td><td>Proprietary; leaks the recipe.</td><td>Outcome + who it's for.</td></tr>
+      <tr><td>"Backtest"</td><td>Reads as curve-fit; understates the rigor.</td><td>"Walk-forward."</td></tr>
     </tbody>
   </table>
 
-  <h3>Three-Tier Symbol Extraction</h3>
-  <p>When a monitored account tweets, the system extracts stock mentions using three layers of progressively looser matching:</p>
-  <div class="feature-grid">
-    <div class="feature-card no-break">
-      <h4>Tier 1: Cashtags ($NVDA)</h4>
-      <p>Always trusted. Unambiguous stock mention. Highest confidence match.</p>
-    </div>
-    <div class="feature-card gold-border no-break">
-      <h4>Tier 2: Bare Tickers (MSFT)</h4>
-      <p>Only matched when financial context is detected in the surrounding text. Prevents false positives.</p>
-    </div>
+  <h3>The honesty that sells</h3>
+  <div class="feat">
+    <div class="fcard"><h4>Name the premium</h4><p>Preserver <b>trails in a smooth melt-up</b>. Say so. The buyer who hears it and still signs up is the buyer who stays through one.</p></div>
+    <div class="fcard"><h4>Name the tail</h4><p>Maximizer <b>owns a real drawdown tail</b>. Say so. Filtering out the person who can't hold it is a retention win, not a lost sale.</p></div>
+    <div class="fcard pos"><h4>Signals only</h4><p>"You execute at your own broker." In the dashboard, the tour, the landing page, the welcome email. Sets the relationship honestly.</p></div>
+    <div class="fcard pos"><h4>Who this is NOT for</h4><p>A published section that repels the wrong buyer on purpose. Counter-intuitive, and our single best churn-prevention tool.</p></div>
   </div>
-  <div class="feature-grid">
-    <div class="feature-card purple-border no-break">
-      <h4>Tier 3: Company Names</h4>
-      <p>Word-boundary match ("nvidia" &rarr; NVDA). Most aggressive, but catches casual mentions that cashtags miss.</p>
+
+  <div class="think no-break">
+    <div class="h">Tone</div>
+    <p>Confident, plain-spoken, a little dry. We are the adult in a room full of hype. Data over
+      adjectives. When we make a claim, we can point to the walk-forward record behind it.</p>
+  </div>
+</div>
+
+<!-- ========== PAGE: PERFORMANCE PROOF ========== -->
+<div class="content page-break">
+  <h2>The Proof Points</h2>
+  <p class="lead">These are the <b>only</b> performance figures marketing may state (vintage
+    2026-07-31). If a piece needs a number that isn't here, omit it — do not invent.</p>
+
+  <h3>Headline record — each tier vs. the market</h3>
+  <table class="no-break">
+    <thead><tr><th>Track record</th><th>5-yr CAGR</th><th>5-yr MaxDD</th><th>21-yr CAGR</th><th>21-yr MaxDD</th></tr></thead>
+    <tbody>
+      <tr class="hl"><td><b>Preserver</b></td><td class="pos">13.0%</td><td class="pos">&minus;12.9%</td><td>7.7%</td><td>&minus;13.7%</td></tr>
+      <tr class="hl"><td><b>Maximizer</b></td><td class="pos">31.4%</td><td>&minus;14.9%</td><td>13.5%</td><td>&minus;20.8%</td></tr>
+      <tr><td>S&amp;P 500 (SPY)</td><td>14.2%</td><td class="neg">&minus;25.4%</td><td>9.8%</td><td class="neg">&minus;55%</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:.82rem;color:var(--light)">Sharpe: Preserver 1.28 (5-yr) / 0.87 (21-yr) · Maximizer 1.51 (5-yr) / 0.93 (21-yr). All figures walk-forward.</p>
+
+  <h3>The story that converts the risk-conscious buyer</h3>
+  <p>Our sharpest proof point isn't the best year — it's how each tier behaves when the market
+    breaks. This is the whole pitch for Preserver, and the "seatbelt" half of Maximizer.</p>
+  <table class="no-break">
+    <thead><tr><th>Stress year</th><th>Preserver</th><th>Maximizer</th><th>S&amp;P 500</th></tr></thead>
+    <tbody>
+      <tr><td><b>2008</b> (GFC)</td><td class="pos">+0.1%</td><td class="pos">+0.1%</td><td class="neg">&minus;37.7%</td></tr>
+      <tr><td><b>2020</b> (COVID)</td><td class="pos">+9.2%</td><td class="pos">+34.9%</td><td>+15.2%</td></tr>
+      <tr><td><b>2022</b> (bear)</td><td class="neg">&minus;11.2%</td><td class="neg">&minus;6.4%</td><td class="neg">&minus;19.9%</td></tr>
+    </tbody>
+  </table>
+
+  <div class="metrics no-break">
+    <div class="metric"><div class="v c">&minus;1.05</div><div class="l">Preserver down-month capture</div></div>
+    <div class="metric"><div class="v">&minus;0.97</div><div class="l">Maximizer down-month capture</div></div>
+    <div class="metric"><div class="v n">&minus;3.85</div><div class="l">S&amp;P down-month capture</div></div>
+    <div class="metric"><div class="v">2.2y / 3.4y</div><div class="l">Longest underwater (Pres / Max) vs SPY 5.4y</div></div>
+  </div>
+
+  <h3>The honest counterweight — how often we beat SPY</h3>
+  <p>We publish this on purpose. It pre-sets the multi-year relative-underperformance expectation
+    that prevents churn. A buyer who understands it before signing up doesn't cancel over it later.</p>
+  <div class="bars no-break">
+    <div class="brow"><div class="blabel">Max · 1yr</div><div class="bwrap"><div class="bfill c" style="width:50%">50%</div></div></div>
+    <div class="brow"><div class="blabel">Max · 3yr</div><div class="bwrap"><div class="bfill c" style="width:45%">45%</div></div></div>
+    <div class="brow"><div class="blabel">Max · 5yr</div><div class="bwrap"><div class="bfill c" style="width:31%">31%</div></div></div>
+    <div class="brow"><div class="blabel">Pres · 1yr</div><div class="bwrap"><div class="bfill p" style="width:36%">36%</div></div></div>
+    <div class="brow"><div class="blabel">Pres · 3yr</div><div class="bwrap"><div class="bfill p" style="width:17%">17%</div></div></div>
+    <div class="brow"><div class="blabel">Pres · 5yr</div><div class="bwrap"><div class="bfill p" style="width:14%">14%</div></div></div>
+  </div>
+  <p style="font-size:.82rem;color:var(--light)">Share of rolling windows where the tier beats SPY. Typical 12-mo return: Preserver +10.7% (77% of windows positive) · Maximizer +26.5% (77% positive). Typical 24-mo: Preserver +20.8% · Maximizer +57.5%.</p>
+</div>
+
+<!-- ========== PAGE: AUDIENCE / FILTRATION ========== -->
+<div class="content page-break">
+  <h2>Audience — Sort, Don't Sell</h2>
+  <p class="lead">We don't have one persona. We have <b>two buyers with opposite emotional needs</b>,
+    and the entire funnel's job is to route each to the tier that will delight them.</p>
+
+  <div class="persona no-break">
+    <div class="pcard">
+      <div class="role">The Calm Preserver</div>
+      <div class="demo">45–65 · larger account · often near/in retirement · adviser-adjacent</div>
+      <p>Has real capital and has felt a real drawdown. Fears the crash more than they crave the
+        melt-up. Wants to stay invested <em>and</em> sleep. Buys <b>Preserver</b>. Will happily
+        underperform a raging bull if it means never living through &minus;50% again. Sells them
+        <em>calm and control</em> — the F1 driver's brakes, not the top speed.</p>
     </div>
-    <div class="feature-card green-border no-break">
-      <h4>Trade Matching</h4>
-      <p>Matched symbols checked against real model portfolio exits (primary) and walk-forward sim trades (fallback). Min 5% return. Best match selected.</p>
+    <div class="pcard">
+      <div class="role">The Growth-Seeker</div>
+      <div class="demo">30–50 · self-directed · higher risk tolerance · FinTwit-native</div>
+      <p>Wants return and can genuinely hold through a bad year. Systematic, skeptical of hype,
+        respects a transparent record. Buys <b>Maximizer</b>. Sells them <em>disciplined
+        offense</em> — momentum with a mechanical seatbelt, not a stock-tips newsletter.</p>
     </div>
   </div>
 
-  <h3>Example Flow</h3>
-  <div class="callout no-break">
-    <p><strong>@TastyTrade</strong> posts: &ldquo;NVDA breaking out of consolidation, watching for entry&rdquo;</p>
-    <p style="margin-top: 0.5rem;"><strong>RigaCap reply</strong> (auto-generated): &ldquo;Our ensemble flagged NVDA on Jan 15 when all three factors aligned. It's up 12% since. Full breakdown: rigacap.com/track-record&rdquo;</p>
-    <p style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--gray);"><em>Admin receives one-click approve/skip email. Approved replies publish instantly via Twitter API v2.</em></p>
+  <div class="think no-break">
+    <div class="h">The filtration test</div>
+    <p>Before publishing any asset, ask: <b>which buyer does this attract, and does it send the
+      wrong one away?</b> A landing page that converts a Growth-Seeker into Preserver — or a
+      nervous retiree into Maximizer — is a <b>failure</b>, even if it converts. Mis-sorted
+      customers churn and leave bad reviews.</p>
   </div>
 
-  <h3>Instagram Comment Automation</h3>
-  <p>The engine also monitors comments on our own Instagram posts and generates warm, on-brand replies via Claude. Not salesy &mdash; genuine engagement that builds community. Comments under 10 characters are filtered, dedup prevents double-replies, and all responses go through admin approval.</p>
+  <h3>The adviser channel</h3>
+  <p>Independent RIAs are a distinct, high-value channel (wirehouses won't approve us). Advisers
+    fear <b>bull-market underperformance more than crash participation</b> — a career-risk
+    asymmetry. So we position to them as a <b>10–20% sleeve of a client book, not a standalone
+    strategy</b>, and we lead with the behavioral edge, the drawdown record, and client-education
+    one-pagers. Credibility (a lengthening live record) is the gating constraint — this is a
+    multi-year build, marketed patiently.</p>
 
-  <h3>Spam Prevention &amp; Brand Safety</h3>
+  <h3>Where they pay attention</h3>
+  <p>Paid discovery traffic is <b>predominantly mobile</b> — every public page and ad landing
+    surface must be verified at phone width. On-thesis intent lives in capital-preservation and
+    "should I sell / is the market safe" queries; that's where the Preserver story lands hardest.</p>
+</div>
+
+<!-- ========== PAGE: SOCIAL ENGINE CADENCE ========== -->
+<div class="content page-break">
+  <h2>The Social Engine <span class="tag">Channel</span></h2>
+  <p class="lead">Our content engine turns <b>real walk-forward trades into social proof</b>, on a
+    reliable cadence, with a human approving every post. It is a channel, not a gimmick — its whole
+    value is that the proof is real and the tone is honest.</p>
+
+  <h3>The pipeline</h3>
+  <div class="flow no-break">
+    <div class="fbox">Walk-forward record produces a real trade result</div>
+    <div class="farrow">&darr;</div>
+    <div class="fbox c">AI drafts platform-fit copy — result + thesis, no hype</div>
+    <div class="farrow">&darr;</div>
+    <div class="fbox">Auto-scheduled into optimal windows, spread 1–3 days out</div>
+    <div class="farrow">&darr;</div>
+    <div class="fbox">Admin approval — T-24h &amp; T-1h email, one-click cancel</div>
+    <div class="farrow">&darr;</div>
+    <div class="fbox g">Published to X · Instagram · Threads</div>
+  </div>
+
+  <h3>Cadence &amp; content mix</h3>
+  <table class="no-break">
+    <thead><tr><th>Window</th><th>Weekday</th><th>Weekend</th><th>Cap</th></tr></thead>
+    <tbody>
+      <tr><td><b>Morning</b></td><td>9:00 AM ET</td><td>10:00 AM ET</td><td rowspan="3" style="vertical-align:middle">Max 4 posts/day, spread 1–3 days out to avoid fatigue.</td></tr>
+      <tr><td><b>Midday</b></td><td>12:00 PM ET</td><td>2:00 PM ET</td></tr>
+      <tr><td><b>Evening</b></td><td>5:00 PM ET</td><td>&mdash;</td></tr>
+    </tbody>
+  </table>
+  <p>Mix: <b>result posts</b> (the verified win, stated plainly) · <b>the drawdown story</b>
+    (how a tier behaved when the market broke — our most on-thesis content) · <b>regime notes</b>
+    (what the market is doing, in plain English). Keep tier-appropriate: Preserver content sells
+    calm; Maximizer content sells disciplined offense.</p>
+
+  <h3>Guardrails — brand safety is the product</h3>
   <ul>
-    <li><strong>7-day dedup:</strong> Never reply twice to the same account/symbol combination within a week</li>
-    <li><strong>Prompt guardrails:</strong> "Never give financial advice," "Never start with 'Great post!'," "No hashtags in replies"</li>
-    <li><strong>Admin approval required:</strong> Every reply goes through human review before publishing</li>
-    <li><strong>Rate limiting:</strong> Max reply scan 4x daily to avoid API limits and appearing bot-like</li>
+    <li><b>Human in the loop:</b> every post and reply goes through admin approval before it publishes.</li>
+    <li><b>No financial advice, ever.</b> Signals-only framing in every post.</li>
+    <li><b>Result + thesis, never mechanics.</b> Posts never leak internal strategy names or the recipe.</li>
+    <li><b>Honest by default:</b> we don't cherry-pick only wins; the drawdown story is a feature, not a thing to hide.</li>
+    <li><b>Anti-spam:</b> dedup so we never repeat the same account/symbol, rate-limited scans, no "Great post!" openers, no hashtag spam.</li>
   </ul>
+
+  <div class="think no-break">
+    <div class="h">Highest-leverage move</div>
+    <p>The reply, not the broadcast. When a large account discusses a name our record already
+      traded, a contextual, <b>proof-first</b> reply puts our real result into a conversation that's
+      already happening — their audience, their context, our track record. Approval-gated, deep-link
+      composed where the platform tier requires it.</p>
+  </div>
 </div>
 
-<!-- PAGE 7: PAID ACQUISITION -->
+<!-- ========== PAGE: PAID + FUNNEL ========== -->
 <div class="content page-break">
-  <h2>Paid Acquisition Strategy</h2>
+  <h2>Paid Acquisition &amp; The Funnel</h2>
+  <p class="lead">Paid spend amplifies the same filtration logic: proof-first creative, on-thesis
+    keywords, and a landing experience that <b>sorts</b> the visitor before it asks for a card.</p>
 
-  <h3>Budget Allocation</h3>
-  <div class="compare-bars">
-    <div class="compare-row">
-      <div class="compare-label">Twitter/X Ads</div>
-      <div class="compare-bar-wrap"><div class="compare-bar navy" style="width: 100%;">50% &mdash; Highest intent audience</div></div>
-    </div>
-    <div class="compare-row">
-      <div class="compare-label">Meta (IG) Ads</div>
-      <div class="compare-bar-wrap"><div class="compare-bar gold-bar" style="width: 70%;">35% &mdash; Lookalikes + retargeting</div></div>
-    </div>
-    <div class="compare-row">
-      <div class="compare-label">YouTube</div>
-      <div class="compare-bar-wrap"><div class="compare-bar purple-bar" style="width: 30%;">15% &mdash; Awareness</div></div>
-    </div>
+  <h3>Creative angles that sort correctly</h3>
+  <div class="feat">
+    <div class="fcard pos"><h4>The drawdown story (Preserver)</h4><p>"+0.1% in 2008 while the market lost 37.7%. A &minus;12.9% worst drawdown over five years — the index saw &minus;25.4%." Pulls the calm buyer.</p></div>
+    <div class="fcard"><h4>Disciplined offense (Maximizer)</h4><p>"31.4% a year over five years — with a mechanical brake for the bad ones." Pulls the growth buyer who can hold a tail.</p></div>
+    <div class="fcard"><h4>Proof-first</h4><p>"Our record flagged it before it ran. Here's the walk-forward track record." Links to the public track-record page.</p></div>
+    <div class="fcard pos"><h4>Anti-hype</h4><p>"Not another stock-tips newsletter. Momentum, built around the drawdown." Differentiates from the noise, repels the lottery-ticket buyer.</p></div>
   </div>
 
-  <h3>Targeting Strategy by Platform</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Platform</th>
-        <th>Primary Targeting</th>
-        <th>Creative Angle</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>Twitter/X</strong></td>
-        <td>Followers of @unusual_whales, @TrendSpider, @StockTwits. Interests: stock trading, momentum trading. Keywords: "trading signals"</td>
-        <td>Proof-first: real trade results with track record link</td>
-      </tr>
-      <tr>
-        <td><strong>Instagram</strong></td>
-        <td>Lookalike from subscriber email list. Interests: investing, financial technology. Behaviors: brokerage app users</td>
-        <td>Visual trade cards, carousel education, regime insights</td>
-      </tr>
-      <tr>
-        <td><strong>YouTube</strong></td>
-        <td>Finance channel viewers, "stock trading signals" search intent, competitor channel audiences</td>
-        <td>Signal recap videos, "how the ensemble works" explainers</td>
-      </tr>
-    </tbody>
-  </table>
+  <h3>On-thesis keywords &amp; negatives</h3>
+  <p>Bid into capital-preservation and "is it time to sell / is the market safe" intent — the
+    Preserver buyer's exact search. Guard the on-thesis queries: negative-match the junk, but
+    <b>don't over-negate</b> — e.g. block "most volatile stocks" without killing "is the market
+    volatile now," which is on-thesis anxiety.</p>
 
-  <h3>Ad Creative Themes</h3>
-  <div class="feature-grid">
-    <div class="feature-card no-break">
-      <h4>Social Proof</h4>
-      <p>&ldquo;Our system flagged [STOCK] before it ran +X%. See the full track record.&rdquo; &mdash; Highest conversion angle. Links to /track-record.</p>
-    </div>
-    <div class="feature-card gold-border no-break">
-      <h4>Risk Management</h4>
-      <p>&ldquo;&minus;0.5% in 2008 while the market lost 37.7%. A 19% worst drawdown across 21 backtested years &mdash; the index lost half its value twice.&rdquo; &mdash; Appeals to the risk-conscious investor.</p>
-    </div>
-    <div class="feature-card purple-border no-break">
-      <h4>AI / Tech Credibility</h4>
-      <p>&ldquo;3-factor ensemble + a market-regime filter that goes to cash. Not another stock tips newsletter.&rdquo; &mdash; Differentiates from the noise.</p>
-    </div>
-    <div class="feature-card green-border no-break">
-      <h4>FOMO / Urgency</h4>
-      <p>&ldquo;Today's fresh signals are live. Start your free trial.&rdquo; &mdash; Direct response for bottom-of-funnel.</p>
-    </div>
+  <h3>The funnel</h3>
+  <div class="flow no-break">
+    <div class="fbox">Ad / social / organic — proof-first, tier-aware</div>
+    <div class="farrow">&darr;</div>
+    <div class="fbox c">Landing / track-record — sorts buyer to a tier</div>
+    <div class="farrow">&darr;</div>
+    <div class="fbox">Free trial signup — credit card required</div>
+    <div class="farrow">&darr;</div>
+    <div class="fbox">Onboarding drip — pre-sets expectations, prevents churn</div>
+    <div class="farrow">&darr;</div>
+    <div class="fbox g">Paid subscriber — Preserver or Maximizer</div>
   </div>
 
-  <h3>Conversion Funnel</h3>
-  <div class="flow-vertical">
-    <div class="flow-box">Ad Impression (X / Instagram / YouTube)</div>
-    <div class="flow-arrow">&darr;</div>
-    <div class="flow-box gold-box">Landing Page: /track-record or Home Page</div>
-    <div class="flow-arrow">&darr;</div>
-    <div class="flow-box">Free Trial Signup (Credit Card Required)</div>
-    <div class="flow-arrow">&darr;</div>
-    <div class="flow-box purple-box">7-Day Trial + 5-Step Onboarding Drip (D1, D3, D5, D6, D8)</div>
-    <div class="flow-arrow">&darr;</div>
-    <div class="flow-box green-box">Paid Subscription ($20&ndash;40/mo)</div>
-  </div>
-
-  <h3>Unit Economics Targets</h3>
-  <div class="metrics-grid">
-    <div class="metric-card no-break">
-      <div class="value">&lt;$15</div>
-      <div class="label">Cost per Trial</div>
-    </div>
-    <div class="metric-card no-break">
-      <div class="value gold">3-5%</div>
-      <div class="label">Trial &rarr; Paid</div>
-    </div>
-    <div class="metric-card no-break">
-      <div class="value green">$1,099&ndash;1,548</div>
-      <div class="label">12-Month LTV</div>
-    </div>
-    <div class="metric-card no-break">
-      <div class="value">1:3+</div>
-      <div class="label">CAC:LTV Ratio</div>
-    </div>
+  <div class="think no-break">
+    <div class="h">Measurement caution</div>
+    <p>Analytics is consent-gated, so decliners are invisible and "0 conversions" is often a
+      <b>measurement gap, not a dead funnel</b>. Confirm conversion actions are actually imported
+      (linking ≠ importing) and check whether paid clicks reach the buyer stage before concluding
+      the creative failed. Ensure checkout reflects the <b>current</b> price, not a stale value.</p>
   </div>
 </div>
 
-<!-- PAGE 8: SCHEDULING & APPROVAL -->
+<!-- ========== PAGE: RETENTION ========== -->
 <div class="content page-break">
-  <h2>Publishing Infrastructure</h2>
-  <p>The engine handles the entire lifecycle from content generation through platform-specific publishing, with admin approval as the human-in-the-loop safety layer.</p>
+  <h2>Retention — Where Filtration Pays Off</h2>
+  <p class="lead">A correctly-sorted subscriber is a retained subscriber. Retention starts at the ad
+    and is <b>locked in during onboarding</b>, before the first relative-underperformance stretch
+    can rattle them.</p>
 
-  <h3>Optimal Posting Schedule</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Window</th>
-        <th>Weekday</th>
-        <th>Weekend</th>
-        <th>Rationale</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>Morning</strong></td>
-        <td>9:00 AM ET</td>
-        <td>10:00 AM ET</td>
-        <td>Pre-market attention, morning commute scroll</td>
-      </tr>
-      <tr>
-        <td><strong>Midday</strong></td>
-        <td>12:00 PM ET</td>
-        <td>2:00 PM ET</td>
-        <td>Lunch break engagement peak</td>
-      </tr>
-      <tr>
-        <td><strong>Evening</strong></td>
-        <td>5:00 PM ET</td>
-        <td>&mdash;</td>
-        <td>Post-market recap, evening browsing</td>
-      </tr>
-    </tbody>
-  </table>
-  <p style="font-size: 0.82rem; color: var(--gray);">Posts are spread 1-3 days out from generation. Maximum 4 posts per day to avoid audience fatigue.</p>
-
-  <h3>Admin Approval Pipeline</h3>
-  <div class="feature-grid">
-    <div class="feature-card no-break">
-      <h4>T-24h Notification</h4>
-      <p>Full post preview delivered to admin email. One-click JWT-signed cancel link. 48-hour token expiry gives buffer for late cancellations.</p>
-    </div>
-    <div class="feature-card gold-border no-break">
-      <h4>T-1h Final Warning</h4>
-      <p>Last-chance review 30-90 minutes before publish. Catches any market events that would make the post tone-deaf.</p>
-    </div>
-    <div class="feature-card green-border no-break">
-      <h4>Auto-Publish</h4>
-      <p>Every 15 minutes, the engine publishes any posts where scheduled_for &le; now and status is approved/scheduled. Completely hands-off.</p>
-    </div>
-    <div class="feature-card purple-border no-break">
-      <h4>Full Audit Trail</h4>
-      <p>Every post records: AI model used, prompt hash, approval timestamp, platform response, posted URL. Complete accountability.</p>
-    </div>
+  <h3>Set expectations before they can break</h3>
+  <div class="feat">
+    <div class="fcard"><h4>Onboarding drip</h4><p>A multi-step sequence that teaches how signals work, sets <b>multi-year relative-underperformance expectations</b> up front, and reinforces the tier's promise. The single highest-leverage churn prevention.</p></div>
+    <div class="fcard pos"><h4>Daily signal email + dashboard parity</h4><p>The email and the dashboard show the <b>same</b> signals, always. Inconsistency erodes trust faster than any single bad call.</p></div>
+    <div class="fcard"><h4>"Your RigaCap Journey"</h4><p>Personalized what-if from signup date vs the market — makes the value tangible and gives the subscriber something honest to share.</p></div>
+    <div class="fcard pos"><h4>Real-time exit alerts</h4><p>The exit discipline delivered when it fires, using the <b>live</b> exit rule — never a stale value the subscriber can't actually act on.</p></div>
   </div>
 
-  <h3>Multi-Platform Publishing</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Platform</th>
-        <th>Protocol</th>
-        <th>Features</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>Twitter/X</strong></td>
-        <td>OAuth 1.0a + API v2</td>
-        <td>Post, reply, media upload, user lookup, follow</td>
-      </tr>
-      <tr>
-        <td><strong>Instagram</strong></td>
-        <td>Graph API v24</td>
-        <td>Post with image, comment reply, container status polling</td>
-      </tr>
-      <tr>
-        <td><strong>Threads</strong></td>
-        <td>Threads API v1</td>
-        <td>Post, reply, media upload, weekly token refresh</td>
-      </tr>
-    </tbody>
-  </table>
+  <div class="think no-break">
+    <div class="h">Parity is non-negotiable</div>
+    <p>Anywhere the UI, an email, or a post states an exit or a parameter, it must be the
+      <b>current live value</b>. If a subscriber can't reproduce the marketed result because a
+      surface shows a stale number, that's a retention bug and a credibility bug at once.</p>
+  </div>
 
-  <h3>Automated Cron Jobs</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Job</th>
-        <th>Frequency</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Auto-publish</td>
-        <td>Every 15 min</td>
-        <td>Publish posts where scheduled_for &le; now</td>
-      </tr>
-      <tr>
-        <td>Notifications</td>
-        <td>Every hour</td>
-        <td>Send T-24h and T-1h admin approval emails</td>
-      </tr>
-      <tr>
-        <td>Reply scanner (X + Threads)</td>
-        <td>4x daily</td>
-        <td>Scan 26 accounts, match trades, generate replies</td>
-      </tr>
-      <tr>
-        <td>Instagram comment scanner</td>
-        <td>4x daily</td>
-        <td>Monitor our posts, generate warm replies</td>
-      </tr>
-      <tr>
-        <td>Threads token refresh</td>
-        <td>Weekly (Mon 3 AM)</td>
-        <td>Prevent 60-day token expiry</td>
-      </tr>
-    </tbody>
-  </table>
+  <h3>Referral &amp; win-back</h3>
+  <p><b>"Give a month, get a month"</b> — unique codes, coupon at checkout, referrer rewarded on
+    trial-to-paid conversion, surfaced in the welcome email and a dashboard modal. Win-back offers
+    are <b>serialized, never shared codes</b>. On the roadmap: a cancel survey and usage-based
+    churn signals to catch at-risk subscribers before they leave.</p>
 </div>
 
-<!-- PAGE 9: GROWTH ROADMAP -->
+<!-- ========== PAGE: ROADMAP + KPIs ========== -->
 <div class="content page-break">
-  <h2>Growth Roadmap</h2>
+  <h2>Roadmap &amp; What We Measure</h2>
 
-  <h3>Phase 1: Foundation (Week 1)</h3>
-  <div class="timeline">
-    <div class="timeline-item no-break">
-      <div class="timeline-dot"></div>
-      <div class="timeline-content">
-        <h4>Brand Introduction Posts</h4>
-        <p>1-2 posts establishing who RigaCap is. Walk-forward performance teaser. Link to /track-record.</p>
-      </div>
-    </div>
-    <div class="timeline-item no-break">
-      <div class="timeline-dot"></div>
-      <div class="timeline-content">
-        <h4>Follow &amp; Engage Target Accounts</h4>
-        <p>Follow 26 target accounts. Like, retweet, engage manually. Get on their radar before any promotional content.</p>
-      </div>
-    </div>
-    <div class="timeline-item no-break">
-      <div class="timeline-dot"></div>
-      <div class="timeline-content">
-        <h4>SEO Baseline</h4>
-        <p>robots.txt, sitemap.xml, structured data (JSON-LD), canonical URLs, GA4 analytics &mdash; all deployed.</p>
-      </div>
-    </div>
+  <h3>Sequencing</h3>
+  <div class="tl">
+    <div class="tli no-break"><div class="tld"></div><div><h4>Now — Two-tier positioning everywhere</h4><p>Every public surface reflects Preserver + Maximizer, the honesty posture, and the retired-language kill list. Kill any lingering single-strategy or "backtest" language.</p></div></div>
+    <div class="tli no-break"><div class="tld"></div><div><h4>Now — Social engine on cadence</h4><p>Result + drawdown-story + regime posts, approval-gated, tier-aware. Contextual replies as the highest-leverage move.</p></div></div>
+    <div class="tli no-break"><div class="tld p"></div><div><h4>Next — Social proof &amp; testimonials</h4><p>Real subscriber results on the landing page. Founding-cohort social proof once the live record supports it.</p></div></div>
+    <div class="tli no-break"><div class="tld p"></div><div><h4>Next — Adviser motion</h4><p>Sleeve-framed /for-advisers with the re-entry trigger, a 60/40 sleeve illustration, underperformance honesty, and client-education one-pagers.</p></div></div>
+    <div class="tli no-break"><div class="tld p"></div><div><h4>Later — Content / SEO &amp; churn program</h4><p>Long-form market commentary for organic discovery; cancel survey, usage alerts, and win-back sequences.</p></div></div>
   </div>
 
-  <h3>Phase 2: "We Called It" Activation (Week 2-3)</h3>
-  <div class="timeline">
-    <div class="timeline-item no-break">
-      <div class="timeline-dot purple-dot"></div>
-      <div class="timeline-content">
-        <h4>AI Content Engine Goes Live</h4>
-        <p>Start publishing AI-generated trade result posts from real walk-forward data. 2-3 posts/week through admin approval pipeline.</p>
-      </div>
-    </div>
-    <div class="timeline-item no-break">
-      <div class="timeline-dot purple-dot"></div>
-      <div class="timeline-content">
-        <h4>Regime Intelligence Content</h4>
-        <p>&ldquo;The market just shifted from weak_bull to rotating_bull. Here's what that means for stock selection.&rdquo; Post regime shifts as they happen.</p>
-      </div>
-    </div>
-    <div class="timeline-item no-break">
-      <div class="timeline-dot purple-dot"></div>
-      <div class="timeline-content">
-        <h4>Content Mix</h4>
-        <p>60% trade results + 20% missed opportunities + 20% regime calls. Tuned for engagement.</p>
-      </div>
-    </div>
-  </div>
-
-  <h3>Phase 3: Contextual Reply Strategy (Week 3-4)</h3>
-  <div class="timeline">
-    <div class="timeline-item no-break">
-      <div class="timeline-dot green-dot"></div>
-      <div class="timeline-content">
-        <h4>Reply Scanner Activated</h4>
-        <p>Automatic scanning of 26 followed accounts. Claude generates contextual replies linking our verified results.</p>
-      </div>
-    </div>
-    <div class="timeline-item no-break">
-      <div class="timeline-dot green-dot"></div>
-      <div class="timeline-content">
-        <h4>Instagram Comment Engagement</h4>
-        <p>Warm, human-sounding replies to followers. Builds community and improves algorithmic distribution.</p>
-      </div>
-    </div>
-  </div>
-
-  <h3>Phase 4: Growth Engine (Month 2+)</h3>
-  <div class="timeline">
-    <div class="timeline-item no-break">
-      <div class="timeline-dot"></div>
-      <div class="timeline-content">
-        <h4>Paid Ads Launch</h4>
-        <p>Twitter + Meta ads with proof-first creative. Target CAC &lt;$15 per trial signup.</p>
-      </div>
-    </div>
-    <div class="timeline-item no-break">
-      <div class="timeline-dot"></div>
-      <div class="timeline-content">
-        <h4>YouTube Shorts</h4>
-        <p>60-second "signal recap" videos. Test format before committing to long-form. Finance YouTube is massive for trust-building.</p>
-      </div>
-    </div>
-    <div class="timeline-item no-break">
-      <div class="timeline-dot"></div>
-      <div class="timeline-content">
-        <h4>Referral Program Amplification</h4>
-        <p>&ldquo;Give a month, get a month.&rdquo; Unique 8-char codes, Stripe coupon at checkout, referrer rewarded on trial &rarr; paid conversion.</p>
-      </div>
-    </div>
-    <div class="timeline-item no-break">
-      <div class="timeline-dot"></div>
-      <div class="timeline-content">
-        <h4>Blog / SEO Content</h4>
-        <p>Long-form posts: &ldquo;How our ensemble detected the sector rotation.&rdquo; Target keywords: trading signals, momentum trading, market regime.</p>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- PAGE 10: RETENTION + SUBSCRIBER EXPERIENCE -->
-<div class="content page-break">
-  <h2>Retention &amp; Subscriber Experience</h2>
-  <p>Acquisition is expensive. Retention is where the compounding happens. RigaCap's product is built with retention mechanics at every layer.</p>
-
-  <h3>Built-In Retention Features</h3>
-  <div class="feature-grid">
-    <div class="feature-card no-break">
-      <h4>5-Step Onboarding Drip</h4>
-      <p>Automated email sequence over 8 days: how signals work (D1), pro tips (D3), trial ending (D5), last day (D6), win-back with 20% off (D8).</p>
-    </div>
-    <div class="feature-card gold-border no-break">
-      <h4>Daily Signal Emails (6 PM ET)</h4>
-      <p>Persisted ensemble signals from the 4 PM scan. Dashboard and email always show the same signals &mdash; no inconsistency.</p>
-    </div>
-    <div class="feature-card green-border no-break">
-      <h4>Real-Time Sell Alerts</h4>
-      <p>Intraday monitoring every 5 minutes. Trailing stop triggers, regime shift exits, and proximity warnings delivered instantly.</p>
-    </div>
-    <div class="feature-card purple-border no-break">
-      <h4>"Your RigaCap Journey"</h4>
-      <p>Personalized what-if calculator from signup date vs SPY. Shows subscribers exactly what they would have earned &mdash; shareable results.</p>
-    </div>
-  </div>
-
-  <h3>Deep Intelligence Suite</h3>
-  <div class="feature-grid">
-    <div class="feature-card no-break">
-      <h4>AI Trade Autopsies</h4>
-      <p>Claude-generated post-mortem on every closed position. What worked, what didn't, lessons for the next trade.</p>
-    </div>
-    <div class="feature-card gold-border no-break">
-      <h4>Ghost Portfolios</h4>
-      <p>3 parallel universes: &ldquo;What if we held longer?&rdquo; &ldquo;What if we used tighter stops?&rdquo; &ldquo;What if we sized differently?&rdquo;</p>
-    </div>
-    <div class="feature-card purple-border no-break">
-      <h4>Regime Forecast Dashboard</h4>
-      <p>Bayesian transition probabilities displayed as a forecast. Shows where the market is likely heading &mdash; not just where it's been.</p>
-    </div>
-    <div class="feature-card green-border no-break">
-      <h4>Referral Program</h4>
-      <p>&ldquo;Give a month, get a month.&rdquo; Unique codes, Stripe coupon integration, automatic reward on trial conversion. Built into welcome email + dashboard modal.</p>
-    </div>
-  </div>
-
-  <h3>Email Infrastructure</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Email Type</th>
-        <th>Trigger</th>
-        <th>Purpose</th>
-      </tr>
-    </thead>
+  <h3>KPIs</h3>
+  <table class="no-break">
+    <thead><tr><th>Metric</th><th>Target</th><th>Why it matters</th></tr></thead>
     <tbody>
-      <tr><td>Welcome</td><td>Signup</td><td>Onboarding, referral code, quick start</td></tr>
-      <tr><td>Daily Digest</td><td>6 PM ET (trading days)</td><td>Today's signals + regime + watchlist</td></tr>
-      <tr><td>Sell Alert</td><td>Intraday (real-time)</td><td>Trailing stop / regime exit triggered</td></tr>
-      <tr><td>Double Signal Alert</td><td>5 PM ET</td><td>New momentum + breakout crossover</td></tr>
-      <tr><td>Intraday Crossover</td><td>During market hours</td><td>Watchlist stock just crossed breakout trigger</td></tr>
-      <tr><td>Onboarding Drip (5)</td><td>D1, D3, D5, D6, D8</td><td>Education &rarr; urgency &rarr; win-back</td></tr>
-      <tr><td>Post Approval</td><td>T-24h / T-1h</td><td>Social post preview + cancel link</td></tr>
-    </tbody>
-  </table>
-  <p style="font-size: 0.82rem; color: var(--gray);">All emails include SPF + DKIM + DMARC authentication, List-Unsubscribe headers (RFC 8058), and per-category opt-out controls.</p>
-</div>
-
-<!-- PAGE 11: KPIs & MEASUREMENT -->
-<div class="content page-break">
-  <h2>KPIs &amp; Measurement Framework</h2>
-
-  <h3>Growth Metrics</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Metric</th>
-        <th>Target</th>
-        <th>Measurement</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Landing page &rarr; trial signup</td>
-        <td class="positive">3-5%</td>
-        <td>GA4 conversion events</td>
-      </tr>
-      <tr>
-        <td>Trial &rarr; paid conversion</td>
-        <td class="positive">3-5%</td>
-        <td>Stripe webhooks</td>
-      </tr>
-      <tr>
-        <td>Monthly churn rate</td>
-        <td class="positive">&lt;5%</td>
-        <td>Stripe subscription events</td>
-      </tr>
-      <tr>
-        <td>Cost per trial (paid ads)</td>
-        <td class="positive">&lt;$15</td>
-        <td>Platform ad dashboards</td>
-      </tr>
-      <tr>
-        <td>CAC:LTV ratio</td>
-        <td class="positive">1:3+</td>
-        <td>Stripe LTV / ad spend</td>
-      </tr>
-      <tr>
-        <td>ROAS breakeven</td>
-        <td>Month 3-4</td>
-        <td>Cohort analysis</td>
-      </tr>
+      <tr><td>Landing → trial</td><td class="pos">3–5%</td><td>Funnel efficiency — but read alongside sort quality, not alone.</td></tr>
+      <tr><td>Trial → paid</td><td class="pos">3–5%</td><td>Did we attract real buyers, or tire-kickers?</td></tr>
+      <tr><td>Monthly churn</td><td class="pos">&lt;5%</td><td><b>The filtration scoreboard.</b> High churn = we're mis-sorting buyers.</td></tr>
+      <tr><td>Tier mix &amp; tier-level churn</td><td>Track</td><td>Are Preserver buyers landing on Preserver? Mis-sort shows up here first.</td></tr>
+      <tr><td>Social engagement (AI vs template)</td><td>A/B</td><td>Which proof format actually earns attention.</td></tr>
+      <tr><td>Trade → published post latency</td><td class="pos">&lt;48h</td><td>Keeps social proof fresh and credible.</td></tr>
     </tbody>
   </table>
 
-  <h3>Social Engagement Metrics</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Metric</th>
-        <th>Target</th>
-        <th>Notes</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Impressions per week</td>
-        <td class="positive">10K+</td>
-        <td>Combined across X + IG + Threads</td>
-      </tr>
-      <tr>
-        <td>Engagement rate</td>
-        <td class="positive">&gt;2%</td>
-        <td>Likes + replies + retweets / impressions</td>
-      </tr>
-      <tr>
-        <td>&ldquo;We Called It&rdquo; click-through</td>
-        <td class="positive">&gt;1%</td>
-        <td>UTM tracking to /track-record</td>
-      </tr>
-      <tr>
-        <td>Contextual reply &rarr; profile visit</td>
-        <td>Track baseline</td>
-        <td>Twitter Analytics (new metric)</td>
-      </tr>
-      <tr>
-        <td>AI vs template content performance</td>
-        <td>A/B test</td>
-        <td>Compare engagement by ai_generated flag</td>
-      </tr>
-      <tr>
-        <td>Email-to-post latency</td>
-        <td class="positive">&lt;48h</td>
-        <td>Nightly WF &rarr; published post</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <h3>Content Pipeline Metrics</h3>
-  <div class="metrics-grid">
-    <div class="metric-card no-break">
-      <div class="value">2-3</div>
-      <div class="label">AI Posts / Week</div>
-    </div>
-    <div class="metric-card no-break">
-      <div class="value gold">3-5</div>
-      <div class="label">Replies / Scan</div>
-    </div>
-    <div class="metric-card no-break">
-      <div class="value purple">&gt;70%</div>
-      <div class="label">Admin Approval Rate</div>
-    </div>
-    <div class="metric-card no-break">
-      <div class="value green">&lt;48h</div>
-      <div class="label">Trade &rarr; Post</div>
-    </div>
+  <div class="think no-break">
+    <div class="h">The one number that matters most</div>
+    <p><b>Churn is the truth-teller.</b> Conversion rate measures how well we persuade; churn
+      measures how well we <b>sorted</b>. If churn climbs while signups hold, the marketing is
+      working and the filtration is failing — fix the sort, not the funnel.</p>
   </div>
-
-  <h3>Quarterly Review Checklist</h3>
-  <ul>
-    <li>Refresh demographic data (audience sources update annually)</li>
-    <li>Review ad performance by platform: CPT, conversion rate, ROAS</li>
-    <li>Evaluate new platforms (Threads ads? Reddit ads? Bluesky?)</li>
-    <li>Update audience profile based on actual subscriber demographics</li>
-    <li>Adjust budget allocation based on what's converting</li>
-    <li>Review competitor social presence and positioning changes</li>
-    <li>A/B test: AI-generated vs template content engagement</li>
-    <li>Analyze referral program performance and adjust incentives</li>
-  </ul>
 </div>
 
-<!-- FOOTER -->
-<div class="content">
-  <div class="footer">
-    <p><strong>RigaCap</strong> &mdash; Marketing &amp; Growth Playbook &mdash; April 2026</p>
-    <p style="margin-top: 0.5rem;">Confidential. For internal use only. All performance figures are from walk-forward validation with zero hindsight bias.</p>
-    <p style="margin-top: 0.3rem;">RigaCap provides trading signals only. Users execute trades via their own brokerage accounts. Past performance does not guarantee future results.</p>
-  </div>
+<!-- ========== FOOTER ========== -->
+<div class="footer">
+  <p><b>RigaCap — Marketing &amp; Growth Playbook</b> · Confidential, internal use only · Rev. August 2026</p>
+  <p>All performance figures are walk-forward results with zero hindsight bias (vintage 2026-07-31). Signals only — subscribers execute at their own broker. Past performance does not guarantee future results. Not financial advice.</p>
 </div>
 
 </body>

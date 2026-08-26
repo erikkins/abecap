@@ -3,13 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RigaCap &mdash; Signal Intelligence</title>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>RigaCap &mdash; Signal Intelligence (Internal)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   /* --- Design tokens ------------------------------------------------- */
+  /* Ink-on-WHITE for print/PDF. Claret is the only accent. Paper (#F5F1E8)
+     is permitted ONLY for tiny inline chips, never as a page/section fill. */
   :root {
-    --paper:        #F5F1E8;
-    --paper-card:   #FAF7F0;
+    --page:         #FFFFFF;
+    --card:         #FFFFFF;
+    --chip:         #F5F1E8;   /* tiny inline callouts only */
     --rule:         #DDD5C7;
     --rule-dark:    #C9BFAC;
     --ink:          #141210;
@@ -29,7 +34,7 @@
   body {
     font-family: var(--sans);
     color: var(--ink);
-    background: var(--paper);
+    background: var(--page);
     line-height: 1.6;
     font-size: 16px;
     font-weight: 300;
@@ -41,7 +46,7 @@
     margin: 0.6in 0.7in;
   }
   @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: var(--paper); }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #FFFFFF; }
     .page-break { page-break-before: always; }
     .no-break { page-break-inside: avoid; }
   }
@@ -53,13 +58,25 @@
     padding: 3rem 2rem;
   }
 
+  /* --- Confidential ribbon ------------------------------------------ */
+  .confidential-bar {
+    background: var(--claret);
+    color: #FFFFFF;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 0.5rem 0;
+    font-weight: 500;
+  }
+
   /* --- Typography ---------------------------------------------------- */
   h1 {
     font-family: var(--serif);
     font-weight: 400;
     line-height: 1.1;
     letter-spacing: -0.02em;
-    font-variation-settings: '"opsz" 144';
   }
   h2 {
     font-family: var(--serif);
@@ -67,7 +84,6 @@
     font-size: 2rem;
     line-height: 1.15;
     letter-spacing: -0.015em;
-    font-variation-settings: '"opsz" 96';
     margin-top: 3rem;
     margin-bottom: 1.25rem;
     color: var(--ink);
@@ -134,7 +150,7 @@
     flex-direction: column;
     justify-content: space-between;
     padding: 4rem 3.5rem 3rem;
-    background: var(--paper);
+    background: var(--page);
     position: relative;
   }
   .cover-rule {
@@ -158,10 +174,22 @@
     text-transform: uppercase;
     color: var(--ink-mute);
   }
+  .cover-flag {
+    display: inline-block;
+    margin-top: 3.5rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--claret);
+    border: 1px solid var(--claret);
+    padding: 0.4rem 0.8rem;
+    font-weight: 500;
+  }
   .cover h1 {
     font-size: clamp(3rem, 7vw, 5.5rem);
-    margin-top: 4rem;
-    max-width: 14ch;
+    margin-top: 1.5rem;
+    max-width: 15ch;
   }
   .cover h1 em { color: var(--claret); font-style: italic; }
   .cover .cover-sub {
@@ -170,7 +198,7 @@
     font-size: 1.5rem;
     line-height: 1.45;
     color: var(--ink-mute);
-    max-width: 38ch;
+    max-width: 40ch;
     margin-top: 2rem;
     margin-bottom: auto;
   }
@@ -205,6 +233,7 @@
     letter-spacing: -0.03em;
   }
   .cover-stat .value.pos { color: var(--positive); }
+  .cover-stat .value.c { color: var(--claret); }
   .cover-stat .sub {
     font-family: var(--mono);
     font-size: 0.7rem;
@@ -217,11 +246,13 @@
     display: flex;
     justify-content: space-between;
     font-family: var(--mono);
-    font-size: 0.75rem;
-    color: var(--ink-mute);
-    letter-spacing: 0.08em;
+    font-size: 0.72rem;
+    color: var(--claret);
+    letter-spacing: 0.1em;
     text-transform: uppercase;
+    font-weight: 500;
   }
+  .cover-footer .site { color: var(--ink-mute); }
 
   /* --- Tables -------------------------------------------------------- */
   table {
@@ -256,16 +287,15 @@
     font-family: var(--sans);
     font-weight: 400;
   }
-  tbody tr.headline-row {
-    background: var(--paper-card);
-  }
   tbody tr.headline-row td {
     font-weight: 500;
     color: var(--ink);
+    border-bottom: 1px solid var(--rule-dark);
   }
   tbody tr.headline-row td:first-child {
     font-family: var(--serif);
     font-weight: 500;
+    color: var(--claret);
   }
   tbody tr.benchmark-row td {
     color: var(--ink-mute);
@@ -274,7 +304,6 @@
   tbody tr.benchmark-row td:first-child {
     font-style: italic;
   }
-  /* Text-heavy comparison table — overrides the default numeric/mono style */
   table.text-table tbody td {
     text-align: left;
     font-family: var(--sans);
@@ -311,12 +340,13 @@
     border-left: 3px solid var(--claret);
     padding: 0.5rem 0 0.5rem 1.5rem;
     margin: 2rem 0;
-    max-width: 32ch;
+    max-width: 34ch;
   }
 
   /* --- Callout ------------------------------------------------------- */
   .callout {
-    background: var(--paper-card);
+    background: var(--card);
+    border: 1px solid var(--rule);
     border-left: 3px solid var(--claret);
     padding: 1.25rem 1.5rem;
     margin: 1.5rem 0;
@@ -347,6 +377,7 @@
     letter-spacing: -0.02em;
   }
   .stat-row .stat-num.pos { color: var(--positive); }
+  .stat-row .stat-num.c { color: var(--claret); }
   .stat-row .stat-label {
     font-family: var(--sans);
     font-size: 0.7rem;
@@ -424,15 +455,25 @@
   code {
     font-family: var(--mono);
     font-size: 0.85rem;
-    background: var(--paper-card);
+    background: var(--chip);
     padding: 0.1rem 0.35rem;
     border-radius: 2px;
     color: var(--claret);
   }
+  .formula {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--claret);
+    padding: 14px 18px;
+    margin: 1.25rem 0;
+  }
 
   /* --- SVG diagram container ---------------------------------------- */
   .diagram {
-    background: var(--paper-card);
+    background: var(--card);
     border: 1px solid var(--rule);
     padding: 1.25rem;
     margin: 1.5rem 0;
@@ -449,7 +490,7 @@
 
   /* --- Feature card -------------------------------------------------- */
   .feature-card {
-    background: var(--paper-card);
+    background: var(--card);
     border: 1px solid var(--rule);
     border-left: 3px solid var(--claret);
     padding: 1rem 1.25rem;
@@ -478,6 +519,56 @@
   }
   @media (max-width: 700px) { .feature-grid { grid-template-columns: 1fr; } }
 
+  /* --- Tier cards ---------------------------------------------------- */
+  .tier-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  @media (max-width: 700px) { .tier-grid { grid-template-columns: 1fr; } }
+  .tier-card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    padding: 1.25rem 1.4rem;
+  }
+  .tier-card.preserver { border-top: 3px solid var(--positive); }
+  .tier-card.maximizer { border-top: 3px solid var(--claret); }
+  .tier-card .tier-name {
+    font-family: var(--serif);
+    font-size: 1.3rem;
+    font-weight: 500;
+    margin-bottom: 0.15rem;
+  }
+  .tier-card .tier-tag {
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-light);
+    margin-bottom: 0.8rem;
+  }
+  .tier-card p { font-size: 0.9rem; color: var(--ink-mute); margin-bottom: 0; }
+  .tier-card .mini-stats {
+    display: flex;
+    gap: 1.25rem;
+    margin: 0.8rem 0;
+  }
+  .tier-card .mini-stat .n {
+    font-family: var(--serif);
+    font-size: 1.35rem;
+    font-weight: 500;
+  }
+  .tier-card.preserver .mini-stat .n { color: var(--positive); }
+  .tier-card.maximizer .mini-stat .n { color: var(--claret); }
+  .tier-card .mini-stat .l {
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-light);
+  }
+
   /* --- Regime grid --------------------------------------------------- */
   .regime-grid {
     display: grid;
@@ -486,7 +577,7 @@
     margin: 1.25rem 0;
   }
   .regime-card {
-    background: var(--paper-card);
+    background: var(--card);
     border: 1px solid var(--rule);
     border-left: 3px solid var(--claret);
     padding: 0.75rem 1rem;
@@ -540,15 +631,14 @@
     line-height: 1.55;
   }
   .disclosures p { font-size: 0.78rem; margin-bottom: 0.6rem; }
-
-  /* PDF/print: institutional ink-on-white. The cream paper is a screen brand
-     device; print convention is white with accent color as punctuation.
-     (Also: toner.) Branded covers keep their explicit backgrounds. */
-  @media print {
-    :root { --paper: #ffffff; --paper-card: #ffffff; --paper-deep: #ffffff; --cream: #ffffff; }
-    body { background: #ffffff !important; }
-    [style*="F5F1E8"], [style*="FAF7F0"], [style*="EDE7D8"],
-    [style*="f5f1e8"], [style*="faf7f0"], [style*="ede7d8"] { background: #ffffff !important; }
+  .doc-footer {
+    margin-top: 1.5rem;
+    font-family: var(--mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    color: var(--claret);
+    font-weight: 500;
   }
 </style>
 </head>
@@ -560,14 +650,16 @@
 <section class="cover">
   <div class="cover-rule">
     <span class="brand">RigaCap<span class="dot">.</span></span>
-    <span class="meta">Signal Intelligence &middot; May 2026</span>
+    <span class="meta">Signal Intelligence &middot; Internal Blueprint &middot; Aug 2026</span>
   </div>
 
   <div>
-    <h1>How the system <em>reads</em> the market.</h1>
+    <span class="cover-flag">Confidential &mdash; Internal Only &middot; Do Not Distribute</span>
+    <h1>How the engine <em>reads</em> the market.</h1>
     <p class="cover-sub">
-      A reference for the signal pipeline &mdash; the data, the indicators,
-      the regime engine, and the discipline that holds them together.
+      The complete internal reference for the RigaCap signal pipeline &mdash; the data,
+      the indicators, the entry ensemble, the regime engine, and the discipline that
+      calibrates one system into two tiers.
     </p>
   </div>
 
@@ -579,9 +671,9 @@
         <div class="sub">Read daily</div>
       </div>
       <div class="cover-stat">
-        <div class="label">Trailing Stop</div>
-        <div class="value">30%</div>
-        <div class="sub">Hard exit</div>
+        <div class="label">Product Tiers</div>
+        <div class="value c">2</div>
+        <div class="sub">One engine, two dials</div>
       </div>
       <div class="cover-stat">
         <div class="label">Symbols</div>
@@ -596,8 +688,8 @@
     </div>
 
     <div class="cover-footer">
-      <span>Confidential</span>
-      <span>rigacap.com</span>
+      <span>Confidential &mdash; Internal Only &middot; Do Not Distribute</span>
+      <span class="site">rigacap.com</span>
     </div>
   </div>
 </section>
@@ -610,48 +702,118 @@
   <h2>What this document <em>covers.</em></h2>
 
   <p class="lead">
-    A technical reference for the RigaCap signal engine: how raw market data is acquired,
-    how indicators are computed, how the entry ensemble decides, how regimes shape
-    behavior, and how positions are managed once they are live.
+    A technical blueprint for the RigaCap signal engine: how raw market data is acquired,
+    how indicators are computed, how the entry ensemble decides, how the regime engine
+    shapes behavior, and how the shared base engine &mdash; plus the Maximizer breakout book &mdash;
+    becomes the Preserver and Maximizer tiers subscribers actually buy.
   </p>
 
   <div class="toc">
-    <div class="toc-item toc-section"><span class="toc-title">Data &amp; indicators</span></div>
-    <div class="toc-item"><span class="toc-title">01 &middot; Data acquisition pipeline</span><span class="toc-page">03</span></div>
-    <div class="toc-item"><span class="toc-title">02 &middot; The indicator engine</span><span class="toc-page">06</span></div>
+    <div class="toc-item toc-section"><span class="toc-title">Foundation</span></div>
+    <div class="toc-item"><span class="toc-title">01 &middot; Two tiers, one engine</span><span class="toc-page">03</span></div>
+    <div class="toc-item"><span class="toc-title">02 &middot; Data acquisition pipeline</span><span class="toc-page">04</span></div>
+    <div class="toc-item"><span class="toc-title">03 &middot; The point-in-time price store</span><span class="toc-page">05</span></div>
+    <div class="toc-item"><span class="toc-title">04 &middot; The indicator engine</span><span class="toc-page">06</span></div>
 
     <div class="toc-item toc-section"><span class="toc-title">Signal generation</span></div>
-    <div class="toc-item"><span class="toc-title">03 &middot; The ensemble &mdash; three factors</span><span class="toc-page">08</span></div>
-    <div class="toc-item"><span class="toc-title">04 &middot; Market regime intelligence</span><span class="toc-page">11</span></div>
+    <div class="toc-item"><span class="toc-title">05 &middot; The entry ensemble &mdash; three factors</span><span class="toc-page">08</span></div>
+    <div class="toc-item"><span class="toc-title">06 &middot; Market regime intelligence</span><span class="toc-page">11</span></div>
 
     <div class="toc-item toc-section"><span class="toc-title">Risk discipline</span></div>
-    <div class="toc-item"><span class="toc-title">05 &middot; Trailing stops &amp; exits</span><span class="toc-page">14</span></div>
-    <div class="toc-item"><span class="toc-title">06 &middot; Cascade Guard</span><span class="toc-page">16</span></div>
-    <div class="toc-item"><span class="toc-title">07 &middot; Intraday monitoring</span><span class="toc-page">18</span></div>
+    <div class="toc-item"><span class="toc-title">07 &middot; Trailing stops &amp; exits</span><span class="toc-page">14</span></div>
+    <div class="toc-item"><span class="toc-title">08 &middot; The capitulation overlay (Preserver / Maximizer split)</span><span class="toc-page">16</span></div>
+    <div class="toc-item"><span class="toc-title">09 &middot; The Maximizer breakout book</span><span class="toc-page">18</span></div>
+    <div class="toc-item"><span class="toc-title">10 &middot; Cascade Guard</span><span class="toc-page">19</span></div>
+    <div class="toc-item"><span class="toc-title">11 &middot; Intraday monitoring</span><span class="toc-page">19</span></div>
 
     <div class="toc-item toc-section"><span class="toc-title">Portfolio &amp; operations</span></div>
-    <div class="toc-item"><span class="toc-title">08 &middot; Position management</span><span class="toc-page">20</span></div>
-    <div class="toc-item"><span class="toc-title">09 &middot; The daily timeline</span><span class="toc-page">22</span></div>
-    <div class="toc-item"><span class="toc-title">10 &middot; Walk-forward methodology</span><span class="toc-page">24</span></div>
-    <div class="toc-item"><span class="toc-title">11 &middot; What the walk-forward shows</span><span class="toc-page">26</span></div>
+    <div class="toc-item"><span class="toc-title">12 &middot; Position management</span><span class="toc-page">20</span></div>
+    <div class="toc-item"><span class="toc-title">13 &middot; Walk-forward to production &mdash; parity</span><span class="toc-page">22</span></div>
+    <div class="toc-item"><span class="toc-title">14 &middot; The daily timeline</span><span class="toc-page">24</span></div>
+    <div class="toc-item"><span class="toc-title">15 &middot; Walk-forward methodology</span><span class="toc-page">25</span></div>
+    <div class="toc-item"><span class="toc-title">16 &middot; What the walk-forward shows</span><span class="toc-page">26</span></div>
   </div>
 
   <hr class="divider" />
 
   <div class="callout">
-    <p><strong>One sentence on posture.</strong> Headline figures in this document come from a single
-    continuous walk-forward path, 2007&ndash;2026 &mdash; what one investor would actually have
-    experienced, not a flattering window. Held-out multi-start-date tables are labeled as such. Production parameters are locked. The walk-forward harness has additional
-    research-mode capabilities, and where this document mentions them they are flagged
-    as such.</p>
+    <p><strong>One sentence on posture.</strong> Every performance figure in this document
+    comes from a single continuous walk-forward path &mdash; what one investor would actually
+    have experienced across a full cycle, not a flattering window. Production parameters are
+    locked. Where the walk-forward harness has research-mode capabilities beyond the live rules,
+    those are flagged explicitly. This is the internal blueprint: it documents the real
+    machinery, including the mechanics that never appear in public materials.</p>
   </div>
 </div>
 
 <!-- ============================================================
-     SECTION 01 - DATA ACQUISITION
+     SECTION 01 - TWO TIERS, ONE ENGINE
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">01 &middot; Data &amp; indicators</span>
+  <span class="kicker">01 &middot; Foundation</span>
+  <h2>Two tiers, <em>one engine.</em></h2>
+
+  <p class="lead">
+    RigaCap is a single momentum engine with a risk dial. Everything downstream &mdash; data,
+    indicators, entry ensemble, regime read &mdash; is shared. What differs between the two
+    tiers is how aggressively the engine raises cash when the market capitulates.
+  </p>
+
+  <p>
+    Publicly we call them <strong>Preserver</strong> (protect) and <strong>Maximizer</strong>
+    (grow). They share one base engine &mdash; the same universe, the same ranking, the same
+    trailing stop, the same regime classifier &mdash; and they diverge in two deliberate ways.
+    First, the capitulation overlay (Section 08) fires harder for Preserver and lighter for
+    Maximizer. Second, Maximizer layers a separate gated breakout book (Section 09) on top of the
+    shared base; Preserver does not. Two levers on one shared foundation &mdash; which is why parity
+    discipline (Section 13) matters so much: a defect in the shared engine touches both products.
+  </p>
+
+  <div class="tier-grid no-break">
+    <div class="tier-card preserver">
+      <div class="tier-name">Preserver</div>
+      <div class="tier-tag">Protect &middot; flagship base</div>
+      <div class="mini-stats">
+        <div class="mini-stat"><div class="n">13.0%</div><div class="l">5yr CAGR</div></div>
+        <div class="mini-stat"><div class="n">1.28</div><div class="l">Sharpe</div></div>
+        <div class="mini-stat"><div class="n">&minus;12.9%</div><div class="l">Max DD</div></div>
+      </div>
+      <p>Momentum built around the drawdown. Raises cash aggressively in capitulation; gives up
+        a little in smooth melt-ups &mdash; the insurance premium.</p>
+    </div>
+    <div class="tier-card maximizer">
+      <div class="tier-name">Maximizer</div>
+      <div class="tier-tag">Grow &middot; aggressive add-on</div>
+      <div class="mini-stats">
+        <div class="mini-stat"><div class="n">31.4%</div><div class="l">5yr CAGR</div></div>
+        <div class="mini-stat"><div class="n">1.51</div><div class="l">Sharpe</div></div>
+        <div class="mini-stat"><div class="n">&minus;14.9%</div><div class="l">Max DD</div></div>
+      </div>
+      <p>Offense with a seatbelt. The Preserver base plus a separate gated breakout book
+        (Section 09), sized by a volatility target &mdash; higher return with a tamed
+        momentum-crash tail.</p>
+    </div>
+  </div>
+  <p class="table-caption">
+    5-year walk-forward figures (vintage 2026-07-31). SPY over the same window: 14.2% CAGR,
+    &minus;25.4% max drawdown. Preserver and Maximizer share one base engine; they differ in the
+    capitulation-overlay intensity (Section 08) and in the gated breakout book that only Maximizer
+    runs (Section 09).
+  </p>
+
+  <div class="callout">
+    <p><strong>The design principle.</strong> Marketing&rsquo;s job is filtration, not
+    conversion &mdash; the same engine is an F for the wrong investor and an A for the right one.
+    Preserver is for capital-preservers who would panic-sell a 50% drawdown; Maximizer is for
+    growth-seekers who can stomach a rough year. We tell each their tier&rsquo;s cost up front.</p>
+  </div>
+</div>
+
+<!-- ============================================================
+     SECTION 02 - DATA ACQUISITION
+     ============================================================ -->
+<div class="content page-break">
+  <span class="kicker">02 &middot; Foundation</span>
   <h2>The data <em>pipeline.</em></h2>
 
   <p class="lead">
@@ -669,8 +831,8 @@
       <tr><td>Total universe</td><td>~4,000 symbols</td><td>NASDAQ + NYSE</td></tr>
       <tr><td>Minimum price</td><td>$15</td><td><code>config.MIN_PRICE</code></td></tr>
       <tr><td>Minimum volume</td><td>500,000 shares/day</td><td><code>config.MIN_VOLUME</code></td></tr>
-      <tr><td>Lookback</td><td>7 years OHLCV</td><td>Pickle on S3, Parquet shadow</td></tr>
-      <tr><td>Primary source</td><td>Alpaca SIP</td><td>Consolidated, split-adjusted</td></tr>
+      <tr><td>Lookback</td><td>7 years OHLCV</td><td>Parquet on S3 (per-symbol PITFWU store); pickle legacy</td></tr>
+      <tr><td>Primary source</td><td>Alpaca SIP</td><td>Consolidated tape; stored as-traded, adjusted at read</td></tr>
       <tr><td>Fallback</td><td>yfinance</td><td>Indexes (^VIX, ^GSPC), failover</td></tr>
     </tbody>
   </table>
@@ -702,20 +864,23 @@
     After the initial multi-year fetch, daily updates run in <strong>incremental mode</strong>
     &mdash; only prices since the last cached date are downloaded. Updates that took minutes
     on a cold load take seconds incrementally. The full historical record is persisted to S3
-    as a consolidated gzipped pickle (durable cache for Lambda cold-starts) with a parallel
-    Parquet shadow write that supports ad-hoc SQL via DuckDB.
+    as <strong>Parquet</strong>: a point-in-time, split-adjusted per-symbol store is the live
+    read path &mdash; scoped, partial reads keep Lambda memory low &mdash; with
+    <code>all_data.parquet</code> as the base and the fallback for missing or short-history
+    symbols, queryable ad-hoc via DuckDB. A legacy consolidated gzipped pickle is retained only
+    as a cold-start fallback and is being retired.
   </p>
 
   <h3>Data-integrity guardrails.</h3>
   <p>
-    Split-adjustment and corruption detection are now built into every layer of the pipeline.
-    End-to-end split-adjustment eliminates a class of historical-data artifacts that previously
-    could distort returns or trigger spurious exits.
+    Split-adjustment and corruption detection are built into every layer of the pipeline.
+    End-to-end split-adjustment eliminates a class of historical-data artifacts that would
+    otherwise distort returns or trigger spurious exits.
   </p>
   <ul>
     <li><strong>Split-adjusted by default.</strong> The Alpaca <code>StockBarsRequest</code> uses
     <code>Adjustment.SPLIT</code> on every call, so a 10-for-1 or 20-for-1 split cannot create
-    an artifact -90% drop in the historical series.</li>
+    an artifact &minus;90% drop in the historical series.</li>
     <li><strong>Abrupt-jump rejection.</strong> Any single-day close-to-close change greater than
     65% (log-return &gt; 0.5) marks the symbol as corrupted. Real market moves rarely exceed this;
     unadjusted corporate actions always do.</li>
@@ -725,10 +890,10 @@
     <li><strong>Long-gap rejection.</strong> Any symbol with a gap longer than ten trading days
     between consecutive bars is flagged as ticker-reuse corruption (old entity delisted, ticker
     recycled to a new entity).</li>
-    <li><strong>Nightly Layer 2 hygiene.</strong> Alpaca's corporate-actions API is polled every
+    <li><strong>Nightly Layer 2 hygiene.</strong> Alpaca&rsquo;s corporate-actions API is polled every
     weekday at 6:30 PM ET. Splits trigger automatic force-refetch with split adjustment. Ticker
     reuses trigger auto-quarantine. An admin digest reports outcomes.</li>
-    <li><strong>Asset-ID tracking.</strong> Every symbol's Alpaca UUID is stored in
+    <li><strong>Asset-ID tracking.</strong> Every symbol&rsquo;s Alpaca UUID is stored in
     <code>symbol_metadata</code>. When an exchange recycles a ticker, the UUID changes and the
     system detects the swap before the next signal fires.</li>
   </ul>
@@ -745,44 +910,38 @@
       <text x="350" y="24" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="14" font-weight="500" fill="#141210">Data pipeline flow</text>
       <line x1="280" y1="34" x2="420" y2="34" stroke="#C9BFAC" stroke-width="1"/>
 
-      <!-- Universe -->
-      <rect x="270" y="58" width="160" height="44" fill="#FAF7F0" stroke="#C9BFAC" stroke-width="1"/>
+      <rect x="270" y="58" width="160" height="44" fill="#FFFFFF" stroke="#C9BFAC" stroke-width="1"/>
       <rect x="270" y="58" width="3" height="44" fill="#7A2430"/>
       <text x="350" y="78" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" font-weight="500" fill="#141210">Stock universe</text>
       <text x="350" y="92" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5A544E">~4,000 NASDAQ + NYSE</text>
 
       <path d="M 350 102 L 350 124" stroke="#7A2430" stroke-width="1.5" fill="none" marker-end="url(#arrA)"/>
 
-      <!-- Dual-source fetch -->
-      <rect x="270" y="128" width="160" height="44" fill="#FAF7F0" stroke="#C9BFAC" stroke-width="1"/>
+      <rect x="270" y="128" width="160" height="44" fill="#FFFFFF" stroke="#C9BFAC" stroke-width="1"/>
       <rect x="270" y="128" width="3" height="44" fill="#7A2430"/>
       <text x="350" y="148" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" font-weight="500" fill="#141210">Dual-source fetch</text>
       <text x="350" y="162" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5A544E">Alpaca SIP &middot; yfinance fallback</text>
 
       <path d="M 350 172 L 350 194" stroke="#7A2430" stroke-width="1.5" fill="none" marker-end="url(#arrA)"/>
 
-      <!-- Hygiene layer -->
-      <rect x="270" y="198" width="160" height="44" fill="#FAF7F0" stroke="#C9BFAC" stroke-width="1"/>
+      <rect x="270" y="198" width="160" height="44" fill="#FFFFFF" stroke="#C9BFAC" stroke-width="1"/>
       <rect x="270" y="198" width="3" height="44" fill="#7A2430"/>
       <text x="350" y="218" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" font-weight="500" fill="#141210">Integrity guardrails</text>
       <text x="350" y="232" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5A544E">splits &middot; gaps &middot; ratio &middot; jumps</text>
 
       <path d="M 350 242 L 350 264" stroke="#7A2430" stroke-width="1.5" fill="none" marker-end="url(#arrA)"/>
 
-      <!-- Indicator engine -->
-      <rect x="270" y="268" width="160" height="44" fill="#FAF7F0" stroke="#C9BFAC" stroke-width="1"/>
+      <rect x="270" y="268" width="160" height="44" fill="#FFFFFF" stroke="#C9BFAC" stroke-width="1"/>
       <rect x="270" y="268" width="3" height="44" fill="#7A2430"/>
       <text x="350" y="288" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" font-weight="500" fill="#141210">Indicator engine</text>
       <text x="350" y="302" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5A544E">accumulation &middot; MA &middot; momentum &middot; vol</text>
 
-      <!-- Split into S3 + Dashboard -->
       <path d="M 350 312 L 350 326 L 175 326 L 175 340" stroke="#7A2430" stroke-width="1.5" fill="none" marker-end="url(#arrA)"/>
       <path d="M 350 326 L 525 326 L 525 340" stroke="#7A2430" stroke-width="1.5" fill="none" marker-end="url(#arrA)"/>
 
-      <text x="175" y="354" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5A544E">S3 pickle / Parquet</text>
+      <text x="175" y="354" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5A544E">S3 store / Parquet</text>
       <text x="525" y="354" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5A544E">dashboard.json &rarr; CDN</text>
 
-      <!-- Side annotations -->
       <text x="40" y="148" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5A544E">7y OHLCV</text>
       <line x1="100" y1="144" x2="266" y2="144" stroke="#C9BFAC" stroke-width="0.6" stroke-dasharray="3 3"/>
 
@@ -794,10 +953,66 @@
 </div>
 
 <!-- ============================================================
-     SECTION 02 - INDICATOR ENGINE
+     SECTION 03 - THE POINT-IN-TIME PRICE STORE
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">02 &middot; Data &amp; indicators</span>
+  <span class="kicker">03 &middot; Foundation</span>
+  <h2>The point-in-time <em>price store.</em></h2>
+
+  <p class="lead">
+    This is the quiet piece of engineering that makes every number in this document trustworthy.
+    Most backtests are contaminated before they begin &mdash; not by bad logic, but by bad data.
+    Our price store is built to remove that contamination at the source.
+  </p>
+
+  <h3>The problem it solves.</h3>
+  <p>
+    Nearly every market-data vendor serves an <em>adjusted</em> close &mdash; a price silently
+    rewritten backwards through history every time a stock splits or pays a dividend. Convenient
+    for a chart; poison for a walk-forward. It means a simulation run today &ldquo;sees&rdquo;
+    prices no investor could actually have seen at the time &mdash; a subtle look-ahead that
+    flatters results and quietly inflates the very edge you are trying to measure.
+  </p>
+
+  <h3>What we do instead.</h3>
+  <p>
+    We store the <strong>raw, as-traded bars</strong> &mdash; the actual prices that printed on the
+    tape that day &mdash; one file per symbol (internally, the <strong>PITFWU</strong> store),
+    alongside a <strong>corporate-actions calendar</strong> of splits and dividends with their
+    effective dates. Adjustment is applied <strong>at read time</strong>, point-in-time: when the
+    system asks for a symbol&rsquo;s history as of a given date, it reconstructs exactly what the
+    tape looked like <em>on that date</em> &mdash; no future split has leaked backwards, no next-year
+    dividend has touched last year&rsquo;s price. The data a strategy trades on in research is, bar
+    for bar, the data a subscriber&rsquo;s decision would have faced in real life.
+  </p>
+
+  <div class="callout">
+    <p><strong>Why it&rsquo;s the real magic.</strong> Research and production read the <em>same</em>
+    point-in-time store through the <em>same</em> read veneer, so the walk-forward result and the
+    live book reconcile penny-to-penny. The published numbers aren&rsquo;t a lab curiosity that
+    degrades in the wild &mdash; they are produced by the identical data path a live subscriber
+    runs. That parity is only possible because the data itself carries no hindsight.</p>
+  </div>
+
+  <h3>Built to be cheap and safe.</h3>
+  <p>
+    The store is per-symbol on purpose. A daily update appends only today&rsquo;s bars to the
+    symbols that traded &mdash; no rewrite of a multi-hundred-megabyte monolith, which is what used
+    to risk running the pipeline out of memory. Reads are <strong>scoped</strong>: the daily scan
+    pulls only the few hundred symbols it actually needs, never the full universe history, so memory
+    stays flat no matter how many years accumulate. A consolidated base file
+    (<code>all_data.parquet</code>) backs up any symbol missing or too new to have its own history,
+    and a legacy pickle cache is retained only for cold-starts while it is retired. It is,
+    deliberately, the <strong>single source of truth</strong> &mdash; one store, raw and honest,
+    adjusted consistently at read, feeding research and production alike.
+  </p>
+</div>
+
+<!-- ============================================================
+     SECTION 04 - INDICATOR ENGINE
+     ============================================================ -->
+<div class="content page-break">
+  <span class="kicker">04 &middot; Foundation</span>
   <h2>The indicator <em>engine.</em></h2>
 
   <p class="lead">
@@ -856,7 +1071,7 @@
   </div>
 
   <p>
-    The accumulation reference is RigaCap's proprietary timing baseline &mdash; a long-term
+    The accumulation reference is RigaCap&rsquo;s proprietary timing baseline &mdash; a long-term
     volume-weighted price that filters out noise from short-term spikes. The breakout filter
     fires when price clears that baseline by a small, conviction-weighted margin and the rest
     of the indicator stack confirms.
@@ -868,41 +1083,33 @@
       <text x="350" y="24" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="13" font-weight="500" fill="#141210">Indicator overlay &mdash; stylised price chart</text>
       <line x1="280" y1="34" x2="420" y2="34" stroke="#C9BFAC" stroke-width="1"/>
 
-      <!-- Y-axis -->
       <text x="40" y="58" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="9" fill="#8A8279">$180</text>
       <text x="40" y="98" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="9" fill="#8A8279">$150</text>
       <text x="40" y="138" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="9" fill="#8A8279">$120</text>
       <text x="40" y="178" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="9" fill="#8A8279">$90</text>
 
-      <!-- Grid -->
       <line x1="48" y1="54" x2="680" y2="54" stroke="#DDD5C7" stroke-width="0.5"/>
       <line x1="48" y1="94" x2="680" y2="94" stroke="#DDD5C7" stroke-width="0.5"/>
       <line x1="48" y1="134" x2="680" y2="134" stroke="#DDD5C7" stroke-width="0.5"/>
       <line x1="48" y1="174" x2="680" y2="174" stroke="#DDD5C7" stroke-width="0.5"/>
 
-      <!-- Price line (uptrend) -->
       <polyline points="55,190 85,186 115,180 145,174 175,162 205,166 235,154 265,146 295,150 325,134 355,130 385,118 415,114 445,106 475,102 505,86 535,78 565,74 595,62 625,58 655,54 670,50"
         fill="none" stroke="#141210" stroke-width="2" stroke-linejoin="round"/>
 
-      <!-- Accumulation reference (200d, smoother below) -->
       <polyline points="55,196 85,194 115,190 145,186 175,180 205,178 235,174 265,170 295,166 325,162 355,156 385,150 415,146 445,140 475,134 505,128 535,122 565,116 595,110 625,104 655,98 670,94"
         fill="none" stroke="#7A2430" stroke-width="1.5" stroke-dasharray="6 3" opacity="0.85"/>
 
-      <!-- MA50 -->
       <polyline points="55,192 85,188 115,184 145,178 175,170 205,170 235,162 265,156 295,154 325,146 355,140 385,130 415,126 445,120 475,114 505,102 535,94 565,90 595,80 625,74 655,68 670,64"
         fill="none" stroke="#5A544E" stroke-width="1.4" stroke-dasharray="4 2" opacity="0.8"/>
 
-      <!-- Crossover annotation -->
       <circle cx="325" cy="134" r="5" fill="none" stroke="#2D5F3F" stroke-width="2"/>
       <line x1="325" y1="126" x2="325" y2="110" stroke="#2D5F3F" stroke-width="1"/>
       <rect x="270" y="98" width="110" height="14" fill="#2D5F3F"/>
-      <text x="325" y="108" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="8.5" font-weight="500" fill="#FAF7F0">+5% breakout</text>
+      <text x="325" y="108" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="8.5" font-weight="500" fill="#FFFFFF">+5% breakout</text>
 
-      <!-- 50-day high zone -->
       <rect x="535" y="44" width="135" height="14" fill="#7A2430" opacity="0.10"/>
       <text x="603" y="40" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="8" fill="#7A2430" opacity="0.85">50-day high zone</text>
 
-      <!-- Legend -->
       <line x1="60" y1="222" x2="80" y2="222" stroke="#141210" stroke-width="2"/>
       <text x="86" y="225" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">Price</text>
 
@@ -920,15 +1127,16 @@
 </div>
 
 <!-- ============================================================
-     SECTION 03 - ENSEMBLE SIGNAL
+     SECTION 05 - ENTRY ENSEMBLE
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">03 &middot; Signal generation</span>
-  <h2>The ensemble &mdash; <em>three</em> factors.</h2>
+  <span class="kicker">05 &middot; Signal generation</span>
+  <h2>The entry ensemble &mdash; <em>three</em> factors.</h2>
 
   <p class="lead">
     A candidate must satisfy three independent factors before the system generates an entry.
-    Multi-confirmation reduces false signals and keeps the bar high.
+    Multi-confirmation reduces false signals and keeps the bar high. Both tiers use the same
+    entry gauntlet &mdash; the tiers diverge only on the exit/cash-raise side.
   </p>
 
   <h3>Factor 1 &mdash; timing.</h3>
@@ -945,9 +1153,9 @@
     acceleration (5-day), longer-term trend strength (60-day), and a volatility penalty.
     The production formula, exactly as it runs live:
   </p>
-  <p style="text-align:center; font-family: 'IBM Plex Mono', monospace; font-size: 0.95em; background: #FAF7F0; border: 1px solid #DDD5C7; padding: 12px 18px;">
+  <div class="formula">
     score &nbsp;=&nbsp; 0.3 &times; r<sub>5d</sub> &nbsp;+&nbsp; 0.2 &times; r<sub>60d</sub> &nbsp;&minus;&nbsp; 0.15 &times; &sigma;<sub>20d</sub>
-  </p>
+  </div>
   <p>
     where r<sub>5d</sub> and r<sub>60d</sub> are trailing returns in percent and &sigma;<sub>20d</sub> is
     20-day annualised volatility in percent. Only top-ranked names are eligible. Note the weighting:
@@ -964,7 +1172,7 @@
     </thead>
     <tbody>
       <tr><td>Breakout proximity</td><td>Within 3% of 50-day high</td><td>High-conviction entries only</td></tr>
-      <tr><td>Volume confirmation</td><td>Day's volume &ge; 1.3x recent average</td><td>Real participation</td></tr>
+      <tr><td>Volume confirmation</td><td>Day&rsquo;s volume &ge; 1.3x recent average</td><td>Real participation</td></tr>
       <tr><td>Trend</td><td>Price &gt; MA20 and MA50</td><td>Established uptrend</td></tr>
       <tr><td>Liquidity</td><td>&ge; 500,000 shares/day</td><td>Tradable size</td></tr>
       <tr><td>Floor</td><td>Price &ge; $15</td><td>Filters penny stocks</td></tr>
@@ -975,7 +1183,7 @@
   <p>
     A fourth filter family rejects parabolic candidates that have already run before our other
     factors fire &mdash; a guard against entering at squeeze tops. The filter was added after a
-    2021 review of the strategy's worst entries.
+    review of the strategy&rsquo;s worst historical entries.
   </p>
   <table>
     <thead>
@@ -990,11 +1198,22 @@
 
   <h3>Production parameters.</h3>
   <p>
-    Production trades the locked RigaCap Momentum Strategy parameter set (live since
-    June 10, 2026): up to twenty positions sized at roughly 4.5% each with inverse-volatility
-    weighting, a 30% trailing stop, and the timing-and-momentum ensemble described above,
-    drawn from a universe of the top 100 symbols by 60-day volume. The walk-forward harness
-    explores wider ranges in research mode; production does not retune itself between runs.
+    <strong>Base book (both tiers).</strong> Production trades a locked parameter set: up to twenty
+    positions sized at roughly 4.5% each with inverse-volatility weighting, a 30% trailing stop, and
+    the timing-and-momentum ensemble described above, drawn from a universe of the most-liquid
+    symbols by 60-day volume. The walk-forward harness explores wider ranges in research mode;
+    production does not retune itself between runs.
+  </p>
+  <p>
+    <strong>Maximizer breakout book (added on top).</strong> Maximizer runs a second, separate book:
+    roughly fifteen full-notional breakout slots whose entries fire only in a rotating-bull regime,
+    each held on a fixed ~29-trading-day time-stop rather than the trailing stop, with total exposure
+    scaled continuously by a volatility target. Preserver does not run this book (Section 09).
+  </p>
+  <p>
+    So the two tiers share the base entry set and diverge in exactly two places: the intensity of the
+    capitulation overlay (Section 08), and whether the breakout book is running &mdash; Maximizer
+    only (Section 09).
   </p>
 
   <div class="callout">
@@ -1007,43 +1226,41 @@
 
   <!-- Three-factor ensemble diagram -->
   <div class="diagram no-break">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 340" width="700" height="340">
-      <text x="350" y="26" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="14" font-weight="500" fill="#141210">Three-factor convergence</text>
-      <line x1="280" y1="36" x2="420" y2="36" stroke="#C9BFAC" stroke-width="1"/>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 440" width="700" height="440">
+      <text x="350" y="34" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="19" font-weight="500" fill="#141210">Three-factor convergence</text>
+      <line x1="268" y1="48" x2="432" y2="48" stroke="#C9BFAC" stroke-width="1"/>
 
-      <!-- Three circles -->
-      <circle cx="270" cy="180" r="105" fill="#7A2430" fill-opacity="0.10" stroke="#7A2430" stroke-width="1.4"/>
-      <text x="200" y="125" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="13" font-weight="500" fill="#7A2430">Timing</text>
-      <text x="200" y="142" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5A544E">accumulation +5%</text>
+      <circle cx="262" cy="215" r="122" fill="#7A2430" fill-opacity="0.10" stroke="#7A2430" stroke-width="1.6"/>
+      <text x="212" y="170" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="17" font-weight="500" fill="#7A2430">Timing</text>
+      <text x="212" y="191" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="#5A544E">accumulation +5%</text>
 
-      <circle cx="430" cy="180" r="105" fill="#2D5F3F" fill-opacity="0.10" stroke="#2D5F3F" stroke-width="1.4"/>
-      <text x="500" y="125" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="13" font-weight="500" fill="#2D5F3F">Momentum quality</text>
-      <text x="500" y="142" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5A544E">5d + 60d composite</text>
+      <circle cx="438" cy="215" r="122" fill="#2D5F3F" fill-opacity="0.10" stroke="#2D5F3F" stroke-width="1.6"/>
+      <text x="470" y="170" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="17" font-weight="500" fill="#2D5F3F">Momentum quality</text>
+      <text x="486" y="191" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="#5A544E">5d + 60d composite</text>
 
-      <circle cx="350" cy="240" r="105" fill="#5A544E" fill-opacity="0.08" stroke="#5A544E" stroke-width="1.4"/>
-      <text x="350" y="312" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="13" font-weight="500" fill="#141210">Confirmation</text>
-      <text x="350" y="328" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5A544E">trend &middot; breakout &middot; volume</text>
+      <circle cx="350" cy="292" r="122" fill="#5A544E" fill-opacity="0.08" stroke="#5A544E" stroke-width="1.6"/>
+      <text x="350" y="352" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="17" font-weight="500" fill="#141210">Confirmation</text>
+      <text x="350" y="373" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="#5A544E">trend &middot; breakout &middot; volume</text>
 
-      <!-- Center -->
-      <circle cx="350" cy="200" r="34" fill="#141210"/>
-      <text x="350" y="196" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="600" fill="#A23A47" letter-spacing="2">ENSEMBLE</text>
-      <text x="350" y="210" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="11" font-weight="500" fill="#FAF7F0">entry</text>
+      <circle cx="350" cy="240" r="52" fill="#141210"/>
+      <text x="350" y="234" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="600" fill="#A23A47" letter-spacing="2.5">ENSEMBLE</text>
+      <text x="350" y="256" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="17" font-weight="500" fill="#FFFFFF">entry</text>
     </svg>
     <div class="diagram-caption">All three sets must overlap for an entry to fire.</div>
   </div>
 </div>
 
 <!-- ============================================================
-     SECTION 04 - REGIME INTELLIGENCE
+     SECTION 06 - REGIME INTELLIGENCE
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">04 &middot; Signal generation</span>
+  <span class="kicker">06 &middot; Signal generation</span>
   <h2>Market regime <em>intelligence.</em></h2>
 
   <p class="lead">
     The regime classifier reads SPY price action, VIX levels, market breadth, and new-highs
     data, and assigns the current environment to one of seven distinct states. The output
-    drives a single, deliberate response in production.
+    drives the cash/invested decision and feeds the capitulation overlay.
   </p>
 
   <h3>Seven regimes.</h3>
@@ -1102,47 +1319,55 @@
 <div class="content page-break">
   <h3>Regime response.</h3>
   <p>
-    Production response is deliberately binary: when the regime engine reads SPY below its
+    The base regime response is deliberately binary: when the regime engine reads SPY below its
     200-day moving average, the system moves to cash; otherwise it stays invested at the
-    locked production parameter set. Cascade Guard runs alongside (next section). Per-regime
-    sizing &mdash; varying trailing-stop width, position count, or position size by regime
-    state &mdash; is a research-mode capability of the walk-forward harness, not a live rule.
+    locked production parameter set. Layered on top of this is the <strong>capitulation
+    overlay</strong> (Section 08) &mdash; a graded cash-raise that keys off a capitulation
+    signal <code>E</code> rather than the binary boundary, and whose intensity is one of the two
+    things that separate Preserver from Maximizer. Cascade Guard runs alongside (Section 10).
+  </p>
+  <p>
+    The regime read also gates the other tier differentiator. In <strong>rotating-bull</strong>
+    specifically, Maximizer&rsquo;s breakout book (Section 09) switches on and enters fresh
+    breakout names; in every other regime it proposes nothing new and its held names age out. So
+    the same regime engine that raises cash in a panic is what turns Maximizer&rsquo;s offense on
+    when the environment rewards it.
   </p>
 
   <table>
     <thead>
-      <tr><th>Regime</th><th>Production action</th><th>Notes</th></tr>
+      <tr><th>Regime</th><th>Base action</th><th>Notes</th></tr>
     </thead>
     <tbody>
       <tr><td>Strong Bull</td><td>Invested</td><td>Locked parameters</td></tr>
       <tr><td>Weak Bull</td><td>Invested</td><td>Locked parameters</td></tr>
-      <tr><td>Rotating Bull</td><td>Invested</td><td>Locked parameters</td></tr>
+      <tr><td>Rotating Bull</td><td>Invested</td><td>Locked parameters &middot; <span style="color:var(--claret)">Maximizer breakout book fires here</span></td></tr>
       <tr><td>Range-Bound</td><td>Invested unless SPY &lt; 200MA</td><td>Locked parameters</td></tr>
       <tr><td>Weak Bear</td><td>Cash if SPY &lt; 200MA</td><td>Capital preservation</td></tr>
-      <tr><td>Panic / Crash</td><td>Cash</td><td>SPY below 200-day</td></tr>
+      <tr><td>Panic / Crash</td><td>Cash</td><td>Overlay raises cash hardest here</td></tr>
       <tr><td>Recovery</td><td>Invested</td><td>Re-engagement on 50MA reclaim</td></tr>
     </tbody>
   </table>
   <p class="table-caption">
-    Walk-forward optimizer choices in research mode are sometimes shown per regime. Production
-    currently uses a binary cash-or-invested response with Cascade Guard pause; per-regime
-    sizing is a research-mode capability, not a live rule.
+    Walk-forward optimizer choices in research mode are sometimes shown per regime. The live
+    base response is binary cash-or-invested; the capitulation overlay then modulates exposure
+    continuously. Together with the Maximizer breakout book &mdash; gated to rotating-bull &mdash;
+    it is what differentiates the two tiers.
   </p>
 
   <!-- Regime spectrum diagram -->
   <div class="diagram no-break">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 150" width="700" height="150">
-      <text x="350" y="24" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="13" font-weight="500" fill="#141210">Regime spectrum &mdash; production response</text>
+      <text x="350" y="24" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="13" font-weight="500" fill="#141210">Regime spectrum &mdash; base response</text>
       <line x1="280" y1="34" x2="420" y2="34" stroke="#C9BFAC" stroke-width="1"/>
 
-      <!-- Spectrum bar (paper-card cells with claret accents) -->
-      <rect x="30" y="48" width="91" height="32" fill="#FAF7F0" stroke="#2D5F3F" stroke-width="1"/>
-      <rect x="121" y="48" width="91" height="32" fill="#FAF7F0" stroke="#5A544E" stroke-width="1"/>
-      <rect x="212" y="48" width="91" height="32" fill="#FAF7F0" stroke="#5A544E" stroke-width="1"/>
-      <rect x="303" y="48" width="91" height="32" fill="#FAF7F0" stroke="#5A544E" stroke-width="1"/>
-      <rect x="394" y="48" width="91" height="32" fill="#FAF7F0" stroke="#7A2430" stroke-width="1"/>
-      <rect x="485" y="48" width="91" height="32" fill="#FAF7F0" stroke="#7A2430" stroke-width="1"/>
-      <rect x="576" y="48" width="94" height="32" fill="#FAF7F0" stroke="#5A544E" stroke-width="1"/>
+      <rect x="30" y="48" width="91" height="32" fill="#FFFFFF" stroke="#2D5F3F" stroke-width="1"/>
+      <rect x="121" y="48" width="91" height="32" fill="#FFFFFF" stroke="#5A544E" stroke-width="1"/>
+      <rect x="212" y="48" width="91" height="32" fill="#FFFFFF" stroke="#5A544E" stroke-width="1"/>
+      <rect x="303" y="48" width="91" height="32" fill="#FFFFFF" stroke="#5A544E" stroke-width="1"/>
+      <rect x="394" y="48" width="91" height="32" fill="#FFFFFF" stroke="#7A2430" stroke-width="1"/>
+      <rect x="485" y="48" width="91" height="32" fill="#FFFFFF" stroke="#7A2430" stroke-width="1"/>
+      <rect x="576" y="48" width="94" height="32" fill="#FFFFFF" stroke="#5A544E" stroke-width="1"/>
 
       <text x="76" y="68" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#141210">Strong Bull</text>
       <text x="167" y="68" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#141210">Weak Bull</text>
@@ -1152,7 +1377,6 @@
       <text x="531" y="68" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#141210">Panic</text>
       <text x="623" y="68" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#141210">Recovery</text>
 
-      <!-- Production action row -->
       <text x="76" y="98" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="8" fill="#2D5F3F">INVESTED</text>
       <text x="167" y="98" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="8" fill="#2D5F3F">INVESTED</text>
       <text x="258" y="98" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="8" fill="#2D5F3F">INVESTED</text>
@@ -1161,12 +1385,11 @@
       <text x="531" y="98" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="8" fill="#7A2430">CASH</text>
       <text x="623" y="98" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="8" fill="#2D5F3F">re-engage</text>
 
-      <!-- Risk arrow -->
       <text x="30" y="130" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#2D5F3F">LOWER RISK</text>
       <line x1="115" y1="127" x2="585" y2="127" stroke="#C9BFAC" stroke-width="1"/>
       <text x="670" y="130" text-anchor="end" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#7A2430">HIGHER RISK</text>
     </svg>
-    <div class="diagram-caption">A binary cash/invested response, anchored on SPY vs. 200-day.</div>
+    <div class="diagram-caption">A binary cash/invested base, anchored on SPY vs. 200-day &mdash; the overlay then grades exposure.</div>
   </div>
 
   <h3>Transition forecasting.</h3>
@@ -1181,22 +1404,23 @@
     <li><strong>Sharp moves.</strong> 5-day returns exceeding plus-or-minus 5% boost crash and recovery probabilities.</li>
   </ul>
   <p>
-    The forecast collapses to a recommended action: <code>stay_invested</code> (SPY &gt; 200MA)
-    or <code>go_to_cash</code> (SPY &lt; 200MA). No intermediate states.
+    The forecast collapses to a recommended posture: <code>stay_invested</code> (SPY &gt; 200MA)
+    or <code>go_to_cash</code> (SPY &lt; 200MA), with the overlay modulating between them.
   </p>
 </div>
 
 <!-- ============================================================
-     SECTION 05 - TRAILING STOPS & EXITS
+     SECTION 07 - TRAILING STOPS & EXITS
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">05 &middot; Risk discipline</span>
+  <span class="kicker">07 &middot; Risk discipline</span>
   <h2>Trailing stops &amp; <em>exits.</em></h2>
 
   <p class="lead">
     The trailing stop is calculated from the high water mark &mdash; the highest price since
     entry, not the entry price itself. Stops ratchet up as a position appreciates and never
-    walk back down.
+    walk back down. Both tiers use the same 30% trailing stop on the base book; Maximizer&rsquo;s
+    breakout positions instead exit on a fixed hold rather than a trailing stop (Section 09).
   </p>
 
   <div class="code-block"><span class="comment"># High water mark and trailing stop level</span>
@@ -1209,12 +1433,17 @@
 
   <h3>Exit priority.</h3>
   <ol>
-    <li><strong>Regime exit (<code>go_to_cash</code>)</strong> &mdash; immediate sell regardless of P&amp;L; capital preservation overrides everything else.</li>
-    <li><strong>Trailing-stop hit</strong> &mdash; price at or below HWM x 0.70; closes the position.</li>
+    <li><strong>Regime / overlay exit</strong> &mdash; when the capitulation overlay raises cash or the regime read flips to <code>go_to_cash</code>, positions are trimmed or closed regardless of P&amp;L; capital preservation overrides everything else.</li>
+    <li><strong>Trailing-stop hit</strong> &mdash; price at or below HWM &times; 0.70; closes the position.</li>
     <li><strong>Warning zone</strong> &mdash; within 3% of the stop level; triggers a subscriber alert, no automatic action.</li>
     <li><strong>Regime warning</strong> &mdash; SPY approaching its 200-day average; advisory only.</li>
     <li><strong>Rebalance rotation</strong> &mdash; at the periodic universe re-ranking, an existing position has dropped out of the top tier and a stronger candidate displaces it. The boundary itself is not an exit trigger; the rank change is.</li>
   </ol>
+  <p>
+    This cascade governs the base book both tiers hold. Maximizer&rsquo;s breakout positions follow
+    a separate rule &mdash; a fixed ~29-trading-day hold-to-exit rather than a trailing stop
+    (Section 09) &mdash; while still subject to the regime and Cascade Guard pauses above.
+  </p>
 
   <!-- Trailing stop staircase diagram -->
   <div class="diagram no-break">
@@ -1222,36 +1451,28 @@
       <text x="350" y="24" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="13" font-weight="500" fill="#141210">Trailing stop &mdash; high water mark staircase</text>
       <line x1="280" y1="34" x2="420" y2="34" stroke="#C9BFAC" stroke-width="1"/>
 
-      <!-- Faint grid -->
       <line x1="50" y1="60" x2="600" y2="60" stroke="#DDD5C7" stroke-width="0.5"/>
       <line x1="50" y1="120" x2="600" y2="120" stroke="#DDD5C7" stroke-width="0.5"/>
       <line x1="50" y1="180" x2="600" y2="180" stroke="#DDD5C7" stroke-width="0.5"/>
 
-      <!-- Price line -->
       <polyline points="50,210 90,200 130,185 170,170 210,165 250,150 290,155 330,140 370,130 410,115 450,120 490,125 530,135 560,150 580,165"
         fill="none" stroke="#141210" stroke-width="2" stroke-linejoin="round"/>
 
-      <!-- HWM staircase -->
       <polyline points="50,210 90,200 130,185 170,170 210,165 250,150 290,150 330,140 370,130 410,115 450,115 490,115 530,115 560,115 580,115"
         fill="none" stroke="#7A2430" stroke-width="1.5" stroke-dasharray="4 2"/>
 
-      <!-- Stop level (88% of HWM) -->
-      <polyline points="50,226 90,217 130,203 170,190 210,186 250,173 290,173 330,165 370,157 410,143 450,143 490,143 530,143 560,143 580,143"
+      <polyline points="50,238 90,231 130,220 170,209 210,206 250,196 290,196 330,189 370,183 410,171 450,171 490,171 530,171 560,171 580,171"
         fill="none" stroke="#A23A47" stroke-width="1.5" stroke-dasharray="6 3"/>
 
-      <!-- Entry marker -->
       <circle cx="50" cy="210" r="5" fill="#2D5F3F"/>
       <text x="50" y="232" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#2D5F3F">entry</text>
 
-      <!-- HWM peak marker -->
       <circle cx="410" cy="115" r="5" fill="#7A2430"/>
       <text x="410" y="105" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#7A2430">HWM peak</text>
 
-      <!-- Stop hit marker -->
-      <circle cx="560" cy="150" r="5" fill="#A23A47"/>
-      <text x="582" y="172" text-anchor="start" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#A23A47">stop hit</text>
+      <circle cx="560" cy="171" r="5" fill="#A23A47"/>
+      <text x="582" y="175" text-anchor="start" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#A23A47">stop hit</text>
 
-      <!-- Legend -->
       <line x1="60" y1="258" x2="80" y2="258" stroke="#141210" stroke-width="2"/>
       <text x="86" y="261" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">Price</text>
 
@@ -1259,132 +1480,158 @@
       <text x="161" y="261" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">HWM (ratchets up)</text>
 
       <line x1="320" y1="258" x2="340" y2="258" stroke="#A23A47" stroke-width="1.5" stroke-dasharray="6 3"/>
-      <text x="346" y="261" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">Stop level (HWM x 0.88)</text>
+      <text x="346" y="261" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">Stop level (HWM &times; 0.70)</text>
     </svg>
     <div class="diagram-caption">Stops follow the price up &mdash; never down.</div>
   </div>
 </div>
 
 <!-- ============================================================
-     SECTION 05a - WALK-FORWARD PARITY
+     SECTION 08 - CAPITULATION OVERLAY (TIER SPLIT)
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">05a &middot; Validation discipline</span>
-  <h2>Walk-forward to production &mdash; exact <em>parity.</em></h2>
+  <span class="kicker">08 &middot; Risk discipline</span>
+  <h2>The capitulation <em>overlay.</em></h2>
 
   <p class="lead">
-    The walk-forward result is only realizable if production runs the same strategy
-    the backtest validated. Every mechanic &mdash; ranking universe, HWM tracking,
-    stop trigger, position sizing &mdash; is audited for parity, and any divergence
-    is treated as a defect that costs subscribers real returns.
+    This is the first of the two mechanics that separate the tiers &mdash; the Maximizer breakout
+    book (Section 09) is the other. Both tiers hold the same base momentum book; the overlay raises
+    cash during capitulation &mdash; harder for Preserver, lighter for Maximizer.
   </p>
 
+  <h3>What it does.</h3>
   <p>
-    Most of these alignments were in place at launch. A handful drifted as features
-    were added incrementally and were realigned in mid-May 2026 after this audit
-    surfaced the gaps. The table below is the post-audit state.
+    The overlay watches for capitulation conditions &mdash; the environment where the momentum
+    trade tends to unwind violently and where naive trend-following gets whipsawed. When a
+    capitulation signal <code>E</code> crosses its threshold, the overlay raises cash on the
+    existing book rather than force-rotating positions. It is a <strong>graded, partial</strong>
+    cash-raise, not a hard on/off switch: over a typical year it fires as a handful of partial
+    de-risks, then re-deploys as conditions normalize.
+  </p>
+  <p>
+    We chose the overlay over the alternatives deliberately. A hard-rotate rule recovered the
+    same protection but demanded roughly eight full portfolio rotations a year &mdash;
+    tax-brutal and execution-heavy in a taxable account. A confirmation-filter approach proved
+    fragile. The overlay keeps the momentum book intact, raises cash only in capitulation, and
+    stays tax-light and deliverable to subscribers who execute at their own broker.
   </p>
 
-  <h3>Parity table.</h3>
+  <div class="callout">
+    <p><strong>The overlay difference in one line.</strong> Preserver runs the overlay at a lower
+    capitulation threshold and a deeper cash-raise; Maximizer runs it at a higher threshold and
+    a shallower raise &mdash; same base book, different exposure through a drawdown. (Maximizer&rsquo;s
+    other differentiator, the breakout book, is Section 09.)</p>
+  </div>
 
-  <table class="text-table">
+  <h3>Warm-start requirement.</h3>
+  <p>
+    The overlay reads the book&rsquo;s recent equity history to size the cash-raise. That makes
+    warm-start non-negotiable in production: a cold launch with zero equity history leaves the
+    brake blind for weeks, which historically turned a bad-timed launch into a materially worse
+    drawdown. Production seeds the equity history from the validated walk-forward equity curve
+    so the overlay is live from day one. This applies to both tiers, and especially to Maximizer,
+    whose higher beta punishes a blind window hardest.
+  </p>
+
+  <h3>Down-capture &mdash; what the overlay buys.</h3>
+  <table>
     <thead>
-      <tr>
-        <th>Mechanic</th>
-        <th>Walk-forward default</th>
-        <th>Production live</th>
-      </tr>
+      <tr><th>Metric</th><th>Preserver</th><th>Maximizer</th><th>SPY</th></tr>
     </thead>
     <tbody>
-      <tr>
-        <td><strong>Ranking universe</strong></td>
-        <td>top 500 by 60-day avg volume, recomputed per period</td>
-        <td>top 500 by liquidity (matched May 17 2026 &mdash; previously 100)</td>
-      </tr>
-      <tr>
-        <td><strong>HWM source</strong></td>
-        <td>day's close</td>
-        <td>day's close (from price cache)</td>
-      </tr>
-      <tr>
-        <td><strong>HWM persistence</strong></td>
-        <td>in-process across periods</td>
-        <td>database commit on every pass (unconditional)</td>
-      </tr>
-      <tr>
-        <td><strong>Stop trigger</strong></td>
-        <td>close &le; HWM &times; (1 &minus; stop %)</td>
-        <td>close &le; stop level (intraday firing intentionally disabled)</td>
-      </tr>
-      <tr>
-        <td><strong>Trailing stop %</strong></td>
-        <td>strategy parameter (30% in production)</td>
-        <td>strategy parameter (30% in production)</td>
-      </tr>
-      <tr>
-        <td><strong>Max concurrent positions</strong></td>
-        <td>20</td>
-        <td>20</td>
-      </tr>
-      <tr>
-        <td><strong>Position sizing</strong></td>
-        <td>~4.5% of capital per slot, inverse-volatility weighted</td>
-        <td>~4.5% of capital per slot, inverse-volatility weighted</td>
-      </tr>
-      <tr>
-        <td><strong>Entry: timing reference</strong></td>
-        <td>price above long-term accumulation reference + breakout band</td>
-        <td>identical filter</td>
-      </tr>
-      <tr>
-        <td><strong>Entry: breakout band</strong></td>
-        <td>within 3% of 50-day high</td>
-        <td>identical</td>
-      </tr>
-      <tr>
-        <td><strong>Entry: momentum quality</strong></td>
-        <td>top ensemble score</td>
-        <td>identical</td>
-      </tr>
-      <tr>
-        <td><strong>Carry positions across rebalance</strong></td>
-        <td>true (positions survive period boundaries)</td>
-        <td>true (live portfolio is always-on)</td>
-      </tr>
-      <tr>
-        <td><strong>Regime adjustments</strong></td>
-        <td>per-regime deltas to trailing stop &amp; sizing</td>
-        <td>identical, via dashboard regime cache</td>
-      </tr>
+      <tr><td>2008 full year</td><td>+0.1%</td><td>+0.1%</td><td>&minus;37.7%</td></tr>
+      <tr><td>2020 full year</td><td>+9.2%</td><td>+34.9%</td><td>+15.2%</td></tr>
+      <tr><td>2022 full year</td><td>&minus;11.2%</td><td>&minus;6.4%</td><td>&minus;19.9%</td></tr>
+      <tr><td>Down-month capture</td><td>&minus;1.05</td><td>&minus;0.97</td><td>&minus;3.85</td></tr>
+      <tr><td>Longest underwater</td><td>2.2y</td><td>3.4y</td><td>5.4y</td></tr>
     </tbody>
   </table>
-
-  <h3>The audit method.</h3>
-
-  <p>
-    Parity is not assumed; it is measured. The largest single realization gap
-    discovered in this audit was the ranking universe: production filtered to
-    100 most-liquid symbols, while the walk-forward result was generated against
-    500. A liquidity-rank audit of a representative walk-forward run found that
-    <strong>about 70% of the simulated trades came from symbols ranked 101-500</strong>
-    &mdash; including several of the strongest winners. Production at N=100 was
-    quietly missing the majority of validated trade opportunities. The fix was
-    a one-line configuration change; the discovery required reading the trade
-    list against the same ranking logic and counting where each entry came from.
+  <p class="table-caption">
+    Overlay walk-forward, 2007&ndash;2026 (vintage 2026-07-31). The overlay is why both tiers
+    sidestep the worst of a crash while participating in the recovery.
   </p>
 
   <p>
-    This kind of mechanical audit runs whenever a new lever is added to either
-    side &mdash; backtester or production &mdash; before the lever is allowed to
-    influence published results.
+    The overlay is the reason 2008 comes in essentially flat for both tiers while the index
+    loses more than a third, and the reason the Preserver drawdown lands near &minus;12.9% over
+    five years against SPY&rsquo;s &minus;25.4%. It is the mechanical form of the product thesis:
+    momentum, built around the drawdown.
   </p>
 </div>
 
 <!-- ============================================================
-     SECTION 06 - CASCADE GUARD
+     SECTION 09 - THE MAXIMIZER BREAKOUT BOOK
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">06 &middot; Risk discipline</span>
+  <span class="kicker">09 &middot; Risk discipline</span>
+  <h2>The Maximizer breakout <em>book.</em></h2>
+
+  <p class="lead">
+    The capitulation overlay explains how the two tiers behave through a drawdown. It does not, by
+    itself, explain why Maximizer targets roughly 31% a year against Preserver&rsquo;s 13%. That
+    gap comes from a second, separate engine only Maximizer runs: a gated breakout book, layered on
+    top of the Preserver base.
+  </p>
+
+  <div class="callout">
+    <p><strong>Maximizer is two delineated layers, not one book turned up.</strong> A Maximizer
+    subscriber receives the full Preserver signal set <em>plus</em> a standing breakout book. The
+    two are kept separate on purpose &mdash; the breakout layer has its own entries, its own holding
+    rule, and its own exposure control, and it carries no base-momentum leg of its own, so it never
+    double-counts the Preserver names a subscriber already holds.</p>
+  </div>
+
+  <h3>Gated entries &mdash; it only hunts when the regime pays.</h3>
+  <p>
+    The breakout book enters only on days the regime engine (Section 06) routes to breakout &mdash;
+    the rotating-bull environment where fresh 50-day-high breakouts tend to follow through. In every
+    other regime it proposes nothing new and any names it already holds simply age out. That regime
+    routing <em>is</em> the gate: there is no separate on/off switch, and no way for the book to
+    chase breakouts into a market that isn&rsquo;t rewarding them.
+  </p>
+
+  <h3>Hold-to-exit, not trail.</h3>
+  <p>
+    Base positions ride a 30% trailing stop and can be held for months. Breakout positions are
+    different: each is entered full-notional into one of a fixed roster of roughly fifteen slots and
+    <strong>held to a time-stop of about 29 trading days</strong>, then rotated out regardless of
+    where it sits. A breakout is a bet on a specific post-breakout window; when the window closes,
+    the position closes. That discipline is what stops the book from quietly turning into a bag of
+    stale names.
+  </p>
+
+  <h3>A continuous volatility target &mdash; the seatbelt.</h3>
+  <p>
+    The book does not run at a fixed size. Its reported exposure is scaled every day by a
+    Barroso-style volatility target: the sleeve&rsquo;s return is multiplied by (target volatility
+    &divide; the book&rsquo;s own trailing realized volatility), lagged so the scale is always
+    computed from history the book has already lived, and capped at full exposure. When breakouts
+    turn violent &mdash; exactly when momentum crashes happen &mdash; the target automatically trims
+    participation. This is the &ldquo;offense with a seatbelt&rdquo; behind the tier&rsquo;s
+    higher-return, tamed-tail profile.
+  </p>
+
+  <div class="callout">
+    <p><strong>Why the split matters for the numbers.</strong> The extra return Maximizer shows in
+    strong-trend years &mdash; its +34.9% in 2020 against Preserver&rsquo;s +9.2%, for instance
+    &mdash; is largely the breakout book working in rotating-bull, not merely a lighter overlay
+    setting. The construction is validated the same way everything else here is: it was reconciled
+    penny-to-penny against the walk-forward reference before it went to production.</p>
+  </div>
+
+  <h3>Warm-start applies here too.</h3>
+  <p>
+    Like the overlay, the volatility target reads the book&rsquo;s own equity history to size
+    exposure, so it must be warm-started in production from the validated walk-forward curve. A cold
+    launch would leave the target blind precisely when Maximizer&rsquo;s higher beta needs it most.
+  </p>
+</div>
+
+<!-- ============================================================
+     SECTION 10 - CASCADE GUARD
+     ============================================================ -->
+<div class="content page-break">
+  <span class="kicker">10 &middot; Risk discipline</span>
   <h2>Cascade Guard &mdash; the portfolio <em>circuit breaker.</em></h2>
 
   <p class="lead">
@@ -1398,20 +1645,20 @@
     When several positions hit their trailing stop on the same day, Cascade Guard pauses all
     new entries for ten trading days. The threshold and pause length are conservative, and
     the mechanism is deliberately rare &mdash; it fires on cascade events, not on ordinary
-    drawdowns.
+    drawdowns. It runs on both tiers.
   </p>
 
   <div class="callout">
-    <p><strong>Live in production since May 2026.</strong> Cascade Guard has been a fixture
-    of the walk-forward backtest for some time; it now runs in production with state persisted
-    to S3 (<code>s3://rigacap-prod-price-data-149218244179/cb-state/&lt;portfolio_type&gt;.json</code>).
-    The change closed the final walk-forward-to-production parity gap.</p>
+    <p><strong>Live in production.</strong> Cascade Guard has been a fixture of the walk-forward
+    harness for some time; it runs in production with state persisted to S3
+    (<code>s3://rigacap-prod-price-data-149218244179/cb-state/&lt;portfolio_type&gt;.json</code>).
+    Moving it live closed one of the walk-forward-to-production parity gaps.</p>
   </div>
 
   <h3>Mechanics.</h3>
   <table>
     <thead>
-      <tr><th>Lever</th><th>Setting</th><th>Behaviour</th></tr>
+      <tr><th>Lever</th><th>Setting</th><th>Behavior</th></tr>
     </thead>
     <tbody>
       <tr><td>Trigger threshold</td><td>3 same-day trailing-stop hits</td><td>Cascade detected</td></tr>
@@ -1424,40 +1671,33 @@
 
   <h3>What it adds.</h3>
   <p>
-    Cascade Guard is validated by counterfactual: the walk-forward backtest is re-run with the
-    safeguard disabled and the results compared. A prior strategy configuration showed a
-    meaningful return-quality contribution; the attribution for the current production
-    configuration is being re-measured on the 21-year window before we publish a number.
-    The drawdown impact is essentially neutral, so we frame Cascade Guard as a re-entry
-    discipline, not as drawdown protection.
-  </p>
-
-  <p>
-    Cascade Guard fires on rare cascade events &mdash; a handful of times across a market cycle.
-    The point is not its frequency; it is the asymmetry. The cost during quiet periods is zero.
-    The benefit during a cascade is avoiding the second wave of re-entries into the same
-    falling market.
+    Cascade Guard is validated by counterfactual: the walk-forward run is repeated with the
+    safeguard disabled and the results compared. The drawdown impact is essentially neutral, so
+    we frame Cascade Guard as a re-entry discipline, not as drawdown protection &mdash; the
+    capitulation overlay and regime exit are what handle drawdown. The value is asymmetry: the
+    cost during quiet periods is zero, and the benefit during a cascade is avoiding the second
+    wave of re-entries into the same falling market.
   </p>
 
   <div class="feature-grid no-break">
     <div class="feature-card">
-      <h4>Closes the parity gap</h4>
-      <p>Cascade Guard had been a backtest-only mechanism through April 2026. Production now
-      runs the same logic so subscribers experience the lever the simulation measured.</p>
+      <h4>Closes a parity gap</h4>
+      <p>Cascade Guard had been a harness-only mechanism. Production now runs the same logic so
+      subscribers experience the lever the walk-forward measured.</p>
     </div>
     <div class="feature-card">
       <h4>Conservative by design</h4>
-      <p>The trigger and pause length are deliberately not aggressive. The mechanism's
+      <p>The trigger and pause length are deliberately not aggressive. The mechanism&rsquo;s
       job is to interrupt cascades, not to frequently override the strategy.</p>
     </div>
   </div>
 </div>
 
 <!-- ============================================================
-     SECTION 07 - INTRADAY MONITORING
+     SECTION 11 - INTRADAY MONITORING
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">07 &middot; Risk discipline</span>
+  <span class="kicker">11 &middot; Risk discipline</span>
   <h2>Intraday <em>monitoring.</em></h2>
 
   <p class="lead">
@@ -1484,7 +1724,7 @@
     After research showed intraday cadence cost roughly 17 percentage points annualised versus
     end-of-day evaluation, trailing-stop exits are evaluated end-of-day. HWM tracking and
     regime-exit checks continue to run every five minutes during market hours; the highest
-    price seen each session is captured for the next day's stop calculation, and a regime
+    price seen each session is captured for the next day&rsquo;s stop calculation, and a regime
     transition can still close the book intraday. The 5-minute monitor is a state-tracking
     surface, not an execution loop. The behavior is controlled by a single environment
     flag (<code>INTRADAY_TRAILING_STOP_ENABLED=false</code> in production).
@@ -1499,7 +1739,7 @@
 
   <h3>Watchlist intraday signal detection.</h3>
   <p>
-    The monitor also watches the dashboard's watchlist &mdash; candidates approaching the
+    The monitor also watches the dashboard&rsquo;s watchlist &mdash; candidates approaching the
     timing threshold but not yet through it. If a watchlist candidate clears the threshold
     intraday, the system promotes it to a fresh signal, removes it from the watchlist, alerts
     subscribers who do not already hold it, and updates the S3 dashboard JSON in place.
@@ -1507,19 +1747,19 @@
 </div>
 
 <!-- ============================================================
-     SECTION 08 - POSITION MANAGEMENT
+     SECTION 12 - POSITION MANAGEMENT
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">08 &middot; Portfolio &amp; operations</span>
+  <span class="kicker">12 &middot; Portfolio &amp; operations</span>
   <h2>Position <em>management.</em></h2>
 
   <p class="lead">
-    The model portfolio service maintains parallel ledgers &mdash; a live portfolio that
-    mirrors production behavior, a walk-forward portfolio for performance measurement, and
-    three ghost portfolios that document configuration alternatives.
+    The model portfolio service maintains parallel ledgers &mdash; live Preserver and Maximizer
+    books that mirror production behavior, a walk-forward book for performance measurement, and a
+    signal track-record book that logs every signal the system issues.
   </p>
 
-  <h3>Production parameters.</h3>
+  <h3>Production parameters &mdash; base book (both tiers).</h3>
   <div class="stat-row no-break">
     <div class="stat">
       <div class="stat-num">20</div>
@@ -1534,17 +1774,37 @@
       <div class="stat-label">Trailing stop</div>
     </div>
     <div class="stat">
-      <div class="stat-num">Top 100</div>
-      <div class="stat-label">Universe by 60-day volume</div>
+      <div class="stat-num">$15</div>
+      <div class="stat-label">Min price &middot; liquid universe</div>
+    </div>
+  </div>
+
+  <h3>Maximizer breakout book (added on top).</h3>
+  <div class="stat-row no-break">
+    <div class="stat">
+      <div class="stat-num c">~15</div>
+      <div class="stat-label">Breakout slots</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num c">29d</div>
+      <div class="stat-label">Hold-to-exit</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num c">Vol-target</div>
+      <div class="stat-label">Exposure control</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num c">Rot-bull</div>
+      <div class="stat-label">Entry gate</div>
     </div>
   </div>
 
   <h3>Entry logic.</h3>
   <ul>
     <li>Read fresh ensemble signals from the dashboard cache (S3 JSON).</li>
-    <li>Filter to <code>is_fresh = true</code> only; skip symbols already held.</li>
+    <li>Enter currently-qualifying candidates; skip symbols already held.</li>
     <li>Sort by ensemble score, highest first.</li>
-    <li>Enter up to <code>MAX_POSITIONS - open_count</code> new positions.</li>
+    <li>Enter up to <code>MAX_POSITIONS &minus; open_count</code> new positions, subject to the tier&rsquo;s overlay exposure ceiling.</li>
     <li>Allocate roughly 4.5% per position, weighted by inverse volatility so calmer names carry more.</li>
     <li>Minimum allocation $100 to avoid sub-share rounding.</li>
   </ul>
@@ -1552,10 +1812,12 @@
   <h3>Exit paths.</h3>
   <table>
     <thead>
-      <tr><th>Exit reason</th><th>Trigger</th><th>Portfolio</th></tr>
+      <tr><th>Exit reason</th><th>Trigger</th><th>Book</th></tr>
     </thead>
     <tbody>
-      <tr><td><code>trailing_stop</code></td><td>Daily close &le; HWM x 0.70</td><td>Live + WF</td></tr>
+      <tr><td><code>trailing_stop</code></td><td>Daily close &le; HWM &times; 0.70</td><td>Live + WF</td></tr>
+      <tr><td><code>hold_exit</code></td><td>Fixed ~29 trading-day time-stop on a breakout position</td><td>Live + WF (Maximizer breakout book)</td></tr>
+      <tr><td><code>overlay_cash_raise</code></td><td>Capitulation signal E over threshold</td><td>Live + WF (tier-scaled)</td></tr>
       <tr><td><code>regime_exit</code></td><td><code>go_to_cash</code> recommendation</td><td>Live</td></tr>
       <tr><td><code>rebalance_exit</code></td><td>Period boundary (walk-forward harness)</td><td>Walk-forward</td></tr>
       <tr><td><code>cascade_pause</code></td><td>Cascade Guard active during entry window</td><td>Live + WF</td></tr>
@@ -1564,13 +1826,12 @@
 
   <div class="callout no-break">
     <p><strong>Re-ranking boundaries.</strong> &ldquo;Rebalance&rdquo; here means a universe
-    re-ranking, not a portfolio shuffle for the subscriber. The system periodically
-    re-runs the entry gauntlet across the full universe, identifies
-    the current top-tier candidates, and checks whether existing held positions still
-    qualify. Positions that still rank carry forward; ones that have dropped out of the
-    top tier rotate out. Carry-on semantics outperform force-close, so the system carries
-    qualifying positions across windows rather than mechanically liquidating at
-    the boundary.</p>
+    re-ranking, not a portfolio shuffle for the subscriber. The system periodically re-runs the
+    entry gauntlet across the full universe, identifies the current top-tier candidates, and
+    checks whether existing held positions still qualify. Positions that still rank carry
+    forward; ones that have dropped out rotate out. Carry-on semantics outperform force-close,
+    so the system carries qualifying positions across windows rather than mechanically
+    liquidating at the boundary.</p>
   </div>
 
   <!-- Position lifecycle diagram -->
@@ -1585,84 +1846,189 @@
       <text x="350" y="24" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="13" font-weight="500" fill="#141210">Position lifecycle</text>
       <line x1="280" y1="34" x2="420" y2="34" stroke="#C9BFAC" stroke-width="1"/>
 
-      <!-- Signal -->
-      <rect x="20" y="60" width="100" height="50" fill="#FAF7F0" stroke="#C9BFAC" stroke-width="1"/>
+      <rect x="20" y="60" width="100" height="50" fill="#FFFFFF" stroke="#C9BFAC" stroke-width="1"/>
       <rect x="20" y="60" width="3" height="50" fill="#7A2430"/>
       <text x="70" y="80" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="11" font-weight="500" fill="#141210">Ensemble</text>
       <text x="70" y="95" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="11" font-weight="500" fill="#141210">signal</text>
 
       <path d="M 120 85 L 150 85" stroke="#7A2430" stroke-width="1.5" fill="none" marker-end="url(#arrB)"/>
 
-      <!-- Entry -->
-      <rect x="152" y="60" width="100" height="50" fill="#FAF7F0" stroke="#C9BFAC" stroke-width="1"/>
+      <rect x="152" y="60" width="100" height="50" fill="#FFFFFF" stroke="#C9BFAC" stroke-width="1"/>
       <rect x="152" y="60" width="3" height="50" fill="#2D5F3F"/>
       <text x="202" y="80" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="11" font-weight="500" fill="#141210">Entry</text>
-      <text x="202" y="95" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5A544E">15% allocation</text>
+      <text x="202" y="95" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5A544E">~4.5% alloc</text>
 
       <path d="M 252 85 L 282 85" stroke="#7A2430" stroke-width="1.5" fill="none" marker-end="url(#arrB)"/>
 
-      <!-- HWM tracking -->
-      <rect x="284" y="60" width="120" height="50" fill="#FAF7F0" stroke="#C9BFAC" stroke-width="1"/>
+      <rect x="284" y="60" width="120" height="50" fill="#FFFFFF" stroke="#C9BFAC" stroke-width="1"/>
       <rect x="284" y="60" width="3" height="50" fill="#7A2430"/>
       <text x="344" y="80" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="11" font-weight="500" fill="#141210">HWM tracking</text>
       <text x="344" y="95" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#5A544E">5-minute updates</text>
 
-      <!-- Three exit paths -->
       <path d="M 404 70 L 460 50" stroke="#7A2430" stroke-width="1.4" fill="none" marker-end="url(#arrB)"/>
       <path d="M 404 85 L 460 85" stroke="#7A2430" stroke-width="1.4" fill="none" marker-end="url(#arrB)"/>
       <path d="M 404 100 L 460 120" stroke="#7A2430" stroke-width="1.4" fill="none" marker-end="url(#arrB)"/>
 
-      <!-- Exit boxes -->
-      <rect x="462" y="32" width="120" height="36" fill="#FAF7F0" stroke="#7A2430" stroke-width="1"/>
+      <rect x="462" y="32" width="120" height="36" fill="#FFFFFF" stroke="#7A2430" stroke-width="1"/>
       <rect x="462" y="32" width="3" height="36" fill="#7A2430"/>
       <text x="525" y="48" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9.5" font-weight="500" fill="#141210">Trailing stop</text>
-      <text x="525" y="60" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="8" fill="#7A2430">HWM x 0.88 (EOD)</text>
+      <text x="525" y="60" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="8" fill="#7A2430">HWM &times; 0.70 (EOD)</text>
 
-      <rect x="462" y="72" width="120" height="28" fill="#FAF7F0" stroke="#5A544E" stroke-width="1"/>
+      <rect x="462" y="72" width="120" height="28" fill="#FFFFFF" stroke="#5A544E" stroke-width="1"/>
       <rect x="462" y="72" width="3" height="28" fill="#7A2430"/>
-      <text x="525" y="90" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9.5" font-weight="500" fill="#141210">Regime exit</text>
+      <text x="525" y="90" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9.5" font-weight="500" fill="#141210">Overlay / regime exit</text>
 
-      <rect x="462" y="104" width="120" height="28" fill="#FAF7F0" stroke="#5A544E" stroke-width="1"/>
+      <rect x="462" y="104" width="120" height="28" fill="#FFFFFF" stroke="#5A544E" stroke-width="1"/>
       <rect x="462" y="104" width="3" height="28" fill="#7A2430"/>
       <text x="525" y="122" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9.5" font-weight="500" fill="#141210">Rebalance / Cascade</text>
 
-      <!-- Closed -->
       <path d="M 582 50 L 620 80" stroke="#5A544E" stroke-width="1" fill="none"/>
       <path d="M 582 86 L 620 86" stroke="#5A544E" stroke-width="1" fill="none"/>
       <path d="M 582 118 L 620 88" stroke="#5A544E" stroke-width="1" fill="none"/>
 
       <rect x="622" y="68" width="60" height="36" fill="#141210"/>
-      <text x="652" y="90" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" font-weight="500" fill="#FAF7F0">CLOSED</text>
+      <text x="652" y="90" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" font-weight="500" fill="#FFFFFF">CLOSED</text>
 
-      <!-- Annotation -->
       <text x="652" y="120" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="8" fill="#5A544E">P&amp;L locked</text>
       <text x="652" y="132" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="8" fill="#5A544E">audit trail</text>
 
-      <!-- Subtitle -->
-      <text x="350" y="172" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#5A544E" font-style="italic">A new position is just a state machine with three exits.</text>
+      <text x="350" y="172" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#5A544E" font-style="italic">A position is a state machine with three exit families.</text>
     </svg>
   </div>
 
-  <h3>Ghost portfolios.</h3>
-  <p>Three alternative parameter sets run alongside the production portfolio for ongoing
-  comparison &mdash; the goal is to document what was rejected and why:</p>
-  <table>
-    <thead>
-      <tr><th>Ghost</th><th>Trailing stop</th><th>Max positions</th><th>Position size</th><th>Style</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>Aggressive</td><td>8%</td><td>8</td><td>12%</td><td>Tight stops, more positions</td></tr>
-      <tr><td>Conservative</td><td>18%</td><td>4</td><td>20%</td><td>Wide stops, fewer positions</td></tr>
-      <tr><td>Top-3 only</td><td>12%</td><td>3</td><td>30%</td><td>Highest-conviction concentration</td></tr>
-    </tbody>
-  </table>
 </div>
 
 <!-- ============================================================
-     SECTION 09 - DAILY TIMELINE
+     SECTION 13 - WALK-FORWARD TO PRODUCTION PARITY
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">09 &middot; Portfolio &amp; operations</span>
+  <span class="kicker">13 &middot; Portfolio &amp; operations</span>
+  <h2>Walk-forward to production &mdash; exact <em>parity.</em></h2>
+
+  <p class="lead">
+    The walk-forward result is only realizable if production runs the same strategy the
+    walk-forward validated. Every mechanic &mdash; ranking universe, HWM tracking, stop trigger,
+    position sizing, capitulation overlay, and the Maximizer breakout book (gated entries,
+    hold-to-exit, vol-target) &mdash; is audited for parity, and any divergence is treated as a
+    defect that costs subscribers real returns across both tiers.
+  </p>
+
+  <p>
+    Most of these alignments were in place at launch. A handful drifted as features were added
+    incrementally and were realigned after audit. The table below is the post-audit state.
+  </p>
+
+  <h3>Parity table.</h3>
+
+  <table class="text-table">
+    <thead>
+      <tr>
+        <th>Mechanic</th>
+        <th>Walk-forward default</th>
+        <th>Production live</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Ranking universe</strong></td>
+        <td>top-N by 60-day avg volume, recomputed per period</td>
+        <td>matched (a prior N=100 drift to 200 was corrected)</td>
+      </tr>
+      <tr>
+        <td><strong>HWM source</strong></td>
+        <td>day&rsquo;s close</td>
+        <td>day&rsquo;s close (from price cache)</td>
+      </tr>
+      <tr>
+        <td><strong>HWM persistence</strong></td>
+        <td>in-process across periods</td>
+        <td>database commit on every pass (unconditional)</td>
+      </tr>
+      <tr>
+        <td><strong>Stop trigger</strong></td>
+        <td>close &le; HWM &times; (1 &minus; stop %)</td>
+        <td>close &le; stop level (intraday firing intentionally disabled)</td>
+      </tr>
+      <tr>
+        <td><strong>Trailing stop %</strong></td>
+        <td>30% (both tiers)</td>
+        <td>30% (both tiers)</td>
+      </tr>
+      <tr>
+        <td><strong>Max concurrent positions</strong></td>
+        <td>20</td>
+        <td>20</td>
+      </tr>
+      <tr>
+        <td><strong>Position sizing</strong></td>
+        <td>~4.5% per slot, inverse-volatility weighted</td>
+        <td>~4.5% per slot, inverse-volatility weighted</td>
+      </tr>
+      <tr>
+        <td><strong>Entry gauntlet</strong></td>
+        <td>timing + momentum + confirmation + anti-squeeze</td>
+        <td>identical filters</td>
+      </tr>
+      <tr>
+        <td><strong>Capitulation overlay</strong></td>
+        <td>graded cash-raise on signal E, tier-scaled</td>
+        <td>identical, warm-started from WF equity curve</td>
+      </tr>
+      <tr>
+        <td><strong>Carry positions across rebalance</strong></td>
+        <td>true (positions survive period boundaries)</td>
+        <td>true (live book is always-on)</td>
+      </tr>
+      <tr>
+        <td><strong>Cascade Guard</strong></td>
+        <td>3 same-day stops &rarr; 10-day pause</td>
+        <td>identical, state persisted to S3</td>
+      </tr>
+      <tr>
+        <td><strong>Breakout book &mdash; entries</strong> <span style="color:var(--claret)">(Maximizer)</span></td>
+        <td>gated to rotating-bull; ranked breakout candidates only</td>
+        <td>identical gating</td>
+      </tr>
+      <tr>
+        <td><strong>Breakout book &mdash; hold-to-exit</strong> <span style="color:var(--claret)">(Maximizer)</span></td>
+        <td>fixed ~29 trading-day time-stop</td>
+        <td>identical</td>
+      </tr>
+      <tr>
+        <td><strong>Breakout book &mdash; vol-target</strong> <span style="color:var(--claret)">(Maximizer)</span></td>
+        <td>Barroso target &divide; trailing realized vol, lagged, capped 1.0</td>
+        <td>identical, warm-started from WF equity curve</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>The audit method.</h3>
+
+  <p>
+    Parity is not assumed; it is measured. The largest single realization gap discovered in
+    audit was the ranking universe: production had filtered to a smaller most-liquid set than
+    the walk-forward. A liquidity-rank audit of a representative run found that a large majority
+    of simulated trades &mdash; including several of the strongest winners &mdash; came from
+    symbols ranked below the production cutoff. The fix was a one-line configuration change; the
+    discovery required reading the trade list against the same ranking logic and counting where
+    each entry came from.
+  </p>
+
+  <p>
+    Because both tiers share the engine, a parity defect is doubly expensive &mdash; it
+    corrupts the marketed edge for Preserver <em>and</em> Maximizer at once. This kind of
+    mechanical audit runs whenever a new lever is added to either side &mdash; harness or
+    production &mdash; before the lever is allowed to influence published results.
+  </p>
+
+  <div class="pullquote">Code parity is not runtime parity. Diff production&rsquo;s actual config &mdash; never assume it.</div>
+</div>
+
+<!-- ============================================================
+     SECTION 14 - DAILY TIMELINE
+     ============================================================ -->
+<div class="content page-break">
+  <span class="kicker">14 &middot; Portfolio &amp; operations</span>
   <h2>The daily <em>timeline.</em></h2>
 
   <p class="lead">
@@ -1677,17 +2043,13 @@
       <text x="350" y="24" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="13" font-weight="500" fill="#141210">Daily signal pipeline (Eastern Time)</text>
       <line x1="280" y1="34" x2="420" y2="34" stroke="#C9BFAC" stroke-width="1"/>
 
-      <!-- Timeline bar -->
       <line x1="40" y1="78" x2="660" y2="78" stroke="#C9BFAC" stroke-width="2"/>
 
-      <!-- Markers -->
-      <!-- 7:00 -->
       <circle cx="60" cy="78" r="6" fill="#5A544E"/>
       <text x="60" y="62" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#141210">07:00</text>
       <text x="60" y="100" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">Ticker</text>
       <text x="60" y="111" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">health</text>
 
-      <!-- 9:00 + intraday band -->
       <rect x="145" y="68" width="215" height="20" fill="#2D5F3F" fill-opacity="0.10" stroke="#2D5F3F" stroke-width="0.6"/>
       <text x="252" y="83" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="8" fill="#2D5F3F">every 5 min &middot; HWM &amp; regime</text>
 
@@ -1696,58 +2058,49 @@
       <text x="145" y="100" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">Pre-market</text>
       <text x="145" y="111" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">+ monitor</text>
 
-      <!-- 16:00 -->
       <circle cx="360" cy="78" r="5" fill="#5A544E"/>
       <text x="360" y="62" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#141210">16:00</text>
       <text x="360" y="100" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">Market</text>
       <text x="360" y="111" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">close</text>
 
-      <!-- 16:20 -->
       <circle cx="410" cy="78" r="7" fill="#7A2430"/>
       <text x="410" y="62" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#7A2430">16:20</text>
       <text x="410" y="100" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#7A2430">Full scan</text>
       <text x="410" y="111" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#7A2430">+ dashboard</text>
 
-      <!-- 17:00 -->
       <circle cx="465" cy="78" r="6" fill="#5A544E"/>
       <text x="465" y="62" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#141210">17:00</text>
       <text x="465" y="100" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">Double</text>
       <text x="465" y="111" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">signal</text>
 
-      <!-- 18:00 -->
       <circle cx="520" cy="78" r="7" fill="#7A2430"/>
       <text x="520" y="62" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#7A2430">18:00</text>
       <text x="520" y="100" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#7A2430">Daily</text>
       <text x="520" y="111" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#7A2430">digest</text>
 
-      <!-- 20:00 -->
       <circle cx="590" cy="78" r="6" fill="#5A544E"/>
       <text x="590" y="62" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#141210">20:00</text>
       <text x="590" y="100" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">Nightly</text>
       <text x="590" y="111" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">walk-fwd</text>
 
-      <!-- 21:00 -->
       <circle cx="640" cy="78" r="5" fill="#5A544E"/>
       <text x="640" y="62" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#141210">21:00</text>
       <text x="640" y="100" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">Content</text>
       <text x="640" y="111" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">gen</text>
 
-      <!-- Always-on band -->
-      <rect x="40" y="148" width="620" height="32" fill="#FAF7F0" stroke="#C9BFAC" stroke-width="1"/>
+      <rect x="40" y="148" width="620" height="32" fill="#FFFFFF" stroke="#C9BFAC" stroke-width="1"/>
       <rect x="40" y="148" width="3" height="32" fill="#7A2430"/>
       <text x="60" y="167" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#5A544E" letter-spacing="1">ALWAYS ON</text>
       <text x="155" y="167" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#141210">Social publish (15 min)</text>
       <text x="320" y="167" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#141210">Post notifications (hourly)</text>
       <text x="500" y="167" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#141210">Reply scanner (4 hrs)</text>
 
-      <!-- Weekly band -->
-      <rect x="40" y="188" width="620" height="32" fill="#FAF7F0" stroke="#C9BFAC" stroke-width="1"/>
+      <rect x="40" y="188" width="620" height="32" fill="#FFFFFF" stroke="#C9BFAC" stroke-width="1"/>
       <rect x="40" y="188" width="3" height="32" fill="#7A2430"/>
       <text x="60" y="207" font-family="IBM Plex Sans, sans-serif" font-size="9" font-weight="500" fill="#5A544E" letter-spacing="1">WEEKLY</text>
       <text x="135" y="207" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#141210">Strategy auto-analysis (Fri 18:30)</text>
       <text x="385" y="207" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#141210">Meta token refresh (Mon 03:00)</text>
 
-      <!-- Legend -->
       <text x="40" y="252" font-family="IBM Plex Sans, sans-serif" font-size="9" fill="#5A544E">
         <tspan font-weight="600" fill="#2D5F3F">&#9679;</tspan> Market hours
         &nbsp; &nbsp;
@@ -1765,7 +2118,7 @@
     </thead>
     <tbody>
       <tr><td>Daily digest</td><td>18:00 ET, trading days</td><td>All subscribers</td><td>Email + push</td></tr>
-      <tr><td>Sell alert</td><td>Trailing stop or regime exit</td><td>Position holders</td><td>Email + push</td></tr>
+      <tr><td>Sell alert</td><td>Trailing stop, overlay, or regime exit</td><td>Position holders</td><td>Email + push</td></tr>
       <tr><td>Warning alert</td><td>Within 3% of stop level</td><td>Position holders</td><td>Email + push</td></tr>
       <tr><td>Double signal</td><td>Timing + momentum cross within 3 days</td><td>All subscribers</td><td>Email</td></tr>
       <tr><td>Intraday signal</td><td>Watchlist candidate clears threshold</td><td>Subscribers (not holding)</td><td>Email</td></tr>
@@ -1779,150 +2132,152 @@
 </div>
 
 <!-- ============================================================
-     SECTION 10 - WALK-FORWARD METHODOLOGY
+     SECTION 15 - WALK-FORWARD METHODOLOGY
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">10 &middot; Portfolio &amp; operations</span>
+  <span class="kicker">15 &middot; Portfolio &amp; operations</span>
   <h2>Walk-forward <em>methodology.</em></h2>
 
   <p class="lead">
-    Walk-forward testing is the gold standard for trading-system validation. Unlike traditional
-    backtesting, which optimizes across all available data and bakes in hindsight bias,
-    walk-forward divides history into sequential periods and tests forward into data the
-    optimizer has never seen.
+    Walk-forward testing is the standard for trading-system validation. Rather than optimizing
+    across all available data and baking in hindsight, it locks parameters in advance and tests
+    forward into data the optimizer has never seen.
   </p>
 
   <h3>Methodology.</h3>
   <ul>
-    <li><strong>Window.</strong> A single continuous 21-year window (2007&ndash;2026), price returns.</li>
+    <li><strong>Window.</strong> A single continuous 21-year path (2007&ndash;2026), price returns, plus a rolling 5-year read for the current headline figures.</li>
     <li><strong>Optimization.</strong> Parameters are locked, then applied forward; no per-period retuning.</li>
+    <li><strong>Warm start.</strong> One canonical full-history equity curve; windows are sliced from it so the capitulation overlay always sees a real equity history (never cold).</li>
     <li><strong>Trading.</strong> Enters fresh ensemble signals as they fire; the universe is periodically re-ranked and existing positions are checked against the refreshed top tier.</li>
     <li><strong>Position carry.</strong> Carry-on semantics: qualifying positions survive period boundaries rather than being mechanically liquidated.</li>
-    <li><strong>Universe.</strong> Top 100 symbols by 60-day volume per period; the production scanner runs the full universe daily.</li>
-    <li><strong>Strategy.</strong> The locked RigaCap Momentum Strategy timing-and-momentum ensemble (20 positions &times; 4.5%, inverse-volatility sizing, 30% trail, regime filter, Cascade Guard).</li>
+    <li><strong>Both tiers.</strong> Preserver and Maximizer are run through the same day-step harness; only the overlay intensity differs.</li>
     <li><strong>Data integrity.</strong> Survivorship-free, point-in-time data from 2016 onward; the pre-2016 extension carries a survivorship caveat.</li>
   </ul>
 
-  <h3>What we publish.</h3>
-  <p>
-    We publish one continuous window &mdash; 2007 through 2026 &mdash; with the crisis years
-    and the bad years on the record, plus a fully held-out final 24 months as recent
-    confirmation. Every figure in the next section reflects one of those runs &mdash; we
-    identify which one beside each figure.
-  </p>
+  <div class="callout no-break">
+    <p><strong>Research maps to production, penny-to-penny.</strong> Every research result is
+    re-validated through the production day-step on the same warm equity curve before it is
+    trusted or marketed. Only exposure-scaling constructions (raising cash) reproduce in the
+    single-pool book; idealized sleeve-capture return-streams do not, and are rejected.</p>
+  </div>
 
   <div class="callout no-break">
-    <p><strong>Zero hindsight bias.</strong> At each step, the harness knows
-    nothing about what happens next. Parameters are fixed in advance; the
-    strategy then trades forward into unseen market conditions. The published figures are
-    out-of-sample by construction.</p>
+    <p><strong>Zero hindsight bias.</strong> At each step the harness knows nothing about what
+    happens next. Parameters are fixed in advance; the strategy then trades forward into unseen
+    market conditions. The published figures are out-of-sample by construction.</p>
   </div>
 </div>
 
 <!-- ============================================================
-     SECTION 11 - WHAT THE WALK-FORWARD SHOWS
+     SECTION 16 - WHAT THE WALK-FORWARD SHOWS
      ============================================================ -->
 <div class="content page-break">
-  <span class="kicker">11 &middot; Portfolio &amp; operations</span>
+  <span class="kicker">16 &middot; Portfolio &amp; operations</span>
   <h2>What the walk-forward <em>shows.</em></h2>
 
   <p class="lead">
-    One continuous 21-year window (2007&ndash;2026), plus a fully held-out final 24 months.
-    Both reported on clean indicator data, with the crisis years and the bad years on the
-    record alongside the averages.
+    Two tiers off one engine, over a full cycle. The crisis years and the bad years are on the
+    record alongside the averages &mdash; that is the point of the product.
   </p>
 
   <h3>Headline numbers.</h3>
   <table>
     <thead>
-      <tr><th>Series (2007&ndash;2026)</th><th>Annualised</th><th>Sharpe</th><th>Calmar</th><th>Worst drawdown</th></tr>
+      <tr><th>Series</th><th>CAGR</th><th>Sharpe</th><th>Worst drawdown</th></tr>
     </thead>
     <tbody>
       <tr class="headline-row">
-        <td>RigaCap Momentum Strategy</td>
-        <td>8.3%</td>
-        <td>0.73</td>
-        <td>0.43</td>
-        <td>19%</td>
-      </tr>
-      <tr>
-        <td>Raw 12-month momentum (net of costs)</td>
-        <td>13.2%</td>
-        <td>0.69</td>
-        <td>&mdash;</td>
-        <td>57%</td>
-      </tr>
-      <tr class="benchmark-row">
-        <td>S&amp;P 500 (price-only)</td>
-        <td>9.8%</td>
-        <td>0.54</td>
-        <td>&mdash;</td>
-        <td>55%</td>
+        <td>Preserver &mdash; 5yr</td>
+        <td>13.0%</td>
+        <td>1.28</td>
+        <td>&minus;12.9%</td>
       </tr>
       <tr class="headline-row">
-        <td>Held-out last 24 months (Jun 2024&ndash;May 2026)</td>
-        <td>+32.0%</td>
-        <td>2.20</td>
-        <td>3.76</td>
-        <td>8.5%</td>
+        <td>Maximizer &mdash; 5yr</td>
+        <td>31.4%</td>
+        <td>1.51</td>
+        <td>&minus;14.9%</td>
       </tr>
       <tr class="benchmark-row">
-        <td>S&amp;P 500, same 24-month window</td>
-        <td>+19.9%</td>
-        <td>1.18</td>
-        <td>1.05</td>
-        <td>19.0%</td>
+        <td>SPY &mdash; 5yr</td>
+        <td>14.2%</td>
+        <td>&mdash;</td>
+        <td>&minus;25.4%</td>
+      </tr>
+      <tr class="headline-row">
+        <td>Preserver &mdash; 21yr</td>
+        <td>7.7%</td>
+        <td>0.87</td>
+        <td>&minus;13.7%</td>
+      </tr>
+      <tr class="headline-row">
+        <td>Maximizer &mdash; 21yr</td>
+        <td>13.5%</td>
+        <td>0.93</td>
+        <td>&minus;20.8%</td>
+      </tr>
+      <tr class="benchmark-row">
+        <td>SPY &mdash; 21yr</td>
+        <td>9.8%</td>
+        <td>&mdash;</td>
+        <td>&minus;55%</td>
       </tr>
     </tbody>
   </table>
   <p class="table-caption">
-    Source: continuous 21-year walk-forward backtest, clean indicator data, price returns.
-    Data from 2016 onward is survivorship-free and point-in-time; the pre-2016 extension
-    carries a survivorship caveat. The live track record began June 11, 2026 with a fresh
-    $100k model book &mdash; all figures here are backtested.
+    Source: continuous walk-forward path, price returns (vintage 2026-07-31). Data from 2016
+    onward is survivorship-free and point-in-time; the pre-2016 extension carries a survivorship
+    caveat. The live model book began June 2026 &mdash; all figures here are walk-forward.
   </p>
+
+  <h3>Typical windows.</h3>
+  <div class="feature-grid no-break">
+    <div class="feature-card">
+      <h4>Preserver</h4>
+      <p>Typical 12-month +10.7% (77% of windows positive); typical 24-month +20.8%. Longest
+      underwater stretch 2.2 years against SPY&rsquo;s 5.4. Beats SPY in 36% / 17% / 14% of
+      rolling 1/3/5-year windows.</p>
+    </div>
+    <div class="feature-card">
+      <h4>Maximizer</h4>
+      <p>Typical 12-month +26.5% (77% positive); typical 24-month +57.5%. Longest underwater
+      stretch 3.4 years. Beats SPY in 50% / 45% / 31% of rolling 1/3/5-year windows.</p>
+    </div>
+  </div>
 
   <h3>Where the edge actually is.</h3>
   <p>
-    On raw return, the strategy trails both the index and raw momentum over 21 years. The
-    edge is risk: a 19% worst drawdown against 55% for the index and 57% for raw momentum,
-    a 0.43 monthly correlation to the S&amp;P, and an average month of &minus;1.0% when the
-    index falls (the index averages &minus;3.9%) versus +1.7% when it rises. The strategy
-    is built to be held through a full cycle &mdash; including by investors who would
-    panic-sell anything that loses half its value.
-  </p>
-
-  <h3>Cascade Guard contribution.</h3>
-  <p>
-    Cascade Guard is validated against a no-Cascade-Guard counterfactual run. A prior
-    configuration showed a meaningful return-quality contribution; attribution for the
-    current production configuration is being re-measured on the 21-year window before we
-    publish a number. The drawdown effect is essentially neutral &mdash; we do not claim
-    drawdown protection from Cascade Guard; the regime exit is what handles drawdown.
+    The edge is risk-adjusted, not raw. Over the full cycle both tiers cut the worst drawdown
+    to roughly a quarter of the index&rsquo;s &mdash; near &minus;13% for Preserver and &minus;21%
+    for Maximizer against SPY&rsquo;s &minus;55% &mdash; while down-month capture runs
+    &minus;1.05 (Preserver) and &minus;0.97 (Maximizer) versus &minus;3.85 for the index. The
+    system is built to be held through a full cycle, including by investors who would panic-sell
+    anything that loses half its value. That is the thesis: momentum, built around the drawdown.
   </p>
 
   <div class="feature-grid no-break">
     <div class="feature-card">
       <h4>Crisis capital preservation</h4>
-      <p>2008: &minus;0.5% while the S&amp;P 500 fell &minus;37.7% (regime filter in cash).
-      2022: &minus;7.5% against &minus;19.9%. The clearest empirical evidence the
-      regime-aware design earns its keep. The honest wart: 2018, a whipsaw year,
-      came in at &minus;12.3% against &minus;7.0%.</p>
+      <p>2008: both tiers +0.1% while SPY fell &minus;37.7% (overlay in cash). 2022: Preserver
+      &minus;11.2% and Maximizer &minus;6.4% against &minus;19.9%. The clearest empirical
+      evidence the overlay earns its keep.</p>
     </div>
     <div class="feature-card">
       <h4>Bull participation</h4>
-      <p>2020: +31.9% against +15.2% for the S&amp;P 500 &mdash; back in for the recovery
-      after sidestepping the worst of the crash. The held-out last 24 months ran +32.0%
-      annualised against +19.9%.</p>
+      <p>2020: Preserver +9.2%, Maximizer +34.9% against +15.2% for SPY &mdash; back in for the
+      recovery after sidestepping the worst of the crash.</p>
     </div>
   </div>
 
   <h3>How we trade.</h3>
   <p>
-    Most entries are exited at the trailing stop, by design. The system does not need to be
-    right most of the time. It needs winners to compound and losers to be cut on a fixed rule
-    &mdash; and that is what the wide 30% trailing stop and exit priority deliver, spread
-    across up to twenty inverse-volatility-sized positions.
+    On the base book, most positions are exited at the trailing stop, by design. The system does
+    not need to be right most of the time; it needs winners to compound and losers to be cut on a
+    fixed rule &mdash; what the wide 30% trailing stop, the capitulation overlay, and the exit
+    priority deliver across up to twenty inverse-volatility-sized positions. Maximizer layers the
+    breakout book on top, where positions instead run to a fixed ~29-trading-day hold with exposure
+    governed by the vol-target &mdash; a different exit discipline for a different job.
   </p>
 
   <div class="feature-grid no-break">
@@ -1933,9 +2288,9 @@
     </div>
     <div class="feature-card">
       <h4>Diversification, not concentration</h4>
-      <p>Twenty smaller positions instead of a concentrated handful. The bar at entry remains
-      high &mdash; the gauntlet rejects far more candidates than it admits &mdash; but no
-      single name can sink the book.</p>
+      <p>Twenty smaller positions instead of a concentrated handful. The bar at entry stays
+      high &mdash; the gauntlet rejects far more candidates than it admits &mdash; but no single
+      name can sink the book.</p>
     </div>
   </div>
 </div>
@@ -1946,34 +2301,37 @@
 <div class="content">
   <div class="disclosures">
     <p>
-      <strong>This document is confidential and intended for the recipient.</strong> It does
-      not constitute an offer to sell or a solicitation of an offer to buy any security, nor
-      is it intended as personalised investment advice. Performance figures reflect simulated
-      results from walk-forward backtesting; past performance does not guarantee future
-      returns. Trading involves risk of loss. RigaCap provides trading signals only &mdash;
-      subscribers execute trades through their own brokerage accounts.
+      <strong>This document is confidential and for internal use only. Do not distribute.</strong>
+      It documents proprietary machinery &mdash; the capitulation overlay, entry gauntlet, and
+      parity discipline &mdash; that never appears in public materials. It does not constitute an
+      offer to sell or a solicitation of an offer to buy any security, nor is it personalised
+      investment advice. Performance figures reflect simulated walk-forward results; past
+      performance does not guarantee future returns. Trading involves risk of loss. RigaCap
+      provides trading signals only &mdash; subscribers execute trades through their own
+      brokerage accounts.
     </p>
     <p>
-      RigaCap operates as a publisher under the publisher's exemption to the
-      Investment Advisers Act of 1940 (&sect;202(a)(11)(d)), as interpreted in
-      <em>Lowe v. SEC</em>. Three conditions are satisfied: the commentary is impersonal
-      (the same signals go to every subscriber, regardless of their portfolio or financial
-      situation); it is bona fide market analysis; and it is published on a regular schedule.
-      Subscribers execute their own trades through their own broker. RigaCap does not have
-      custody of subscriber capital. Past performance does not predict future results, and
-      the strategy may materially underperform any single benchmark in any given period.
+      RigaCap operates as a publisher under the publisher&rsquo;s exemption to the Investment
+      Advisers Act of 1940 (&sect;202(a)(11)(d)), as interpreted in <em>Lowe v. SEC</em>. Three
+      conditions are satisfied: the commentary is impersonal (the same tier signals go to every
+      subscriber of that tier, regardless of their portfolio or financial situation); it is bona
+      fide market analysis; and it is published on a regular schedule. Subscribers execute their
+      own trades through their own broker. RigaCap does not have custody of subscriber capital.
+      Past performance does not predict future results, and either tier may materially
+      underperform any single benchmark in any given period.
     </p>
     <p>
-      Source data: continuous 21-year walk-forward backtest (2007&ndash;2026, price returns)
-      on clean indicator data, run June 2026. Data from 2016 onward is survivorship-free and
-      point-in-time; pre-2016 data carries a survivorship caveat. The live track record began
-      June 11, 2026 with a fresh $100k model book. Production parameters are the locked
-      RigaCap Momentum Strategy set: up to twenty positions sized at roughly 4.5% each with
-      inverse-volatility weighting, a 30% trailing stop, the market-regime filter, Cascade
-      Guard, and the timing-and-momentum ensemble described in this document.
+      Source data: continuous walk-forward path (2007&ndash;2026, price returns) on clean
+      indicator data; headline 5-year and 21-year figures vintage 2026-07-31. Data from 2016
+      onward is survivorship-free and point-in-time; pre-2016 data carries a survivorship caveat.
+      The live model book began June 2026. Production parameters (shared base): up to twenty
+      positions sized at roughly 4.5% each with inverse-volatility weighting, a 30% trailing
+      stop, the market-regime filter, Cascade Guard, and the timing-and-momentum ensemble
+      described in this document. The Preserver and Maximizer tiers differ in the
+      capitulation-overlay intensity and in the Maximizer breakout book (Section 09).
     </p>
-    <p style="margin-top: 1.5rem; font-family: var(--mono); letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.7rem; color: var(--ink-mute);">
-      RigaCap &middot; June 2026 &middot; Signal Intelligence &middot; rigacap.com
+    <p class="doc-footer">
+      Confidential &mdash; Internal Only &middot; Do Not Distribute &middot; RigaCap &middot; Aug 2026 &middot; Signal Intelligence
     </p>
   </div>
 </div>
