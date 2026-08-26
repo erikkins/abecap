@@ -1771,15 +1771,19 @@ resource "aws_lambda_permission" "monthly_universe_audit" {
 # Sunday 00:00 pickle_rebuild (so it picks up new symbols) and well before Monday's scan.
 resource "aws_cloudwatch_event_rule" "universe_refresh" {
   name                = "${local.prefix}-universe-refresh"
-  description         = "Weekly full-universe re-rank by 60d avg volume"
+  description         = "Weekly full-universe re-rank from a FRESH fetch of the clean list (v2)"
   schedule_expression = "cron(0 20 ? * SAT *)"
 }
 
+# v2: ranks the clean stock_universe_service list off a FRESH raw-bar fetch (not the
+# frozen all_data.parquet), writes the universe-history snapshot, and heals newcomers
+# (full-backfills their PITFWU history) so re-entering surgers can signal immediately.
+# Replaces the old {universe_refresh=true} which ranked off frozen bars → stale membership.
 resource "aws_cloudwatch_event_target" "universe_refresh" {
   rule      = aws_cloudwatch_event_rule.universe_refresh.name
   target_id = "lambda-universe-refresh"
   arn       = aws_lambda_function.worker.arn
-  input     = jsonencode({ universe_refresh = true })
+  input     = jsonencode({ universe_refresh_v2 = { write = true, heal_newcomers = true } })
 }
 
 resource "aws_lambda_permission" "universe_refresh" {
@@ -1814,6 +1818,34 @@ resource "aws_lambda_permission" "quarterly_deep_audit" {
   function_name = aws_lambda_function.worker.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.quarterly_deep_audit.arn
+}
+
+# ============================================================================
+# Monthly — rebuild the Portfolio Overlay 5yr signaled-symbols artifact
+# (entered + ever_qualified, Preserver core + Maximizer breakout). 1st of the
+# month at 09:00 UTC — after the monthly universe audit (07:00) so it re-ranks
+# on a fresh universe. Read-only sims; writes signals/signaled_symbols_5y.json.
+# ============================================================================
+
+resource "aws_cloudwatch_event_rule" "signaled_symbols_refresh" {
+  name                = "${local.prefix}-signaled-symbols-refresh"
+  description         = "Monthly rebuild of the 5yr portfolio-overlay signaled-symbols artifact"
+  schedule_expression = "cron(0 9 1 * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "signaled_symbols_refresh" {
+  rule      = aws_cloudwatch_event_rule.signaled_symbols_refresh.name
+  target_id = "lambda-signaled-symbols-refresh"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ build_signaled_symbols_5y = { years = 5 } })
+}
+
+resource "aws_lambda_permission" "signaled_symbols_refresh" {
+  statement_id  = "AllowSignaledSymbolsRefreshEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.signaled_symbols_refresh.arn
 }
 
 # ============================================================================
