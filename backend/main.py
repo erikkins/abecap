@@ -3363,6 +3363,119 @@ def handler(event, context):
             print(f"❌ universe_refresh failed: {e}\n{traceback.format_exc()}")
             return {'error': str(e)}
 
+    if event.get("universe_refresh_v2"):
+        # Fresh-fetch liquidity rank. Breaks the frozen-universe chicken-and-egg:
+        # the OLD universe_refresh ranks 60d volume off the FROZEN all_data.parquet
+        # (Jun 15), so a stock whose volume surged AFTER the freeze can never enter
+        # the top-N scoped set → never loaded → never signals. This ranks the CLEAN
+        # symbol list (stock_universe_service: NASDAQ/NYSE screener + EXCLUDED_PATTERNS,
+        # weekly-fresh) off a FRESH raw-bar fetch (volume is split-invariant). Same
+        # output artifact + same consumer as universe_refresh; only the input changes.
+        # write:false (default) is read-only — ranks + DIFFs vs the current frozen
+        # snapshot so we can see the surgers we've been blind to before flipping.
+        cfg = event.get("universe_refresh_v2") or {}
+        do_write = bool(cfg.get("write", False)) if isinstance(cfg, dict) else False
+        lookback = int(cfg.get("lookback_days", 90)) if isinstance(cfg, dict) else 90
+        print(f"🌐 universe_refresh_v2 (fresh fetch, write={do_write}, lookback={lookback}d)")
+        def _universe_refresh_v2():
+            import os as _os, json as _json, boto3
+            from datetime import date as _date, datetime as _dt, timedelta as _td
+            from app.services.scanner import _EXCLUDED_SET
+            from app.services.data_export import S3_BUCKET
+            from app.services.stock_universe import S3_UNIVERSE_KEY
+            from app.services import pitfwu_store as _ps
+            from app.core.config import settings as _cfg
+            s3 = boto3.client('s3', region_name='us-east-1')
+
+            # 1) CLEAN symbol list (already ETF/crypto-excluded, weekly-fresh)
+            uni_cache = _json.loads(s3.get_object(Bucket=S3_BUCKET, Key=S3_UNIVERSE_KEY)['Body'].read())
+            symbols = [s for s in uni_cache.get('symbols', [])
+                       if s not in _EXCLUDED_SET and not s.startswith('^')]
+            clean_age_days = None
+            if uni_cache.get('updated'):
+                try:
+                    clean_age_days = (_dt.utcnow() - _dt.fromisoformat(
+                        uni_cache['updated'].replace('Z', ''))).days
+                except Exception:
+                    pass
+
+            # 2) FRESH raw bars (volume unaffected by split adjustment)
+            end = _date.today()
+            start = end - _td(days=lookback)
+            bars = _ps.fetch_raw_bars(symbols, start, end)
+
+            # 3) rank by FRESH 60d avg volume + MIN_PRICE gate
+            rankings = []
+            for sym, g in bars.items():
+                if g is None or len(g) < 60:
+                    continue
+                g = g.sort_index()
+                vol60 = float(g['volume'].tail(60).mean())
+                last_close = float(g['close'].iloc[-1])
+                if last_close < _cfg.MIN_PRICE:
+                    continue
+                rankings.append({'symbol': sym, 'avg_volume_60d': vol60,
+                                 'last_close': last_close,
+                                 'last_date': g.index[-1].strftime('%Y-%m-%d'),
+                                 'is_excluded': False})
+            rankings.sort(key=lambda r: r['avg_volume_60d'], reverse=True)
+            for i, r in enumerate(rankings, 1):
+                r['rank'] = i
+
+            # 4) DIFF vs current frozen snapshot (top-N membership)
+            topn = int(_os.environ.get('PARQUET_SCOPE_TOPN', '600'))
+            fresh_top = [r['symbol'] for r in rankings[:topn]]
+            fresh_set = set(fresh_top)
+            frozen_top, frozen_date = [], None
+            objs = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix='signals/universe-history/')
+            keys = sorted(o['Key'] for o in objs.get('Contents', []) if o['Key'].endswith('.json'))
+            if keys:
+                old = _json.loads(s3.get_object(Bucket=S3_BUCKET, Key=keys[-1])['Body'].read())
+                frozen_date = old.get('snapshot_date')
+                for r in old.get('rankings', []):
+                    if len(frozen_top) >= topn:
+                        break
+                    if not r.get('is_excluded') and r.get('symbol'):
+                        frozen_top.append(r['symbol'])
+            frozen_set = set(frozen_top)
+            surgers_in = sorted(fresh_set - frozen_set)     # newly liquid — we were BLIND to these
+            dropped_out = sorted(frozen_set - fresh_set)
+
+            result = {
+                'status': 'success', 'write': do_write,
+                'clean_list_size': len(symbols), 'clean_list_age_days': clean_age_days,
+                'fetched_ok': len(bars), 'ranked': len(rankings),
+                'frozen_snapshot_date': frozen_date, 'topn': topn,
+                'new_in_top': len(surgers_in), 'dropped_from_top': len(dropped_out),
+                'sample_surgers': surgers_in[:40],
+                'fresh_top20': fresh_top[:20],
+            }
+
+            if do_write:
+                snap_date = _date.today().isoformat()
+                snapshot = {
+                    'snapshot_date': snap_date,
+                    'snapshot_time_utc': _dt.utcnow().isoformat() + 'Z',
+                    'total_eligible_symbols': len(rankings),
+                    'excluded_count': 0,
+                    'signal_universe_size_setting': int(_os.environ.get('SIGNAL_UNIVERSE_SIZE', '0')) or None,
+                    'excluded_symbols_in_universe': [],
+                    'rankings': rankings,
+                    'source': 'universe_refresh_v2_fresh_fetch',
+                }
+                s3.put_object(Bucket=S3_BUCKET, Key=f'signals/universe-history/{snap_date}.json',
+                              Body=_json.dumps(snapshot).encode('utf-8'), ContentType='application/json')
+                result['written_key'] = f'signals/universe-history/{snap_date}.json'
+            return result
+        try:
+            r = _universe_refresh_v2()
+            print(f"🌐 universe_refresh_v2: {r}")
+            return r
+        except Exception as e:
+            import traceback
+            print(f"❌ universe_refresh_v2 failed: {e}\n{traceback.format_exc()}")
+            return {'error': str(e)}
+
     if event.get("universe_snapshot"):
         cfg = event["universe_snapshot"] or {}
         snap_date = cfg.get("date") if isinstance(cfg, dict) else None
