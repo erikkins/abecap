@@ -7362,7 +7362,14 @@ def handler(event, context):
             import pandas as _pd, json as _json, boto3 as _b3
             from app.services.backtester import BacktesterService
             if not scanner_service.data_cache:
-                return {"error": "data_cache empty (worker not warmed)"}
+                try:
+                    _c = data_export_service.import_all()
+                    if _c:
+                        scanner_service.data_cache = _c
+                except Exception as _e:
+                    return {"error": f"data load failed: {_e}"}
+            if not scanner_service.data_cache:
+                return {"error": "data_cache empty after import_all"}
             spy = scanner_service.data_cache.get("SPY")
             if spy is None or len(spy) < 260:
                 return {"error": "no SPY / insufficient history"}
