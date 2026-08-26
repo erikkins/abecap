@@ -3900,7 +3900,7 @@ class PortfolioCheckRequest(BaseModel):
 
 # Cached lookup sets (in-process, TTL 1h): universe = current top-600 tracked; signaled =
 # the precomputed 5-yr artifact if present, else the live signal tables as an interim fallback.
-_overlay_sets = {"universe": None, "signaled": None, "ts": 0.0}
+_overlay_sets = {"universe": None, "qualified": None, "entered": None, "ts": 0.0}
 _OVERLAY_TTL = 3600.0
 _TICKER_RE = re.compile(r"^[A-Z][A-Z.\-]{0,5}$")
 
@@ -3924,8 +3924,8 @@ async def _load_overlay_sets(db):
     from sqlalchemy import text as _text
     now = time.time()
     if _overlay_sets["universe"] is not None and (now - _overlay_sets["ts"]) < _OVERLAY_TTL:
-        return _overlay_sets["universe"], _overlay_sets["signaled"]
-    universe, signaled = set(), set()
+        return _overlay_sets["universe"], _overlay_sets["qualified"], _overlay_sets["entered"]
+    universe, qualified, entered = set(), set(), set()
     bucket = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
     try:
         s3 = boto3.client("s3", region_name="us-east-1")
@@ -3937,23 +3937,26 @@ async def _load_overlay_sets(db):
                         if r.get("symbol") and not r.get("is_excluded")}
     except Exception as e:
         logger.warning(f"overlay universe load failed: {e}")
-    # signaled: prefer the precomputed 5-yr artifact; else fall back to the live signal tables
+    # signaled sets: prefer the precomputed 5-yr artifact (ever_qualified = ranker pool; entered =
+    # model actually traded). Fall back to the live signal tables (both = same union) until it's built.
     try:
         s3 = boto3.client("s3", region_name="us-east-1")
         art = _json.loads(s3.get_object(Bucket=bucket, Key="signals/signaled_symbols_5y.json")["Body"].read())
-        signaled = {s.upper() for s in art.get("symbols", []) if s}
+        qualified = {s.upper() for s in art.get("ever_qualified", []) if s}
+        entered = {s.upper() for s in art.get("entered", []) if s}
     except Exception:
         try:
             rows = (await db.execute(_text(
                 "SELECT symbol FROM ensemble_signals UNION SELECT symbol FROM maximizer_signals "
                 "UNION SELECT symbol FROM preserver_signals UNION SELECT symbol FROM tier_fills WHERE side='buy'"
             ))).all()
-            signaled = {r[0].upper() for r in rows if r and r[0]}
+            qualified = {r[0].upper() for r in rows if r and r[0]}
+            entered = set(qualified)   # interim: live tables don't split qualified vs entered
         except Exception as e:
             logger.warning(f"overlay signaled fallback failed: {e}")
-    if universe or signaled:
-        _overlay_sets.update({"universe": universe, "signaled": signaled, "ts": now})
-    return universe, signaled
+    if universe or qualified:
+        _overlay_sets.update({"universe": universe, "qualified": qualified, "entered": entered, "ts": now})
+    return universe, qualified, entered
 
 
 @public_router.post("/portfolio-check")
@@ -3969,9 +3972,10 @@ async def public_portfolio_check(
     discard. Never errors the client over the save."""
     from app.core.database import PortfolioSubmission
     tickers = _norm_tickers(req.tickers)
-    universe, signaled = await _load_overlay_sets(db)
+    universe, qualified, entered = await _load_overlay_sets(db)
     in_universe = sum(1 for t in tickers if t in universe)
-    signaled_n = sum(1 for t in tickers if t in signaled)
+    qualified_n = sum(1 for t in tickers if t in qualified)
+    entered_n = sum(1 for t in tickers if t in entered)
     try:
         ua = (request.headers.get("user-agent") or "")[:512] or None
         ip = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()[:64] or None
@@ -3982,7 +3986,8 @@ async def public_portfolio_check(
             tickers=tickers,
             ticker_count=len(tickers),
             in_universe_count=in_universe,
-            signaled_count=signaled_n,
+            signaled_count=qualified_n,   # = ever_qualified (ranker pool)
+            entered_count=entered_n,      # model actually traded (5yr WF)
             source=(req.source or "landing_widget")[:32],
             path=(req.path or "")[:255] or None,
             utm_source=(req.utm_source or "")[:128] or None,
@@ -3993,7 +3998,8 @@ async def public_portfolio_check(
         await db.commit()
     except Exception as e:
         logger.warning(f"portfolio_submissions save failed: {e}")
-    return {"ticker_count": len(tickers), "in_universe_count": in_universe, "signaled_count": signaled_n}
+    return {"ticker_count": len(tickers), "in_universe_count": in_universe,
+            "ever_qualified_count": qualified_n, "entered_count": entered_n}
 
 
 _newsletter_bg_tasks: set = set()

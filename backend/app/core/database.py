@@ -705,7 +705,8 @@ class PortfolioSubmission(Base):
     tickers = Column(JSON, nullable=False)                        # normalized uppercase list
     ticker_count = Column(Integer, nullable=False, server_default="0")
     in_universe_count = Column(Integer, nullable=False, server_default="0")
-    signaled_count = Column(Integer, nullable=False, server_default="0")
+    signaled_count = Column(Integer, nullable=False, server_default="0")   # = ever_qualified (ranker pool)
+    entered_count = Column(Integer, nullable=False, server_default="0")    # model actually traded (5yr WF)
     source = Column(String(32), nullable=False, server_default="landing_widget")
     path = Column(String(255), nullable=True)
     utm_source = Column(String(128), nullable=True)

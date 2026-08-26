@@ -7352,6 +7352,79 @@ def handler(event, context):
     # Force-refetch specific symbols with SPLIT adjustment, overwrite in pickle.
     # Used to fix known-split symbols (NVDA, CMG, WMT) that were cached with
     # unadjusted prices. {"refetch_split_adjusted": {"symbols": ["NVDA"]}}
+    if event.get("build_signaled_symbols_5y"):
+        cfg = event.get("build_signaled_symbols_5y")
+        cfg = cfg if isinstance(cfg, dict) else {}
+        years = int(cfg.get("years", 5))
+        print(f"🧭 Building {years}yr signaled-symbols artifact (entered + ever_qualified)")
+
+        async def _build_signaled():
+            import pandas as _pd, json as _json, boto3 as _b3
+            from app.services.backtester import BacktesterService
+            if not scanner_service.data_cache:
+                return {"error": "data_cache empty (worker not warmed)"}
+            spy = scanner_service.data_cache.get("SPY")
+            if spy is None or len(spy) < 260:
+                return {"error": "no SPY / insufficient history"}
+            end = _pd.Timestamp(spy.index[-1]).normalize()
+            start = end - _pd.Timedelta(days=365 * years + 5)
+
+            # 1) ENTERED — the model's actual 5yr picks, via the VALIDATED t30v/ensemble config
+            #    (identical to tier_walkforward_service so the entered set is production-faithful).
+            bt = BacktesterService()
+            bt.trailing_stop_pct = 0.30
+            bt.dd_tighten_threshold_pct = 0
+            bt.dwap_threshold_pct = 0.05
+            bt.near_50d_high_pct = 3.0
+            bt.max_positions = 20
+            bt.position_size_pct = 0.045
+            bt.min_price = 15.0
+            bt.cb_pause_basket_enabled = True
+            bt.cb_pause_basket_position_size_pct = 10.0
+            bt.cb_pause_basket_trail_pct = 8.0
+            bt.cb_pause_basket_vix_trigger = 30.0
+            res = bt.run_backtest(start_date=start.to_pydatetime(), end_date=end.to_pydatetime(),
+                                  strategy_type="ensemble", force_close_at_end=True)
+            entered = sorted({t.symbol for t in (getattr(res, "trades", []) or [])
+                              if getattr(t, "symbol", None)})
+
+            # 2) EVER_QUALIFIED — the ranker POOL (Erik's call): step the PRODUCTION ranker weekly
+            #    with time-travel, regime filter OFF (a name qualified even on cash days). Union all.
+            qualified = set()
+            d = start + _pd.Timedelta(days=300)   # warmup before the first rank
+            n_dates = 0
+            while d <= end:
+                try:
+                    cands = scanner_service.rank_stocks_momentum(
+                        as_of_date=d.to_pydatetime(), apply_market_filter=False)
+                    for c in (cands or []):
+                        if getattr(c, "symbol", None):
+                            qualified.add(c.symbol)
+                    n_dates += 1
+                except Exception as _e:
+                    pass
+                d += _pd.Timedelta(days=7)
+            qualified = sorted(qualified | set(entered))   # entered ⊆ qualified by construction
+
+            artifact = {
+                "window_years": years,
+                "start": start.strftime("%Y-%m-%d"), "end": end.strftime("%Y-%m-%d"),
+                "entered": entered, "ever_qualified": qualified,
+                "counts": {"entered": len(entered), "ever_qualified": len(qualified)},
+                "rank_dates": n_dates, "generated_at": end.strftime("%Y-%m-%d"),
+            }
+            bucket = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
+            _b3.client("s3", region_name="us-east-1").put_object(
+                Bucket=bucket, Key="signals/signaled_symbols_5y.json",
+                Body=_json.dumps(artifact).encode("utf-8"), ContentType="application/json")
+            return {"status": "success", "entered": len(entered),
+                    "ever_qualified": len(qualified), "rank_dates": n_dates,
+                    "start": artifact["start"], "end": artifact["end"]}
+
+        result = _run_async(_build_signaled())
+        print(f"🧭 signaled-symbols artifact: {result}")
+        return {"statusCode": 200, "body": result}
+
     if event.get("rebuild_corp_actions_calendar"):
         cfg = event.get("rebuild_corp_actions_calendar")
         cfg = cfg if isinstance(cfg, dict) else {}
