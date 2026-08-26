@@ -1576,6 +1576,7 @@ class SchedulerService:
                 # Query subscribers with valid subscriptions
                 from app.core.database import async_session as async_sess, User as DBUser2, Subscription as DBSub2
                 from sqlalchemy.orm import selectinload as sel_load
+                from sqlalchemy import select  # was used below but never imported in this scope → NameError
 
                 async with async_sess() as db2:
                     sub_result = await db2.execute(
