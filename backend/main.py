@@ -2286,6 +2286,65 @@ def handler(event, context):
             print(f"❌ DIAG failed: {e}\n{traceback.format_exc()}")
             return {"error": str(e)}
 
+    if event.get("scan_preview"):
+        # READ-ONLY preview of what the NEXT daily scan will surface, on the CURRENT
+        # (fresh) universe snapshot. Runs the same scan()+compute_shared_dashboard_data
+        # path but writes/sends NOTHING. Returns the candidate symbols PLUS a per-symbol
+        # data-freshness check (last bar date, price, dwap ratio, is_series_tradeable) so
+        # we can eyeball for ASST-style stale/mis-adjusted names BEFORE the automated send.
+        _pcfg = event.get("scan_preview") or {}
+        _pf = bool(_pcfg.get("fetch")) if isinstance(_pcfg, dict) else False
+        print(f"🔭 SCAN PREVIEW (read-only, fetch={_pf}) — next scan's candidates on the fresh universe")
+        async def _scan_preview():
+            import pandas as _pd
+            from app.services.scanner import is_series_tradeable, _universe_stale_cutoff
+            if _pf:
+                r = await scanner_service.fetch_incremental(replace_days=0)
+                print(f"[PREVIEW] fetch: {r}")
+            await scanner_service.scan(refresh_data=False)
+            from app.api.signals import compute_shared_dashboard_data
+            async with async_session() as db:
+                data = await compute_shared_dashboard_data(db)
+            cache = scanner_service.data_cache
+            _cut = _universe_stale_cutoff(cache)
+            def _sym(x):
+                return x.get('symbol') if isinstance(x, dict) else x
+            def _fresh(sym):
+                df = cache.get(sym)
+                if df is None or not len(df):
+                    return {'symbol': sym, 'in_cache': False}
+                row = df.iloc[-1]
+                px = float(row.get('close', 0) or 0)
+                dwap = row.get('dwap')
+                dwap = float(dwap) if dwap is not None and not _pd.isna(dwap) and float(dwap) > 0 else None
+                return {'symbol': sym, 'in_cache': True, 'bars': int(len(df)),
+                        'last_date': str(_pd.Timestamp(df.index[-1]).date()),
+                        'price': round(px, 2), 'dwap': round(dwap, 2) if dwap else None,
+                        'px_dwap': round(px / dwap, 2) if dwap else None,
+                        'tradeable': bool(is_series_tradeable(df, _cut))}
+            buys = data.get('buy_signals', []) or []
+            watch = data.get('watchlist', []) or []
+            buy_syms = [_sym(x) for x in buys]
+            watch_syms = [_sym(x) for x in watch]
+            checks = {s: _fresh(s) for s in (buy_syms + watch_syms)}
+            suspicious = [c for c in checks.values()
+                          if not c.get('tradeable', True)
+                          or (c.get('last_date') and c['last_date'] < str(_cut.date()))]
+            return {'buy_count': len(buys), 'watch_count': len(watch),
+                    'stale_cutoff': str(_cut.date()),
+                    'buy_symbols': buy_syms, 'watch_symbols': watch_syms[:50],
+                    'buy_freshness': [checks[s] for s in buy_syms],
+                    'suspicious_count': len(suspicious), 'suspicious': suspicious}
+        try:
+            result = _run_async(_scan_preview())
+            print(f"🔭 preview: buys={result.get('buy_count')} watch={result.get('watch_count')} "
+                  f"suspicious={result.get('suspicious_count')}")
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ scan_preview failed: {e}\n{traceback.format_exc()}")
+            return {"error": str(e)}
+
     # Handle dashboard cache export
     if event.get("patch_breakout_radar"):
         # Surgical: compute ONLY the Maximizer breakout radar and splice it into the EXISTING
