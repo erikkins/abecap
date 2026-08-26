@@ -3191,20 +3191,47 @@ def handler(event, context):
         def _do_pitfwu_append():
             import pandas as _pd
             from app.services import pitfwu_store as ps
+            _execute = bool(_cfg.get("execute", True)) if isinstance(_cfg, dict) else True
+            _max_lag = int(_cfg.get("max_lag_days", 4)) if isinstance(_cfg, dict) else 4
             syms = _cfg.get("symbols") if isinstance(_cfg, dict) else None
             if not syms:
-                syms = [s for s in scanner_service.data_cache.keys() if not s.startswith("^")]
+                # RELIABILITY: append the FULL PITFWU store ∪ today's scoped universe — so a symbol
+                # that drops out of the top-600 keeps updating instead of silently freezing.
+                store_syms = ps.list_pitfwu_symbols()
+                scoped = [s for s in scanner_service.data_cache.keys() if not s.startswith("^")]
+                syms = sorted(set(store_syms) | set(scoped))
+                print(f"📈 PITFWU append set: {len(store_syms)} store ∪ {len(scoped)} scoped = {len(syms)}")
             last = ps.pitfwu_last_date()  # reference (AAPL) last bar
             if last is not None:
                 start = (last - _pd.Timedelta(days=5)).date().isoformat()   # small overlap; per-symbol dedupe handles it
             else:
                 start = (_pd.Timestamp.now().normalize() - _pd.Timedelta(days=400)).date().isoformat()
             end = _pd.Timestamp.now().date().isoformat()
-            print(f"📈 PITFWU append: {len(syms)} symbols, gap {start}..{end}")
-            summary = ps.append_pitfwu_bars(syms, start, end, execute=True)
+            print(f"📈 PITFWU append: {len(syms)} symbols, gap {start}..{end}, execute={_execute}")
+            summary = ps.append_pitfwu_bars(syms, start, end, execute=_execute)
             new_last = ps.pitfwu_last_date()
+            # FREEZE DETECTION: any symbol whose last bar lags the market's last bar by > max_lag days
+            # (still active in the store but not advancing) — surface it, never swallow.
+            frozen = []
+            try:
+                if new_last is not None:
+                    cutoff = _pd.Timestamp(new_last) - _pd.Timedelta(days=_max_lag)
+                    for s, d in (summary.get("last_dates") or {}).items():
+                        if _pd.Timestamp(d) < cutoff:
+                            frozen.append(s)
+                    frozen.sort()
+            except Exception as _fe:
+                print(f"⚠️ PITFWU freeze-detection failed: {_fe}")
+            nf = summary.get("no_fetch_symbols") or []
+            if frozen:
+                print(f"🧊 PITFWU FROZEN ({len(frozen)}, last bar >{_max_lag}d behind market): {', '.join(frozen[:40])}")
+            if nf:
+                print(f"⚠️ PITFWU no-fetch ({len(nf)}): {', '.join(nf[:40])}")
+            summary.pop("last_dates", None)   # keep the return compact
             return {"status": "success", "symbols": len(syms), "gap": f"{start}..{end}",
-                    "summary": summary, "pitfwu_last_date": str(new_last.date()) if new_last is not None else None}
+                    "execute": _execute, "summary": summary,
+                    "frozen_count": len(frozen), "frozen": frozen[:60],
+                    "pitfwu_last_date": str(new_last.date()) if new_last is not None else None}
         try:
             result = _do_pitfwu_append()
             print(f"📈 PITFWU append result: {result}")

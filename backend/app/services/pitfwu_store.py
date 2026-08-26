@@ -279,18 +279,43 @@ def load_scoped(symbols: List[str]) -> tuple:
     return out, missing
 
 
+def list_pitfwu_symbols() -> List[str]:
+    """Every symbol that HAS a PITFWU bars file. The daily append must cover the full store —
+    NOT just today's scoped universe — or a symbol that drops out of the top-600 silently stops
+    updating (freezes). Paginated (the store is >1000 objects)."""
+    out: List[str] = []
+    try:
+        paginator = _s3().get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=BUCKET, Prefix=BARS_PREFIX):
+            for o in page.get("Contents", []) or []:
+                k = o["Key"]
+                if k.endswith(".parquet"):
+                    out.append(k[len(BARS_PREFIX):-len(".parquet")])
+    except Exception as e:
+        logger.warning(f"[PITFWU] list_pitfwu_symbols failed: {e}")
+    return out
+
+
 def append_pitfwu_bars(symbols: List[str], start, end, execute: bool = False, client=None) -> dict:
     """Fetch RAW bars [start,end] and append to each symbol's pitfwu/bars file.
     Only dates AFTER the symbol's current last bar are added (new fetch wins on
-    overlaps, correcting any prior bad bar). DRY RUN unless execute=True."""
+    overlaps, correcting any prior bad bar). DRY RUN unless execute=True.
+
+    Returns a summary that SURFACES failures (no_fetch_symbols) and each symbol's resulting
+    last-bar date (last_dates) so the caller can detect a frozen symbol — never swallow silently."""
     fresh = fetch_raw_bars(symbols, start, end, client=client)
     summary = {"appended": 0, "new_symbol": 0, "skipped_no_new": 0, "no_fetch": 0}
+    no_fetch_syms: List[str] = []
+    last_dates: Dict[str, str] = {}
     for sym in symbols:
         new = fresh.get(sym)
+        existing = _read_pitfwu_bars(sym)
         if new is None or new.empty:
             summary["no_fetch"] += 1
+            no_fetch_syms.append(sym)
+            if existing is not None and len(existing):
+                last_dates[sym] = pd.Timestamp(existing.index.max()).strftime("%Y-%m-%d")
             continue
-        existing = _read_pitfwu_bars(sym)
         if existing is None:
             merged = new
             summary["new_symbol"] += 1
@@ -298,10 +323,14 @@ def append_pitfwu_bars(symbols: List[str], start, end, execute: bool = False, cl
             add = new[new.index > existing.index.max()]
             if add.empty:
                 summary["skipped_no_new"] += 1
+                last_dates[sym] = pd.Timestamp(existing.index.max()).strftime("%Y-%m-%d")
                 continue
             merged = pd.concat([existing, add]).sort_index()
             merged = merged[~merged.index.duplicated(keep="last")]
             summary["appended"] += 1
+        last_dates[sym] = pd.Timestamp(merged.index.max()).strftime("%Y-%m-%d")
         if execute:
             _write_pitfwu_bars(sym, merged)
+    summary["no_fetch_symbols"] = no_fetch_syms
+    summary["last_dates"] = last_dates
     return summary
