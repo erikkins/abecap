@@ -691,6 +691,32 @@ class PageView(Base):
     created_at = Column(DateTime, default=func.now(), index=True)
 
 
+class PortfolioSubmission(Base):
+    """A user-submitted holdings list from the Portfolio Overlay tool. SAVED for EVERY
+    submission (anonymous session ok, 0-match ok) — user-provided data is never discarded:
+    it's a lead + demand signal. Tier-1 stores/returns COUNTS ONLY (impersonal; per-ticker
+    detail is gated). Table created DB-first via run_migration."""
+    __tablename__ = "portfolio_submissions"
+
+    id = Column(BigInteger, primary_key=True)
+    session_id = Column(String(64), index=True, nullable=True)   # anonymous per-tab id
+    email = Column(String(255), index=True, nullable=True)        # nullable; stitched later if given
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    tickers = Column(JSON, nullable=False)                        # normalized uppercase list
+    ticker_count = Column(Integer, nullable=False, server_default="0")
+    in_universe_count = Column(Integer, nullable=False, server_default="0")
+    signaled_count = Column(Integer, nullable=False, server_default="0")
+    source = Column(String(32), nullable=False, server_default="landing_widget")
+    path = Column(String(255), nullable=True)
+    utm_source = Column(String(128), nullable=True)
+    utm_campaign = Column(String(128), nullable=True)
+    gclid = Column(String(255), nullable=True)
+    user_agent = Column(String(512), nullable=True)
+    ip = Column(String(64), nullable=True)
+    converted = Column(Boolean, server_default="false")           # session later created an account
+    created_at = Column(DateTime, default=func.now(), index=True)
+
+
 class StrategyAdaptiveParams(Base):
     """Per-period optimized strategy params from biweekly TPE.
 

@@ -3,6 +3,8 @@ Signals API - Trading signal endpoints
 """
 
 import os
+import re
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Response, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +21,8 @@ from app.services.data_export import data_export_service
 
 router = APIRouter()
 public_router = APIRouter()
+
+logger = logging.getLogger(__name__)  # was undefined — latent NameError in except-block logging
 
 
 # ============================================================================
@@ -3880,6 +3884,116 @@ async def public_page_hit(
     except Exception:
         pass  # analytics beacon must never surface an error to the visitor
     return Response(status_code=204)
+
+
+# ─────────────────────── Portfolio Overlay — Tier 1 ────────────────────────
+class PortfolioCheckRequest(BaseModel):
+    tickers: List[str] = []
+    session_id: Optional[str] = None
+    email: Optional[str] = None
+    source: Optional[str] = "landing_widget"
+    path: Optional[str] = None
+    utm_source: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    gclid: Optional[str] = None
+
+
+# Cached lookup sets (in-process, TTL 1h): universe = current top-600 tracked; signaled =
+# the precomputed 5-yr artifact if present, else the live signal tables as an interim fallback.
+_overlay_sets = {"universe": None, "signaled": None, "ts": 0.0}
+_OVERLAY_TTL = 3600.0
+_TICKER_RE = re.compile(r"^[A-Z][A-Z.\-]{0,5}$")
+
+
+def _norm_tickers(raw):
+    out, seen = [], set()
+    for t in (raw or [])[:200]:
+        s = (t or "").strip().upper()
+        if _TICKER_RE.match(s) and s not in seen:
+            seen.add(s)
+            out.append(s)
+        if len(out) >= 50:
+            break
+    return out
+
+
+async def _load_overlay_sets(db):
+    import time
+    import json as _json
+    import boto3
+    from sqlalchemy import text as _text
+    now = time.time()
+    if _overlay_sets["universe"] is not None and (now - _overlay_sets["ts"]) < _OVERLAY_TTL:
+        return _overlay_sets["universe"], _overlay_sets["signaled"]
+    universe, signaled = set(), set()
+    bucket = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
+    try:
+        s3 = boto3.client("s3", region_name="us-east-1")
+        objs = s3.list_objects_v2(Bucket=bucket, Prefix="signals/universe-history/")
+        keys = sorted(o["Key"] for o in objs.get("Contents", []) if o["Key"].endswith(".json"))
+        if keys:
+            uni = _json.loads(s3.get_object(Bucket=bucket, Key=keys[-1])["Body"].read())
+            universe = {r["symbol"].upper() for r in uni.get("rankings", [])
+                        if r.get("symbol") and not r.get("is_excluded")}
+    except Exception as e:
+        logger.warning(f"overlay universe load failed: {e}")
+    # signaled: prefer the precomputed 5-yr artifact; else fall back to the live signal tables
+    try:
+        s3 = boto3.client("s3", region_name="us-east-1")
+        art = _json.loads(s3.get_object(Bucket=bucket, Key="signals/signaled_symbols_5y.json")["Body"].read())
+        signaled = {s.upper() for s in art.get("symbols", []) if s}
+    except Exception:
+        try:
+            rows = (await db.execute(_text(
+                "SELECT symbol FROM ensemble_signals UNION SELECT symbol FROM maximizer_signals "
+                "UNION SELECT symbol FROM preserver_signals UNION SELECT symbol FROM tier_fills WHERE side='buy'"
+            ))).all()
+            signaled = {r[0].upper() for r in rows if r and r[0]}
+        except Exception as e:
+            logger.warning(f"overlay signaled fallback failed: {e}")
+    if universe or signaled:
+        _overlay_sets.update({"universe": universe, "signaled": signaled, "ts": now})
+    return universe, signaled
+
+
+@public_router.post("/portfolio-check")
+async def public_portfolio_check(
+    req: PortfolioCheckRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Portfolio Overlay — Tier 1. Returns AGGREGATE COUNTS ONLY (how the user's tickers
+    intersect our tracked universe + 5-yr signal history) — impersonal/factual by design
+    (compliance: no per-ticker directives here; per-ticker detail is gated). SAVES every
+    submission (anonymous ok, 0-match ok) — the tickers are a lead + demand signal we never
+    discard. Never errors the client over the save."""
+    from app.core.database import PortfolioSubmission
+    tickers = _norm_tickers(req.tickers)
+    universe, signaled = await _load_overlay_sets(db)
+    in_universe = sum(1 for t in tickers if t in universe)
+    signaled_n = sum(1 for t in tickers if t in signaled)
+    try:
+        ua = (request.headers.get("user-agent") or "")[:512] or None
+        ip = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()[:64] or None
+        email = ((req.email or "").strip().lower())[:255] or None
+        db.add(PortfolioSubmission(
+            session_id=(req.session_id or "")[:64] or None,
+            email=email,
+            tickers=tickers,
+            ticker_count=len(tickers),
+            in_universe_count=in_universe,
+            signaled_count=signaled_n,
+            source=(req.source or "landing_widget")[:32],
+            path=(req.path or "")[:255] or None,
+            utm_source=(req.utm_source or "")[:128] or None,
+            utm_campaign=(req.utm_campaign or "")[:128] or None,
+            gclid=(req.gclid or "")[:255] or None,
+            user_agent=ua, ip=ip,
+        ))
+        await db.commit()
+    except Exception as e:
+        logger.warning(f"portfolio_submissions save failed: {e}")
+    return {"ticker_count": len(tickers), "in_universe_count": in_universe, "signaled_count": signaled_n}
 
 
 _newsletter_bg_tasks: set = set()
