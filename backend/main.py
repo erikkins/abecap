@@ -3195,12 +3195,12 @@ def handler(event, context):
             _max_lag = int(_cfg.get("max_lag_days", 4)) if isinstance(_cfg, dict) else 4
             syms = _cfg.get("symbols") if isinstance(_cfg, dict) else None
             if not syms:
-                # RELIABILITY: append the FULL PITFWU store ∪ today's scoped universe — so a symbol
-                # that drops out of the top-600 keeps updating instead of silently freezing.
-                store_syms = ps.list_pitfwu_symbols()
-                scoped = [s for s in scanner_service.data_cache.keys() if not s.startswith("^")]
-                syms = sorted(set(store_syms) | set(scoped))
-                print(f"📈 PITFWU append set: {len(store_syms)} store ∪ {len(scoped)} scoped = {len(syms)}")
+                # Daily append covers the SCOPED active universe (~600) only. The full store is ~21k
+                # files (whole market) — appending all daily is infeasible (15-min timeout) AND
+                # pointless (only the scoped set is scanned/traded/shown). A symbol RE-ENTERING the
+                # scoped set with a stale file is healed by a targeted FULL backfill, not by appending
+                # the whole store. Freeze detection below still flags any scoped symbol left stale.
+                syms = [s for s in scanner_service.data_cache.keys() if not s.startswith("^")]
             last = ps.pitfwu_last_date()  # reference (AAPL) last bar
             if last is not None:
                 start = (last - _pd.Timedelta(days=5)).date().isoformat()   # small overlap; per-symbol dedupe handles it
