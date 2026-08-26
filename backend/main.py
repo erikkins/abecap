@@ -7388,7 +7388,8 @@ def handler(event, context):
 
             out = {"scoped_symbols": len(syms_idx), "reps": reps}
             try:
-                ts, cnt = _timeit(lambda: data_export_service.import_parquet(symbols=syms_idx))
+                from app.services.data_export import data_export_service as _dex
+                ts, cnt = _timeit(lambda: _dex.import_parquet(symbols=syms_idx))
                 out["all_data_scoped"] = {"secs_per_rep": ts, "symbols_loaded": cnt}
             except Exception as e:
                 out["all_data_error"] = str(e)[:250]
