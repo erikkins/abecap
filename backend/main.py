@@ -7379,6 +7379,54 @@ def handler(event, context):
     # Force-refetch specific symbols with SPLIT adjustment, overwrite in pickle.
     # Used to fix known-split symbols (NVDA, CMG, WMT) that were cached with
     # unadjusted prices. {"refetch_split_adjusted": {"symbols": ["NVDA"]}}
+    if event.get("fetch_scope_test"):
+        cfg = event.get("fetch_scope_test")
+        cfg = cfg if isinstance(cfg, dict) else {}
+        sample = int(cfg.get("sample", 300))
+        gap_days = int(cfg.get("gap_days", 75))
+        print(f"🔭 fetch-scope test: pool count + timed {sample}-symbol / {gap_days}d fetch")
+
+        def _scope():
+            import time as _t, pandas as _pd
+            from app.services import pitfwu_store as _ps
+            from app.services.symbol_metadata_service import symbol_metadata_service as _sms
+            from alpaca.trading.requests import GetAssetsRequest
+            from alpaca.trading.enums import AssetClass, AssetStatus
+            client = _sms._get_trading_client()
+            t_assets = _t.time()
+            assets = client.get_all_assets(GetAssetsRequest(
+                asset_class=AssetClass.US_EQUITY, status=AssetStatus.ACTIVE))
+            syms = [a.symbol for a in assets if getattr(a, "tradable", True)]
+            assets_secs = round(_t.time() - t_assets, 1)
+            end = _pd.Timestamp.now().date().isoformat()
+            start = (_pd.Timestamp.now().normalize() - _pd.Timedelta(days=gap_days)).date().isoformat()
+            chunk = syms[:sample]
+            t0 = _t.time()
+            got = _ps.fetch_raw_bars(chunk, start, end)
+            dt = _t.time() - t0
+            mb = 0.0
+            try:
+                mb = round(sum(float(g.memory_usage(deep=True).sum()) for g in got.values()) / 1e6, 1) if got else 0.0
+            except Exception:
+                pass
+            per = dt / max(1, len(chunk))
+            return {
+                "active_us_equity_tradable": len(syms),
+                "get_all_assets_secs": assets_secs,
+                "sample": len(chunk), "gap_days": gap_days, "fetched": len(got),
+                "chunk_secs": round(dt, 1), "sec_per_symbol": round(per, 3),
+                "sample_bars_mb": mb,
+                "full_pool_est_fetch_min": round(per * len(syms) / 60, 1),
+                "full_pool_mem_mb_if_all_held": round((mb / max(1, len(got))) * len(syms), 0),
+            }
+        try:
+            r = _scope()
+            print(f"🔭 fetch-scope: {r}")
+            return {"statusCode": 200, "body": r}
+        except Exception as e:
+            import traceback
+            return {"statusCode": 500, "error": str(e)[:300], "trace": traceback.format_exc()[:400]}
+
     if event.get("read_perf_test"):
         cfg = event.get("read_perf_test")
         cfg = cfg if isinstance(cfg, dict) else {}
