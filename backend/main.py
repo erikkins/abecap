@@ -7392,12 +7392,12 @@ def handler(event, context):
             bt.cb_pause_basket_vix_trigger = 30.0
             res = bt.run_backtest(start_date=start.to_pydatetime(), end_date=end.to_pydatetime(),
                                   strategy_type="ensemble", force_close_at_end=True)
-            entered = sorted({t.symbol for t in (getattr(res, "trades", []) or [])
-                              if getattr(t, "symbol", None)})
+            core_entered = {t.symbol for t in (getattr(res, "trades", []) or [])
+                            if getattr(t, "symbol", None)}
 
-            # 2) EVER_QUALIFIED — the ranker POOL (Erik's call): step the PRODUCTION ranker weekly
+            # 2) PRESERVER/CORE ever-qualified — the ranker POOL: step the PRODUCTION ranker weekly
             #    with time-travel, regime filter OFF (a name qualified even on cash days). Union all.
-            qualified = set()
+            core_qualified = set()
             d = start + _pd.Timedelta(days=300)   # warmup before the first rank
             n_dates = 0
             while d <= end:
@@ -7406,27 +7406,57 @@ def handler(event, context):
                         as_of_date=d.to_pydatetime(), apply_market_filter=False)
                     for c in (cands or []):
                         if getattr(c, "symbol", None):
-                            qualified.add(c.symbol)
+                            core_qualified.add(c.symbol)
                     n_dates += 1
                 except Exception as _e:
                     pass
                 d += _pd.Timedelta(days=7)
-            qualified = sorted(qualified | set(entered))   # entered ⊆ qualified by construction
+
+            # 3) MAXIMIZER breakout sleeve — the tier the Preserver core never takes. Replay the
+            #    PRODUCTION breakout sleeve gated to rotating_bull (5yr regime series from the live
+            #    detector), collecting the names it signaled/entered. Read-only (equity discarded).
+            bk_entered, bk_qualified = set(), set()
+            try:
+                from app.services.maximizer_portfolio import replay_sleeve as _replay
+                from app.services.market_regime import market_regime_service as _mrs
+                _spy = scanner_service.data_cache.get("SPY")
+                _vix = scanner_service.data_cache.get("^VIX")
+                _hist = _mrs.get_regime_history(_spy, scanner_service.data_cache, _vix,
+                                                start_date=start.to_pydatetime(), end_date=end.to_pydatetime(),
+                                                sample_frequency="weekly")
+                _reg = _pd.Series({_pd.Timestamp(h.date).normalize(): h.regime_type.value
+                                   for h in _hist}).sort_index()
+                _reg_daily = _reg.reindex(_spy.index, method="ffill").bfill()
+                _reg_by_date = {_pd.Timestamp(dd).normalize(): v for dd, v in _reg_daily.items()}
+                _collect = {}
+                _replay(scanner_service.data_cache, "breakout", start, end, n_positions=15,
+                        entry_regimes={"rotating_bull"}, regime_by_date=_reg_by_date, collect=_collect)
+                bk_entered = set(_collect.get("entered", set()))
+                bk_qualified = set(_collect.get("qualified", set()))
+            except Exception as _e:
+                print(f"⚠️ breakout sleeve pass failed (core-only artifact): {_e}")
+
+            # 4) UNION both tiers → the true Preserver ∪ Maximizer signaled universe
+            entered = sorted(core_entered | bk_entered)
+            qualified = sorted(core_qualified | bk_qualified | set(entered))
 
             artifact = {
                 "window_years": years,
                 "start": start.strftime("%Y-%m-%d"), "end": end.strftime("%Y-%m-%d"),
                 "entered": entered, "ever_qualified": qualified,
-                "counts": {"entered": len(entered), "ever_qualified": len(qualified)},
+                "counts": {"entered": len(entered), "ever_qualified": len(qualified),
+                           "core_entered": len(core_entered), "breakout_entered": len(bk_entered),
+                           "core_qualified": len(core_qualified), "breakout_qualified": len(bk_qualified)},
                 "rank_dates": n_dates, "generated_at": end.strftime("%Y-%m-%d"),
             }
             bucket = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
             _b3.client("s3", region_name="us-east-1").put_object(
                 Bucket=bucket, Key="signals/signaled_symbols_5y.json",
                 Body=_json.dumps(artifact).encode("utf-8"), ContentType="application/json")
-            return {"status": "success", "entered": len(entered),
-                    "ever_qualified": len(qualified), "rank_dates": n_dates,
-                    "start": artifact["start"], "end": artifact["end"]}
+            return {"status": "success", "entered": len(entered), "ever_qualified": len(qualified),
+                    "core_entered": len(core_entered), "breakout_entered": len(bk_entered),
+                    "core_qualified": len(core_qualified), "breakout_qualified": len(bk_qualified),
+                    "rank_dates": n_dates, "start": artifact["start"], "end": artifact["end"]}
 
         result = _run_async(_build_signaled())
         print(f"🧭 signaled-symbols artifact: {result}")

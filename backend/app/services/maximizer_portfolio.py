@@ -25,7 +25,7 @@ _MIN_BARS = 200
 
 
 def replay_sleeve(data_cache: Dict[str, pd.DataFrame], sleeve: str, start, end,
-                  n_positions: int = 15, entry_regimes=None, regime_by_date=None) -> pd.Series:
+                  n_positions: int = 15, entry_regimes=None, regime_by_date=None, collect=None) -> pd.Series:
     """Position-level equity curve for a single sleeve book over [start, end].
 
     Each day: exit positions past their `hold` (time-stop); fill free slots from today's
@@ -76,6 +76,13 @@ def replay_sleeve(data_cache: Dict[str, pd.DataFrame], sleeve: str, start, end,
         gate_ok = True
         if entry_regimes is not None and regime_by_date is not None:
             gate_ok = regime_by_date.get(pd.Timestamp(today).normalize()) in entry_regimes
+        # Optional read-only side-channel (collect=dict): record which names this sleeve SIGNALED,
+        # for the portfolio-overlay artifact. No effect on the equity math when collect is None.
+        if collect is not None and gate_ok:
+            q = collect.setdefault("qualified", set())
+            for s in close.columns:
+                if bool(sig.loc[today, s]) and (row[s] == row[s]):
+                    q.add(s)
         free = n_positions - len(pos)
         if free > 0 and gate_ok:
             cands = [s for s in close.columns
@@ -93,6 +100,8 @@ def replay_sleeve(data_cache: Dict[str, pd.DataFrame], sleeve: str, start, end,
                 j = vd.get_indexer([today])[0]
                 exit_date = vd[min(j + hold, len(vd) - 1)] if j >= 0 else today
                 pos[s] = {"shares": shares, "exit_date": exit_date, "last": price}
+                if collect is not None:
+                    collect.setdefault("entered", set()).add(s)
         mtm = cash + sum(pos[s]["shares"] * last_px.get(s, pos[s]["last"]) for s in pos)
         eq_d.append(today); eq_v.append(mtm)
     return pd.Series(eq_v, index=pd.DatetimeIndex(eq_d))
