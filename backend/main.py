@@ -12499,11 +12499,16 @@ async def get_stock_previous_holds(
     # Walk-forward backtest — latest completed sim, parse trades_json, filter this symbol
     if include_walkforward:
         try:
+            # Prefer the canonical dashboard walk-forward (is_daily_cache) — the strategy's
+            # simulated HOLDS over the full period. Exclude the nightly missed-opportunities
+            # run (is_nightly_missed_opps), which is the OPPOSITE of holds.
             wf = (await db.execute(
                 select(WalkForwardSimulation).where(
                     WalkForwardSimulation.status == "completed",
                     WalkForwardSimulation.trades_json.isnot(None),
-                ).order_by(WalkForwardSimulation.simulation_date.desc()).limit(1)
+                    WalkForwardSimulation.is_nightly_missed_opps.isnot(True),
+                ).order_by(WalkForwardSimulation.is_daily_cache.desc(),
+                           WalkForwardSimulation.simulation_date.desc()).limit(1)
             )).scalars().first()
             if wf and wf.trades_json:
                 import json as _json
