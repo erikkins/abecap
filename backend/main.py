@@ -2429,6 +2429,52 @@ def handler(event, context):
             print(f"❌ history_source_probe failed: {e}\n{traceback.format_exc()}")
             return {"error": str(e), "trace": traceback.format_exc()[:600]}
 
+    if event.get("maximizer_preview"):
+        # READ-ONLY prediction of the Maximizer book's next breakout entries. The breakout
+        # sleeve ONLY feeds the book in the rotating_bull regime (route()); in every other
+        # regime build_daily_signals returns a non-breakout source and the book adds nothing.
+        # Reports: current regime, active sleeve, breakout entries FIRING on today's close
+        # (the best read on tomorrow's scan), and the radar of names APPROACHING a trigger.
+        # Writes/sends nothing.
+        print("🔭 MAXIMIZER BREAKOUT PREVIEW (read-only)")
+        async def _max_preview():
+            from app.services.market_regime import market_regime_service
+            from app.services.maximizer_signal_service import build_daily_signals
+            from app.services.maximizer_sleeves import route
+            from app.services import tier_serving as _ts
+            from app.core.database import MaximizerBookSnapshot as _MBS
+            from app.core.timezone import trading_today
+            cache = scanner_service.data_cache
+            spy = cache.get('SPY'); vix = cache.get('^VIX')
+            reg = market_regime_service.detect_regime(spy_df=spy, universe_dfs=cache, vix_df=vix)
+            regime = reg.regime_type.value
+            src = route(regime)
+            today = trading_today()
+            async with async_session() as db:
+                snap = (await db.execute(select(_MBS).order_by(_MBS.snapshot_date.desc()).limit(1))).scalars().first()
+            held = set()
+            if snap and isinstance(snap.positions_json, dict):
+                held = {p.get('symbol') for p in (snap.positions_json.get('positions') or []) if p.get('symbol')}
+            _src, cands = build_daily_signals(cache, regime, [], today, max_positions=15)
+            firing = ([{**c, 'already_held': c['symbol'] in held} for c in cands]
+                      if _src == 'breakout' else [])
+            radar = _ts.build_breakout_radar(cache, held)
+            data_date = str(spy.index[-1].date()) if spy is not None and len(spy) else None
+            return {'data_date': data_date, 'regime': regime, 'regime_name': reg.regime_name,
+                    'active_sleeve': src, 'breakout_sleeve_active': src == 'breakout',
+                    'breakout_firing_count': len(firing), 'breakout_firing': firing,
+                    'radar_approaching_count': len(radar), 'radar_approaching': radar,
+                    'held_count': len(held)}
+        try:
+            r = _run_async(_max_preview())
+            print(f"🔭 maximizer_preview: regime={r.get('regime')} sleeve={r.get('active_sleeve')} "
+                  f"firing={r.get('breakout_firing_count')} radar={r.get('radar_approaching_count')}")
+            return r
+        except Exception as e:
+            import traceback
+            print(f"❌ maximizer_preview failed: {e}\n{traceback.format_exc()}")
+            return {'error': str(e)}
+
     if event.get("scan_preview"):
         # READ-ONLY preview of what the NEXT daily scan will surface, on the CURRENT
         # (fresh) universe snapshot. Runs the same scan()+compute_shared_dashboard_data
