@@ -843,59 +843,6 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                 />
                 {viewMode !== 'simple' && <Bar yAxisId="volume" dataKey="volume" fill="#A99E87" opacity={0.35} />}
 
-                {/* Previous holds overlay — shaded entry→exit bands with gain/loss. Live holds
-                    solid-ish; walk-forward (backtest) holds lighter + dashed + "(bt)" so they're
-                    never mistaken for real fills. Clamped to the visible window. */}
-                {showPrevHolds && prevHolds.length > 0 && chartDataWithLive.length > 0 && (() => {
-                  const dates = chartDataWithLive.map(d => d.date);
-                  const first = dates[0], last = dates[dates.length - 1];
-                  const snapFwd = (t) => dates.find(d => d >= t) || null;
-                  const snapBack = (t) => { let r = null; for (const d of dates) { if (d <= t) r = d; else break; } return r; };
-                  return prevHolds.flatMap((h, i) => {
-                    const e = h.entry_date ? h.entry_date.split('T')[0] : null;
-                    const x = h.exit_date ? h.exit_date.split('T')[0] : null;
-                    if (!e || !x) return [];
-                    const x1 = e < first ? first : snapFwd(e);
-                    const x2 = x > last ? last : snapBack(x);
-                    if (!x1 || !x2 || x1 > x2) return [];   // hold outside the visible window
-                    const g = h.pnl_pct;
-                    const col = g == null ? '#8A8172' : (g >= 0 ? '#2D5F3F' : '#8F2D3D');
-                    const wf = h.is_walkforward;
-                    const op = wf ? 0.7 : 0.95;
-                    const lbl = g == null ? '' : `${g >= 0 ? '+' : ''}${g.toFixed(1)}%`;
-                    // Custom label: stack each band's gain/loss vertically (offset by index) at the
-                    // band's bottom-right, so heavily OVERLAPPING/nested bands don't mash labels
-                    // together (alternating L/R can't fix same-x bands).
-                    const bandLabel = (lp) => {
-                      const vb = lp?.viewBox;
-                      if (!vb || !lbl) return null;
-                      const tx = vb.x + vb.width - 4;
-                      const ty = vb.y + vb.height - 6 - (i * 13);
-                      return <text x={tx} y={ty} textAnchor="end" fontSize={9} fontFamily="IBM Plex Mono" fill={col}>{lbl}</text>;
-                    };
-                    // Prior-hold entry/exit dots = small circles at the band edges (entry=left, exit=
-                    // =right), P&L-colored — distinct from the bold current-hold triangles. Plain
-                    // recharts ReferenceDot circles render reliably (custom-shape dots in a flatMap
-                    // array were dropping markers).
-                    return [
-                      <ReferenceArea
-                        key={`ph-a-${i}`}
-                        yAxisId="price"
-                        x1={x1}
-                        x2={x2}
-                        fill={col}
-                        fillOpacity={wf ? 0.05 : 0.09}
-                        stroke={col}
-                        strokeOpacity={wf ? 0.3 : 0.45}
-                        strokeDasharray={wf ? '2 3' : undefined}
-                        label={bandLabel}
-                      />,
-                      h.entry_price ? <ReferenceDot key={`ph-in-${i}`} yAxisId="price" x={x1} y={h.entry_price} r={4} fill={col} fillOpacity={op} stroke="#F5F1E8" strokeWidth={1} ifOverflow="extendDomain" /> : null,
-                      h.exit_price ? <ReferenceDot key={`ph-out-${i}`} yAxisId="price" x={x2} y={h.exit_price} r={4} fill="none" stroke={col} strokeWidth={1.5} strokeOpacity={op} ifOverflow="extendDomain" /> : null,
-                    ].filter(Boolean);
-                  });
-                })()}
-
                 {viewMode !== 'simple' && chartDataWithLive.some(d => d.dwap) && (
                   <>
                     <Line yAxisId="price" type="monotone" dataKey="dwap" stroke="#B8923D" strokeWidth={1.5} dot={false} strokeDasharray="6 3" name="Average price" />
@@ -915,6 +862,55 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   <Line yAxisId="price" type="monotone" dataKey="ma_50" stroke="#7A2430" strokeWidth={1.5} dot={false} strokeDasharray="5 5" name="MA50" />
                 )}
                 <Area yAxisId="price" type="monotone" dataKey="close" stroke="#2A2520" strokeWidth={2} fill="url(#priceGradient)" name="Price" />
+
+                {/* Previous holds overlay — shaded entry→exit bands + edge dots (entry filled /
+                    exit ring), gain/loss labels. Rendered AFTER the volume bars + price line so the
+                    dots aren't painted over. WF (backtest) holds are lighter + dashed. Clamped to
+                    the visible window; labels vertical-stagger to avoid nested-band collisions. */}
+                {showPrevHolds && prevHolds.length > 0 && chartDataWithLive.length > 0 && (() => {
+                  const dates = chartDataWithLive.map(d => d.date);
+                  const first = dates[0], last = dates[dates.length - 1];
+                  const snapFwd = (t) => dates.find(d => d >= t) || null;
+                  const snapBack = (t) => { let r = null; for (const d of dates) { if (d <= t) r = d; else break; } return r; };
+                  return prevHolds.flatMap((h, i) => {
+                    const e = h.entry_date ? h.entry_date.split('T')[0] : null;
+                    const x = h.exit_date ? h.exit_date.split('T')[0] : null;
+                    if (!e || !x) return [];
+                    const x1 = e < first ? first : snapFwd(e);
+                    const x2 = x > last ? last : snapBack(x);
+                    if (!x1 || !x2 || x1 > x2) return [];   // hold outside the visible window
+                    const g = h.pnl_pct;
+                    const col = g == null ? '#8A8172' : (g >= 0 ? '#2D5F3F' : '#8F2D3D');
+                    const wf = h.is_walkforward;
+                    const op = wf ? 0.7 : 0.95;
+                    const lbl = g == null ? '' : `${g >= 0 ? '+' : ''}${g.toFixed(1)}%`;
+                    // Vertical-stagger the gain/loss labels (offset by index) at the band bottom so
+                    // heavily OVERLAPPING/nested bands don't mash labels together.
+                    const bandLabel = (lp) => {
+                      const vb = lp?.viewBox;
+                      if (!vb || !lbl) return null;
+                      const tx = vb.x + vb.width - 4;
+                      const ty = vb.y + vb.height - 6 - (i * 13);
+                      return <text x={tx} y={ty} textAnchor="end" fontSize={9} fontFamily="IBM Plex Mono" fill={col}>{lbl}</text>;
+                    };
+                    return [
+                      <ReferenceArea
+                        key={`ph-a-${i}`}
+                        yAxisId="price"
+                        x1={x1}
+                        x2={x2}
+                        fill={col}
+                        fillOpacity={wf ? 0.05 : 0.09}
+                        stroke={col}
+                        strokeOpacity={wf ? 0.3 : 0.45}
+                        strokeDasharray={wf ? '2 3' : undefined}
+                        label={bandLabel}
+                      />,
+                      h.entry_price ? <ReferenceDot key={`ph-in-${i}`} yAxisId="price" x={x1} y={h.entry_price} r={4} fill={col} fillOpacity={op} stroke="#F5F1E8" strokeWidth={1} ifOverflow="extendDomain" /> : null,
+                      h.exit_price ? <ReferenceDot key={`ph-out-${i}`} yAxisId="price" x={x2} y={h.exit_price} r={4} fill="none" stroke={col} strokeWidth={1.5} strokeOpacity={op} ifOverflow="extendDomain" /> : null,
+                    ].filter(Boolean);
+                  });
+                })()}
 
                 {/* Reference lines with smart label placement to avoid overlaps */}
                 {(() => {
