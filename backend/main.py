@@ -7961,6 +7961,31 @@ def handler(event, context):
         cfg = cfg if isinstance(cfg, dict) else {}
         from app.services import pitfwu_store as _ps_rb
         syms = cfg.get("symbols")
+        scope = cfg.get("scope")
+        # scope="full": the whole clean universe (stock_universe_service cache) — comprehensive,
+        # so a name that enters the scoped set later already has its splits. This is what the
+        # WEEKLY cron uses (get_universe is only ~150 curated names → would miss small-caps like
+        # WETO/REAX). scope="snapshot": just the live scoped top-N.
+        if not syms and scope in ("full", "snapshot"):
+            try:
+                import json as _cj, boto3 as _cb
+                from app.services.data_export import S3_BUCKET as _CB
+                _cs = _cb.client('s3', region_name='us-east-1')
+                if scope == "full":
+                    from app.services.stock_universe import S3_UNIVERSE_KEY as _UK
+                    uni = _cj.loads(_cs.get_object(Bucket=_CB, Key=_UK)['Body'].read())
+                    syms = [s for s in uni.get('symbols', []) if not s.startswith('^')]
+                else:
+                    _objs = _cs.list_objects_v2(Bucket=_CB, Prefix='signals/universe-history/')
+                    _keys = sorted(o['Key'] for o in _objs.get('Contents', []) if o['Key'].endswith('.json'))
+                    _topn = int(cfg.get('topn', 600))
+                    if _keys:
+                        _snap = _cj.loads(_cs.get_object(Bucket=_CB, Key=_keys[-1])['Body'].read())
+                        syms = [r['symbol'] for r in _snap.get('rankings', [])
+                                if not r.get('is_excluded') and r.get('symbol')][:_topn]
+                print(f"🗓️ calendar rebuild scope={scope}: {len(syms or [])} symbols")
+            except Exception as _se:
+                print(f"⚠️ calendar rebuild scope={scope} load failed: {_se}")
         if not syms:
             syms = sorted(scanner_service.data_cache.keys()) if scanner_service.data_cache else []
         if not syms:

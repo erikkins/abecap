@@ -1794,6 +1794,32 @@ resource "aws_lambda_permission" "universe_refresh" {
   source_arn    = aws_cloudwatch_event_rule.universe_refresh.arn
 }
 
+# Weekly split-calendar rebuild (scope=full clean universe). The split calendar had no
+# refresh cron, so splits after the last manual rebuild went missing → symbols whose bars
+# span the ex-date served UNADJUSTED (CRWD 4:1 slipped the display gate). rebuild_calendar
+# UNION-merges + backs up (never drops). Runs SAT 18:00 UTC, ahead of the 20:00 universe
+# refresh, so newly-scoped names already have their splits.
+resource "aws_cloudwatch_event_rule" "calendar_rebuild" {
+  name                = "${local.prefix}-calendar-rebuild"
+  description         = "Weekly split-calendar rebuild from Alpaca over the full clean universe"
+  schedule_expression = "cron(0 18 ? * SAT *)"
+}
+
+resource "aws_cloudwatch_event_target" "calendar_rebuild" {
+  rule      = aws_cloudwatch_event_rule.calendar_rebuild.name
+  target_id = "lambda-calendar-rebuild"
+  arn       = aws_lambda_function.worker.arn
+  input     = jsonencode({ rebuild_corp_actions_calendar = { scope = "full" } })
+}
+
+resource "aws_lambda_permission" "calendar_rebuild" {
+  statement_id  = "AllowCalendarRebuildEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.worker.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.calendar_rebuild.arn
+}
+
 # ============================================================================
 # Quarterly deep audit — monthly audit + 90-day corp-actions replay.
 # 1st of Jan/Apr/Jul/Oct at 4 AM EDT (08:00 UTC).
