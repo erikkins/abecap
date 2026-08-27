@@ -7,22 +7,19 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 26–27 2026 (frozen-universe + heal + calendar ALL shipped; ready for Aug 27 PM scan)
+# Session snapshot — Aug 26–27 2026 (data-integrity work DONE; now CHART cleanup inventory in flight)
 
-## ▶▶ GO SLOW — Erik sensitive after ASST bug. Verify (don't assume). PARQUET not pickle. Never delete (additive; rollback). Empty {} payloads are FALSY → fall through to mangum → trips worker-errors alarm; pass truthy (e.g. {"x":{"run":true}}).
+## ▶▶ GO SLOW — Erik sensitive after ASST bug. VERIFY don't assume. PARQUET not pickle. Additive/rollback. Empty {} payloads FALSY→mangum→trips worker-errors alarm; pass truthy {"x":{"run":true}}.
 
-## ✅ SHIPPED + LIVE (Aug 26)
-- **Frozen-universe fix:** `universe_refresh_v2` ranks CLEAN stock_universe_service list (screener + EXCLUDED_PATTERNS, ETF-free) off FRESH fetch_raw_bars, not frozen all_data.parquet. LIVE weekly cron `rigacap-prod-universe-refresh` REPOINTED to v2 (SAT 20:00 UTC).
-- **Heal MERGER-AWARE:** ripped out yfinance splice (Erik: yfinance is split-adjusted, can't enter raw store; AZN 2026-02-02 = stock_MERGER = new identity). `classify_short_symbols`: corporate_action_boundary / rename_continuity (SUNB) / short_history. All gated, nothing synthetic.
-- **Calendar completeness:** `calendar_audit` found CRWD 4:1(slipped display gate)/WETO/REAX missing+spanned → rebuilt → dangerous_count=0. Full baseline rebuild (4653 syms). NEW LIVE weekly cron `rigacap-prod-calendar-rebuild` SAT 18:00 UTC scope=full (root cause: no calendar cron existed).
+## ✅ SHIPPED + LIVE (Aug 26) — all data-integrity work
+- Frozen-universe fix (`universe_refresh_v2`, fresh fetch of clean ETF-free list); weekly cron `rigacap-prod-universe-refresh`→v2 (SAT 20:00). Merger-aware heal (`classify_short_symbols`; yfinance splice ripped out). Calendar completeness: fixed CRWD/WETO/REAX, full rebuild, NEW weekly cron `rigacap-prod-calendar-rebuild` SAT 18:00 scope=full.
+- VERIFIED ready for Aug-27 PM scan: latest snapshot 2026-08-26.json (v2 fresh, ranked 2978) intact + PITFWU fresh thru 8-26. Rebuilt MANUALLY yesterday (cron 1st fires SAT 8-29). Scan reads latest snapshot, doesn't re-rank daily.
 
-## ✅ VERIFIED READY FOR AUG-27 PM SCAN (this morning Aug 27)
-- Latest snapshot = `signals/universe-history/2026-08-26.json`, source=universe_refresh_v2_fresh_fetch, ranked 2978, top NVDA/INTC/NU/SOFI/PATH/T/SMCI/AAPL/AMZN/MU. INTACT (nothing stale overwrote). PITFWU fresh thru 2026-08-26. → this PM's scan uses fresh top-600 + fetches Aug-27 EOD. NOTE: rebuilt MANUALLY yesterday, NOT by cron (cron 1st fires SAT Aug 29); scan reads latest snapshot, doesn't re-rank daily.
+## 🎯 GRADE after Aug-27 PM scan — [[project_maximizer_breakout_prediction_aug26]]: WT firing, BHVN cusp. Run maximizer_preview + build_todays_actions.
 
-## 🎯 GRADE TODAY/NEXT — Maximizer breakout prediction (Aug 26 close)
-- [[project_maximizer_breakout_prediction_aug26]]: regime rotating_bull, **WT firing** (expect next-cycle entry), **BHVN on cusp** (0.4% to trigger, vol×5.34); radar 8 (GEN/DBRG/TECK/BOX/SYF/HPQ/SHEL). Grade via `{"maximizer_preview":{"run":true}}` + build_todays_actions after the Aug-27 scan.
+## 🔧 IN FLIGHT — CHART CLEANUP inventory (Erik's new request)
+- Erik wants: (1) remove vestigial markings (+20% profit-target line = OLD strategy; live t30v = 30% trail, no target), (2) explain/remove "unknown vertical lines", (3) NEW FEATURE: overlay PREVIOUS HOLDS (entry+exit markers) per symbol incl from walk-forwards.
+- Ties to the pre-existing **t30v DISPLAY-PARITY SWEEP** TODO (chart +20% ref line was the last open item; also grep App.jsx+emails for 12%/+20%/profit_target/1.20).
+- Launched 2 read-only Explore agents (results come back to THIS session via notification): (A) frontend chart-markings inventory (App.jsx / Chart* — recharts? all ReferenceLine/vertical/markers + which vestigial/unknown), (B) backend prior-holds DATA availability (TierFill/ModelPosition/MaximizerBookSnapshot/ensemble_signals + WF trade logs + any per-symbol history endpoint). When they return: synthesize inventory → scope changes with Erik BEFORE editing.
 
-## ⏭️ FOLLOW-UPS (none urgent)
-- The Aug-27 PM scan = FIRST real run on fixed universe+calendar → likely BIG rebalance (206 newly eligible); scan_preview showed clean. Watch it.
-- rename_continuity carry-forward unbuilt (SUNB). Retire legacy get_universe() (~80 names, only a fallback). Fold nasdaqtraded.txt ETF rule. Cleanup read-only diags (read_perf_test/fetch_scope_test/history_source_probe; KEEP scan_preview/calendar_audit/maximizer_preview). X reply fix (paused).
-- False-alarm Aug 26: worker-errors alarm tripped by my {} maximizer_preview call → benign, cleared. Not a real issue.
+## ⏭️ OTHER TODOs (none urgent): retire legacy get_universe() (~80 names, fallback only); fold nasdaqtraded.txt ETF rule; rename_continuity carry-forward (SUNB); remove diag handlers read_perf_test/fetch_scope_test/history_source_probe (KEEP scan_preview/calendar_audit/maximizer_preview); X reply fix (paused); sell-alert 12% vs 30% parity (deferred Jul 7); docs refresh.
