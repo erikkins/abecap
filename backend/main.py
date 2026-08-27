@@ -2373,6 +2373,26 @@ def handler(event, context):
             print(f"❌ calendar_audit failed: {e}\n{traceback.format_exc()}")
             return {'error': str(e)}
 
+    if event.get("probe_maximizer_holds"):
+        # READ-ONLY: replicate the previous-holds endpoint's maximizer_wf_trades read exactly,
+        # to see whether the artifact read + by_symbol lookup works in the Lambda env.
+        cfg = event.get("probe_maximizer_holds") or {}
+        sym = ((cfg.get("symbol") if isinstance(cfg, dict) else None) or "SMCI").upper()
+        import json as _j, boto3 as _b
+        _bkt = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
+        try:
+            raw = _b.client("s3", region_name="us-east-1").get_object(
+                Bucket=_bkt, Key="signals/maximizer_wf_trades.json")["Body"].read()
+            art = _j.loads(raw)
+            bs = art.get("by_symbol", {})
+            return {"bucket": _bkt, "art_bytes": len(raw), "total_symbols": len(bs),
+                    "generated_at": art.get("generated_at"), "trade_count": art.get("trade_count"),
+                    "sym": sym, "sym_holds": len(bs.get(sym, [])),
+                    "sample_keys": list(bs.keys())[:10], "sym_sample": (bs.get(sym, []) or [])[:2]}
+        except Exception as e:
+            import traceback
+            return {"error": str(e), "tb": traceback.format_exc()[:600], "bucket": _bkt}
+
     if event.get("history_source_probe"):
         # READ-ONLY: compare deep-history availability across sources for a symbol, to
         # decide/validate the yfinance backfill fallback. Reports Alpaca RAW range+count,
@@ -12556,7 +12576,10 @@ async def get_stock_previous_holds(
             _s3 = _mb.client("s3", region_name="us-east-1")
             _bkt = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
             _art = _mj.loads(_s3.get_object(Bucket=_bkt, Key="signals/maximizer_wf_trades.json")["Body"].read())
-            for t in (_art.get("by_symbol", {}).get(symbol, []) or []):
+            _bysym = _art.get("by_symbol", {})
+            _mrows = _bysym.get(symbol, []) or []
+            logger.warning(f"[prevholds-mx] {symbol} bkt={_bkt} artsyms={len(_bysym)} rows={len(_mrows)}")
+            for t in _mrows:
                 ep, xp = t.get("entry_price"), t.get("exit_price")
                 holds.append({
                     "entry_date": (t.get("entry_date") or "")[:10] or None,
