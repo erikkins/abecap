@@ -70,7 +70,19 @@ def replay_sleeve(data_cache: Dict[str, pd.DataFrame], sleeve: str, start, end,
                 last_px[s] = px
         # exits — TIME-stop (hold-day), not a trailing stop
         for s in [s for s, p in pos.items() if p["exit_date"] <= today]:
-            cash += pos[s]["shares"] * last_px.get(s, pos[s]["last"]) * (1 - COST)
+            xp = last_px.get(s, pos[s]["last"])
+            cash += pos[s]["shares"] * xp * (1 - COST)
+            # Optional: emit a completed dated entry→exit trade (collect side-channel), for the
+            # Maximizer WF-trades artifact that powers the chart's cross-tier "prior holds" teaser.
+            if collect is not None and "entry_price" in pos[s]:
+                ep = pos[s]["entry_price"]
+                collect.setdefault("trades", []).append({
+                    "symbol": s,
+                    "entry_date": pd.Timestamp(pos[s]["entry_date"]).strftime("%Y-%m-%d"),
+                    "exit_date": pd.Timestamp(today).strftime("%Y-%m-%d"),
+                    "entry_price": round(float(ep), 2), "exit_price": round(float(xp), 2),
+                    "pnl_pct": round((xp / ep - 1) * 100, 1) if ep else None,
+                })
             del pos[s]
         # entries — gated to `entry_regimes` when provided (held positions still age out)
         gate_ok = True
@@ -99,11 +111,28 @@ def replay_sleeve(data_cache: Dict[str, pd.DataFrame], sleeve: str, start, end,
                 vd = valids[s]
                 j = vd.get_indexer([today])[0]
                 exit_date = vd[min(j + hold, len(vd) - 1)] if j >= 0 else today
-                pos[s] = {"shares": shares, "exit_date": exit_date, "last": price}
+                pos[s] = {"shares": shares, "exit_date": exit_date, "last": price,
+                          "entry_date": today, "entry_price": price}
                 if collect is not None:
                     collect.setdefault("entered", set()).add(s)
         mtm = cash + sum(pos[s]["shares"] * last_px.get(s, pos[s]["last"]) for s in pos)
         eq_d.append(today); eq_v.append(mtm)
+    # Flush positions still open at window end as trades (collect side-channel only), so the
+    # last ~hold-days of entries aren't silently dropped from the WF-trades artifact.
+    if collect is not None and len(win):
+        last_day = win[-1]
+        for s, p in pos.items():
+            if "entry_price" not in p:
+                continue
+            xp = last_px.get(s, p["last"]); ep = p["entry_price"]
+            collect.setdefault("trades", []).append({
+                "symbol": s,
+                "entry_date": pd.Timestamp(p["entry_date"]).strftime("%Y-%m-%d"),
+                "exit_date": pd.Timestamp(last_day).strftime("%Y-%m-%d"),
+                "entry_price": round(float(ep), 2), "exit_price": round(float(xp), 2),
+                "pnl_pct": round((xp / ep - 1) * 100, 1) if ep else None,
+                "open_at_end": True,
+            })
     return pd.Series(eq_v, index=pd.DatetimeIndex(eq_d))
 
 

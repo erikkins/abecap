@@ -7973,6 +7973,24 @@ def handler(event, context):
                         entry_regimes={"rotating_bull"}, regime_by_date=_reg_by_date, collect=_collect)
                 bk_entered = set(_collect.get("entered", set()))
                 bk_qualified = set(_collect.get("qualified", set()))
+                # Persist the breakout sleeve's DATED WF trades (collect side-channel) → the
+                # artifact the previous-holds endpoint reads for the cross-tier Maximizer teaser.
+                # These are Maximizer-only by construction (breakout fires only in rotating_bull;
+                # the t30v core never uses this sleeve) → no dedup vs the core WF needed.
+                _bk_trades = _collect.get("trades", []) or []
+                if _bk_trades:
+                    _by_sym = {}
+                    for _t in _bk_trades:
+                        _by_sym.setdefault(_t["symbol"], []).append(_t)
+                    _mx_art = {"window_years": years, "start": start.strftime("%Y-%m-%d"),
+                               "end": end.strftime("%Y-%m-%d"), "tier": "maximizer", "source": "breakout",
+                               "generated_at": end.strftime("%Y-%m-%d"), "trade_count": len(_bk_trades),
+                               "symbols": len(_by_sym), "by_symbol": _by_sym}
+                    _b3.client("s3", region_name="us-east-1").put_object(
+                        Bucket=os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179"),
+                        Key="signals/maximizer_wf_trades.json",
+                        Body=_json.dumps(_mx_art).encode("utf-8"), ContentType="application/json")
+                    print(f"🧭 maximizer_wf_trades: {len(_bk_trades)} trades / {len(_by_sym)} symbols")
             except Exception as _e:
                 print(f"⚠️ breakout sleeve pass failed (core-only artifact): {_e}")
 
