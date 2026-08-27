@@ -12547,6 +12547,29 @@ async def get_stock_previous_holds(
         except Exception as e:
             logger.warning(f"previous-holds WF failed for {symbol}: {e}")
 
+    # Maximizer breakout WF trades (signals/maximizer_wf_trades.json) — the divergent holds the
+    # breakout sleeve caught that the t30v core never takes. Breakout is Maximizer-only, so no
+    # dedup vs the core WF. Flagged is_walkforward + tier='maximizer' for the cross-tier teaser.
+    if include_walkforward:
+        try:
+            import json as _mj, boto3 as _mb
+            _s3 = _mb.client("s3", region_name="us-east-1")
+            _bkt = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
+            _art = _mj.loads(_s3.get_object(Bucket=_bkt, Key="signals/maximizer_wf_trades.json")["Body"].read())
+            for t in (_art.get("by_symbol", {}).get(symbol, []) or []):
+                ep, xp = t.get("entry_price"), t.get("exit_price")
+                holds.append({
+                    "entry_date": (t.get("entry_date") or "")[:10] or None,
+                    "entry_price": round(ep, 2) if ep else None,
+                    "exit_date": (t.get("exit_date") or "")[:10] or None,
+                    "exit_price": round(xp, 2) if xp else None,
+                    "pnl_pct": _pnl(ep, xp),
+                    "exit_reason": "time_stop",
+                    "tier": "maximizer", "source": "breakout", "is_walkforward": True,
+                })
+        except Exception as e:
+            logger.warning(f"previous-holds maximizer-WF failed for {symbol}: {e}")
+
     holds.sort(key=lambda h: h.get("entry_date") or "", reverse=True)
     return {"symbol": symbol, "count": len(holds), "holds": holds[:limit]}
 
