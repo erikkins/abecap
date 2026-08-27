@@ -862,6 +862,17 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                     const col = g == null ? '#8A8172' : (g >= 0 ? '#2D5F3F' : '#8F2D3D');
                     const wf = h.is_walkforward;
                     const op = wf ? 0.55 : 0.85;
+                    const lbl = g == null ? '' : `${g >= 0 ? '+' : ''}${g.toFixed(1)}%`;
+                    // Custom label: stack each band's gain/loss vertically (offset by index) at the
+                    // band's bottom-right, so heavily OVERLAPPING/nested bands don't mash labels
+                    // together (alternating L/R can't fix same-x bands).
+                    const bandLabel = (lp) => {
+                      const vb = lp?.viewBox;
+                      if (!vb || !lbl) return null;
+                      const tx = vb.x + vb.width - 4;
+                      const ty = vb.y + vb.height - 6 - (i * 13);
+                      return <text x={tx} y={ty} textAnchor="end" fontSize={9} fontFamily="IBM Plex Mono" fill={col}>{lbl}</text>;
+                    };
                     // Small faded triangles mark prior-hold entry (▲) / exit (▼) — distinct from the
                     // bold current-hold markers; colored by that hold's P&L.
                     const upTri = ({ cx, cy }) => (cx == null || cy == null) ? null : (
@@ -881,15 +892,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                         stroke={col}
                         strokeOpacity={wf ? 0.3 : 0.45}
                         strokeDasharray={wf ? '2 3' : undefined}
-                        label={{
-                          value: `${g == null ? '' : (g >= 0 ? '+' : '') + g.toFixed(1) + '%'}`,
-                          // Bottom of the band (away from the entry line + peak markers up top),
-                          // alternating L/R by index so adjacent/overlapping bands don't stack labels.
-                          position: i % 2 === 0 ? 'insideBottomLeft' : 'insideBottomRight',
-                          fontSize: 9,
-                          fontFamily: 'IBM Plex Mono',
-                          fill: col,
-                        }}
+                        label={bandLabel}
                       />,
                       h.entry_price ? <ReferenceDot key={`ph-in-${i}`} yAxisId="price" x={x1} y={h.entry_price} shape={upTri} /> : null,
                       h.exit_price ? <ReferenceDot key={`ph-out-${i}`} yAxisId="price" x={x2} y={h.exit_price} shape={downTri} /> : null,
