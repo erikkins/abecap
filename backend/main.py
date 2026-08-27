@@ -12562,7 +12562,9 @@ async def get_stock_previous_holds(
                         "exit_price": round(xp, 2) if xp else None,
                         "pnl_pct": _pnl(ep, xp),
                         "exit_reason": t.get("exit_reason"),
-                        "tier": None, "source": t.get("strategy_name") or "walkforward",
+                        # NEVER pass the raw strategy_name — it contains the internal "t30v" term.
+                        # These are the core/Preserver momentum strategy's holds.
+                        "tier": "preserver", "source": "preserver",
                         "is_walkforward": True,
                     })
         except Exception as e:
