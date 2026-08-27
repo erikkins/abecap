@@ -494,14 +494,12 @@ const WhereStocksSit = ({ onOpenChart }) => {
         const r = await api.get(`/api/stock/${s}/previous-holds?t=${Date.now()}`);
         const holds = r?.holds || [];
         const maxH = holds.filter(h => h.tier === 'maximizer');
-        const pnls = holds.map(h => h.pnl_pct).filter(v => v != null);
-        const maxPnls = maxH.map(h => h.pnl_pct).filter(v => v != null);
+        const presH = holds.filter(h => h.tier === 'preserver');
+        const bestOf = (arr) => { const v = arr.map(h => h.pnl_pct).filter(x => x != null); return v.length ? Math.max(...v) : null; };
         out.push({
           symbol: s, count: holds.length,
-          preserver: holds.filter(h => h.tier === 'preserver').length,
-          maximizer: maxH.length,
-          best: pnls.length ? Math.max(...pnls) : null,
-          maxBest: maxPnls.length ? Math.max(...maxPnls) : null,
+          preserver: presH.length, presBest: bestOf(presH),
+          maximizer: maxH.length, maxBest: bestOf(maxH),
         });
       } catch {
         out.push({ symbol: s, count: 0, error: true });
@@ -538,7 +536,7 @@ const WhereStocksSit = ({ onOpenChart }) => {
           rows.length ? (
             <table className="w-full border-collapse" style={{ fontFeatureSettings: '"tnum"' }}>
               <thead>
-                <tr>{['Symbol', 'Our holds', 'Preserver', 'Maximizer', 'Best', ''].map(h => (
+                <tr>{['Symbol', 'Our holds', 'Preserver', 'Maximizer', ''].map(h => (
                   <th key={h} className="py-2 px-3 text-left font-body text-[0.6rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">{h}</th>
                 ))}</tr>
               </thead>
@@ -547,16 +545,20 @@ const WhereStocksSit = ({ onOpenChart }) => {
                   <tr key={r.symbol} onClick={() => onOpenChart({ type: 'signal', data: { symbol: r.symbol }, symbol: r.symbol })} className="hover:bg-paper border-b border-rule cursor-pointer">
                     <td className="py-2.5 px-3 font-display text-[1rem] font-medium" style={{ fontVariationSettings: '"opsz" 48' }}>{r.symbol}</td>
                     <td className="py-2.5 px-3 font-mono text-[0.85rem]">{r.error ? '—' : r.count}</td>
-                    <td className="py-2.5 px-3 font-mono text-[0.85rem] text-ink-mute">{r.preserver || '—'}</td>
+                    {/* both tier cells = count · best% (best across that tier); M badge = upsell marker */}
+                    <td className="py-2.5 px-3 font-mono text-[0.85rem]">
+                      {r.preserver ? (
+                        <span><span className="text-ink-mute">{r.preserver} · </span><span className={r.presBest >= 0 ? 'text-positive font-medium' : 'text-negative font-medium'}>{pct(r.presBest)}</span></span>
+                      ) : <span className="text-ink-light">—</span>}
+                    </td>
                     <td className="py-2.5 px-3 font-mono text-[0.85rem]">
                       {r.maximizer ? (
                         <span className="inline-flex items-center gap-1.5">
                           <span className="text-[0.6rem] font-bold text-white bg-claret rounded px-1.5 py-0.5">M</span>
-                          <span className="text-positive font-medium">{pct(r.maxBest)}</span>
+                          <span className="text-ink-mute">{r.maximizer} · </span><span className={r.maxBest >= 0 ? 'text-positive font-medium' : 'text-negative font-medium'}>{pct(r.maxBest)}</span>
                         </span>
                       ) : <span className="text-ink-light">—</span>}
                     </td>
-                    <td className={`py-2.5 px-3 font-mono text-[0.85rem] font-medium ${r.best >= 0 ? 'text-positive' : 'text-negative'}`}>{r.error ? '—' : pct(r.best)}</td>
                     <td className="py-2.5 px-3 text-right text-ink-light text-sm">View →</td>
                   </tr>
                 ))}
