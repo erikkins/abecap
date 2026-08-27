@@ -746,6 +746,9 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
               Prior holds ({prevHolds.length})
             </button>
           )}
+          {prevHolds.length > 0 && showPrevHolds && prevHolds.some(h => h.is_walkforward) && (
+            <span className="text-[0.68rem] text-ink-light italic ml-1 self-center">solid = live · dashed = backtested</span>
+          )}
         </div>
 
         {/* Chart */}
@@ -848,36 +851,49 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   const first = dates[0], last = dates[dates.length - 1];
                   const snapFwd = (t) => dates.find(d => d >= t) || null;
                   const snapBack = (t) => { let r = null; for (const d of dates) { if (d <= t) r = d; else break; } return r; };
-                  return prevHolds.map((h, i) => {
+                  return prevHolds.flatMap((h, i) => {
                     const e = h.entry_date ? h.entry_date.split('T')[0] : null;
                     const x = h.exit_date ? h.exit_date.split('T')[0] : null;
-                    if (!e || !x) return null;
+                    if (!e || !x) return [];
                     const x1 = e < first ? first : snapFwd(e);
                     const x2 = x > last ? last : snapBack(x);
-                    if (!x1 || !x2 || x1 > x2) return null;   // hold outside the visible window
+                    if (!x1 || !x2 || x1 > x2) return [];   // hold outside the visible window
                     const g = h.pnl_pct;
                     const col = g == null ? '#8A8172' : (g >= 0 ? '#2D5F3F' : '#8F2D3D');
                     const wf = h.is_walkforward;
-                    return (
+                    const op = wf ? 0.55 : 0.85;
+                    // Small faded triangles mark prior-hold entry (▲) / exit (▼) — distinct from the
+                    // bold current-hold markers; colored by that hold's P&L.
+                    const upTri = ({ cx, cy }) => (cx == null || cy == null) ? null : (
+                      <path d={`M ${cx} ${cy - 4} L ${cx - 4} ${cy + 3} L ${cx + 4} ${cy + 3} Z`} fill={col} fillOpacity={op} stroke="#F5F1E8" strokeWidth={0.75} />
+                    );
+                    const downTri = ({ cx, cy }) => (cx == null || cy == null) ? null : (
+                      <path d={`M ${cx} ${cy + 4} L ${cx - 4} ${cy - 3} L ${cx + 4} ${cy - 3} Z`} fill={col} fillOpacity={op} stroke="#F5F1E8" strokeWidth={0.75} />
+                    );
+                    return [
                       <ReferenceArea
-                        key={`ph-${i}`}
+                        key={`ph-a-${i}`}
                         yAxisId="price"
                         x1={x1}
                         x2={x2}
                         fill={col}
-                        fillOpacity={wf ? 0.05 : 0.11}
+                        fillOpacity={wf ? 0.05 : 0.09}
                         stroke={col}
-                        strokeOpacity={wf ? 0.3 : 0.5}
+                        strokeOpacity={wf ? 0.3 : 0.45}
                         strokeDasharray={wf ? '2 3' : undefined}
                         label={{
-                          value: `${g == null ? '' : (g >= 0 ? '+' : '') + g.toFixed(1) + '%'}${wf ? ' (bt)' : ''}`,
-                          position: 'insideTopRight',
+                          value: `${g == null ? '' : (g >= 0 ? '+' : '') + g.toFixed(1) + '%'}`,
+                          // Bottom of the band (away from the entry line + peak markers up top),
+                          // alternating L/R by index so adjacent/overlapping bands don't stack labels.
+                          position: i % 2 === 0 ? 'insideBottomLeft' : 'insideBottomRight',
                           fontSize: 9,
                           fontFamily: 'IBM Plex Mono',
                           fill: col,
                         }}
-                      />
-                    );
+                      />,
+                      h.entry_price ? <ReferenceDot key={`ph-in-${i}`} yAxisId="price" x={x1} y={h.entry_price} shape={upTri} /> : null,
+                      h.exit_price ? <ReferenceDot key={`ph-out-${i}`} yAxisId="price" x={x2} y={h.exit_price} shape={downTri} /> : null,
+                    ].filter(Boolean);
                   });
                 })()}
 
