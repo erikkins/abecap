@@ -861,7 +861,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                     const g = h.pnl_pct;
                     const col = g == null ? '#8A8172' : (g >= 0 ? '#2D5F3F' : '#8F2D3D');
                     const wf = h.is_walkforward;
-                    const op = wf ? 0.55 : 0.85;
+                    const op = wf ? 0.7 : 0.95;
                     const lbl = g == null ? '' : `${g >= 0 ? '+' : ''}${g.toFixed(1)}%`;
                     // Custom label: stack each band's gain/loss vertically (offset by index) at the
                     // band's bottom-right, so heavily OVERLAPPING/nested bands don't mash labels
@@ -873,14 +873,10 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                       const ty = vb.y + vb.height - 6 - (i * 13);
                       return <text x={tx} y={ty} textAnchor="end" fontSize={9} fontFamily="IBM Plex Mono" fill={col}>{lbl}</text>;
                     };
-                    // Small faded triangles mark prior-hold entry (▲) / exit (▼) — distinct from the
-                    // bold current-hold markers; colored by that hold's P&L.
-                    const upTri = ({ cx, cy }) => (cx == null || cy == null) ? null : (
-                      <path d={`M ${cx} ${cy - 4} L ${cx - 4} ${cy + 3} L ${cx + 4} ${cy + 3} Z`} fill={col} fillOpacity={op} stroke="#F5F1E8" strokeWidth={0.75} />
-                    );
-                    const downTri = ({ cx, cy }) => (cx == null || cy == null) ? null : (
-                      <path d={`M ${cx} ${cy + 4} L ${cx - 4} ${cy - 3} L ${cx + 4} ${cy - 3} Z`} fill={col} fillOpacity={op} stroke="#F5F1E8" strokeWidth={0.75} />
-                    );
+                    // Prior-hold entry/exit dots = small circles at the band edges (entry=left, exit=
+                    // =right), P&L-colored — distinct from the bold current-hold triangles. Plain
+                    // recharts ReferenceDot circles render reliably (custom-shape dots in a flatMap
+                    // array were dropping markers).
                     return [
                       <ReferenceArea
                         key={`ph-a-${i}`}
@@ -894,8 +890,8 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                         strokeDasharray={wf ? '2 3' : undefined}
                         label={bandLabel}
                       />,
-                      h.entry_price ? <ReferenceDot key={`ph-in-${i}`} yAxisId="price" x={x1} y={h.entry_price} shape={upTri} /> : null,
-                      h.exit_price ? <ReferenceDot key={`ph-out-${i}`} yAxisId="price" x={x2} y={h.exit_price} shape={downTri} /> : null,
+                      h.entry_price ? <ReferenceDot key={`ph-in-${i}`} yAxisId="price" x={x1} y={h.entry_price} r={4} fill={col} fillOpacity={op} stroke="#F5F1E8" strokeWidth={1} ifOverflow="extendDomain" /> : null,
+                      h.exit_price ? <ReferenceDot key={`ph-out-${i}`} yAxisId="price" x={x2} y={h.exit_price} r={4} fill="none" stroke={col} strokeWidth={1.5} strokeOpacity={op} ifOverflow="extendDomain" /> : null,
                     ].filter(Boolean);
                   });
                 })()}
