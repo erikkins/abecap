@@ -7,21 +7,18 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 27 2026 (data-integrity DONE; CHART overlay + previous-holds + admin demo widget SHIPPED)
+# Session snapshot — Aug 27 2026 (chart/previous-holds shipped; watching tonight's scan; SMCI-0 = stale-bundle)
 
-## ▶▶ GO SLOW — verify don't assume. PARQUET not pickle. NO "DWAP"/"Wtd Avg" customer-facing ([[feedback_no_dwap_customer_facing]]). LONG JOBS: invoke ASYNC (--invocation-type Event); 2-min bash SIGTERMs sync invokes.
+## ▶▶ GO SLOW — verify don't assume. NO "DWAP"/"Wtd Avg" customer-facing. LONG JOBS async (--invocation-type Event). SPA: after a frontend deploy, a page RELOAD is needed (in-memory JS doesn't self-update); index.html is no-store + deploy invalidates CloudFront E1BA002TIC6UBN, so Cmd+R gets the fresh bundle.
 
-## ✅ DATA-INTEGRITY (Aug 26, live): frozen-universe fix (`universe_refresh_v2`, cron SAT20:00); merger-aware heal; calendar completeness + cron SAT18:00 scope=full.
+## ✅ SHIPPED (Aug 27): data-integrity (frozen-universe/merger-heal/calendar, Aug 26). Chart: /api/stock/{sym}/previous-holds (ModelPosition+TierFill(max)+t30v WF + Maximizer breakout WF from maximizer_wf_trades.json=392trades/256syms). Overlay bands+dots+stagger labels+legend, foreground, 5Y range. Trade History clickable + ticker lookup + Days fix. ADMIN "Where Your Stocks Sit" widget (History tab, {isAdmin}).
 
-## ✅ CHART + PREVIOUS-HOLDS (Aug 27, all shipped/deploying)
-- Backend `GET /api/stock/{symbol}/previous-holds`: Preserver=ModelPosition + Maximizer=TierFill(maximizer) + t30v WF (WalkForwardSimulation.trades_json is_daily_cache) + **Maximizer breakout WF** (reads `signals/maximizer_wf_trades.json` = 392 trades/256 syms, is_walkforward+tier=maximizer). gain/loss=(exit/entry-1)*100.
-- `maximizer_wf_trades.json` built via instrumented replay_sleeve (collect side-channel, prod-safe) piggybacked on build_signaled_symbols_5y. Breakout=Maximizer-only → no dedup. Rich data: SMCI +124%, NVDA multi, PLTR/MSTR/APP/VRT 5 each.
-- Frontend StockChartModal: killed +20%; labels Average price/Entry trigger + Crossed trigger/Buy signal; PREVIOUS-HOLDS overlay (bands + entry filled/exit ring circle dots + vertical-stagger P&L labels + legend solid=live·dashed=backtested, toggle); MOVED overlay to FOREGROUND (after price Area) so volume bars don't cover dots. Added **5Y range** (breakout holds are 2023-24, were clamped at 2Y).
-- Trade History: rows clickable→chart; ticker LOOKUP; Days column fixed.
-- **ADMIN-ONLY "Where Your Stocks Sit" widget** (App.jsx `WhereStocksSit`, mounted `{isAdmin && ...}` top of HISTORY tab): paste portfolio → per-name table (holds/Preserver/Maximizer M-badge+best%/best) → row click opens chart+overlay. Paid-customer DIRECTION demo while counsel reviews. "Information only" disclaimer.
+## 🐞 SMCI=0 in widget — ROOT CAUSE FOUND = STALE IN-MEMORY BUNDLE (not a backend bug)
+- Backend PROVEN fine: probe_maximizer_holds (worker, same image) reads SMCI→3; endpoint code+artifact+bucket+IAM all correct; API on latest image 1f96edd. CloudFront api.rigacap.com = Managed-CachingDisabled (not caching). Endpoint returns Cache-Control:no-store now.
+- Erik's tab runs old c224e9c bundle (widget shipped there, cache-buster shipped LATER in 1f96edd). Re-clicking Check runs old JS → fixed URL → browser replays cached 200 → 0, and request never hits Lambda (no [prevholds-mx] log). FIX: RELOAD PAGE (Cmd+R) → loads 1f96edd bundle w/ `?t=Date.now()` cache-buster → fresh call → SMCI shows 3.
+- ⏭️ After Erik reloads + it works: confirm [prevholds-mx] rows=3 in API logs, then STRIP debug scaffolding (probe_maximizer_holds handler in main.py + the `logger.warning("[prevholds-mx]...")` line).
 
-## ⏭️ NEXT / OPEN
-- IN-CHART "M" badge distinguishing Maximizer WF bands from t30v WF bands (only open polish; table has M-badge, chart doesn't yet).
-- Paid widget future: inline mini-charts, SnapTrade/CSV import (Jacob thread), counsel greenlight for real customers.
-- 🎯 GRADE after 4pm scan: [[project_maximizer_breakout_prediction_aug26]] WT/BHVN → maximizer_preview + build_todays_actions.
-- OTHER: scrub DWAP perf_numbers.js; retire get_universe(); nasdaqtraded.txt ETF rule; rename_continuity(SUNB); remove diag handlers.
+## ⏳ IN FLIGHT — tonight's 4:30pm ET scan (cron `rigacap-prod-scanner` = cron(30 20) UTC; emails 6pm ET = cron(0 22)). Background monitor bjsi74csi watching dashboard.json generated_at→2026-08-27; re-invokes me on completion → run FULL verification (scan health, freshness, no phantom/ASST via calendar_audit re-run, book moves + WT/BHVN grade, email readiness). ~1.5h buffer before 6pm digest.
+
+## 🕑 QUEUED (after tonight's email): DST-aware EventBridge SCHEDULER migration (aws_scheduler_schedule + America/New_York) — replaces fixed-UTC rules. Before Nov EST.
+## 🎯 GRADE: [[project_maximizer_breakout_prediction_aug26]] WT/BHVN. OTHER: in-chart M badge; scrub DWAP perf_numbers.js; retire get_universe(); nasdaqtraded.txt ETF rule.
