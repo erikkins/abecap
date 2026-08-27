@@ -74,7 +74,12 @@ def fetch_raw_bars(symbols: List[str], start, end, client=None) -> Dict[str, pd.
     out, bad = {}, []
     BATCH = 100
     syms = list(symbols)
-    amap = {_to_alpaca(s): s for s in syms}  # alpaca-format -> original
+    # alpaca-format -> [original symbols]. _to_alpaca is MANY-to-one (BRK.B and BRK-B both map
+    # to "BRK.B"), so a plain {alpaca: original} reverse-map silently drops one on collision —
+    # the share-class hyphen/dot bug. Keep every original so the fetched bars land on all of them.
+    amap: Dict[str, List[str]] = {}
+    for s in syms:
+        amap.setdefault(_to_alpaca(s), []).append(s)
 
     def _req(sym_list):
         return client.get_stock_bars(StockBarsRequest(
@@ -83,7 +88,7 @@ def fetch_raw_bars(symbols: List[str], start, end, client=None) -> Dict[str, pd.
             adjustment=Adjustment.RAW)).data
 
     for i in range(0, len(syms), BATCH):
-        batch = [_to_alpaca(s) for s in syms[i:i + BATCH]]
+        batch = list(dict.fromkeys(_to_alpaca(s) for s in syms[i:i + BATCH]))  # dedup collided forms
         try:
             data = _req(batch)
         except Exception:
@@ -92,10 +97,12 @@ def fetch_raw_bars(symbols: List[str], start, end, client=None) -> Dict[str, pd.
                 try:
                     data.update(_req([a]))
                 except Exception:
-                    bad.append(amap.get(a, a))
+                    bad.extend(amap.get(a, [a]))
         for a, rows in data.items():
             if rows:
-                out[amap.get(a, a)] = _bars_to_df(rows)
+                df = _bars_to_df(rows)
+                for orig in amap.get(a, [a]):
+                    out[orig] = df
     if bad:
         logger.warning(f"[PITFWU] skipped {len(bad)} bad/unknown symbols (first 10): {bad[:10]}")
     return out
