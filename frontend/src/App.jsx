@@ -5,7 +5,7 @@ import { logPublicEvent, consumeAdOrigin } from './lib/publicEvent';
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import {
   LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ComposedChart, Bar, ReferenceLine, ReferenceDot, Legend
+  Tooltip, ResponsiveContainer, ComposedChart, Bar, ReferenceLine, ReferenceDot, ReferenceArea, Legend
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, RefreshCw, Settings, Bell, User, LogOut,
@@ -482,6 +482,22 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [showSellModal, setShowSellModal] = useState(false);
   const [currentLiveQuote, setCurrentLiveQuote] = useState(liveQuote);
+  const [prevHolds, setPrevHolds] = useState([]);
+  const [showPrevHolds, setShowPrevHolds] = useState(true);
+
+  // Previous holds (prior entry→exit pairs incl walk-forward backtest) for the chart overlay
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await api.get(`/api/stock/${symbol}/previous-holds`);
+        if (!cancelled) setPrevHolds(resp?.holds || []);
+      } catch (err) {
+        if (!cancelled) setPrevHolds([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [symbol]);
 
   // Poll for live quote updates while modal is open
   useEffect(() => {
@@ -719,6 +735,17 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
               </button>
             ))
           )}
+          {prevHolds.length > 0 && (
+            <button
+              onClick={() => setShowPrevHolds(v => !v)}
+              className={`ml-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                showPrevHolds ? 'bg-claret text-white' : 'bg-paper-deep text-ink-mute hover:bg-rule'
+              }`}
+              title="Show/hide our previous entry→exit holds (dashed = backtest)"
+            >
+              Prior holds ({prevHolds.length})
+            </button>
+          )}
         </div>
 
         {/* Chart */}
@@ -800,8 +827,8 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                         )}
                         {d?.dwap && (
                           <>
-                            <p className="font-mono" style={{ color: '#B8923D' }}>Wtd Avg: ${d.dwap.toFixed(2)}</p>
-                            <p className="font-mono" style={{ color: '#2B6B8C' }}>Breakout: ${(d.dwap * 1.05).toFixed(2)}</p>
+                            <p className="font-mono" style={{ color: '#B8923D' }}>Average price: ${d.dwap.toFixed(2)}</p>
+                            <p className="font-mono" style={{ color: '#2B6B8C' }}>Entry trigger: ${(d.dwap * 1.05).toFixed(2)}</p>
                           </>
                         )}
                         {d?.ma_50 && <p className="font-mono" style={{ color: '#7A2430' }}>MA50: ${d.ma_50.toFixed(2)}</p>}
@@ -812,9 +839,51 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   }}
                 />
                 {viewMode !== 'simple' && <Bar yAxisId="volume" dataKey="volume" fill="#A99E87" opacity={0.35} />}
+
+                {/* Previous holds overlay — shaded entry→exit bands with gain/loss. Live holds
+                    solid-ish; walk-forward (backtest) holds lighter + dashed + "(bt)" so they're
+                    never mistaken for real fills. Clamped to the visible window. */}
+                {showPrevHolds && prevHolds.length > 0 && chartDataWithLive.length > 0 && (() => {
+                  const dates = chartDataWithLive.map(d => d.date);
+                  const first = dates[0], last = dates[dates.length - 1];
+                  const snapFwd = (t) => dates.find(d => d >= t) || null;
+                  const snapBack = (t) => { let r = null; for (const d of dates) { if (d <= t) r = d; else break; } return r; };
+                  return prevHolds.map((h, i) => {
+                    const e = h.entry_date ? h.entry_date.split('T')[0] : null;
+                    const x = h.exit_date ? h.exit_date.split('T')[0] : null;
+                    if (!e || !x) return null;
+                    const x1 = e < first ? first : snapFwd(e);
+                    const x2 = x > last ? last : snapBack(x);
+                    if (!x1 || !x2 || x1 > x2) return null;   // hold outside the visible window
+                    const g = h.pnl_pct;
+                    const col = g == null ? '#8A8172' : (g >= 0 ? '#2D5F3F' : '#8F2D3D');
+                    const wf = h.is_walkforward;
+                    return (
+                      <ReferenceArea
+                        key={`ph-${i}`}
+                        yAxisId="price"
+                        x1={x1}
+                        x2={x2}
+                        fill={col}
+                        fillOpacity={wf ? 0.05 : 0.11}
+                        stroke={col}
+                        strokeOpacity={wf ? 0.3 : 0.5}
+                        strokeDasharray={wf ? '2 3' : undefined}
+                        label={{
+                          value: `${g == null ? '' : (g >= 0 ? '+' : '') + g.toFixed(1) + '%'}${wf ? ' (bt)' : ''}`,
+                          position: 'insideTopRight',
+                          fontSize: 9,
+                          fontFamily: 'IBM Plex Mono',
+                          fill: col,
+                        }}
+                      />
+                    );
+                  });
+                })()}
+
                 {viewMode !== 'simple' && chartDataWithLive.some(d => d.dwap) && (
                   <>
-                    <Line yAxisId="price" type="monotone" dataKey="dwap" stroke="#B8923D" strokeWidth={1.5} dot={false} strokeDasharray="6 3" name="Wtd Avg" />
+                    <Line yAxisId="price" type="monotone" dataKey="dwap" stroke="#B8923D" strokeWidth={1.5} dot={false} strokeDasharray="6 3" name="Average price" />
                     <Line
                       yAxisId="price"
                       type="monotone"
@@ -822,7 +891,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                       stroke="#2B6B8C"
                       strokeWidth={1.5}
                       dot={false}
-                      name="Breakout +5%"
+                      name="Entry trigger"
                       connectNulls={false}
                     />
                   </>
@@ -850,11 +919,6 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   }
                   if (data?.high_water_mark && entryPrice && data.high_water_mark > entryPrice * 1.01) {
                     lines.push({ id: 'high', y: data.high_water_mark });
-                  }
-                  // +20% target is a Preserver/t30v concept — NOT applicable to breakout
-                  // (time-stop, no profit target). Suppress it for hold-exit holdings.
-                  if (basePrice && (type === 'position' || type === 'signal') && data?.exit_rule !== 'hold') {
-                    lines.push({ id: 'gain20', y: basePrice * 1.20 });
                   }
 
                   // Include the current price (last point of the price line) as a
@@ -910,11 +974,6 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   const stopY = data?.trailing_stop_level;
                   const stopConflictBelow = hasConflict(stopY, 'stop', 'below') || priceCrosses(stopY, 'stop');
                   const stopPos = !stopConflictBelow ? 'insideBottomRight' : 'insideTopRight';
-
-                  // +20%: label above right, flip below if crowded or price crosses
-                  const gain20Y = basePrice ? basePrice * 1.20 : 0;
-                  const gain20ConflictAbove = hasConflict(gain20Y, 'gain20', 'above') || priceCrosses(gain20Y, 'gain20');
-                  const gain20Pos = !gain20ConflictAbove ? 'insideTopRight' : 'insideBottomRight';
 
                   // Sell (missed): scan chart for where the label has most clearance
                   const sellY = data?.sell_price;
@@ -1007,23 +1066,8 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                         />
                       )}
 
-                      {/* +20% gain reference */}
-                      {basePrice && (type === 'position' || type === 'signal') && (
-                        <ReferenceLine
-                          yAxisId="price"
-                          y={gain20Y}
-                          stroke="#2D5F3F"
-                          strokeWidth={1}
-                          strokeDasharray="6 4"
-                          label={{
-                            value: `+20% $${gain20Y.toFixed(2)}`,
-                            fill: '#2D5F3F',
-                            fontSize: 10,
-                            fontFamily: 'IBM Plex Mono',
-                            position: gain20Pos
-                          }}
-                        />
-                      )}
+                      {/* (removed: +20% profit-target line — vestigial from the old Ensemble/Preserver
+                          strategy; the live strategy exits on the trailing stop, not a fixed target) */}
                     </>
                   );
                 })()}
@@ -1114,7 +1158,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                   />
                 )}
 
-                {/* DWAP breakout date vertical line */}
+                {/* Date price first crossed the entry trigger (5% above the average price) */}
                 {type === 'signal' && data?.dwap_crossover_date && (() => {
                   const dateStr = data.dwap_crossover_date.split('T')[0];
                   const match = chartDataWithLive.find(d => d.date === dateStr) || chartDataWithLive.find(d => d.date >= dateStr);
@@ -1126,12 +1170,12 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                       stroke="#C9A54E"
                       strokeWidth={1}
                       strokeDasharray="6 4"
-                      label={{ value: 'BREAKOUT', fill: '#C9A54E', fontSize: 10, position: 'top' }}
+                      label={{ value: 'Crossed trigger', fill: '#C9A54E', fontSize: 10, position: 'top' }}
                     />
                   );
                 })()}
 
-                {/* Ensemble entry date vertical line */}
+                {/* Date the name qualified as a buy signal (momentum + trigger both met) */}
                 {type === 'signal' && data?.ensemble_entry_date && (() => {
                   const dateStr = data.ensemble_entry_date.split('T')[0];
                   const match = chartDataWithLive.find(d => d.date === dateStr) || chartDataWithLive.find(d => d.date >= dateStr);
@@ -1143,7 +1187,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
                       stroke="#22C55E"
                       strokeWidth={1}
                       strokeDasharray="6 4"
-                      label={{ value: 'ENTRY', fill: '#22C55E', fontSize: 10, position: 'top' }}
+                      label={{ value: 'Buy signal', fill: '#22C55E', fontSize: 10, position: 'top' }}
                     />
                   );
                 })()}
