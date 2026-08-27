@@ -537,7 +537,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
       setError(null);
       try {
         // For missed opportunities, fetch enough data to show the transaction window
-        let days = { '1M': 30, '3M': 90, '6M': 180, '1Y': 252, '2Y': 504 }[timeRange] || 252;
+        let days = { '1M': 30, '3M': 90, '6M': 180, '1Y': 252, '2Y': 504, '5Y': 1260 }[timeRange] || 252;
 
         // For missed opportunities, we need enough data to cover entry_date - 30 days
         if (type === 'missed' && data?.entry_date) {
@@ -723,7 +723,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
               </span>
             </div>
           ) : (
-            ['1M', '3M', '6M', '1Y', '2Y'].map((range) => (
+            ['1M', '3M', '6M', '1Y', '2Y', '5Y'].map((range) => (
               <button
                 key={range}
                 onClick={() => setTimeRange(range)}
