@@ -472,6 +472,104 @@ const SellModal = ({ symbol, position, currentPrice, stockInfo, onClose, onSell 
   );
 };
 
+// "Where Your Stocks Sit" — ADMIN-ONLY PREVIEW (Aug 2026). Paste holdings → for each, summarize
+// where our system has traded it (Preserver live + walk-forward + the Maximizer breakout sleeve)
+// and the best result, with a click-through to the full chart + previous-holds overlay. This is
+// the paid-customer direction (fed by SnapTrade/CSV import later); gated to admin while counsel
+// reviews the framing. Impersonal/backward-looking track record — NOT individualized advice.
+const WhereStocksSit = ({ onOpenChart }) => {
+  const [input, setInput] = useState('NVDA, SMCI, PLTR, MSTR, IREN, AAPL');
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [ran, setRan] = useState(false);
+
+  const run = async (e) => {
+    e?.preventDefault();
+    const syms = [...new Set((input.toUpperCase().match(/[A-Z][A-Z.\-]{0,6}/g) || []))].slice(0, 30);
+    if (!syms.length) return;
+    setLoading(true); setRan(true);
+    const out = [];
+    for (const s of syms) {
+      try {
+        const r = await api.get(`/api/stock/${s}/previous-holds`);
+        const holds = r?.holds || [];
+        const maxH = holds.filter(h => h.tier === 'maximizer');
+        const pnls = holds.map(h => h.pnl_pct).filter(v => v != null);
+        const maxPnls = maxH.map(h => h.pnl_pct).filter(v => v != null);
+        out.push({
+          symbol: s, count: holds.length,
+          preserver: holds.filter(h => h.tier === 'preserver').length,
+          maximizer: maxH.length,
+          best: pnls.length ? Math.max(...pnls) : null,
+          maxBest: maxPnls.length ? Math.max(...maxPnls) : null,
+        });
+      } catch {
+        out.push({ symbol: s, count: 0, error: true });
+      }
+    }
+    setRows(out); setLoading(false);
+  };
+
+  const pct = (v) => v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+
+  return (
+    <div className="mb-6 border-2 border-claret/40 bg-paper-card rounded-lg overflow-hidden">
+      <div className="flex items-baseline justify-between px-5 py-3 border-b border-rule bg-claret/5">
+        <h2 className="font-display text-[1.1rem] font-medium text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>
+          Where Your Stocks Sit
+          <em className="font-display italic text-ink-mute text-[0.8rem] ml-2" style={{ fontVariationSettings: '"opsz" 24' }}>preview · admin only</em>
+        </h2>
+        <span className="text-[0.62rem] font-medium tracking-[0.18em] uppercase text-claret px-2 py-1 border border-claret/40 rounded">Direction demo</span>
+      </div>
+      <div className="p-5">
+        <p className="text-sm text-ink-mute mb-3">Paste a portfolio — see where our system has traded each name (live + backtested), and what the Maximizer breakout sleeve caught. Click any row for the full chart with entry/exit history.</p>
+        <form onSubmit={run} className="flex gap-2 mb-4">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="AAPL, NVDA, SMCI…"
+            className="flex-1 px-3 py-2 text-sm bg-paper-deep border border-rule rounded-lg text-ink placeholder:text-ink-light focus:outline-none focus:border-claret"
+          />
+          <button type="submit" disabled={loading} className="px-4 py-2 text-sm font-medium bg-ink text-white rounded-lg hover:opacity-90 disabled:opacity-50">
+            {loading ? 'Checking…' : 'Check'}
+          </button>
+        </form>
+        {ran && !loading && (
+          rows.length ? (
+            <table className="w-full border-collapse" style={{ fontFeatureSettings: '"tnum"' }}>
+              <thead>
+                <tr>{['Symbol', 'Our holds', 'Preserver', 'Maximizer', 'Best', ''].map(h => (
+                  <th key={h} className="py-2 px-3 text-left font-body text-[0.6rem] font-medium tracking-[0.2em] uppercase text-ink-mute border-b border-ink">{h}</th>
+                ))}</tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (
+                  <tr key={r.symbol} onClick={() => onOpenChart({ type: 'signal', data: { symbol: r.symbol }, symbol: r.symbol })} className="hover:bg-paper border-b border-rule cursor-pointer">
+                    <td className="py-2.5 px-3 font-display text-[1rem] font-medium" style={{ fontVariationSettings: '"opsz" 48' }}>{r.symbol}</td>
+                    <td className="py-2.5 px-3 font-mono text-[0.85rem]">{r.error ? '—' : r.count}</td>
+                    <td className="py-2.5 px-3 font-mono text-[0.85rem] text-ink-mute">{r.preserver || '—'}</td>
+                    <td className="py-2.5 px-3 font-mono text-[0.85rem]">
+                      {r.maximizer ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="text-[0.6rem] font-bold text-white bg-claret rounded px-1.5 py-0.5">M</span>
+                          <span className="text-positive font-medium">{pct(r.maxBest)}</span>
+                        </span>
+                      ) : <span className="text-ink-light">—</span>}
+                    </td>
+                    <td className={`py-2.5 px-3 font-mono text-[0.85rem] font-medium ${r.best >= 0 ? 'text-positive' : 'text-negative'}`}>{r.error ? '—' : pct(r.best)}</td>
+                    <td className="py-2.5 px-3 text-right text-ink-light text-sm">View →</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <p className="text-sm text-ink-light italic">No symbols recognized.</p>
+        )}
+        <p className="text-[0.66rem] text-ink-light italic mt-4">Information only — our system's historical signals on these names (dashed = backtested), not personalized advice.</p>
+      </div>
+    </div>
+  );
+};
+
 // Stock Chart Modal
 const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, viewMode = 'advanced', timeTravelDate = null, lastPositionDollars = null }) => {
   const [timeRange, setTimeRange] = useState('1Y');
@@ -5103,6 +5201,7 @@ function Dashboard() {
           </>
         ) : activeTab === 'history' ? (
           <div className="space-y-6">
+            {isAdmin && <WhereStocksSit onOpenChart={setChartModal} />}
             <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-b border-ink py-4 mb-6">
               <MetricCard title="Total Trades" value={trades.length} />
               <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${wins.length}W / ${trades.length - wins.length}L`} trend={winRate > 50 ? 'up' : 'down'} />
