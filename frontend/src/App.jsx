@@ -5102,6 +5102,22 @@ function Dashboard() {
             <div className="overflow-hidden">
               <div className="flex items-baseline justify-between pb-3 border-b-2 border-ink mb-5">
                 <h2 className="font-display text-[1.25rem] font-medium text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>Trade History <em className="font-display italic text-ink-mute text-[0.85rem]" style={{ fontVariationSettings: '"opsz" 24' }}>Your recorded entries &amp; exits</em></h2>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const v = (e.currentTarget.ticker.value || '').trim().toUpperCase();
+                    if (v) setChartModal({ type: 'signal', data: { symbol: v }, symbol: v });
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <input
+                    name="ticker"
+                    placeholder="Look up ticker…"
+                    autoComplete="off"
+                    className="w-32 px-3 py-1.5 text-sm bg-paper-deep border border-rule rounded-lg text-ink placeholder:text-ink-light focus:outline-none focus:border-claret"
+                  />
+                  <button type="submit" className="px-3 py-1.5 text-sm font-medium bg-ink text-white rounded-lg hover:opacity-90">Chart</button>
+                </form>
               </div>
               <div className="overflow-x-auto max-h-[600px]">
                 {trades.length > 0 ? (
@@ -5111,7 +5127,11 @@ function Dashboard() {
                     </thead>
                     <tbody>
                       {trades.map(t => (
-                        <tr key={t.id} className="hover:bg-paper-card border-b border-rule">
+                        <tr
+                          key={t.id}
+                          onClick={() => setChartModal({ type: 'position', data: { ...t, sell_date: t.exit_date, sell_price: t.exit_price }, symbol: t.symbol })}
+                          className="hover:bg-paper-card border-b border-rule cursor-pointer"
+                        >
                           <td className="py-3 px-3 font-display text-[1.05rem] font-medium" style={{ fontVariationSettings: '"opsz" 48' }}>{t.symbol}</td>
                           <td className="py-3 px-3 font-mono text-[0.85rem] text-ink-mute">{formatDate(t.entry_date)}</td>
                           <td className="py-3 px-3 font-mono text-[0.85rem] text-ink-mute">{formatDate(t.exit_date)}</td>
@@ -5120,7 +5140,10 @@ function Dashboard() {
                           <td className="py-3 px-3 font-mono text-[0.88rem]"><span className={`font-medium ${t.pnl_pct >= 0 ? 'text-positive' : 'text-negative'}`}>{t.pnl_pct >= 0 ? '+' : ''}{t.pnl_pct?.toFixed(1)}%</span></td>
                           <td className={`py-3 px-3 font-mono text-[0.88rem] font-medium ${t.pnl >= 0 ? 'text-positive' : 'text-negative'}`}>${t.pnl?.toFixed(0)}</td>
                           <td className="py-3 px-3"><span className="font-mono text-[0.68rem] tracking-[0.15em] uppercase text-ink-mute px-2 py-1 border border-rule-dark">{({'trailing_stop':'TRAIL STOP','rebalance_exit':'REBALANCE','simulation_end':'REBALANCE','profit_target':'TARGET','stop_loss':'STOP LOSS'}[t.exit_reason] || t.exit_reason?.toUpperCase())}</span></td>
-                          <td className="py-3 px-3 font-mono text-[0.85rem] text-ink-mute">{t.days_held}d</td>
+                          <td className="py-3 px-3 font-mono text-[0.85rem] text-ink-mute">{(() => {
+                            const d = t.days_held ?? ((t.entry_date && t.exit_date) ? Math.max(0, Math.round((new Date(t.exit_date) - new Date(t.entry_date)) / 86400000)) : null);
+                            return d == null ? '—' : `${d}d`;
+                          })()}</td>
                         </tr>
                       ))}
                     </tbody>
