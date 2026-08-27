@@ -7,19 +7,23 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 27 2026 (scan+email solid; double-signal job KILLED; digest-reframe question open)
+# Session snapshot — Aug 27 2026 EOD (tonight's scan+digest SENT clean; big cleanup queue open)
 
-## ▶▶ GO SLOW. NO "DWAP"/"t30v" customer-facing. NO live filters/guards w/o full WF re-run. SPA reload after deploy. Embed debug in RESPONSE when logs won't surface. BUY = INSTRUCTION (mirror the book), not self-manage.
+## ▶▶ GO SLOW. NO "DWAP"/"t30v"/"Consider adding" customer-facing. NO live filters/guards w/o full WF re-run. SPA reload after deploy. Embed debug in RESPONSE when logs won't surface. BUY=INSTRUCTION (mirror the book).
 
-## ✅ TONIGHT: scan clean (20 buys incl fresh CRCL/NOW/NVDA/FIG, rotating_bull, CRWD fixed, 0 dangerous). 6pm daily digest = 100% verified to send (freshness gate passes). Maximizer bought DT/OKTA/RBRK (valid breakouts, real data; OKTA=real earnings gap). Expo OTA published to preview channel (portfolio-check count etc → Erik's phone, needs app reopen ×2).
+## ✅ TONIGHT — ALL CLEAN + SENT
+- 4:30 scan clean (20 buys incl fresh CRCL/NOW/NVDA/FIG, rotating_bull, CRWD fixed via calendar rebuild, calendar_audit 0 dangerous). 6pm daily digest FIRED + sent OK. Maximizer bought DT/OKTA/RBRK (valid breakouts, real data; OKTA real earnings gap).
+- Expo OTA published to `preview` channel → Erik's phone (portfolio-check count etc; reopen app ×2).
 
-## 🔴 DOUBLE-SIGNAL ALERT — KILLED (Erik: "doesn't make sense anymore")
-- Was silently failing all session on a `select` NameError → I fixed it (commit 266d9aa) → it RESUMED and fired "Consider adding CRCL". Erik: it's a self-managed-portfolio artifact (book is FULL, subscribers MIRROR — "consider adding" contradicts the model).
-- KILLED: `aws events disable-rule rigacap-prod-double-signals` → State=DISABLED (was cron(0 21)=5pm ET). ⏭️ TODO: update terraform SSOT (disable/remove rule) + remove handler code (post-email cleanup) so a terraform apply won't re-enable.
-- **Jacob (jacob@reider.us, TRIAL, joined Aug 25) GOT IT**: is_valid()=True for trial-in-window; double_signals pref defaults True (his email_preferences=null); CRCL fresh → sent. NOT a data error (real signal, just old framing) — Erik: don't send a correction.
+## ✅ DOUBLE-SIGNAL ALERT — KILLED (self-managed artifact; book is full + mirror model). Rule `rigacap-prod-double-signals` DISABLED (was cron(0 21)=5pm). It had been silently failing all session on a select NameError → I fixed it (266d9aa) → resumed → fired "Consider adding CRCL" to Jacob (trial=is_valid, double_signals pref default-on). Real signal, not data error; Erik: no correction to Jacob.
+## ✅ DIGEST is already mirror-framed (email_service.py:641-647): served→"Our Book"+"Other Signals·Not in our book"; only a no-book FALLBACK else said "Consider adding" → NEUTRALIZED to "Today's Signals" (kept the branch — book can be None on build failure; deleting = NameError risk) (commit 5992614).
+## ✅ SMCI=0 = `os` NameError in previous-holds (fixed 3da79ab). Widget tier cols consistent (count·best%). t30v leak fixed.
 
-## ⚠️ OPEN — same "Consider adding" framing is in the 6PM DAILY DIGEST (email_service.py:647 "New Today / Consider adding"), STILL ENABLED, sends to Jacob tonight. Killing the double-signal job does NOT fix the digest. REAL FIX = reframe digest to mirror-the-book ("the book entered X / we hold Y", BUY=instruction), not "consider adding". AWAITING Erik: draft the reframe now, or leave tonight's digest + reframe deliberately?
+## 🧹 POST-EMAIL CLEANUP QUEUE (Erik OK'd, do next session):
+1. Strip debug scaffolding: `/api/debug/mxholds` route, `_mx_debug` field + `[prevholds-mx]` print in previous-holds, `probe_maximizer_holds` handler; older read_perf_test/fetch_scope_test/history_source_probe.
+2. Double-signal FULL removal: terraform (disable/remove rigacap-prod-double-signals rule) + remove check_double_signal_alerts handler + its "Consider adding" template (email_service.py ~3088).
+3. ONE REGIME SOT: retire MarketAnalysisService `_mas` 5-regime (DASH-DIAG strong_bull divergence); point GET /regime (main.py:11827)+maximizer_preview at computed-once value (predict_transitions→regime_forecast_snapshots).
+4. DST-aware EventBridge Scheduler migration (aws_scheduler_schedule + America/New_York), before Nov EST.
+5. Smaller: in-chart M badge; scrub DWAP in perf_numbers.js comments; retire get_universe(); X-reply ticker fix (reply_scanner_service.py:366/437 `max by pnl_pct`).
 
-## 🧹 POST-EMAIL CLEANUP (Erik OK'd): strip debug scaffolding (/api/debug/mxholds, _mx_debug, [prevholds-mx] print, probe_maximizer_holds; read_perf_test/fetch_scope_test/history_source_probe). Then: ONE REGIME SOT (retire _mas 5-regime); DST-aware EventBridge Scheduler; double-signal terraform/handler removal; in-chart M badge; X-reply ticker fix.
-
-## ✅ Earlier: SMCI=0 was `os` NameError in previous-holds (fixed 3da79ab, confirmed shows 3). Widget tier cols consistent (count · best%). t30v leak fixed.
+## 🎯 GRADE next: [[project_maximizer_breakout_prediction_aug26]]; watch if OKTA reverts (Erik hunch).
