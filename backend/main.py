@@ -2286,6 +2286,93 @@ def handler(event, context):
             print(f"❌ DIAG failed: {e}\n{traceback.format_exc()}")
             return {"error": str(e)}
 
+    if event.get("calendar_audit"):
+        # READ-ONLY completeness check for the split calendar. The danger (ASST class):
+        # a real split MISSING from our calendar on a symbol whose stored bars SPAN the
+        # ex-date -> split_adjusted() is a no-op -> the served series has an unadjusted
+        # step at the split -> phantom momentum. Pulls Alpaca's authoritative splits for
+        # the live scoped universe, diffs vs our calendar, and flags only the missing ones
+        # our PITFWU bars actually span (before AND after the ex-date). Writes nothing.
+        cfg = event.get("calendar_audit") or {}
+        years = int(cfg.get("years", 6)) if isinstance(cfg, dict) else 6
+        topn = int(cfg.get("topn", 600)) if isinstance(cfg, dict) else 600
+        print(f"🔍 CALENDAR AUDIT (read-only) — Alpaca splits vs calendar, top {topn}, {years}y")
+        def _calendar_audit():
+            import pandas as _pd, json as _json, boto3
+            from datetime import date as _date, timedelta as _td
+            from alpaca.data.historical.corporate_actions import CorporateActionsClient
+            from alpaca.data.requests import CorporateActionsRequest
+            from app.services.data_export import S3_BUCKET
+            from app.services import pitfwu_store as ps
+            from app.core.config import settings as _cfg
+            s3 = boto3.client('s3', region_name='us-east-1')
+            objs = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix='signals/universe-history/')
+            keys = sorted(o['Key'] for o in objs.get('Contents', []) if o['Key'].endswith('.json'))
+            syms = []
+            if keys:
+                uni = _json.loads(s3.get_object(Bucket=S3_BUCKET, Key=keys[-1])['Body'].read())
+                for r in uni.get('rankings', []):
+                    if len(syms) >= topn:
+                        break
+                    if not r.get('is_excluded') and r.get('symbol'):
+                        syms.append(r['symbol'])
+            cal = ps.load_corp_actions()
+            cal_dates = {}
+            if cal is not None and not cal.empty:
+                sub = cal[cal['type'].isin(['forward_splits', 'reverse_splits'])].copy()
+                sub['d'] = _pd.to_datetime(sub['date'], errors='coerce').dt.strftime('%Y-%m-%d')
+                for sy, grp in sub.groupby('symbol'):
+                    cal_dates[sy] = set(grp['d'].dropna())
+            client = CorporateActionsClient(api_key=_cfg.ALPACA_API_KEY, secret_key=_cfg.ALPACA_SECRET_KEY)
+            start, end = _date.today() - _td(days=365 * years + 30), _date.today()
+            missing, alpaca_splits = [], 0
+            BATCH = 50
+            for i in range(0, len(syms), BATCH):
+                chunk = syms[i:i + BATCH]
+                try:
+                    res = client.get_corporate_actions(CorporateActionsRequest(symbols=chunk, start=start, end=end))
+                    data = getattr(res, 'data', {}) or {}
+                    for atype, actions in data.items():
+                        if atype not in ('forward_splits', 'reverse_splits'):
+                            continue
+                        for a in (actions or []):
+                            ad = getattr(a, 'model_dump', lambda: dict(a))()
+                            sym = ad.get('symbol')
+                            exd = ad.get('ex_date') or ad.get('process_date') or ad.get('effective_date')
+                            old, new = ad.get('old_rate'), ad.get('new_rate')
+                            if not (sym and exd and old and new):
+                                continue
+                            alpaca_splits += 1
+                            exs = _pd.Timestamp(exd).strftime('%Y-%m-%d')
+                            if exs not in cal_dates.get(sym, set()):
+                                missing.append({'symbol': sym, 'ex_date': exs, 'type': atype,
+                                                'ratio': round(float(new) / float(old), 4)})
+                except Exception as e:
+                    print(f"audit batch {i // BATCH} failed: {str(e)[:150]}")
+            # DANGER: our stored bars span a MISSING split's ex-date (before AND after)
+            dangerous = []
+            for m in missing:
+                df = ps._read_pitfwu_bars(m['symbol'])
+                if df is None or df.empty:
+                    m['span'] = 'no_bars'
+                    continue
+                ex = _pd.Timestamp(m['ex_date'])
+                before, after = bool((df.index < ex).any()), bool((df.index >= ex).any())
+                m['span'] = 'SPANS' if (before and after) else ('after_only' if after else 'before_only')
+                if before and after:
+                    dangerous.append(m)
+            return {'universe_checked': len(syms), 'alpaca_splits_seen': alpaca_splits,
+                    'missing_count': len(missing), 'dangerous_count': len(dangerous),
+                    'dangerous': dangerous, 'missing_sample': missing[:50]}
+        try:
+            r = _calendar_audit()
+            print(f"🔍 audit: alpaca_splits={r['alpaca_splits_seen']} missing={r['missing_count']} DANGEROUS={r['dangerous_count']}")
+            return r
+        except Exception as e:
+            import traceback
+            print(f"❌ calendar_audit failed: {e}\n{traceback.format_exc()}")
+            return {'error': str(e)}
+
     if event.get("history_source_probe"):
         # READ-ONLY: compare deep-history availability across sources for a symbol, to
         # decide/validate the yfinance backfill fallback. Reports Alpaca RAW range+count,
