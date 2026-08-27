@@ -2317,7 +2317,9 @@ def handler(event, context):
                         if h is None or h.empty:
                             return None
                         info = {'bars': int(len(h)), 'first': str(h.index.min().date()),
-                                'last': str(h.index.max().date()), 'last_close': round(float(h['Close'].iloc[-1]), 2)}
+                                'last': str(h.index.max().date()),
+                                'first_close': round(float(h['Close'].iloc[0]), 2),   # oldest bar — reveals split-adj
+                                'last_close': round(float(h['Close'].iloc[-1]), 2)}
                         if 'Stock Splits' in h.columns:
                             sp = h[h['Stock Splits'] != 0]['Stock Splits']
                             info['yf_splits'] = [(str(_pd.Timestamp(ix).date()), float(v)) for ix, v in sp.items()]
