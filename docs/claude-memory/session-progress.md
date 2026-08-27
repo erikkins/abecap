@@ -7,19 +7,22 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 27 2026 (data-integrity DONE; CHART cleanup + previous-holds overlay SHIPPED)
+# Session snapshot — Aug 27 2026 (data-integrity DONE; CHART overlay shipped + iterating on UI)
 
 ## ▶▶ GO SLOW — verify don't assume. PARQUET not pickle. NO "DWAP"/"Wtd Avg" customer-facing ([[feedback_no_dwap_customer_facing]]). Empty {} payloads FALSY→mangum→worker-errors alarm; pass truthy.
 
-## ✅ DATA-INTEGRITY (Aug 26, live): frozen-universe fix (`universe_refresh_v2`, weekly cron SAT 20:00); merger-aware heal (classify_short_symbols; yfinance splice removed); calendar completeness fixed + weekly cron `rigacap-prod-calendar-rebuild` SAT 18:00 scope=full. Ready for 4pm scan.
-## ✅ ASST on Maximizer radar was STALE dashboard.json (pre-fix 4:30pm scan) → fixed live via patch_breakout_radar (backed up). Live compute clean.
+## ✅ DATA-INTEGRITY (Aug 26, live): frozen-universe fix (`universe_refresh_v2`, cron SAT 20:00); merger-aware heal; calendar completeness + cron `rigacap-prod-calendar-rebuild` SAT 18:00 scope=full. ASST radar was stale dashboard.json → patched live.
 
-## ✅ CHART WORK SHIPPED (Aug 27, deploying via CI — commits a89c35e/f828326/3280064)
-- Backend: NEW `GET /api/stock/{symbol}/previous-holds` (main.py ~12430) — unions Preserver=ModelPosition(live closed) + Maximizer=TierFill(tier=maximizer, paired buy→sell) + WF=WalkForwardSimulation.trades_json. NO double-count. gain/loss = (exit/entry-1)*100. VERIFIED: WF trades_json shape matches (symbol/entry_date/exit_date/prices/pnl_pct/exit_reason). FIXED to use is_daily_cache WF (canonical holds), EXCLUDE is_nightly_missed_opps (opposite of holds).
-- Frontend App.jsx StockChartModal (build clean): KILLED +20% line (+orphaned gain20 vars); relabeled "Average price"/"Entry trigger" (was Wtd Avg/DWAP, Breakout), verticals "Crossed trigger"/"Buy signal" (was BREAKOUT/ENTRY); PREVIOUS-HOLDS overlay = shaded entry→exit ReferenceArea bands + gain/loss% label, WF=lighter+dashed+"(bt)", clamped to visible window; "Prior holds (N)" toggle default-on; imported ReferenceArea.
-- DATA NOTE: live holds SPARSE (young book, ~1 each CIFR/CORZ/INTC/MU/MRVL); WF is the rich source (e.g. IREN +110%). Test charts: IREN/INTC/MU/MRVL.
+## ✅ CHART FEATURE SHIPPED (Aug 27, deploying — commits through e317284)
+- Backend NEW `GET /api/stock/{symbol}/previous-holds` (main.py ~12430): unions Preserver=ModelPosition(live closed) + Maximizer=TierFill(tier=maximizer,paired) + WF=WalkForwardSimulation.trades_json (is_daily_cache canonical, EXCLUDE is_nightly_missed_opps). gain/loss=(exit/entry-1)*100. VERIFIED shapes.
+- Frontend StockChartModal (App.jsx): killed +20% line; labels "Average price"/"Entry trigger", verticals "Crossed trigger"/"Buy signal" (no DWAP/ensemble). PREVIOUS-HOLDS overlay: shaded entry→exit bands + gain/loss% (labels bottom, alt L/R to fix collisions) + ▲/▼ prior-hold markers (faded, P&L-colored) + legend "solid=live · dashed=backtested" (was cryptic "(bt)"). Toggle "Prior holds (N)" default-on.
+- TRADE HISTORY fixes: rows now clickable→open chart; added ticker LOOKUP search (any symbol, /history yfinance-fallback); Days column showed just "d" (days_held missing)→compute from dates. Test: lookup IREN (WF +110%).
+- DATA NOTE: live holds SPARSE (young book); WF is the rich source.
 
-## ⏭️ CHART TODO (asked Erik): TIER-GATING not wired — overlay shows ALL sources regardless of viewer tier; each hold tagged w/ tier already, but StockChartModal has NO tier prop → needs viewer tier plumbed in. Erik decided chart SHOULD reflect viewer's tier. Also: DWAP×1.05 IS a LIVE entry gate (signals.py:1021, verified) — line is real, just relabeled.
+## 🔜 OPEN DECISION — TIER display on charts (Erik leaning teaser, my rec agreed)
+- Tiers SHARE base engine; Maximizer only diverges in rotating_bull (breakout sleeve). So showing ALL tiers' holds = ~75% DUPLICATES = clutter. Teaser value = the DIVERGENCE only.
+- REC (mine, Erik warm): show viewer's tier normally + overlay ONLY divergent holds from the OTHER tier, BADGED ("M" chip / "Maximizer add-on: +X%"), dedup shared, behind a toggle. Compliance: label as the other PRODUCT's result (esp backtested), never imply user got it.
+- BLOCKER for teaser: endpoint pulls only t30v(Preserver) WF; need MAXIMIZER WF trades too (separate artifact/tier vintage) — offered to scope that data source next. Plain tier BADGES on existing data (Preserver live + t30v WF) can come first.
 
-## 🎯 GRADE after 4pm scan: [[project_maximizer_breakout_prediction_aug26]] WT firing/BHVN cusp → maximizer_preview + build_todays_actions.
-## ⏭️ OTHER (none urgent): retire get_universe() (~80); nasdaqtraded.txt ETF rule; rename_continuity carry-forward (SUNB); remove diags read_perf_test/fetch_scope_test/history_source_probe; X reply fix; scrub literal DWAP in perf_numbers.js.
+## 🎯 GRADE after 4pm scan: [[project_maximizer_breakout_prediction_aug26]] WT/BHVN → maximizer_preview + build_todays_actions.
+## ⏭️ OTHER: scrub literal DWAP in perf_numbers.js; retire get_universe(); nasdaqtraded.txt ETF rule; rename_continuity(SUNB); remove diag handlers; X reply fix.
