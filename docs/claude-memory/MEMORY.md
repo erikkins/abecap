@@ -9,6 +9,9 @@
 ## 💡 PREDICTION LEDGER idea (Aug 24) — scored regime forecasts → publishable track record
 - [Prediction ledger + scored calls](project_prediction_ledger_idea.md) — seed = regime_forecast_snapshots; ADD scoring→hit-rate→publish "our calls, graded." PROBABILISTIC only, never point-predict. Graded record is the product. Future/greenlight-pending.
 
+## 🎯 GRADE-ME (Aug 26) — Maximizer breakout prediction vs next scan
+- [WT/BHVN breakout call](project_maximizer_breakout_prediction_aug26.md) — regime rotating_bull, WT firing (expect next-cycle entry), BHVN on cusp (0.4% to trigger). Grade next session via maximizer_preview + build_todays_actions. First test of fixed universe + rebuilt calendar.
+
 ## 🚫 NO PICKLE — live read path is PARQUET/PITFWU (Aug 24, Erik emphatic ×2)
 - [Stop saying pickle](feedback_no_pickle_parquet.md) — `PRICE_SOURCE=parquet`+`PITFWU_READ=true`, scoped partial reads. CLAUDE.md's "2GB pickle" language is STALE. Say parquet/PITFWU; for DB-derivable work read snapshots directly (price-source-agnostic).
 

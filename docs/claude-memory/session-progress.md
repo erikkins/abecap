@@ -7,22 +7,21 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 26 2026 (frozen-universe FIXED + heal merger-aware + calendar audit done)
+# Session snapshot — Aug 26 2026 (frozen-universe + heal + calendar ALL shipped; maximizer preview done)
 
-## ▶▶ GO SLOW — Erik sensitive after ASST bug hit 1st customer. Verify data. PARQUET not pickle. Never delete (additive; keep rollback). Erik catches design flaws — LISTEN. Calendar writes = confirm first (prior calendar-drop incident).
+## ▶▶ GO SLOW — Erik sensitive after ASST bug. Verify data. PARQUET not pickle. Never delete (additive; rollback). Erik catches design flaws — LISTEN. Calendar writes = safe (rebuild_calendar backs up + UNION-merges). Empty {} payloads are FALSY → handlers skip → pass truthy (e.g. {"x":{"run":true}}).
 
-## ✅ DONE + LIVE
-- **Frozen-universe root fix.** `universe_refresh_v2` (main.py) ranks CLEAN stock_universe_service list (NASDAQ/NYSE screener + EXCLUDED_PATTERNS, ETF-free) off FRESH fetch_raw_bars instead of frozen all_data.parquet. `heal_newcomers` full-backfills surgers (Alpaca union, raw). Ran write+heal → wrote `signals/universe-history/2026-08-26.json`, healed 206. scan_preview (new read-only handler) = 20 buys/0 suspicious. Was 64d stale, 206/600 membership wrong.
-- **LIVE weekly cron REPOINTED** (Erik OK'd): `rigacap-prod-universe-refresh` (SAT 20:00 UTC) now fires `{"universe_refresh_v2":{"write":true,"heal_newcomers":true}}`. Terraform SSOT also updated. Verified FailedEntryCount:0.
-- **Heal = MERGER-AWARE** (Erik's 2 catches both right: yfinance is split-adjusted→can't enter raw PITFWU; AZN 2026-02-02 = stock_MERGER not split→new identity). RIPPED OUT yfinance splice. Added `classify_short_symbols` (Alpaca corp-actions): corporate_action_boundary (merger/spinoff/removal→gated, correct) / rename_continuity (name change, same co, history under OLD ticker) / short_history (young). Verified 6 shorts: AZN=merger, SOLS=spinoff, CBRS/EQPT/FRVO=young, **SUNB=rename_continuity** (real rename caught). All safely gated; nothing synthetic ever enters raw store.
+## ✅ ALL SHIPPED + LIVE
+- **Frozen-universe fix:** `universe_refresh_v2` ranks CLEAN stock_universe_service list (NASDAQ/NYSE screener + EXCLUDED_PATTERNS, ETF-free) off FRESH fetch_raw_bars, not frozen all_data.parquet. Ran write+heal → snapshot 2026-08-26, 206 surgers healed. LIVE weekly cron `rigacap-prod-universe-refresh` REPOINTED to v2 (SAT 20:00 UTC).
+- **Heal MERGER-AWARE** (Erik's 2 catches right: yfinance is split-adjusted; AZN 2026-02-02 = stock_MERGER not split). Ripped out yfinance splice. `classify_short_symbols` labels: corporate_action_boundary (merger/spinoff→gated), rename_continuity (SUNB — mature, history under old ticker), short_history (young). All gated, nothing synthetic in raw store.
+- **Calendar completeness FIXED.** `calendar_audit` found 3 maladjusted (missing split + bars span ex-date): CRWD 4:1 fwd (SLIPPED display gate), WETO 100:1 rev, REAX 10:1 rev. Ran rebuild → re-audit dangerous_count=0. Ran ONE-TIME FULL baseline rebuild (4653 syms, 644 splits/498 syms, total 6655). Root cause = NO calendar cron → wired LIVE weekly `rigacap-prod-calendar-rebuild` (SAT 18:00 UTC, scope=full). Handler got scope=full/snapshot (get_universe is only ~80 curated names, would miss small-caps).
 
-## 🚧 AWAITING ERIK GO — calendar fix (a WRITE, so paused)
-- Ran read-only `calendar_audit` (new handler): 600 syms, 92 Alpaca splits, **3 MISSING from our calendar AND bars SPAN ex-date = maladjusted NOW**: **CRWD** fwd 4:1 (2026-07-02, px/dwap~0.49 → SLIPS the display gate = live exposure), **WETO** rev 100:1, **REAX** rev 10:1 (reverse→extreme ratio→display gate catches those 2).
-- ROOT: **NO cron for calendar rebuild** — only ever manual → splits since last run missing.
-- FIX (proposed, needs Erik OK — calendar writes): (1) `{"rebuild_corp_actions_calendar":{}}` — rebuild_calendar UNION-merges + backs up, never drops; adjust-at-read fixes all 3, NO bar rewrite. (2) wire WEEKLY calendar-rebuild cron (systemic fix). Then re-run calendar_audit → expect dangerous_count:0.
+## 🔭 MAXIMIZER BREAKOUT PREDICTION (tomorrow) — done via read-only `maximizer_preview`
+- regime = **rotating_bull** → breakout sleeve ACTIVE. **1 firing: WT** (WisdomTree $24.76, clean 2677 bars, fresh cross today, $56M vol, NOT held). Book 12/15 → room for 3. **BHVN on cusp** (0.4% to trigger, vol×5.34). Radar 8 approaching (BHVN/GEN/DBRG/TECK/BOX/SYF/HPQ/SHEL). WT/BHVN data verified clean (px/dwap 1.52/1.47). Timing nuance: breakout_signal fires on CROSS DAY, so WT (crossed today) is next-cycle entry; new crosses tomorrow = radar pool.
 
-## ⏭️ NEXT / FOLLOW-UPS
-- Erik "yes" → run calendar rebuild + wire weekly calendar cron + re-audit.
-- rename_continuity CARRY-FORWARD unbuilt (SUNB-type: map old→new ticker from corp-action detail). Rare, low-pri.
-- Cleanup later: read-only diag handlers (read_perf_test, fetch_scope_test, history_source_probe; keep scan_preview + calendar_audit). fold nasdaqtraded.txt ETF rule. X reply engine fix (paused).
-- All ADDITIVE: all_data.parquet, old snapshots, existing PITFWU untouched → rollback available. AZN stored bars = clean post-merger Alpaca-raw (143); yfinance splice NEVER ran w/ execute.
+## 📌 get_universe() = LEGACY ~80 names (hardcoded NASDAQ_100+SP500_ADDITIONS in config.py). NOT the real universe — scanner.py:152 seeds it then load_full_universe/ensure_loaded REPLACES with dynamic ~4653. Only a fallback risk (fixed via scope=full). Cleanup: retire/repoint eventually.
+
+## ⏭️ FOLLOW-UPS (none urgent)
+- rename_continuity CARRY-FORWARD unbuilt (SUNB-type: map old→new ticker). Rare.
+- Cleanup read-only diag handlers later: read_perf_test, fetch_scope_test, history_source_probe. KEEP: scan_preview, calendar_audit, maximizer_preview (useful pre-send checks). fold nasdaqtraded.txt ETF rule. X reply engine fix (paused).
+- All ADDITIVE → rollback available. AZN stored = clean post-merger Alpaca-raw (143), gated as new identity.
