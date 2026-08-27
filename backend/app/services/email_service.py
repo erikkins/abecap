@@ -644,7 +644,12 @@ class EmailService:
                            "own allocation. Running your own entries is its own diversification; the tags show "
                            "whether each is still near its entry.")
         else:
-            sig_header, sig_subhead = 'New Today', 'Consider adding'
+            # DEFENSIVE FALLBACK ONLY — reached when the tier book failed to build (book is None),
+            # NOT a normal served send. Real subscribers hit the served-Preserver / Maximizer
+            # branches above (lead with the book + Today's Actions). Never surface the retired
+            # self-managed "Consider adding" framing here — keep it book-neutral. (Deleting the
+            # branch outright would NameError sig_header if a book build ever fails.)
+            sig_header, sig_subhead = 'Today&rsquo;s Signals', ''
             sig_framing = ("Mirror at today&rsquo;s price &mdash; the trailing stop rides the high, not your entry, "
                            "so a late fill just widens your cushion. Don&rsquo;t chase names already well past their signal.")
 
