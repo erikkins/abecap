@@ -491,7 +491,7 @@ const WhereStocksSit = ({ onOpenChart }) => {
     const out = [];
     for (const s of syms) {
       try {
-        const r = await api.get(`/api/stock/${s}/previous-holds`);
+        const r = await api.get(`/api/stock/${s}/previous-holds?t=${Date.now()}`);
         const holds = r?.holds || [];
         const maxH = holds.filter(h => h.tier === 'maximizer');
         const pnls = holds.map(h => h.pnl_pct).filter(v => v != null);
@@ -588,7 +588,7 @@ const StockChartModal = ({ symbol, type, data, onClose, onAction, liveQuote, vie
     let cancelled = false;
     (async () => {
       try {
-        const resp = await api.get(`/api/stock/${symbol}/previous-holds`);
+        const resp = await api.get(`/api/stock/${symbol}/previous-holds?t=${Date.now()}`);
         if (!cancelled) setPrevHolds(resp?.holds || []);
       } catch (err) {
         if (!cancelled) setPrevHolds([]);

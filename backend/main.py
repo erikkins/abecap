@@ -12469,6 +12469,7 @@ async def get_stock_history(symbol: str, days: int = 252, user: User = Depends(r
 @app.get("/api/stock/{symbol}/previous-holds")
 async def get_stock_previous_holds(
     symbol: str,
+    response: Response,
     include_walkforward: bool = True,
     limit: int = 50,
     user: User = Depends(require_valid_subscription),
@@ -12594,6 +12595,7 @@ async def get_stock_previous_holds(
             logger.warning(f"previous-holds maximizer-WF failed for {symbol}: {e}")
 
     holds.sort(key=lambda h: h.get("entry_date") or "", reverse=True)
+    response.headers["Cache-Control"] = "no-store"   # never cache — data updates as the book/WF do
     return {"symbol": symbol, "count": len(holds), "holds": holds[:limit]}
 
 
