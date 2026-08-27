@@ -99,8 +99,9 @@ MUST_INCLUDE = [
     'NIO', 'GRAB', 'SOFI', 'RIVN', 'LCID', 'PLTR', 'HOOD', 'COIN',
     # Block Inc (was SQ, now XYZ as of June 2024)
     'XYZ', 'SQ',
-    # Berkshire (handled specially due to dot/dash in symbol)
-    'BRK.A', 'BRK.B', 'BRK-A', 'BRK-B',
+    # NOTE: Berkshire (BRK.A/BRK.B) intentionally NOT must-included — a slow-compounding
+    # mega-cap that never fires the momentum/breakout signal, BRK.A is retail-untradeable
+    # (~$756k/share), and carrying both dot+hyphen forms was the share-class collision source.
 ]
 
 # Minimum requirements for inclusion
