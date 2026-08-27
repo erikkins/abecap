@@ -7,19 +7,19 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 26–27 2026 (data-integrity work DONE; now CHART cleanup inventory in flight)
+# Session snapshot — Aug 27 2026 (data-integrity DONE; CHART cleanup + previous-holds overlay SHIPPED)
 
-## ▶▶ GO SLOW — Erik sensitive after ASST bug. VERIFY don't assume. PARQUET not pickle. Additive/rollback. Empty {} payloads FALSY→mangum→trips worker-errors alarm; pass truthy {"x":{"run":true}}.
+## ▶▶ GO SLOW — verify don't assume. PARQUET not pickle. NO "DWAP"/"Wtd Avg" customer-facing ([[feedback_no_dwap_customer_facing]]). Empty {} payloads FALSY→mangum→worker-errors alarm; pass truthy.
 
-## ✅ SHIPPED + LIVE (Aug 26) — all data-integrity work
-- Frozen-universe fix (`universe_refresh_v2`, fresh fetch of clean ETF-free list); weekly cron `rigacap-prod-universe-refresh`→v2 (SAT 20:00). Merger-aware heal (`classify_short_symbols`; yfinance splice ripped out). Calendar completeness: fixed CRWD/WETO/REAX, full rebuild, NEW weekly cron `rigacap-prod-calendar-rebuild` SAT 18:00 scope=full.
-- VERIFIED ready for Aug-27 PM scan: latest snapshot 2026-08-26.json (v2 fresh, ranked 2978) intact + PITFWU fresh thru 8-26. Rebuilt MANUALLY yesterday (cron 1st fires SAT 8-29). Scan reads latest snapshot, doesn't re-rank daily.
+## ✅ DATA-INTEGRITY (Aug 26, live): frozen-universe fix (`universe_refresh_v2`, weekly cron SAT 20:00); merger-aware heal (classify_short_symbols; yfinance splice removed); calendar completeness fixed + weekly cron `rigacap-prod-calendar-rebuild` SAT 18:00 scope=full. Ready for 4pm scan.
+## ✅ ASST on Maximizer radar was STALE dashboard.json (pre-fix 4:30pm scan) → fixed live via patch_breakout_radar (backed up). Live compute clean.
 
-## 🎯 GRADE after Aug-27 PM scan — [[project_maximizer_breakout_prediction_aug26]]: WT firing, BHVN cusp. Run maximizer_preview + build_todays_actions.
+## ✅ CHART WORK SHIPPED (Aug 27, deploying via CI — commits a89c35e/f828326/3280064)
+- Backend: NEW `GET /api/stock/{symbol}/previous-holds` (main.py ~12430) — unions Preserver=ModelPosition(live closed) + Maximizer=TierFill(tier=maximizer, paired buy→sell) + WF=WalkForwardSimulation.trades_json. NO double-count. gain/loss = (exit/entry-1)*100. VERIFIED: WF trades_json shape matches (symbol/entry_date/exit_date/prices/pnl_pct/exit_reason). FIXED to use is_daily_cache WF (canonical holds), EXCLUDE is_nightly_missed_opps (opposite of holds).
+- Frontend App.jsx StockChartModal (build clean): KILLED +20% line (+orphaned gain20 vars); relabeled "Average price"/"Entry trigger" (was Wtd Avg/DWAP, Breakout), verticals "Crossed trigger"/"Buy signal" (was BREAKOUT/ENTRY); PREVIOUS-HOLDS overlay = shaded entry→exit ReferenceArea bands + gain/loss% label, WF=lighter+dashed+"(bt)", clamped to visible window; "Prior holds (N)" toggle default-on; imported ReferenceArea.
+- DATA NOTE: live holds SPARSE (young book, ~1 each CIFR/CORZ/INTC/MU/MRVL); WF is the rich source (e.g. IREN +110%). Test charts: IREN/INTC/MU/MRVL.
 
-## 🔧 IN FLIGHT — CHART CLEANUP inventory (Erik's new request)
-- Erik wants: (1) remove vestigial markings (+20% profit-target line = OLD strategy; live t30v = 30% trail, no target), (2) explain/remove "unknown vertical lines", (3) NEW FEATURE: overlay PREVIOUS HOLDS (entry+exit markers) per symbol incl from walk-forwards.
-- Ties to the pre-existing **t30v DISPLAY-PARITY SWEEP** TODO (chart +20% ref line was the last open item; also grep App.jsx+emails for 12%/+20%/profit_target/1.20).
-- Launched 2 read-only Explore agents (results come back to THIS session via notification): (A) frontend chart-markings inventory (App.jsx / Chart* — recharts? all ReferenceLine/vertical/markers + which vestigial/unknown), (B) backend prior-holds DATA availability (TierFill/ModelPosition/MaximizerBookSnapshot/ensemble_signals + WF trade logs + any per-symbol history endpoint). When they return: synthesize inventory → scope changes with Erik BEFORE editing.
+## ⏭️ CHART TODO (asked Erik): TIER-GATING not wired — overlay shows ALL sources regardless of viewer tier; each hold tagged w/ tier already, but StockChartModal has NO tier prop → needs viewer tier plumbed in. Erik decided chart SHOULD reflect viewer's tier. Also: DWAP×1.05 IS a LIVE entry gate (signals.py:1021, verified) — line is real, just relabeled.
 
-## ⏭️ OTHER TODOs (none urgent): retire legacy get_universe() (~80 names, fallback only); fold nasdaqtraded.txt ETF rule; rename_continuity carry-forward (SUNB); remove diag handlers read_perf_test/fetch_scope_test/history_source_probe (KEEP scan_preview/calendar_audit/maximizer_preview); X reply fix (paused); sell-alert 12% vs 30% parity (deferred Jul 7); docs refresh.
+## 🎯 GRADE after 4pm scan: [[project_maximizer_breakout_prediction_aug26]] WT firing/BHVN cusp → maximizer_preview + build_todays_actions.
+## ⏭️ OTHER (none urgent): retire get_universe() (~80); nasdaqtraded.txt ETF rule; rename_continuity carry-forward (SUNB); remove diags read_perf_test/fetch_scope_test/history_source_probe; X reply fix; scrub literal DWAP in perf_numbers.js.

@@ -15,6 +15,9 @@
 ## 🚫 NO PICKLE — live read path is PARQUET/PITFWU (Aug 24, Erik emphatic ×2)
 - [Stop saying pickle](feedback_no_pickle_parquet.md) — `PRICE_SOURCE=parquet`+`PITFWU_READ=true`, scoped partial reads. CLAUDE.md's "2GB pickle" language is STALE. Say parquet/PITFWU; for DB-derivable work read snapshots directly (price-source-agnostic).
 
+## 🚫 BRAND VOICE — never say "DWAP"/"Wtd Avg" to customers (Aug 27, emphatic)
+- [No DWAP customer-facing](feedback_no_dwap_customer_facing.md) — internal only. Customer labels: "Average price" line + "Entry trigger" (the +5% gate, still LIVE Preserver entry). Scrub App.jsx + perf_numbers.js. Admin tools may keep DWAP.
+
 ## 🗣️ BRAND VOICE — never say "tape" for the market (Aug 17)
 - [No "tape" rule](feedback_no_tape_brand_voice.md) — Erik doesn't use "tape"; say market/action/conditions. Already enforced in maximizer_service AI prompt; grep new copy for it before shipping.
 
