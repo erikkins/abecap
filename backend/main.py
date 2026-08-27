@@ -12428,6 +12428,106 @@ async def get_stock_history(symbol: str, days: int = 252, user: User = Depends(r
     }
 
 
+@app.get("/api/stock/{symbol}/previous-holds")
+async def get_stock_previous_holds(
+    symbol: str,
+    include_walkforward: bool = True,
+    limit: int = 50,
+    user: User = Depends(require_valid_subscription),
+    db: AsyncSession = Depends(get_db),
+):
+    """Prior entry→exit holds for a symbol — powers the chart 'previous holds' overlay.
+    Sources (no double-count): Preserver = live model book (ModelPosition); Maximizer =
+    tier fills (TierFill tier='maximizer', paired buy→sell); optionally the walk-forward
+    backtest (WalkForwardSimulation.trades_json, flagged is_walkforward). gain/loss is
+    computed from prices consistently ((exit/entry-1)*100) to avoid pct/fraction ambiguity."""
+    from app.core.database import ModelPosition, TierFill, WalkForwardSimulation
+    symbol = symbol.upper()
+    holds = []
+
+    def _pnl(entry, exit_):
+        return round((exit_ / entry - 1) * 100, 1) if entry and exit_ else None
+
+    # Preserver / t30v — the live model book (closed holds)
+    try:
+        rows = (await db.execute(
+            select(ModelPosition).where(
+                ModelPosition.symbol == symbol,
+                ModelPosition.portfolio_type == "live",
+                ModelPosition.exit_date.isnot(None),
+            ).order_by(ModelPosition.entry_date.desc()).limit(limit)
+        )).scalars().all()
+        for r in rows:
+            holds.append({
+                "entry_date": r.entry_date.strftime('%Y-%m-%d') if r.entry_date else None,
+                "entry_price": round(r.entry_price, 2) if r.entry_price else None,
+                "exit_date": r.exit_date.strftime('%Y-%m-%d') if r.exit_date else None,
+                "exit_price": round(r.exit_price, 2) if r.exit_price else None,
+                "pnl_pct": _pnl(r.entry_price, r.exit_price),
+                "exit_reason": r.exit_reason,
+                "tier": "preserver", "source": "t30v", "is_walkforward": False,
+            })
+    except Exception as e:
+        logger.warning(f"previous-holds ModelPosition failed for {symbol}: {e}")
+
+    # Maximizer — tier fills, pair buy→sell chronologically
+    try:
+        fills = (await db.execute(
+            select(TierFill).where(
+                TierFill.symbol == symbol, TierFill.tier == "maximizer"
+            ).order_by(TierFill.fill_date)
+        )).scalars().all()
+        open_buy = None
+        for f in fills:
+            if f.side == "buy":
+                open_buy = f
+            elif f.side == "sell" and open_buy is not None:
+                holds.append({
+                    "entry_date": open_buy.fill_date.strftime('%Y-%m-%d'),
+                    "entry_price": round(open_buy.price, 2),
+                    "exit_date": f.fill_date.strftime('%Y-%m-%d'),
+                    "exit_price": round(f.price, 2),
+                    "pnl_pct": _pnl(open_buy.price, f.price),
+                    "exit_reason": f.reason,
+                    "tier": "maximizer", "source": open_buy.source or "breakout",
+                    "is_walkforward": False,
+                })
+                open_buy = None
+    except Exception as e:
+        logger.warning(f"previous-holds TierFill failed for {symbol}: {e}")
+
+    # Walk-forward backtest — latest completed sim, parse trades_json, filter this symbol
+    if include_walkforward:
+        try:
+            wf = (await db.execute(
+                select(WalkForwardSimulation).where(
+                    WalkForwardSimulation.status == "completed",
+                    WalkForwardSimulation.trades_json.isnot(None),
+                ).order_by(WalkForwardSimulation.simulation_date.desc()).limit(1)
+            )).scalars().first()
+            if wf and wf.trades_json:
+                import json as _json
+                for t in _json.loads(wf.trades_json):
+                    if (t.get("symbol") or "").upper() != symbol:
+                        continue
+                    ep, xp = t.get("entry_price"), t.get("exit_price")
+                    holds.append({
+                        "entry_date": (t.get("entry_date") or "")[:10] or None,
+                        "entry_price": round(ep, 2) if ep else None,
+                        "exit_date": (t.get("exit_date") or "")[:10] or None,
+                        "exit_price": round(xp, 2) if xp else None,
+                        "pnl_pct": _pnl(ep, xp),
+                        "exit_reason": t.get("exit_reason"),
+                        "tier": None, "source": t.get("strategy_name") or "walkforward",
+                        "is_walkforward": True,
+                    })
+        except Exception as e:
+            logger.warning(f"previous-holds WF failed for {symbol}: {e}")
+
+    holds.sort(key=lambda h: h.get("entry_date") or "", reverse=True)
+    return {"symbol": symbol, "count": len(holds), "holds": holds[:limit]}
+
+
 # ============================================================================
 # Live Quotes Endpoint (for real-time UI updates)
 # ============================================================================
