@@ -12596,9 +12596,9 @@ async def get_stock_previous_holds(
     _mx_dbg = {"ran": False, "iw": bool(include_walkforward)}
     if include_walkforward:
         try:
-            import json as _mj, boto3 as _mb
+            import json as _mj, boto3 as _mb, os as _mo
             _s3 = _mb.client("s3", region_name="us-east-1")
-            _bkt = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
+            _bkt = _mo.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
             _raw = _s3.get_object(Bucket=_bkt, Key="signals/maximizer_wf_trades.json")["Body"].read()
             _art = _mj.loads(_raw)
             _bysym = _art.get("by_symbol", {})
