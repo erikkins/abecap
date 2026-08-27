@@ -3351,24 +3351,19 @@ def handler(event, context):
                 print(f"🧊 PITFWU FROZEN ({len(frozen)}, last bar >{_max_lag}d behind market): {', '.join(frozen[:40])}")
             if nf:
                 print(f"⚠️ PITFWU no-fetch ({len(nf)}): {', '.join(nf[:40])}")
+            # Still-short symbols are NOT stitched (yfinance is split-adjusted; a merger
+            # boundary must never be spanned). Classify WHY and leave them safely gated.
+            short_reasons = {}
             if _full and short_after:
                 print(f"📏 PITFWU still-short after Alpaca backfill ({len(short_after)}, <250 bars): {', '.join(short_after[:40])}")
-            # yfinance deep-history ESCALATION for still-short symbols (splice + drift gate).
-            # Runs when full_backfill (default) unless yf_fallback:false; honors the dry-run flag.
-            _yf = bool(_cfg.get("yf_fallback", _full)) if isinstance(_cfg, dict) else _full
-            yf_res = {}
-            if _yf and short_after:
-                yf_start = (_pd.Timestamp.now().normalize() - _pd.Timedelta(days=365 * 8 + 30)).date().isoformat()
-                yf_res = ps.yf_backfill(short_after, yf_start, end, execute=_execute)
-                print(f"🩹 yf-fallback ({'exec' if _execute else 'dry'}): "
-                      + ', '.join(f"{s}:{r.get('status')}({r.get('bars','-')})" for s, r in yf_res.items()))
+                short_reasons = ps.classify_short_symbols(short_after)
             summary.pop("last_dates", None)   # keep the return compact
             summary.pop("last_len", None)
             return {"status": "success", "symbols": len(syms), "gap": f"{start}..{end}",
                     "execute": _execute, "summary": summary,
                     "frozen_count": len(frozen), "frozen": frozen[:60],
                     "short_after_count": len(short_after), "short_after": short_after[:60],
-                    "yf_fallback": yf_res,
+                    "short_reasons": short_reasons,   # gated, labeled; never stitched
                     "pitfwu_last_date": str(new_last.date()) if new_last is not None else None}
         try:
             result = _do_pitfwu_append()
@@ -3619,22 +3614,16 @@ def handler(event, context):
                     print(f"🩹 healing {len(surgers_in)} newcomers via FULL backfill {start_h}..{end_h}")
                     hsum = _ps.append_pitfwu_bars(surgers_in, start_h, end_h, execute=True, full=True)
                     short_after = sorted(s for s, n in (hsum.get("last_len") or {}).items() if n < 250)
+                    # Still-short symbols are NOT stitched (yfinance is split-adjusted; and a
+                    # merger boundary must never be spanned). Classify WHY they're short and
+                    # leave them safely gated with a labeled reason.
+                    short_reasons = {}
                     if short_after:
                         print(f"📏 still-short after Alpaca heal ({len(short_after)}): {', '.join(short_after[:40])}")
-                    # ESCALATE still-short to the yfinance deep-history fallback (splice + drift gate).
-                    yf_res, yf_healed, yf_reject, yf_still = {}, [], [], []
-                    if short_after:
-                        yf_start = end_h - _td(days=365 * 8 + 30)   # deep window for the fallback
-                        yf_res = _ps.yf_backfill(short_after, yf_start, end_h, execute=True)
-                        for s, r in yf_res.items():
-                            st = r.get('status')
-                            if st == 'ok':
-                                yf_healed.append(s)
-                            elif st == 'drift_reject':
-                                yf_reject.append(s)          # flagged: sources disagree — needs a look
-                            else:
-                                yf_still.append(s)           # genuinely young / no yf depth → stays gated (safe)
-                        print(f"🩹 yf-fallback: healed={yf_healed} reject={yf_reject} still_short={yf_still}")
+                        short_reasons = _ps.classify_short_symbols(short_after)
+                        _brk = [s for s, r in short_reasons.items() if r.get('reason') == 'corporate_action_boundary']
+                        print(f"🏷️ short reasons — merger/identity: {_brk} · young/gap: "
+                              f"{[s for s in short_after if s not in _brk]}")
                     result['heal'] = {
                         'healed': len(surgers_in),
                         'new_symbol': hsum.get('new_symbol'),
@@ -3642,10 +3631,7 @@ def handler(event, context):
                         'no_fetch': hsum.get('no_fetch'),
                         'no_fetch_symbols': (hsum.get('no_fetch_symbols') or [])[:40],
                         'short_after_alpaca': short_after,
-                        'yf_healed': yf_healed,
-                        'yf_drift_reject': yf_reject,
-                        'yf_still_short': yf_still,
-                        'yf_detail': yf_res,
+                        'short_reasons': short_reasons,   # gated, labeled; never stitched
                     }
             return result
         try:

@@ -356,76 +356,62 @@ def append_pitfwu_bars(symbols: List[str], start, end, execute: bool = False,
     return summary
 
 
-def fetch_yf_history(symbols: List[str], start, end) -> Dict[str, pd.DataFrame]:
-    """Deep-history FALLBACK for symbols Alpaca truncates (e.g. a ticker whose Alpaca
-    series restarts at a split — AZN restarts 2026-02-02, its reverse-split date).
-    yfinance ALWAYS split-adjusts OHLC (auto_adjust only toggles dividends), so these
-    bars sit on the CURRENT split scale — consistent with Alpaca RAW bars AFTER the most
-    recent split, which is what lets us splice them. Keyed by original symbol; schema
-    matches _read_pitfwu_bars (index=date tz-naive, cols open/high/low/close/volume)."""
-    import yfinance as yf
-    s0 = pd.Timestamp(start).date().isoformat()
-    e1 = (pd.Timestamp(end).normalize() + pd.Timedelta(days=1)).date().isoformat()
-    out: Dict[str, pd.DataFrame] = {}
+# A corporate event does NOT always mean a fresh security. Distinguish:
+#  - IDENTITY BREAK: the pre-event series is a DIFFERENT entity (merger, reverse merger,
+#    spin-off, redemption/removal). Alpaca serves a new, short series and that's correct —
+#    NEVER stitch across it (fabricated momentum = the ASST failure mode). AZN's 2026-02-02
+#    boundary is a stock_merger → correctly a new, young security (143 bars).
+#  - RENAME: same economic entity, ticker/name changed (FB→META). The asset usually keeps
+#    its identity, so Alpaca carries full history forward under the new ticker and it's NOT
+#    short at all. If a rename DOES show short, the deep history exists under the OLD ticker
+#    and is recoverable via a symbol-continuity map — it is NOT a genuinely young company.
+_IDENTITY_BREAK_TYPES = {
+    "stock_mergers", "cash_mergers", "stock_and_cash_mergers", "spin_offs",
+    "worthless_removals", "redemptions",
+}
+_RENAME_TYPES = {"name_changes", "symbol_changes"}
+
+
+def classify_short_symbols(symbols: List[str], years: int = 2) -> Dict[str, dict]:
+    """WHY is each symbol short on history? Read-only. Queries Alpaca corp-actions and
+    labels the reason so the heal can leave the symbol safely GATED with an explanation
+    instead of stitching synthetic history:
+      - 'corporate_action_boundary': merger / reverse-merger / spin-off / removal → Alpaca's
+        short series is a genuinely NEW identity — correct to be short; do NOT backfill.
+      - 'rename_continuity': a name/symbol change with short history → SAME company; the deep
+        history lives under the old ticker (recoverable via continuity map, not truly young).
+      - 'short_history': no corporate event — genuinely young (or a plain data gap); simply
+        hasn't traded long enough to rank. Stays gated until it seasons past 250 bars.
+    Never writes; never stitches. The gate + short-history fallback keep it out of signals."""
+    from datetime import date as _date, timedelta as _td
+    from alpaca.data.historical.corporate_actions import CorporateActionsClient
+    from alpaca.data.requests import CorporateActionsRequest
+    out: Dict[str, dict] = {}
+    try:
+        client = CorporateActionsClient(api_key=settings.ALPACA_API_KEY,
+                                        secret_key=settings.ALPACA_SECRET_KEY)
+    except Exception as e:
+        return {s: {"reason": "unknown", "error": str(e)[:120]} for s in symbols}
+    start, end = _date.today() - _td(days=365 * years + 30), _date.today()
     for s in symbols:
+        bars = None
+        df = _read_pitfwu_bars(s)
+        if df is not None:
+            bars = int(len(df))
         try:
-            h = yf.Ticker(s).history(start=s0, end=e1, auto_adjust=False)
-            if h is None or h.empty:
-                continue
-            df = pd.DataFrame({
-                "open": h["Open"].astype(float), "high": h["High"].astype(float),
-                "low": h["Low"].astype(float), "close": h["Close"].astype(float),
-                "volume": h["Volume"].astype(float),
-            })
-            idx = pd.DatetimeIndex(h.index)
-            idx = idx.tz_convert(None) if idx.tz is not None else idx
-            df.index = idx.normalize()
-            df.index.name = "date"
-            out[s] = df[~df.index.duplicated(keep="last")].sort_index()
+            res = client.get_corporate_actions(CorporateActionsRequest(symbols=[s], start=start, end=end))
+            data = getattr(res, "data", {}) or {}
+            counts = {t: len(a or []) for t, a in data.items() if a}
+            breaks = sorted(t for t in counts if t in _IDENTITY_BREAK_TYPES)
+            renames = sorted(t for t in counts if t in _RENAME_TYPES)
+            if breaks:
+                reason = "corporate_action_boundary"     # genuinely new/ended → gated (correct)
+            elif renames:
+                reason = "rename_continuity"             # same entity → deep history under old ticker
+            else:
+                reason = "short_history"                 # young or data gap → gated until seasoned
+            out[s] = {"bars": bars, "actions": counts, "identity_events": breaks,
+                      "rename_events": renames, "reason": reason}
         except Exception as e:
-            logger.warning(f"[PITFWU] yf history failed {s}: {str(e)[:120]}")
+            out[s] = {"bars": bars, "reason": "unknown", "error": str(e)[:120]}
     return out
-
-
-def yf_backfill(symbols: List[str], start, end, execute: bool = False,
-                min_bars: int = 250, tol: float = 0.05) -> Dict[str, dict]:
-    """ESCALATION for symbols Alpaca can't fully backfill (<min_bars). Splices yfinance
-    deep history (older dates the Alpaca store lacks) onto the existing Alpaca-RAW bars,
-    which WIN on any overlap (they're the truer as-traded recent series). Before storing,
-    a CONSISTENCY GATE checks the median close drift on overlapping dates is <= tol — a
-    mismatch means the two series are on different scales (unapplied split / bad symbol
-    map = the ASST failure mode), so we REJECT and flag instead of writing garbage.
-    Never deletes a bar. DRY RUN unless execute=True."""
-    yf = fetch_yf_history(symbols, start, end)
-    res: Dict[str, dict] = {}
-    for s in symbols:
-        y = yf.get(s)
-        existing = _read_pitfwu_bars(s)
-        if y is None or y.empty:
-            res[s] = {"status": "no_yf_data"}
-            continue
-        drift = None
-        if existing is not None and len(existing):
-            common = y.index.intersection(existing.index)
-            if len(common) >= 5:
-                a = existing.loc[common, "close"].astype(float)
-                b = y.loc[common, "close"].astype(float)
-                rel = (a.subtract(b).abs() / a.where(a != 0)).dropna()
-                drift = float(rel.median()) if len(rel) else None
-                if drift is not None and drift > tol:
-                    res[s] = {"status": "drift_reject", "median_drift": round(drift, 4),
-                              "overlap": int(len(common))}
-                    continue
-            add = y[~y.index.isin(existing.index)]
-            merged = pd.concat([existing, add]).sort_index()
-        else:
-            merged = y.sort_index()
-        merged = merged[~merged.index.duplicated(keep="first")]  # existing (Alpaca) wins on any dup
-        enough = len(merged) >= min_bars
-        res[s] = {"status": "ok" if enough else "still_short", "bars": int(len(merged)),
-                  "median_drift": round(drift, 4) if drift is not None else None,
-                  "yf_bars": int(len(y)),
-                  "last_date": pd.Timestamp(merged.index.max()).strftime("%Y-%m-%d")}
-        if execute and enough:
-            _write_pitfwu_bars(s, merged)
-    return res
