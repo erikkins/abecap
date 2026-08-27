@@ -12571,15 +12571,18 @@ async def get_stock_previous_holds(
     # Maximizer breakout WF trades (signals/maximizer_wf_trades.json) — the divergent holds the
     # breakout sleeve caught that the t30v core never takes. Breakout is Maximizer-only, so no
     # dedup vs the core WF. Flagged is_walkforward + tier='maximizer' for the cross-tier teaser.
+    _mx_dbg = {"ran": False, "iw": bool(include_walkforward)}
     if include_walkforward:
         try:
             import json as _mj, boto3 as _mb
             _s3 = _mb.client("s3", region_name="us-east-1")
             _bkt = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
-            _art = _mj.loads(_s3.get_object(Bucket=_bkt, Key="signals/maximizer_wf_trades.json")["Body"].read())
+            _raw = _s3.get_object(Bucket=_bkt, Key="signals/maximizer_wf_trades.json")["Body"].read()
+            _art = _mj.loads(_raw)
             _bysym = _art.get("by_symbol", {})
             _mrows = _bysym.get(symbol, []) or []
-            logger.warning(f"[prevholds-mx] {symbol} bkt={_bkt} artsyms={len(_bysym)} rows={len(_mrows)}")
+            _mx_dbg = {"ran": True, "bkt": _bkt, "bytes": len(_raw), "artsyms": len(_bysym), "rows": len(_mrows)}
+            print(f"[prevholds-mx] {symbol} {_mx_dbg}")
             for t in _mrows:
                 ep, xp = t.get("entry_price"), t.get("exit_price")
                 holds.append({
@@ -12592,11 +12595,13 @@ async def get_stock_previous_holds(
                     "tier": "maximizer", "source": "breakout", "is_walkforward": True,
                 })
         except Exception as e:
-            logger.warning(f"previous-holds maximizer-WF failed for {symbol}: {e}")
+            import traceback as _tb
+            _mx_dbg = {"ran": True, "error": str(e)[:200]}
+            print(f"[prevholds-mx] {symbol} EXC {e}\n{_tb.format_exc()[:500]}")
 
     holds.sort(key=lambda h: h.get("entry_date") or "", reverse=True)
     response.headers["Cache-Control"] = "no-store"   # never cache — data updates as the book/WF do
-    return {"symbol": symbol, "count": len(holds), "holds": holds[:limit]}
+    return {"symbol": symbol, "count": len(holds), "holds": holds[:limit], "_mx_debug": _mx_dbg}
 
 
 # ============================================================================
