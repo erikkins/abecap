@@ -12466,6 +12466,26 @@ async def get_stock_history(symbol: str, days: int = 252, user: User = Depends(r
     }
 
 
+@app.get("/api/debug/mxholds/{symbol}")
+async def _debug_mxholds(symbol: str):
+    """TEMP no-auth debug: replicate the maximizer_wf_trades read exactly, curlable directly
+    (bypasses auth/cache/browser) to see what the API Lambda reads for a symbol."""
+    import json as _j, boto3 as _b, os as _o
+    symbol = symbol.upper()
+    bkt = _o.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
+    try:
+        raw = _b.client("s3", region_name="us-east-1").get_object(
+            Bucket=bkt, Key="signals/maximizer_wf_trades.json")["Body"].read()
+        art = _j.loads(raw)
+        bs = art.get("by_symbol", {})
+        rows = bs.get(symbol, []) or []
+        return {"symbol": symbol, "bkt": bkt, "bytes": len(raw), "artsyms": len(bs),
+                "rows": len(rows), "sample_keys": list(bs.keys())[:8], "sample": rows[:2]}
+    except Exception as e:
+        import traceback
+        return {"symbol": symbol, "error": str(e)[:300], "tb": traceback.format_exc()[:600]}
+
+
 @app.get("/api/stock/{symbol}/previous-holds")
 async def get_stock_previous_holds(
     symbol: str,
