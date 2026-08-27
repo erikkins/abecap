@@ -7,22 +7,19 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 27 2026 (scan+email VERIFIED solid; SMCI fixed; cleanup+SOT+DST queued)
+# Session snapshot — Aug 27 2026 (scan+email solid; double-signal job KILLED; digest-reframe question open)
 
-## ▶▶ GO SLOW. NO "DWAP"/"t30v" customer-facing. NO live filters/guards w/o full WF re-run. SPA needs page reload after deploy. LESSON: when logs won't surface, embed debug in the RESPONSE (`_mx_debug` caught the os NameError logs never showed).
+## ▶▶ GO SLOW. NO "DWAP"/"t30v" customer-facing. NO live filters/guards w/o full WF re-run. SPA reload after deploy. Embed debug in RESPONSE when logs won't surface. BUY = INSTRUCTION (mirror the book), not self-manage.
 
-## ✅ TONIGHT'S EMAIL — 100% VERIFIED SOLID (fires 6pm ET / cron(0 22) ENABLED)
-- Freshness gate `_validate_data_freshness` PASSES (dashboard generated_at=2026-08-27 → sends, not held). Digest source=dashboard.json (4:30 scan, authoritative): data_date 2026-08-27, 20 buys, regime rotating_bull. No phantom, CRWD fixed, calendar_audit 0 dangerous. Maximizer DT/OKTA/RBRK = valid breakout entries (real data). No t30v/DWAP leak in email. Nothing I shipped touched send_daily_emails/email_service. Expo push 400 = mobile-admin only, benign.
+## ✅ TONIGHT: scan clean (20 buys incl fresh CRCL/NOW/NVDA/FIG, rotating_bull, CRWD fixed, 0 dangerous). 6pm daily digest = 100% verified to send (freshness gate passes). Maximizer bought DT/OKTA/RBRK (valid breakouts, real data; OKTA=real earnings gap). Expo OTA published to preview channel (portfolio-check count etc → Erik's phone, needs app reopen ×2).
 
-## ✅ CHART/WIDGET FEATURE COMPLETE
-- previous-holds endpoint + overlay (bands/dots/labels/5Y), Trade History clickable+lookup, admin "Where Your Stocks Sit" widget. SMCI=0 ROOT CAUSE = NameError 'os not defined' in maximizer block (bare os.environ; os not module-scope in main.py) → threw every call → 0 holds. FIXED (import os as _mo, commit 3da79ab). CONFIRMED SMCI shows 3. Widget tier columns made consistent: both = "count · best%" (best across tier), M badge upsell-only, Best col dropped (5aeb0fe).
+## 🔴 DOUBLE-SIGNAL ALERT — KILLED (Erik: "doesn't make sense anymore")
+- Was silently failing all session on a `select` NameError → I fixed it (commit 266d9aa) → it RESUMED and fired "Consider adding CRCL". Erik: it's a self-managed-portfolio artifact (book is FULL, subscribers MIRROR — "consider adding" contradicts the model).
+- KILLED: `aws events disable-rule rigacap-prod-double-signals` → State=DISABLED (was cron(0 21)=5pm ET). ⏭️ TODO: update terraform SSOT (disable/remove rule) + remove handler code (post-email cleanup) so a terraform apply won't re-enable.
+- **Jacob (jacob@reider.us, TRIAL, joined Aug 25) GOT IT**: is_valid()=True for trial-in-window; double_signals pref defaults True (his email_preferences=null); CRCL fresh → sent. NOT a data error (real signal, just old framing) — Erik: don't send a correction.
 
-## 🧹 REMOVE AFTER 6PM EMAIL (Erik OK'd): `/api/debug/mxholds/{symbol}` route, `_mx_debug` field + `[prevholds-mx]` print in previous-holds, `probe_maximizer_holds` handler; also read-only diags read_perf_test/fetch_scope_test/history_source_probe.
+## ⚠️ OPEN — same "Consider adding" framing is in the 6PM DAILY DIGEST (email_service.py:647 "New Today / Consider adding"), STILL ENABLED, sends to Jacob tonight. Killing the double-signal job does NOT fix the digest. REAL FIX = reframe digest to mirror-the-book ("the book entered X / we hold Y", BUY=instruction), not "consider adding". AWAITING Erik: draft the reframe now, or leave tonight's digest + reframe deliberately?
 
-## 🕑 QUEUED AFTER EMAIL (in order):
-1. Debug-scaffolding cleanup (above).
-2. ONE REGIME SOT — retire MarketAnalysisService `_mas` 5-regime (only DASH-DIAG uses it = the strong_bull divergence); regime computed-once (predict_transitions→regime_forecast_snapshots), point GET /regime (main.py:11827) + maximizer_preview at that value not fresh detect_regime. (Trading/display/persist already unify on market_regime_service→rotating_bull.)
-3. DST-aware EventBridge SCHEDULER migration (aws_scheduler_schedule + America/New_York) — before Nov EST.
-4. Smaller: in-chart M badge; scrub DWAP in perf_numbers.js comments; retire get_universe(); X-reply ticker-selection fix (still `max by pnl_pct`, reply_scanner_service.py:366/437).
+## 🧹 POST-EMAIL CLEANUP (Erik OK'd): strip debug scaffolding (/api/debug/mxholds, _mx_debug, [prevholds-mx] print, probe_maximizer_holds; read_perf_test/fetch_scope_test/history_source_probe). Then: ONE REGIME SOT (retire _mas 5-regime); DST-aware EventBridge Scheduler; double-signal terraform/handler removal; in-chart M badge; X-reply ticker fix.
 
-## 🎯 GRADE next session: [[project_maximizer_breakout_prediction_aug26]] WT/BHVN (regime rotating_bull, breakout fired but picked DT/OKTA/RBRK). Watch if OKTA reverts (Erik hunch).
+## ✅ Earlier: SMCI=0 was `os` NameError in previous-holds (fixed 3da79ab, confirmed shows 3). Widget tier cols consistent (count · best%). t30v leak fixed.
