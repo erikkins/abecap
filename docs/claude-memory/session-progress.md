@@ -7,19 +7,19 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 28 2026 (Mirror tab loved by Erik "this is so cool"; SnapTrade is next when he's ready)
+# Session snapshot — Aug 28 2026 (Mirror tab + SnapTrade LIVE; awaiting Erik's live Schwab connect test)
 
-## ▶▶ GO SLOW / BE PRECISE. NO "DWAP"/"t30v"/"tape"/"Consider adding" customer-facing. NO model change w/o full universe re-run. Research MUST map to prod. Worker payloads need TRUTHY value ({} → mangum error). SPA HARD-RELOAD after deploy.
+## ▶▶ GO SLOW / BE PRECISE. NO "DWAP"/"t30v"/"tape"/"Consider adding" customer-facing. NO model change w/o full universe re-run. Worker payloads need TRUTHY value. SPA HARD-RELOAD after deploy. NEVER bare `lambda update-function-configuration --environment` (wipes all 52 keys) — always fetch-all+append+verify.
 
-## ✅ SHIPPED main (all CI/CD ok): 875d370 voice-guard(tape); affe78d sector_rotation_study; 0b3c40c mean-rev; 06bb951 weekly regime; 71fa38e MIRROR tab; f4afca3 mirror universe-split+combined book; daae733 mirror per-book P/M badges.
+## ✅ SHIPPED main (all CI/CD ok): 71fa38e MIRROR tab; f4afca3 universe-split+combined book; daae733 per-book P/M badges; 3efd3a1 CSV upload; **f17db20 SnapTrade connect (multi-brokerage, read-only)**.
 
-## 🪞 MIRROR TAB (admin-only, History tab, MirrorCheck) — mirror-alignment vs live model book; manual add/del→localStorage; tool-safe copy+disclaimer. Built out via 3 Erik catches:
-1. MSFT "outside universe" wrong → gated GET /api/signals/mirror-context (universe + ever-traded 'entered' sets; reuses _load_overlay_sets; membership only; reusable for SnapTrade). 5 buckets: aligned / in-book-not-held / drifted(entered) / in-universe-no-signal(MSFT/META/TSLA) / outside(ETFs).
-2. AAPL "magically in model" → NOT new: entered 2026-07-20 (verified via worker {"model_portfolio":{"action":"summary","portfolio_type":"live"}}). Was mis-hidden b/c Mirror only compared vs Maximizer breakout book; FIXED = mirror vs FULL entitlement (tier_book + preserver_book combined).
-3. "which book?" → per-book split preserverSyms(base)/maximizerSyms(breakout); gauge line "Preserver base X/N · Maximizer breakout Y/M"; P/M badge on aligned+in-book chips (Preserver users see none). Cross-tier for Preserver users NOT surfaced (paid-book leak). Old WhereStocksSit still defined+UNMOUNTED (dead code; offered delete). tier_book=served, preserver_book=base (present for Maximizer, signal_source='both').
+## 🪞 MIRROR TAB (admin-only, History tab) — mirror-alignment vs live model book (tier_book+preserver_book combined for entitlement). 3 input methods coexist: manual add/del, CSV upload, SnapTrade. 5 buckets (aligned/in-book-not-held/drifted/in-universe-no-signal/outside-universe) via gated GET /api/signals/mirror-context (universe+entered sets). Per-book P/M badges (Maximizer). localStorage rigacap_mirror_holdings.
 
-## ⏳ NEXT (Erik enthused, NO RUSH — savor moment): SnapTrade wiring (Dev acct 5 free conns) — "connect broker" pulls holdings into same per-book alignment; Schwab ETF IRA → ETFs→outside universe, 0% mirrored ("not a mirroring account"), no look-through. Also offered: "entered [date]" note on aligned chips.
+## 🔌 SNAPTRADE — WIRED + DEPLOYED, awaiting Erik's live connect test:
+- Creds (TEST key, in transcript — ROTATE for prod): ClientID RIGACAP-LLC-TEST-EKAKS. Added to rigacap-prod-api env (54 keys, verified no drops).
+- Signing VERIFIED LIVE (manual HMAC-SHA256, no SDK): register/login(needs customRedirect body)/accounts(GET /api/v1/accounts) all 200. OLD /holdings is 410 → use accounts + per-account /positions union.
+- backend/app/services/snaptrade_service.py (register_user, login_redirect_uri, all_holdings=union across accounts). snaptrade_users table (created via {"run_migration":true,"sql":"CREATE TABLE..."} — NOTE: run_migration event only runs 2 hardcoded ALTERs + custom `sql`; the big _run_schema_migrations list runs via create_all on init). Endpoints POST/GET /api/signals/mirror/snaptrade/connect|holdings (gated). Frontend Connect button → portal → /app?snaptrade=connected → merge + "Connected" header (header-only source design Erik chose).
+- ⚠️ UNVERIFIED: real positions JSON shape (_extract_symbol is defensive, tries symbol.symbol/symbol.raw_symbol/etc). If Erik's Schwab ETFs don't populate after connect → pull real positions payload + fix parser. Expect his ETF IRA → "outside universe", 0% mirrored ("not a mirroring account" = correct).
+- Stray test SnapTrade user "rigacap-mirror-test-1" registered during testing (harmless).
 
-## 📊 SECTOR OBSERVATORY COMPLETE (chart same URL https://claude.ai/code/artifact/64243537-cd5b-4250-afe3-0c2e3dc690ae; scratchpad/sector_observatory.html). Verdict: sector timing NOT forecastable; value=regime→leadership social content. DISTRIBUTION (blog/PNG/living page) un-picked.
-
-## ⏭️ Other open: regime half of _mas (ONE REGIME SOT — reporting unification vs scanner.py:675 needs re-run). Queued: DST EventBridge Scheduler (pre-Nov); scrub DWAP perf_numbers.js; retire get_universe(); X-reply ticker fix; perf-numbers SSOT audit. Worker invoke: rigacap-prod-worker --profile rigacap, sync ok w/ --cli-read-timeout 600+Bash 600000 OR async Event+poll S3, TRUTHY payload. Local venv Py3.9 str|None=RED HERRING (prod 3.12).
+## ⏭️ Also open: sector observatory DONE (distribution un-picked); regime half of _mas SOT; DST Scheduler; scrub DWAP perf_numbers.js; old WhereStocksSit unmounted dead code. Worker invoke: rigacap-prod-worker --profile rigacap, sync ok w/ --cli-read-timeout 600+Bash 600000. Local venv Py3.9 str|None = RED HERRING (prod 3.12).
