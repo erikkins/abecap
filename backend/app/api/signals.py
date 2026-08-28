@@ -3959,6 +3959,23 @@ async def _load_overlay_sets(db):
     return universe, qualified, entered
 
 
+@router.get("/mirror-context")
+async def get_mirror_context(
+    user: User = Depends(require_valid_subscription),
+    db: AsyncSession = Depends(get_db),
+):
+    """Membership sets the Mirror tab needs to bucket a subscriber's OWN holdings:
+    which symbols are in our CURRENT universe (not excluded) and which the model has
+    EVER traded ('entered'). Gated behind a valid subscription; this is membership
+    only — NOT the current signals or the model book. Reuses the cached overlay sets."""
+    universe, qualified, entered = await _load_overlay_sets(db)
+    return {
+        "universe": sorted(universe),
+        "entered": sorted(entered),
+        "counts": {"universe": len(universe), "entered": len(entered)},
+    }
+
+
 @public_router.post("/portfolio-check")
 async def public_portfolio_check(
     req: PortfolioCheckRequest,

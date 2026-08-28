@@ -481,26 +481,51 @@ const SellModal = ({ symbol, position, currentPrice, stockInfo, onClose, onSell 
 // Tool-safe by design: every line is a factual set-comparison of the PUBLISHED book vs
 // what the user holds — never an instruction. The user decides whether to close any gap.
 // Holdings are a manual, ad-hoc watchlist (localStorage); alignment recomputes off the book.
-const MirrorCheck = ({ book, tier, regimeName, onOpenChart }) => {
+const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => {
   const KEY = 'rigacap_mirror_holdings';
   const [holdings, setHoldings] = useState(() => {
     try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; }
   });
   const [input, setInput] = useState('');
-  const [enrich, setEnrich] = useState({});   // symbol -> { everInBook, best }
+  const [ctx, setCtx] = useState(null);        // { universe:Set, entered:Set }
+  const [best, setBest] = useState({});         // symbol -> best past pnl% (drifted flourish)
 
   useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(holdings)); } catch { /* ignore */ } }, [holdings]);
 
-  const bookSyms = useMemo(
-    () => [...new Set((book?.holdings || []).map(h => (h.symbol || '').toUpperCase()).filter(Boolean))],
-    [book]
-  );
+  // Membership sets (universe + ever-traded), fetched once. Bucketing is set-driven, not per-ticker.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.get('/api/signals/mirror-context');
+        if (!cancelled) setCtx({ universe: new Set(r?.universe || []), entered: new Set(r?.entered || []) });
+      } catch { if (!cancelled) setCtx({ universe: new Set(), entered: new Set() }); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // The book to mirror = your full ENTITLEMENT. Maximizer = Preserver base + breakout, combined.
+  const bookSyms = useMemo(() => {
+    const syms = [book, preserverBook].flatMap(b => (b?.holdings || []).map(h => (h.symbol || '').toUpperCase()));
+    return [...new Set(syms.filter(Boolean))];
+  }, [book, preserverBook]);
   const bookSet = useMemo(() => new Set(bookSyms), [bookSyms]);
   const heldSet = useMemo(() => new Set(holdings), [holdings]);
 
-  // Enrich held-but-not-in-book tickers: was it EVER in our book? (previous-holds, preserver tier)
+  const aligned = holdings.filter(s => bookSet.has(s));
+  const inBookNotHeld = bookSyms.filter(s => !heldSet.has(s));
+  const notInBook = holdings.filter(s => !bookSet.has(s));
+  // Set-driven buckets: ever-traded → drifted; else in-universe → no-signal; else outside.
+  const drifted = notInBook.filter(s => ctx?.entered?.has(s));
+  const rest = notInBook.filter(s => !ctx?.entered?.has(s));
+  const inUniverse = rest.filter(s => ctx?.universe?.has(s));
+  const outside = rest.filter(s => !ctx?.universe?.has(s));
+  const mirroredPct = bookSyms.length ? Math.round((aligned.length / bookSyms.length) * 100) : 0;
+  const tierLabel = tier === 'maximizer' ? 'Maximizer' : 'Preserver';
+
+  // Best past result for drifted names (the "we caught it" flourish) — only for the few drifted.
   useEffect(() => {
-    const need = holdings.filter(s => !bookSet.has(s) && enrich[s] === undefined);
+    const need = drifted.filter(s => best[s] === undefined);
     if (!need.length) return;
     let cancelled = false;
     (async () => {
@@ -508,15 +533,14 @@ const MirrorCheck = ({ book, tier, regimeName, onOpenChart }) => {
       for (const s of need) {
         try {
           const r = await api.get(`/api/stock/${s}/previous-holds?t=${Date.now()}`);
-          const pres = (r?.holds || []).filter(h => h.tier === 'preserver');
-          const vals = pres.map(h => h.pnl_pct).filter(x => x != null);
-          upd[s] = { everInBook: pres.length > 0, best: vals.length ? Math.max(...vals) : null };
-        } catch { upd[s] = { everInBook: false, best: null }; }
+          const vals = (r?.holds || []).map(h => h.pnl_pct).filter(x => x != null);
+          upd[s] = vals.length ? Math.max(...vals) : null;
+        } catch { upd[s] = null; }
       }
-      if (!cancelled) setEnrich(e => ({ ...e, ...upd }));
+      if (!cancelled) setBest(b => ({ ...b, ...upd }));
     })();
     return () => { cancelled = true; };
-  }, [holdings, bookSet]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [drifted.join(',')]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const add = (e) => {
     e?.preventDefault();
@@ -526,14 +550,6 @@ const MirrorCheck = ({ book, tier, regimeName, onOpenChart }) => {
     setInput('');
   };
   const del = (s) => setHoldings(h => h.filter(x => x !== s));
-
-  const aligned = holdings.filter(s => bookSet.has(s));
-  const inBookNotHeld = bookSyms.filter(s => !heldSet.has(s));
-  const notInBook = holdings.filter(s => !bookSet.has(s));
-  const drifted = notInBook.filter(s => enrich[s]?.everInBook);
-  const offModel = notInBook.filter(s => !enrich[s]?.everInBook);
-  const mirroredPct = bookSyms.length ? Math.round((aligned.length / bookSyms.length) * 100) : 0;
-  const tierLabel = tier === 'maximizer' ? 'Maximizer' : 'Preserver';
 
   const Chip = ({ s, tone, sub, removable = true }) => (
     <span className={`group inline-flex items-center gap-1.5 pl-2.5 ${removable ? 'pr-1' : 'pr-2.5'} py-1 rounded-full border text-[0.8rem] font-mono ${tone}`}>
@@ -601,11 +617,14 @@ const MirrorCheck = ({ book, tier, regimeName, onOpenChart }) => {
             <Group label="In the model book, not in your account" count={inBookNotHeld.length} note="Current book positions your list doesn't include.">
               {inBookNotHeld.map(s => <Chip key={s} s={s} tone="border-claret/50 bg-claret/[0.06] text-claret" removable={false} />)}
             </Group>
-            <Group label="In your account, no longer in the model" count={drifted.length} note="The book previously held these and has since exited.">
-              {drifted.map(s => <Chip key={s} s={s} tone="border-rule bg-paper-deep text-ink-mute" sub={enrich[s]?.best != null ? `${enrich[s].best >= 0 ? '+' : ''}${enrich[s].best.toFixed(0)}%` : ''} />)}
+            <Group label="In your account, no longer in the model" count={drifted.length} note="The model traded these before and has since exited.">
+              {drifted.map(s => <Chip key={s} s={s} tone="border-rule bg-paper-deep text-ink-mute" sub={best[s] != null ? `${best[s] >= 0 ? '+' : ''}${best[s].toFixed(0)}%` : ''} />)}
             </Group>
-            <Group label="Not part of the model" count={offModel.length} note="Outside our universe (ETFs, or below our price / liquidity floor).">
-              {offModel.map(s => <Chip key={s} s={s} tone="border-rule text-ink-light" />)}
+            <Group label="In our universe, no signal" count={inUniverse.length} note="Liquid enough for us to track — the model has just never had a reason to buy them.">
+              {inUniverse.map(s => <Chip key={s} s={s} tone="border-rule bg-paper-deep text-ink-mute" />)}
+            </Group>
+            <Group label="Outside our universe" count={outside.length} note="ETFs, or below our price / liquidity floor — not names the model considers.">
+              {outside.map(s => <Chip key={s} s={s} tone="border-rule text-ink-light" />)}
             </Group>
           </>
         )}
@@ -5344,7 +5363,7 @@ function Dashboard() {
           </>
         ) : activeTab === 'history' ? (
           <div className="space-y-6">
-            {isAdmin && <MirrorCheck book={tierBookLive} tier={dashboardData?.tier} regimeName={dashboardData?.regime_forecast?.current_regime_name} onOpenChart={setChartModal} />}
+            {isAdmin && <MirrorCheck book={tierBookLive} preserverBook={dashboardData?.preserver_book} tier={dashboardData?.tier} regimeName={dashboardData?.regime_forecast?.current_regime_name} onOpenChart={setChartModal} />}
             <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-b border-ink py-4 mb-6">
               <MetricCard title="Total Trades" value={trades.length} />
               <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${wins.length}W / ${trades.length - wins.length}L`} trend={winRate > 50 ? 'up' : 'down'} />
