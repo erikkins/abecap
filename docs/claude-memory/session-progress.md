@@ -7,22 +7,16 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 27 2026 (cleanup + sector-strip SHIPPED & VERIFIED RUNNING)
+# Session snapshot — Aug 28 2026 (voice-guard shipped+verified live; sector-rotation research proposed)
 
-## ▶▶ GO SLOW / BE PRECISE, no broken code. NO "DWAP"/"t30v"/"Consider adding" customer-facing. NO model filter/param source change w/o full universe re-run. SPA reload after deploy. BUY=INSTRUCTION.
+## ▶▶ GO SLOW / BE PRECISE, no broken code. NO "DWAP"/"t30v"/"tape"/"Consider adding" customer-facing. NO model filter/param source change w/o full universe re-run. Research MUST map to prod penny-to-penny (only exposure-scaling reproduces). SPA reload after deploy. BUY=INSTRUCTION.
 
-## ✅ SHIPPED to main (both CI/CD SUCCESS):
-- **0721a74** Post-email cleanup: removed SMCI debug scaffolding + FULLY removed killed double-signal alert (scheduler+dispatch+template+terraform+prefs+toggle). Fixed t30v leak (previous-holds source "t30v"→"preserver").
-- **06c7e1d** Stripped sector strength (dead _mas ETF-momentum RS): market_analysis.py consts/methods/sector term, main.py (/api/market/sectors deleted + sectors block of /api/market/summary), scanner.py. 124 deletions, no book/backtest/customer impact.
+## ✅ SHIPPED to main (all CI/CD success): 0721a74 post-email cleanup+t30v-leak-fix; 06c7e1d sector-strength strip; **875d370** content-engine voice guard (ai_content_service._call_claude now verify→retry→FAIL-CLOSED via voice_filters; was the ONE generator w/ prompt-only ban that let "tape" through) + full original post in engagement email (was [:200]…).
 
-## ✅ WHOLE-SYSTEM TEST PASSED (Erik asked "make sure it runs"):
-- Live API public route GET /api/market-data-status → HTTP 200 fresh JSON = prod imported ALL deletions & serves. /health → 401 (loaded, not 5xx).
-- Local venv imports clean for every changed module (market_analysis, scanner, scheduler, email_service, database, send_sample_emails). Removed symbols confirmed gone at runtime.
-- ⚠️ Local `import main`/`import auth` fail ONLY on `str | None` — local venv is Py3.9; PROD IS Py3.12 (Dockerfile.lambda python:3.12). Pre-existing hint (commit ffd1102, admin.py), NOT ours. Ignore.
-- NOT yet exercised: worker Lambda on new image (runs scan; same Docker image as API so imports proven by inference; real test = next 4:30pm scan). OFFERED read-only `maximizer_preview` worker invoke — awaiting Erik y/n.
+## ✅ VERIFIED LIVE via worker invokes (deploy done 16:13): killed stale tape draft id 821; test_ai_content + generate_research_insight both produce CLEAN no-"tape" copy; emailed Erik the 2 clean drafts (engagement_opportunities {insight_prob:0} → insights:2, opps:2). NOTE: first engagement re-run showed insights:0 = transient (generate_dynamic_insight swallows None at ai_content_service.py:503, ran concurrent w/ intraday_monitor) — NOT the guard (which logs; was silent). Worker invoke pattern: --function-name rigacap-prod-worker --profile rigacap, sync w/ --cli-read-timeout 600 + Bash timeout 600000 works fine (memory's "2-min SIGTERM" fear didn't bite).
 
-## ⏭️ NEXT — regime half of _mas (remaining ONE REGIME SOT thread). OPEN DECISION (Erik discussing):
-- Safe now (no book change): point recomputing READ surfaces at persisted dashboard.regime_forecast.current_regime — GET /api/market/regime + maximizer_preview (both recompute detect_regime fresh); admin email routes; DELETE dead [DASH-DIAG] _mas block (signals.py:957); /api/market/summary still returns _mas 5-regime (admin-only).
-- Needs universe re-run (defer): ONE line = scanner.py:675 momentum market filter reading _mas.get_market_regime().spy_above_200ma.
+## ⏳ AWAITING ERIK GREENLIGHT — Sector-Rotation research (his curiosity Q). Proposed staged plan:
+- Phase 1 (cheap, READ-ONLY worker job + chart artifact): "Sector Rotation Observatory" — per-sector rolling RS over 21y history, leaders/laggards, rotation cadence/persistence/secular drift, OVERLAID on regime timeline (what Rotating Bull looks like under the covers). Backtester ALREADY has symbol_sectors + _compute_sector_medians + _get_sector_rs + levers (sector_rs_score/filter, sector_rs_regime_gated w/ rotating_bull in allowed set, max_sector_entries) — NO new plumbing.
+- Phase 2 (only if pattern found): WF sweep w/ those levers, judge Sharpe/MaxDD, multi-start. CAVEATS surfaced to Erik: sector CAPS already hurt t30v every metric (Jul20); momentum already rides rotation implicitly → edge (if any) is DD/crowding mgmt not raw return.
 
-## 🧹 Also queued: DST-aware EventBridge Scheduler (before Nov EST); in-chart M badge; scrub DWAP in perf_numbers.js; retire get_universe(); X-reply ticker fix. Separate: perf-numbers SSOT audit (plan file). GRADE [[project_maximizer_breakout_prediction_aug26]].
+## ⏭️ Other open: regime half of _mas (ONE REGIME SOT — safe reporting-layer unification vs scanner.py:675 needs re-run). Queued: DST EventBridge Scheduler (pre-Nov); scrub DWAP in perf_numbers.js; retire get_universe(); X-reply ticker fix; perf-numbers SSOT audit (plan file). Local venv=Py3.9 str|None import fails = RED HERRING (prod Py3.12).
