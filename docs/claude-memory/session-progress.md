@@ -7,19 +7,19 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 28 2026 (Mirror tab + SnapTrade LIVE; awaiting Erik's live Schwab connect test)
+# Session snapshot — Aug 28 2026 (Mirror + SnapTrade LIVE + holdings-endpoint fixed; awaiting Erik refresh confirm)
 
-## ▶▶ GO SLOW / BE PRECISE. NO "DWAP"/"t30v"/"tape"/"Consider adding" customer-facing. NO model change w/o full universe re-run. Worker payloads need TRUTHY value. SPA HARD-RELOAD after deploy. NEVER bare `lambda update-function-configuration --environment` (wipes all 52 keys) — always fetch-all+append+verify.
+## ▶▶ GO SLOW / BE PRECISE. NO "DWAP"/"t30v"/"tape" customer-facing. Worker payloads need TRUTHY value. SPA HARD-RELOAD after deploy. NEVER bare `lambda update-function-configuration --environment` (wipes 52 keys) — fetch-all+append+verify (Erik pre-authorized WITH verify-no-drops). Never log SnapTrade full URL (userSecret in query).
 
-## ✅ SHIPPED main (all CI/CD ok): 71fa38e MIRROR tab; f4afca3 universe-split+combined book; daae733 per-book P/M badges; 3efd3a1 CSV upload; **f17db20 SnapTrade connect (multi-brokerage, read-only)**.
+## ✅ SHIPPED main (all CI/CD ok): 71fa38e MIRROR; f4afca3 universe-split+combined book; daae733 per-book P/M badges; 3efd3a1 CSV upload; f17db20 SnapTrade connect; **7a3e3bc SnapTrade /positions/all fix + secret-log redaction**.
 
-## 🪞 MIRROR TAB (admin-only, History tab) — mirror-alignment vs live model book (tier_book+preserver_book combined for entitlement). 3 input methods coexist: manual add/del, CSV upload, SnapTrade. 5 buckets (aligned/in-book-not-held/drifted/in-universe-no-signal/outside-universe) via gated GET /api/signals/mirror-context (universe+entered sets). Per-book P/M badges (Maximizer). localStorage rigacap_mirror_holdings.
+## 🔌 SNAPTRADE — WIRED, DEPLOYED, holdings endpoint FIXED. Awaiting Erik hard-reload confirm.
+- Creds TEST key (in transcript+briefly in logs → ROTATE for prod): ClientID RIGACAP-LLC-TEST-EKAKS. On rigacap-prod-api env (54 keys, verified).
+- Manual HMAC signing VERIFIED. Flow: register → login(customRedirect body) → accounts(GET /api/v1/accounts) → **positions: GET /api/v1/accounts/{id}/positions/all** (legacy /positions + /holdings are 410 for accounts made after 2026-05-11!). Positions under `results`; ticker = position.instrument.raw_symbol. Erik's Schwab IRA = 18 ETF positions (SCHI etc.), synced fine → will land in "Outside our universe", 0% mirrored ("not a mirroring account" = correct/expected).
+- Files: backend/app/services/snaptrade_service.py (register_user/login_redirect_uri/all_holdings union across accounts; clean error raise, no secret leak). snaptrade_users table (user_id,user_secret; created via run_migration custom sql). Endpoints POST/GET /api/signals/mirror/snaptrade/connect|holdings (gated). Frontend Connect button→portal→/app?snaptrade=connected→merge; "Connected · <broker>" header (header-only source design). CSV + manual add/del coexist.
+- run_migration event = 2 hardcoded ALTERs + custom `sql` param; big _run_schema_migrations runs via create_all on init.
+- Stray test SnapTrade user rigacap-mirror-test-1 (harmless).
 
-## 🔌 SNAPTRADE — WIRED + DEPLOYED, awaiting Erik's live connect test:
-- Creds (TEST key, in transcript — ROTATE for prod): ClientID RIGACAP-LLC-TEST-EKAKS. Added to rigacap-prod-api env (54 keys, verified no drops).
-- Signing VERIFIED LIVE (manual HMAC-SHA256, no SDK): register/login(needs customRedirect body)/accounts(GET /api/v1/accounts) all 200. OLD /holdings is 410 → use accounts + per-account /positions union.
-- backend/app/services/snaptrade_service.py (register_user, login_redirect_uri, all_holdings=union across accounts). snaptrade_users table (created via {"run_migration":true,"sql":"CREATE TABLE..."} — NOTE: run_migration event only runs 2 hardcoded ALTERs + custom `sql`; the big _run_schema_migrations list runs via create_all on init). Endpoints POST/GET /api/signals/mirror/snaptrade/connect|holdings (gated). Frontend Connect button → portal → /app?snaptrade=connected → merge + "Connected" header (header-only source design Erik chose).
-- ⚠️ UNVERIFIED: real positions JSON shape (_extract_symbol is defensive, tries symbol.symbol/symbol.raw_symbol/etc). If Erik's Schwab ETFs don't populate after connect → pull real positions payload + fix parser. Expect his ETF IRA → "outside universe", 0% mirrored ("not a mirroring account" = correct).
-- Stray test SnapTrade user "rigacap-mirror-test-1" registered during testing (harmless).
+## 🪞 MIRROR (admin-only History tab): mirror-alignment vs combined entitled book (tier_book+preserver_book); 5 buckets via GET /api/signals/mirror-context (universe+entered sets); per-book P/M badges (Maximizer). localStorage rigacap_mirror_holdings.
 
-## ⏭️ Also open: sector observatory DONE (distribution un-picked); regime half of _mas SOT; DST Scheduler; scrub DWAP perf_numbers.js; old WhereStocksSit unmounted dead code. Worker invoke: rigacap-prod-worker --profile rigacap, sync ok w/ --cli-read-timeout 600+Bash 600000. Local venv Py3.9 str|None = RED HERRING (prod 3.12).
+## ⏭️ Also open: sector observatory DONE (distribution un-picked, chart https://claude.ai/code/artifact/64243537-cd5b-4250-afe3-0c2e3dc690ae); regime half of _mas SOT; DST Scheduler; scrub DWAP perf_numbers.js; old WhereStocksSit unmounted dead code. Worker invoke: rigacap-prod-worker --profile rigacap sync ok --cli-read-timeout 600+Bash 600000. WebSearch/WebFetch available (deferred, ToolSearch to load).
