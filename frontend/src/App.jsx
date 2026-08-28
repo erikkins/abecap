@@ -477,6 +477,147 @@ const SellModal = ({ symbol, position, currentPrice, stockInfo, onClose, onSell 
 // and the best result, with a click-through to the full chart + previous-holds overlay. This is
 // the paid-customer direction (fed by SnapTrade/CSV import later); gated to admin while counsel
 // reviews the framing. Impersonal/backward-looking track record — NOT individualized advice.
+// Mirror Check — how closely a follower's holdings line up with the LIVE model book.
+// Tool-safe by design: every line is a factual set-comparison of the PUBLISHED book vs
+// what the user holds — never an instruction. The user decides whether to close any gap.
+// Holdings are a manual, ad-hoc watchlist (localStorage); alignment recomputes off the book.
+const MirrorCheck = ({ book, tier, regimeName, onOpenChart }) => {
+  const KEY = 'rigacap_mirror_holdings';
+  const [holdings, setHoldings] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; }
+  });
+  const [input, setInput] = useState('');
+  const [enrich, setEnrich] = useState({});   // symbol -> { everInBook, best }
+
+  useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(holdings)); } catch { /* ignore */ } }, [holdings]);
+
+  const bookSyms = useMemo(
+    () => [...new Set((book?.holdings || []).map(h => (h.symbol || '').toUpperCase()).filter(Boolean))],
+    [book]
+  );
+  const bookSet = useMemo(() => new Set(bookSyms), [bookSyms]);
+  const heldSet = useMemo(() => new Set(holdings), [holdings]);
+
+  // Enrich held-but-not-in-book tickers: was it EVER in our book? (previous-holds, preserver tier)
+  useEffect(() => {
+    const need = holdings.filter(s => !bookSet.has(s) && enrich[s] === undefined);
+    if (!need.length) return;
+    let cancelled = false;
+    (async () => {
+      const upd = {};
+      for (const s of need) {
+        try {
+          const r = await api.get(`/api/stock/${s}/previous-holds?t=${Date.now()}`);
+          const pres = (r?.holds || []).filter(h => h.tier === 'preserver');
+          const vals = pres.map(h => h.pnl_pct).filter(x => x != null);
+          upd[s] = { everInBook: pres.length > 0, best: vals.length ? Math.max(...vals) : null };
+        } catch { upd[s] = { everInBook: false, best: null }; }
+      }
+      if (!cancelled) setEnrich(e => ({ ...e, ...upd }));
+    })();
+    return () => { cancelled = true; };
+  }, [holdings, bookSet]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const add = (e) => {
+    e?.preventDefault();
+    const syms = [...new Set((input.toUpperCase().match(/[A-Z][A-Z.\-]{0,6}/g) || []))];
+    if (!syms.length) return;
+    setHoldings(h => [...new Set([...h, ...syms])].slice(0, 60));
+    setInput('');
+  };
+  const del = (s) => setHoldings(h => h.filter(x => x !== s));
+
+  const aligned = holdings.filter(s => bookSet.has(s));
+  const inBookNotHeld = bookSyms.filter(s => !heldSet.has(s));
+  const notInBook = holdings.filter(s => !bookSet.has(s));
+  const drifted = notInBook.filter(s => enrich[s]?.everInBook);
+  const offModel = notInBook.filter(s => !enrich[s]?.everInBook);
+  const mirroredPct = bookSyms.length ? Math.round((aligned.length / bookSyms.length) * 100) : 0;
+  const tierLabel = tier === 'maximizer' ? 'Maximizer' : 'Preserver';
+
+  const Chip = ({ s, tone, sub, removable = true }) => (
+    <span className={`group inline-flex items-center gap-1.5 pl-2.5 ${removable ? 'pr-1' : 'pr-2.5'} py-1 rounded-full border text-[0.8rem] font-mono ${tone}`}>
+      <button onClick={() => onOpenChart?.({ type: 'signal', data: { symbol: s }, symbol: s })} className="hover:underline">{s}</button>
+      {sub && <span className="text-[0.62rem] opacity-70">{sub}</span>}
+      {removable && (
+        <button onClick={() => del(s)} className="opacity-30 group-hover:opacity-70 hover:!opacity-100 text-[0.85rem] leading-none px-0.5" title="remove" aria-label={`remove ${s}`}>×</button>
+      )}
+    </span>
+  );
+
+  const Group = ({ label, note, children, count }) => (
+    count ? (
+      <div className="mb-4">
+        <div className="flex items-baseline gap-2 mb-1.5">
+          <span className="font-body text-[0.6rem] font-medium tracking-[0.2em] uppercase text-ink-mute">{label}</span>
+          <span className="font-mono text-[0.7rem] text-ink-light">{count}</span>
+        </div>
+        <p className="text-[0.72rem] text-ink-light mb-2">{note}</p>
+        <div className="flex flex-wrap gap-2">{children}</div>
+      </div>
+    ) : null
+  );
+
+  return (
+    <div className="mb-6 border-2 border-claret/40 bg-paper-card rounded-lg overflow-hidden">
+      <div className="flex items-baseline justify-between px-5 py-3 border-b border-rule bg-claret/5">
+        <h2 className="font-display text-[1.1rem] font-medium text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>
+          Mirror
+          <em className="font-display italic text-ink-mute text-[0.8rem] ml-2" style={{ fontVariationSettings: '"opsz" 24' }}>preview · admin only</em>
+        </h2>
+        <span className="text-[0.62rem] font-medium tracking-[0.18em] uppercase text-claret px-2 py-1 border border-claret/40 rounded">Direction demo</span>
+      </div>
+      <div className="p-5">
+        <p className="text-sm text-ink-mute mb-1">How closely are you mirroring the book?</p>
+        <p className="text-[0.8rem] text-ink-light mb-4">Add the tickers you hold. We show how they line up with your tier&rsquo;s current model book — the facts, side by side. Whether to close the gap is your call.</p>
+
+        {/* Alignment gauge */}
+        <div className="mb-4 p-4 bg-paper-deep border border-rule rounded-lg">
+          <div className="flex items-baseline justify-between mb-2">
+            <span className="font-display text-[1.4rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 48' }}>
+              {aligned.length} <span className="text-ink-light text-[1rem]">of {bookSyms.length}</span> <span className="text-ink-mute text-[0.85rem] font-body">model positions held</span>
+            </span>
+            <span className="font-mono text-[1.1rem] text-claret font-medium" style={{ fontFeatureSettings: '"tnum"' }}>{mirroredPct}%</span>
+          </div>
+          <div className="h-2 bg-rule rounded-full overflow-hidden">
+            <div className="h-full bg-claret rounded-full transition-all" style={{ width: `${mirroredPct}%` }} />
+          </div>
+          <p className="text-[0.68rem] text-ink-light mt-2">Your tier: <span className="text-ink-mute">{tierLabel}</span>{regimeName ? <> · Market regime today: <span className="text-ink-mute">{regimeName}</span></> : null}</p>
+        </div>
+
+        <form onSubmit={add} className="flex gap-2 mb-5">
+          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Add tickers you hold — AAPL, NVDA…"
+            className="flex-1 px-3 py-2 text-sm bg-paper-deep border border-rule rounded-lg text-ink placeholder:text-ink-light focus:outline-none focus:border-claret" />
+          <button type="submit" className="px-4 py-2 text-sm font-medium bg-ink text-white rounded-lg hover:opacity-90">Add</button>
+        </form>
+
+        {(holdings.length === 0) ? (
+          <p className="text-sm text-ink-light py-4 text-center">Add a ticker you hold to see how you line up with the book.</p>
+        ) : (
+          <>
+            <Group label="In the model, and in your account" count={aligned.length} note="Aligned — the book holds these and so do you.">
+              {aligned.map(s => <Chip key={s} s={s} tone="border-positive/50 bg-positive/[0.07] text-ink" />)}
+            </Group>
+            <Group label="In the model book, not in your account" count={inBookNotHeld.length} note="Current book positions your list doesn't include.">
+              {inBookNotHeld.map(s => <Chip key={s} s={s} tone="border-claret/50 bg-claret/[0.06] text-claret" removable={false} />)}
+            </Group>
+            <Group label="In your account, no longer in the model" count={drifted.length} note="The book previously held these and has since exited.">
+              {drifted.map(s => <Chip key={s} s={s} tone="border-rule bg-paper-deep text-ink-mute" sub={enrich[s]?.best != null ? `${enrich[s].best >= 0 ? '+' : ''}${enrich[s].best.toFixed(0)}%` : ''} />)}
+            </Group>
+            <Group label="Not part of the model" count={offModel.length} note="Outside our universe (ETFs, or below our price / liquidity floor).">
+              {offModel.map(s => <Chip key={s} s={s} tone="border-rule text-ink-light" />)}
+            </Group>
+          </>
+        )}
+
+        <p className="text-[0.68rem] text-ink-light mt-4 pt-3 border-t border-rule leading-relaxed">
+          This compares your holdings to RigaCap&rsquo;s published model book. It is information, <span className="text-ink-mute">not investment advice</span> and not a recommendation to buy, sell, or hold any security. RigaCap is not your investment adviser. You decide what to follow and execute it through your own broker.
+        </p>
+      </div>
+    </div>
+  );
+};
+
 const WhereStocksSit = ({ onOpenChart }) => {
   const [input, setInput] = useState('NVDA, SMCI, PLTR, MSTR, IREN, AAPL');
   const [rows, setRows] = useState([]);
@@ -5203,7 +5344,7 @@ function Dashboard() {
           </>
         ) : activeTab === 'history' ? (
           <div className="space-y-6">
-            {isAdmin && <WhereStocksSit onOpenChart={setChartModal} />}
+            {isAdmin && <MirrorCheck book={tierBookLive} tier={dashboardData?.tier} regimeName={dashboardData?.regime_forecast?.current_regime_name} onOpenChart={setChartModal} />}
             <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-b border-ink py-4 mb-6">
               <MetricCard title="Total Trades" value={trades.length} />
               <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${wins.length}W / ${trades.length - wins.length}L`} trend={winRate > 50 ? 'up' : 'down'} />
