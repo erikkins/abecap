@@ -2577,6 +2577,73 @@ def handler(event, context):
                     den = sum((x - mx) ** 2 for x in xs)
                     drift[s] = round(sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / den, 4) if den else 0.0
 
+            # (f) CLEAN mean-reversion / momentum test — bounded-rank-free.
+            # Rank sectors by CURRENT trailing strength, then measure each group's ACTUAL
+            # FORWARD median return over h months. spread = top-K fwd − bottom-K fwd:
+            #   spread > 0 = momentum (strong keep winning); < 0 = mean-reversion (weak catch up).
+            # Plus a FRESH cross-sectional corr (rank-now vs rank-by-forward-return), which
+            # has no leader-ceiling artifact. Precompute each symbol's close at every grid date.
+            import statistics as _stat
+            closes = {}   # sym -> (sector, [close at each grid date or None])
+            for sym, df in cache.items():
+                sec = symbol_sectors.get(sym)
+                if not sec:
+                    continue
+                arr = []
+                for dt in dates:
+                    row = bt._get_row_for_date(df, dt)
+                    arr.append(float(row['close']) if row is not None else None)
+                closes[sym] = (sec, arr)
+
+            def _sector_fwd(gi, h):   # {sector: median forward return over h grid-steps}
+                buckets = {}
+                for _sym, (sec, arr) in closes.items():
+                    if gi + h >= len(arr):
+                        continue
+                    c0, c1 = arr[gi], arr[gi + h]
+                    if c0 and c1 and c0 > 0:
+                        buckets.setdefault(sec, []).append(c1 / c0 - 1.0)
+                return {s: _stat.median(v) for s, v in buckets.items() if len(v) >= min_names}
+
+            def _agg(xs):
+                if len(xs) < 4:
+                    return None
+                mu = sum(xs) / len(xs)
+                sd = (sum((x - mu) ** 2 for x in xs) / (len(xs) - 1)) ** 0.5
+                se = sd / len(xs) ** 0.5
+                return {"mean_spread_pct": round(mu * 100, 2),
+                        "t_stat": round(mu / se, 2) if se else None,
+                        "n": len(xs), "reversion_rate": round(sum(1 for x in xs if x < 0) / len(xs), 2)}
+
+            K = int(_cfg.get("spread_k", 3))
+            mean_rev = {}
+            for h in (1, 3, 6):
+                spreads, spreads_rb, spear = [], [], []
+                for gi in range(len(dates) - h):
+                    strength = series[gi]["median_ret"]
+                    ranked = sorted([s for s in sectors if strength.get(s) is not None],
+                                    key=lambda s: strength[s], reverse=True)
+                    if len(ranked) < 2 * K:
+                        continue
+                    fwd = _sector_fwd(gi, h)
+                    top = [s for s in ranked[:K] if s in fwd]
+                    bot = [s for s in ranked[-K:] if s in fwd]
+                    if len(top) >= 2 and len(bot) >= 2:
+                        sp = sum(fwd[s] for s in top) / len(top) - sum(fwd[s] for s in bot) / len(bot)
+                        spreads.append(sp)
+                        if series[gi]["regime"] == "rotating_bull":
+                            spreads_rb.append(sp)
+                    common = [s for s in ranked if s in fwd]
+                    if len(common) >= 5:
+                        xr = {s: i + 1 for i, s in enumerate(common)}            # 1 = strongest NOW
+                        ys = sorted(common, key=lambda s: fwd[s], reverse=True)
+                        yr = {s: i + 1 for i, s in enumerate(ys)}                # 1 = best FORWARD
+                        c = _pearson([xr[s] for s in common], [yr[s] for s in common])
+                        if c is not None:
+                            spear.append(c)
+                mean_rev[f"{h}m"] = {"all": _agg(spreads), "rotating_bull": _agg(spreads_rb),
+                                     "corr_now_vs_forward": round(sum(spear) / len(spear), 3) if spear else None}
+
             out = {
                 "params": {"rs_lookback": rs_lookback, "step_days": step_days, "breadth_ma": breadth_ma,
                            "dates": len(series), "first": series[0]["date"] if series else None,
@@ -2586,6 +2653,7 @@ def handler(event, context):
                 "rotation_cadence": cadence,
                 "regime_leaders": regime_leaders,
                 "secular_drift_rank_slope": drift,
+                "mean_reversion_spread": mean_rev,
             }
             try:
                 _s3.put_object(Bucket=_bkt, Key="research/sector_rotation_study.json",
