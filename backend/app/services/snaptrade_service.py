@@ -1,0 +1,124 @@
+"""SnapTrade brokerage-connection client — read-only holdings for the Mirror.
+
+Manual HMAC-SHA256 request signing (verified live against api.snaptrade.com — no SDK
+dependency). Reads SNAPTRADE_CLIENT_ID / SNAPTRADE_CONSUMER_KEY from env; if unset,
+is_configured() is False and endpoints return a clean "not configured" response.
+
+Flow (all paths verified working):
+  registerUser  POST /api/v1/snapTrade/registerUser   {userId} -> {userId, userSecret}
+  login         POST /api/v1/snapTrade/login          {customRedirect} -> {redirectURI}
+  accounts      GET  /api/v1/accounts                 -> [account, ...]   (the old /holdings is 410)
+  positions     GET  /api/v1/accounts/{id}/positions  -> [position, ...]
+
+We use OUR user's UUID as the SnapTrade userId (deterministic, no extra mapping); only
+the returned userSecret is persisted (snaptrade_users table).
+"""
+import os
+import time
+import json
+import hmac
+import hashlib
+import base64
+import logging
+from urllib.parse import urlencode
+from typing import Optional
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+HOST = "https://api.snaptrade.com"
+
+
+def is_configured() -> bool:
+    return bool(os.environ.get("SNAPTRADE_CLIENT_ID") and os.environ.get("SNAPTRADE_CONSUMER_KEY"))
+
+
+def _sign(path: str, query: str, body) -> str:
+    key = os.environ["SNAPTRADE_CONSUMER_KEY"]
+    # Signature covers {content, path, query} in that key order, compact-serialized.
+    msg = json.dumps({"content": body, "path": path, "query": query}, separators=(",", ":"))
+    return base64.b64encode(hmac.new(key.encode(), msg.encode(), hashlib.sha256).digest()).decode()
+
+
+async def _call(method: str, path: str, query_extra: Optional[dict] = None, body=None):
+    client_id = os.environ["SNAPTRADE_CLIENT_ID"]
+    q = {"clientId": client_id, "timestamp": str(int(time.time()))}
+    if query_extra:
+        q.update(query_extra)
+    qs = urlencode(sorted(q.items()))
+    headers = {"Signature": _sign(path, qs, body), "Content-Type": "application/json"}
+    url = f"{HOST}{path}?{qs}"
+    data = json.dumps(body, separators=(",", ":")) if body is not None else None
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.request(method, url, content=data, headers=headers)
+    if r.status_code >= 400:
+        logger.warning(f"snaptrade {method} {path} -> {r.status_code}: {r.text[:200]}")
+        r.raise_for_status()
+    return r.json() if r.content else None
+
+
+async def register_user(user_id: str) -> str:
+    """Register (idempotent-ish) a SnapTrade user; returns the userSecret to persist."""
+    res = await _call("POST", "/api/v1/snapTrade/registerUser", body={"userId": user_id})
+    return (res or {}).get("userSecret")
+
+
+async def login_redirect_uri(user_id: str, user_secret: str, custom_redirect: str) -> Optional[str]:
+    """Connection-portal URL. `custom_redirect` = where the user returns after connecting."""
+    res = await _call(
+        "POST", "/api/v1/snapTrade/login",
+        query_extra={"userId": user_id, "userSecret": user_secret},
+        body={"customRedirect": custom_redirect},
+    )
+    return (res or {}).get("redirectURI")
+
+
+async def list_accounts(user_id: str, user_secret: str) -> list:
+    res = await _call("GET", "/api/v1/accounts", query_extra={"userId": user_id, "userSecret": user_secret})
+    return res or []
+
+
+async def account_positions(user_id: str, user_secret: str, account_id: str) -> list:
+    res = await _call(
+        "GET", f"/api/v1/accounts/{account_id}/positions",
+        query_extra={"userId": user_id, "userSecret": user_secret},
+    )
+    return res or []
+
+
+def _extract_symbol(pos: dict) -> Optional[str]:
+    """SnapTrade nests the ticker under the position's universal symbol. Try the known
+    shapes defensively (verified against a live broker connect)."""
+    s = pos.get("symbol")
+    for path in (["symbol", "symbol"], ["symbol", "raw_symbol"], ["raw_symbol"], ["symbol"]):
+        cur = s
+        for k in path:
+            cur = cur.get(k) if isinstance(cur, dict) else None
+            if cur is None:
+                break
+        if isinstance(cur, str) and cur:
+            return cur.upper()
+    return None
+
+
+async def all_holdings(user_id: str, user_secret: str) -> dict:
+    """Union of position tickers across EVERY connected account (multi-brokerage), plus
+    the connected-account/brokerage names for the Mirror's 'Connected' header."""
+    accounts = await list_accounts(user_id, user_secret)
+    symbols, sources = set(), []
+    for acct in accounts:
+        aid = acct.get("id")
+        inst = (acct.get("institution_name")
+                or ((acct.get("brokerage_authorization") or {}).get("brokerage") or {}).get("name"))
+        sources.append({"name": acct.get("name") or "Account", "institution": inst})
+        if not aid:
+            continue
+        try:
+            for p in await account_positions(user_id, user_secret, aid):
+                sym = _extract_symbol(p)
+                if sym:
+                    symbols.add(sym)
+        except Exception as e:
+            logger.warning(f"snaptrade positions {aid} failed: {e}")
+    return {"symbols": sorted(symbols), "sources": sources, "account_count": len(accounts)}

@@ -3976,6 +3976,68 @@ async def get_mirror_context(
     }
 
 
+@router.post("/mirror/snaptrade/connect")
+async def snaptrade_connect(
+    user: User = Depends(require_valid_subscription),
+    db: AsyncSession = Depends(get_db),
+):
+    """Register the subscriber with SnapTrade (idempotent) and return the connection-portal
+    URL. The user is sent there to link a brokerage (read-only); they return to
+    /app?snaptrade=connected, where the frontend pulls holdings. Multi-brokerage: they can
+    return and connect additional accounts onto the same SnapTrade user."""
+    from app.services import snaptrade_service as st
+    from app.core.database import SnaptradeUser
+    from app.core.config import settings as _settings
+    from sqlalchemy import select as _select
+    if not st.is_configured():
+        raise HTTPException(status_code=503, detail="Brokerage connect is not configured")
+    row = (await db.execute(_select(SnaptradeUser).where(SnaptradeUser.user_id == user.id))).scalars().first()
+    if row:
+        secret = row.user_secret
+    else:
+        try:
+            secret = await st.register_user(str(user.id))
+        except Exception as e:
+            logger.warning(f"snaptrade register failed for {user.id}: {e}")
+            secret = None
+        if not secret:
+            raise HTTPException(status_code=502, detail="Could not start a brokerage connection")
+        db.add(SnaptradeUser(user_id=user.id, user_secret=secret))
+        await db.commit()
+    redirect = (getattr(_settings, "FRONTEND_URL", None) or "https://rigacap.com") + "/app?snaptrade=connected"
+    try:
+        uri = await st.login_redirect_uri(str(user.id), secret, redirect)
+    except Exception as e:
+        logger.warning(f"snaptrade login failed for {user.id}: {e}")
+        uri = None
+    if not uri:
+        raise HTTPException(status_code=502, detail="Could not create the connection link")
+    return {"redirect_uri": uri}
+
+
+@router.get("/mirror/snaptrade/holdings")
+async def snaptrade_holdings(
+    user: User = Depends(require_valid_subscription),
+    db: AsyncSession = Depends(get_db),
+):
+    """Union of the subscriber's positions across ALL connected brokerages (read-only),
+    plus the connected-account names for the Mirror's header. Empty until they connect."""
+    from app.services import snaptrade_service as st
+    from app.core.database import SnaptradeUser
+    from sqlalchemy import select as _select
+    if not st.is_configured():
+        return {"configured": False, "connected": False, "symbols": [], "sources": [], "account_count": 0}
+    row = (await db.execute(_select(SnaptradeUser).where(SnaptradeUser.user_id == user.id))).scalars().first()
+    if not row:
+        return {"configured": True, "connected": False, "symbols": [], "sources": [], "account_count": 0}
+    try:
+        h = await st.all_holdings(str(user.id), row.user_secret)
+    except Exception as e:
+        logger.warning(f"snaptrade holdings failed for {user.id}: {e}")
+        raise HTTPException(status_code=502, detail="Could not fetch holdings")
+    return {"configured": True, "connected": h.get("account_count", 0) > 0, **h}
+
+
 @public_router.post("/portfolio-check")
 async def public_portfolio_check(
     req: PortfolioCheckRequest,

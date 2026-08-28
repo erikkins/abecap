@@ -619,6 +619,34 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
     reader.readAsText(f);
   };
 
+  // SnapTrade brokerage connect — read-only holdings, multi-brokerage (union across accounts).
+  const [snap, setSnap] = useState({ connected: false, sources: [], loading: false });
+  const fetchSnapHoldings = async () => {
+    try {
+      const r = await api.get('/api/signals/mirror/snaptrade/holdings');
+      if (Array.isArray(r?.symbols) && r.symbols.length) importTickers(r.symbols);
+      setSnap({ connected: !!r?.connected, sources: r?.sources || [], loading: false });
+    } catch { setSnap(s => ({ ...s, loading: false })); }
+  };
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const justConnected = params.get('snaptrade') === 'connected';
+    fetchSnapHoldings();               // pull already-connected holdings on mount
+    if (justConnected) {               // returned from the portal — clean the URL
+      params.delete('snaptrade');
+      const qs = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
+    }
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  const connectBroker = async () => {
+    setSnap(s => ({ ...s, loading: true }));
+    try {
+      const r = await api.post('/api/signals/mirror/snaptrade/connect', {});
+      if (r?.redirect_uri) { window.location.href = r.redirect_uri; return; }
+    } catch { /* fall through */ }
+    setSnap(s => ({ ...s, loading: false }));
+  };
+
   const Chip = ({ s, tone, sub, badge, removable = true }) => (
     <span className={`group inline-flex items-center gap-1.5 pl-2.5 ${removable ? 'pr-1' : 'pr-2.5'} py-1 rounded-full border text-[0.8rem] font-mono ${tone}`}>
       <button onClick={() => onOpenChart?.({ type: 'signal', data: { symbol: s }, symbol: s })} className="hover:underline">{s}</button>
@@ -687,12 +715,24 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
             Upload CSV
             <input type="file" accept=".csv,text/csv,text/plain" className="hidden" onChange={onCsv} />
           </label>
-          <button type="button" disabled title="Connect your brokerage (coming soon)"
-            className="text-[0.78rem] font-medium px-3 py-1.5 border border-rule rounded-lg text-ink-light opacity-60 cursor-not-allowed">
-            Connect brokerage <span className="text-[0.6rem] uppercase tracking-wide">soon</span>
+          <button type="button" onClick={connectBroker} disabled={snap.loading}
+            title="Connect a brokerage via SnapTrade (read-only)"
+            className="text-[0.78rem] font-medium px-3 py-1.5 border border-claret/50 rounded-lg text-claret hover:bg-claret/[0.06] transition-colors disabled:opacity-50">
+            {snap.loading ? 'Opening…' : snap.connected ? 'Connect another brokerage' : 'Connect brokerage'}
           </button>
           {csvMsg && <span className="text-[0.72rem] text-positive">{csvMsg}</span>}
         </div>
+        {snap.connected && snap.sources.length > 0 && (
+          <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-4 -mt-1">
+            <span className="text-[0.6rem] font-medium tracking-[0.18em] uppercase text-positive">Connected</span>
+            <span className="text-[0.75rem] text-ink-mute">
+              {snap.sources.map((s, i) => (
+                <span key={i}>{i > 0 ? ' · ' : ''}{s.institution || s.name}</span>
+              ))}
+            </span>
+            <button onClick={fetchSnapHoldings} className="text-[0.68rem] text-ink-light hover:text-claret underline ml-1">refresh</button>
+          </div>
+        )}
 
         {(holdings.length === 0) ? (
           <p className="text-sm text-ink-light py-4 text-center">Add a ticker you hold to see how you line up with the book.</p>

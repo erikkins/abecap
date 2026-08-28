@@ -126,6 +126,17 @@ class PushToken(Base):
     updated_at = Column(DateTime, onupdate=datetime.utcnow)
 
 
+class SnaptradeUser(Base):
+    """SnapTrade per-user connection secret (Mirror tab, read-only holdings). The SnapTrade
+    userId = our user's UUID (deterministic); only the returned userSecret is persisted."""
+    __tablename__ = "snaptrade_users"
+
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    user_secret = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+
+
 class EnsembleSignal(Base):
     """Persisted ensemble buy signals for audit trail and email consistency"""
     __tablename__ = "ensemble_signals"
@@ -1204,6 +1215,15 @@ async def _run_schema_migrations(conn):
         "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_instagram_comment_id VARCHAR(50)",
         "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS reply_to_instagram_media_id VARCHAR(50)",
     ])
+
+    await _run("snaptrade_users table", """
+        CREATE TABLE IF NOT EXISTS snaptrade_users (
+            user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+            user_secret VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP
+        )
+    """)
 
     await _run("social_posts publish retry tracking", [
         "ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS publish_attempts INTEGER DEFAULT 0",
