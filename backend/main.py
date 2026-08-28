@@ -2419,6 +2419,192 @@ def handler(event, context):
             print(f"❌ maximizer_preview failed: {e}\n{traceback.format_exc()}")
             return {'error': str(e)}
 
+    if event.get("sector_rotation_study"):
+        # READ-ONLY sector-rotation observatory + predictability test over full history.
+        # Reuses the backtester's FAITHFUL per-sector median-return classifier
+        # (_compute_sector_medians) and the 7-regime overlay (_get_regime_for, point-in-time
+        # via as_of_date). Writes NOTHING to the book. Answers: how does sector leadership
+        # rotate (esp. under Rotating Bull), does it PERSIST or REVERT, and do leading
+        # indicators (RS acceleration / within-sector breadth) PRECEDE the RS-level turn —
+        # i.e. is the NEXT hot sector forecastable at all. Full monthly series → S3 for charting.
+        _cfg = event.get("sector_rotation_study")
+        _cfg = _cfg if isinstance(_cfg, dict) else {}
+        print(f"🧭 SECTOR ROTATION STUDY (read-only) cfg={_cfg}")
+
+        def _sector_study():
+            import os as _os, json as _json, boto3 as _b3
+            from collections import Counter as _Counter
+            from app.services.backtester import BacktesterService
+            from app.services.data_export import data_export_service as _dex
+
+            rs_lookback = int(_cfg.get("rs_lookback", 63))      # ~1 quarter sector momentum
+            step_days = int(_cfg.get("step_days", 21))          # ~monthly grid
+            breadth_ma = int(_cfg.get("breadth_ma", 50))
+            min_names = int(_cfg.get("min_names_per_sector", 5))
+
+            # 1) Warm the FULL universe cache (need every sector well-represented for breadth).
+            if not scanner_service.data_cache:
+                scanner_service.data_cache = _dex.import_all() or {}
+            cache = scanner_service.data_cache
+            spy = cache.get("SPY")
+            if spy is None or len(spy) < 300:
+                return {"error": "no SPY / insufficient history"}
+
+            # 2) Sector map from S3 (yfinance .info sectors).
+            _s3 = _b3.client("s3", region_name="us-east-1")
+            _bkt = _os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
+            _sec_raw = _json.loads(_s3.get_object(Bucket=_bkt, Key="universe/sectors_cache.json")["Body"].read())
+            symbol_sectors = {s: d.get("sector") for s, d in _sec_raw.items()
+                              if isinstance(d, dict) and d.get("sector")}
+            sectors = sorted(set(symbol_sectors.values()))
+
+            # 3) Backtester as the faithful sector/regime engine.
+            bt = BacktesterService()
+            bt.symbol_sectors = symbol_sectors
+            bt.sector_rs_lookback_days = rs_lookback
+
+            # 4) ~Monthly date grid over SPY history (need lookback + 250 bars for regime/MA).
+            spy_idx = spy.index
+            start_i = max(rs_lookback + 5, 250)
+            dates = [spy_idx[i] for i in range(start_i, len(spy_idx), step_days)]
+
+            series = []
+            for dt in dates:
+                medians = bt._compute_sector_medians(dt)          # {sector: median N-day ret} (faithful)
+                try:
+                    regime = bt._get_regime_for(dt)
+                except Exception:
+                    regime = None
+                # within-sector breadth: % of a sector's symbols above their breadth_ma MA
+                above = {s: 0 for s in sectors}; total = {s: 0 for s in sectors}
+                for sym, df in cache.items():
+                    sec = symbol_sectors.get(sym)
+                    if not sec:
+                        continue
+                    row = bt._get_row_for_date(df, dt)
+                    if row is None:
+                        continue
+                    try:
+                        idx = df.index.get_loc(row.name)
+                    except (KeyError, TypeError):
+                        continue
+                    if idx < breadth_ma:
+                        continue
+                    ma = float(df['close'].iloc[idx - breadth_ma + 1: idx + 1].mean())
+                    total[sec] += 1
+                    if float(row['close']) > ma:
+                        above[sec] += 1
+                breadth = {s: (round(above[s] / total[s], 4) if total[s] >= min_names else None) for s in sectors}
+                series.append({
+                    "date": dt.strftime("%Y-%m-%d"), "regime": regime,
+                    "median_ret": {s: (round(medians[s], 5) if s in medians else None) for s in sectors},
+                    "breadth": breadth, "n": {s: total[s] for s in sectors},
+                })
+
+            # ---- Diagnostics (the predictability lens) ----
+            def _rank(d):  # 1 = strongest median return that date
+                vals = sorted([(s, d[s]) for s in sectors if d.get(s) is not None],
+                              key=lambda kv: kv[1], reverse=True)
+                return {s: i + 1 for i, (s, _v) in enumerate(vals)}
+            ranks = [_rank(r["median_ret"]) for r in series]
+
+            def _pearson(xs, ys):
+                n = len(xs)
+                if n < 4:
+                    return None
+                mx = sum(xs) / n; my = sum(ys) / n
+                cov = sum((a - mx) * (b - my) for a, b in zip(xs, ys))
+                vx = sum((a - mx) ** 2 for a in xs) ** 0.5
+                vy = sum((b - my) ** 2 for b in ys) ** 0.5
+                return round(cov / (vx * vy), 3) if vx and vy else None
+
+            # (a) Persistence: mean Spearman rank-autocorr of sector strength at horizons.
+            persistence = {}
+            for h in (1, 3, 6, 12):
+                cs = []
+                for t in range(len(ranks) - h):
+                    keys = [k for k in ranks[t] if k in ranks[t + h]]
+                    if len(keys) >= 4:
+                        c = _pearson([ranks[t][k] for k in keys], [ranks[t + h][k] for k in keys])
+                        if c is not None:
+                            cs.append(c)
+                persistence[f"{h}m"] = round(sum(cs) / len(cs), 3) if cs else None
+
+            # (b) Leading indicators: does indicator_t predict forward rank IMPROVEMENT
+            #     (rank_t − rank_{t+fwd}, +ve = climbed)? Cross-sectional over all sector-dates.
+            def _lead_corr(ind_fn, fwd):
+                xs, ys = [], []
+                for t in range(1, len(series) - fwd):
+                    for s in sectors:
+                        v = ind_fn(t, s)
+                        if v is None or s not in ranks[t] or s not in ranks[t + fwd]:
+                            continue
+                        xs.append(v); ys.append(ranks[t][s] - ranks[t + fwd][s])
+                return _pearson(xs, ys) if len(xs) >= 30 else None
+            _accel = lambda t, s: (None if series[t]["median_ret"].get(s) is None or series[t - 1]["median_ret"].get(s) is None
+                                   else series[t]["median_ret"][s] - series[t - 1]["median_ret"][s])
+            _breadth = lambda t, s: series[t]["breadth"].get(s)
+            _level = lambda t, s: series[t]["median_ret"].get(s)
+            leading = {}
+            for fwd in (1, 3):
+                leading[f"accel_to_fwd{fwd}m"] = _lead_corr(_accel, fwd)
+                leading[f"breadth_to_fwd{fwd}m"] = _lead_corr(_breadth, fwd)
+                leading[f"level_to_fwd{fwd}m"] = _lead_corr(_level, fwd)
+
+            # (c) Rotation cadence: stickiness of the #1 sector.
+            leaders = [min(r, key=r.get) if r else None for r in ranks]
+            spans = len([l for l in leaders if l])
+            switches = sum(1 for i in range(1, len(leaders)) if leaders[i] and leaders[i - 1] and leaders[i] != leaders[i - 1])
+            lc = _Counter([l for l in leaders if l])
+            cadence = {"avg_months_leader_holds": round(spans / max(1, switches), 2),
+                       "distinct_leaders": len(lc),
+                       "leader_share": {k: round(v / max(1, spans), 3) for k, v in lc.most_common()}}
+
+            # (d) Regime-conditioned leaders (esp. rotating_bull).
+            by_regime = {}
+            for r, lead in zip(series, leaders):
+                if r["regime"] and lead:
+                    by_regime.setdefault(r["regime"], _Counter())[lead] += 1
+            regime_leaders = {reg: {"n": sum(c.values()), "top": c.most_common(3)} for reg, c in by_regime.items()}
+
+            # (e) Secular drift: slope of each sector's rank over time (negative = climbing).
+            drift = {}
+            for s in sectors:
+                pts = [(i, ranks[i][s]) for i in range(len(ranks)) if s in ranks[i]]
+                if len(pts) >= 12:
+                    xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+                    n = len(xs); mx = sum(xs) / n; my = sum(ys) / n
+                    den = sum((x - mx) ** 2 for x in xs)
+                    drift[s] = round(sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / den, 4) if den else 0.0
+
+            out = {
+                "params": {"rs_lookback": rs_lookback, "step_days": step_days, "breadth_ma": breadth_ma,
+                           "dates": len(series), "first": series[0]["date"] if series else None,
+                           "last": series[-1]["date"] if series else None, "sectors": sectors},
+                "persistence_spearman": persistence,
+                "leading_indicator_corr": leading,
+                "rotation_cadence": cadence,
+                "regime_leaders": regime_leaders,
+                "secular_drift_rank_slope": drift,
+            }
+            try:
+                _s3.put_object(Bucket=_bkt, Key="research/sector_rotation_study.json",
+                               Body=_json.dumps({"summary": out, "series": series}), ContentType="application/json")
+                out["s3"] = f"s3://{_bkt}/research/sector_rotation_study.json"
+            except Exception as _e:
+                out["s3_error"] = str(_e)[:200]
+            return out
+
+        try:
+            _r = _sector_study()
+            print(f"🧭 sector_rotation_study done: {_r.get('params', {}).get('dates')} dates, "
+                  f"persistence={_r.get('persistence_spearman')}, leading={_r.get('leading_indicator_corr')}")
+            return _r
+        except Exception as e:
+            import traceback
+            print(f"❌ sector_rotation_study failed: {e}\n{traceback.format_exc()}")
+            return {"status": "error", "error": str(e)}
+
     if event.get("scan_preview"):
         # READ-ONLY preview of what the NEXT daily scan will surface, on the CURRENT
         # (fresh) universe snapshot. Runs the same scan()+compute_shared_dashboard_data
