@@ -477,6 +477,37 @@ const SellModal = ({ symbol, position, currentPrice, stockInfo, onClose, onSell 
 // and the best result, with a click-through to the full chart + previous-holds overlay. This is
 // the paid-customer direction (fed by SnapTrade/CSV import later); gated to admin while counsel
 // reviews the framing. Impersonal/backward-looking track record — NOT individualized advice.
+// Parse a holdings CSV — robust to broker exports (preamble rows + a Symbol/Ticker
+// column) OR a plain one-ticker-per-line list. Returns a clean, de-duped ticker array.
+function parseHoldingsCsv(text) {
+  const lines = (text || '').split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) return [];
+  const splitRow = (l) => l.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+  const valid = (t) => /^[A-Z][A-Z.\-]{0,6}$/.test(t);
+  const skip = new Set(['CASH', 'TOTAL', 'TOTALS', 'ACCOUNT', 'NA', 'N', 'USD', 'MMDA', 'SYMBOL', 'TICKER']);
+  // locate a header row with a symbol/ticker column (scan the first few rows)
+  let symCol = -1, startRow = 0;
+  for (let i = 0; i < Math.min(lines.length, 6); i++) {
+    const cells = splitRow(lines[i]).map(c => c.toLowerCase());
+    const idx = cells.findIndex(c => c === 'symbol' || c === 'ticker' || c.includes('symbol'));
+    if (idx >= 0) { symCol = idx; startRow = i + 1; break; }
+  }
+  const out = new Set();
+  for (let i = startRow; i < lines.length; i++) {
+    const cells = splitRow(lines[i]);
+    if (symCol >= 0) {
+      const t = (cells[symCol] || '').toUpperCase();
+      if (valid(t) && !skip.has(t)) out.add(t);
+    } else {
+      for (const c of cells) {                       // headerless: first ticker-like token per row
+        const t = c.toUpperCase();
+        if (valid(t) && !skip.has(t)) { out.add(t); break; }
+      }
+    }
+  }
+  return [...out];
+}
+
 // Mirror Check — how closely a follower's holdings line up with the LIVE model book.
 // Tool-safe by design: every line is a factual set-comparison of the PUBLISHED book vs
 // what the user holds — never an instruction. The user decides whether to close any gap.
@@ -561,6 +592,33 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
   };
   const del = (s) => setHoldings(h => h.filter(x => x !== s));
 
+  const [csvMsg, setCsvMsg] = useState('');
+  const importTickers = (syms) => {
+    const clean = [...new Set(syms.filter(Boolean))];
+    if (!clean.length) return 0;
+    let added = 0;
+    setHoldings(h => {
+      const have = new Set(h);
+      const merged = [...h];
+      clean.forEach(s => { if (!have.has(s)) { merged.push(s); added++; } });
+      return [...new Set(merged)].slice(0, 200);
+    });
+    return clean.length;
+  };
+  const onCsv = (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';                 // allow re-uploading the same file
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const syms = parseHoldingsCsv(String(reader.result || ''));
+      importTickers(syms);
+      setCsvMsg(syms.length ? `Imported ${syms.length} ticker${syms.length === 1 ? '' : 's'} from ${f.name}` : `No tickers found in ${f.name}`);
+      setTimeout(() => setCsvMsg(''), 6000);
+    };
+    reader.readAsText(f);
+  };
+
   const Chip = ({ s, tone, sub, badge, removable = true }) => (
     <span className={`group inline-flex items-center gap-1.5 pl-2.5 ${removable ? 'pr-1' : 'pr-2.5'} py-1 rounded-full border text-[0.8rem] font-mono ${tone}`}>
       <button onClick={() => onOpenChart?.({ type: 'signal', data: { symbol: s }, symbol: s })} className="hover:underline">{s}</button>
@@ -618,11 +676,23 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
           <p className="text-[0.68rem] text-ink-light mt-2">Your tier: <span className="text-ink-mute">{tierLabel}</span>{regimeName ? <> · Market regime today: <span className="text-ink-mute">{regimeName}</span></> : null}{isMax ? <> · <span className="text-ink-mute">P</span>/<span className="text-claret">M</span> badges show which book each name is in</> : null}</p>
         </div>
 
-        <form onSubmit={add} className="flex gap-2 mb-5">
+        <form onSubmit={add} className="flex gap-2 mb-2">
           <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Add tickers you hold — AAPL, NVDA…"
             className="flex-1 px-3 py-2 text-sm bg-paper-deep border border-rule rounded-lg text-ink placeholder:text-ink-light focus:outline-none focus:border-claret" />
           <button type="submit" className="px-4 py-2 text-sm font-medium bg-ink text-white rounded-lg hover:opacity-90">Add</button>
         </form>
+        <div className="flex flex-wrap items-center gap-2 mb-5">
+          <span className="text-[0.72rem] text-ink-light">or import:</span>
+          <label className="cursor-pointer text-[0.78rem] font-medium px-3 py-1.5 border border-rule rounded-lg text-ink-mute hover:border-claret hover:text-claret transition-colors">
+            Upload CSV
+            <input type="file" accept=".csv,text/csv,text/plain" className="hidden" onChange={onCsv} />
+          </label>
+          <button type="button" disabled title="Connect your brokerage (coming soon)"
+            className="text-[0.78rem] font-medium px-3 py-1.5 border border-rule rounded-lg text-ink-light opacity-60 cursor-not-allowed">
+            Connect brokerage <span className="text-[0.6rem] uppercase tracking-wide">soon</span>
+          </button>
+          {csvMsg && <span className="text-[0.72rem] text-positive">{csvMsg}</span>}
+        </div>
 
         {(holdings.length === 0) ? (
           <p className="text-sm text-ink-light py-4 text-center">Add a ticker you hold to see how you line up with the book.</p>
