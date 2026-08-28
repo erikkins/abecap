@@ -2468,13 +2468,29 @@ def handler(event, context):
             start_i = max(rs_lookback + 5, 250)
             dates = [spy_idx[i] for i in range(start_i, len(spy_idx), step_days)]
 
+            # 4b) WEEKLY regime band FIRST, chronologically (hysteresis is built for fine steps;
+            # monthly sampling misses fast crashes like COVID's ~5-week V — the panic bottoms
+            # BETWEEN two monthly snapshots). Compute weekly, then derive each month's regime as
+            # the most recent weekly reading so the ribbon AND the diagnostics stay consistent.
+            import bisect as _bisect
+            regime_step = int(_cfg.get("regime_step_days", 5))   # ~weekly
+            regime_weekly = []
+            for i in range(start_i, len(spy_idx), regime_step):
+                dt = spy_idx[i]
+                try:
+                    rg = bt._get_regime_for(dt)                  # chronological order → hysteresis OK
+                except Exception:
+                    rg = None
+                regime_weekly.append({"date": dt.strftime("%Y-%m-%d"), "regime": rg})
+            _wk_dates = [w["date"] for w in regime_weekly]
+            def _regime_asof(dstr):
+                j = _bisect.bisect_right(_wk_dates, dstr) - 1
+                return regime_weekly[j]["regime"] if j >= 0 else None
+
             series = []
             for dt in dates:
                 medians = bt._compute_sector_medians(dt)          # {sector: median N-day ret} (faithful)
-                try:
-                    regime = bt._get_regime_for(dt)
-                except Exception:
-                    regime = None
+                regime = _regime_asof(dt.strftime("%Y-%m-%d"))    # weekly reading as-of this month
                 # within-sector breadth: % of a sector's symbols above their breadth_ma MA
                 above = {s: 0 for s in sectors}; total = {s: 0 for s in sectors}
                 for sym, df in cache.items():
@@ -2654,6 +2670,7 @@ def handler(event, context):
                 "regime_leaders": regime_leaders,
                 "secular_drift_rank_slope": drift,
                 "mean_reversion_spread": mean_rev,
+                "regime_weekly": regime_weekly,
             }
             try:
                 _s3.put_object(Bucket=_bkt, Key="research/sector_rotation_study.json",
