@@ -71,36 +71,14 @@ class MarketState:
         }
 
 
-# Sector ETFs for sector strength analysis
-SECTOR_ETFS = {
-    "Technology": "XLK",
-    "Healthcare": "XLV",
-    "Financials": "XLF",
-    "Consumer Discretionary": "XLY",
-    "Consumer Staples": "XLP",
-    "Energy": "XLE",
-    "Utilities": "XLU",
-    "Industrials": "XLI",
-    "Materials": "XLB",
-    "Real Estate": "XLRE",
-    "Communication Services": "XLC",
-}
-
-# Strong sectors typically outperform in bull markets
-GROWTH_SECTORS = ["Technology", "Consumer Discretionary", "Communication Services"]
-# Defensive sectors typically outperform in bear markets
-DEFENSIVE_SECTORS = ["Utilities", "Consumer Staples", "Healthcare"]
-
-
 class MarketAnalysisService:
     """
-    Analyzes market conditions and sector strength
+    Analyzes market conditions (legacy 5-regime; used by the legacy DWAP scan
+    and admin market endpoints only — not the live momentum book or Maximizer).
     """
 
     def __init__(self):
         self.market_state: Optional[MarketState] = None
-        self.sector_strength: Dict[str, float] = {}
-        self.sector_data: Dict[str, pd.DataFrame] = {}
         self.last_updated: Optional[datetime] = None
 
     async def update_market_state(self) -> MarketState:
@@ -201,60 +179,6 @@ class MarketAnalysisService:
                 updated=datetime.now().isoformat()
             )
 
-    async def update_sector_strength(self) -> Dict[str, float]:
-        """
-        Calculate relative strength for each sector
-
-        Returns dict of sector -> strength score (0-100)
-        Uses DualSourceProvider (all sector ETFs are normal tickers, Alpaca-compatible).
-        """
-        try:
-            from app.services.market_data_provider import market_data_provider
-
-            etfs = list(SECTOR_ETFS.values())
-            start_date = (pd.Timestamp.now() - pd.Timedelta(days=90)).strftime("%Y-%m-%d")
-            bars = await market_data_provider.fetch_bars(etfs, start_date)
-
-            strength_scores = {}
-
-            for sector, etf in SECTOR_ETFS.items():
-                try:
-                    etf_df = bars.get(etf)
-                    if etf_df is None or etf_df.empty:
-                        continue
-                    close = etf_df['close'].dropna()
-                    if len(close) < 20:
-                        continue
-
-                    # Calculate momentum metrics
-                    returns_1m = (close.iloc[-1] / close.iloc[-21] - 1) * 100
-                    returns_3m = (close.iloc[-1] / close.iloc[0] - 1) * 100
-                    ma_20 = close.rolling(20).mean().iloc[-1]
-                    price_vs_ma = (close.iloc[-1] - ma_20) / ma_20 * 100
-
-                    # Composite strength score (0-100)
-                    score = 50 + (returns_1m * 2) + (returns_3m * 1) + (price_vs_ma * 3)
-                    score = np.clip(score, 0, 100)
-
-                    strength_scores[sector] = round(score, 1)
-                    self.sector_data[sector] = close
-
-                except Exception as e:
-                    logger.debug(f"Failed to calculate {sector} strength: {e}")
-
-            # Rank sectors
-            self.sector_strength = dict(
-                sorted(strength_scores.items(), key=lambda x: x[1], reverse=True)
-            )
-
-            logger.info(f"Sector strength updated: Top sector = {list(self.sector_strength.keys())[0] if self.sector_strength else 'N/A'}")
-
-            return self.sector_strength
-
-        except Exception as e:
-            logger.error(f"Failed to update sector strength: {e}")
-            return {}
-
     def get_market_regime(self) -> Dict:
         """
         Get current market regime as a dictionary.
@@ -280,18 +204,6 @@ class MarketAnalysisService:
         if symbol_info and "sector" in symbol_info:
             return symbol_info.get("sector")
         return None
-
-    def is_sector_strong(self, sector: str, threshold: float = 50) -> bool:
-        """Check if a sector is above the strength threshold"""
-        return self.sector_strength.get(sector, 50) >= threshold
-
-    def get_weak_sectors(self, threshold: float = 40) -> List[str]:
-        """Get list of sectors below the strength threshold"""
-        return [s for s, score in self.sector_strength.items() if score < threshold]
-
-    def get_strong_sectors(self, threshold: float = 60) -> List[str]:
-        """Get list of sectors above the strength threshold"""
-        return [s for s, score in self.sector_strength.items() if score >= threshold]
 
     def should_take_signal(self, signal_strength: float) -> Tuple[bool, str]:
         """
@@ -343,7 +255,6 @@ class MarketAnalysisService:
         pct_above_dwap: float,
         volume_ratio: float,
         is_strong: bool,
-        sector: Optional[str] = None
     ) -> float:
         """
         Calculate composite signal strength score (0-100)
@@ -352,7 +263,6 @@ class MarketAnalysisService:
         - % above DWAP (higher = stronger)
         - Volume ratio (higher = stronger)
         - Strong signal flag
-        - Sector strength
         """
         score = 0
 
@@ -369,11 +279,6 @@ class MarketAnalysisService:
         # Strong signal bonus (0-20 points)
         if is_strong:
             score += 20
-
-        # Sector component (0-15 points)
-        if sector and sector in self.sector_strength:
-            sector_score = (self.sector_strength[sector] - 50) / 50 * 15
-            score += max(sector_score, 0)
 
         # Market regime adjustment (0-10 points bonus in bull, -10 in bear)
         if self.market_state:

@@ -989,7 +989,6 @@ class ScannerService:
         try:
             from app.services.market_analysis import market_analysis_service
             await market_analysis_service.update_market_state()
-            await market_analysis_service.update_sector_strength()
             market_available = True
 
             # Check if SPY is above 200-day MA (market filter)
@@ -1024,7 +1023,6 @@ class ScannerService:
                     pct_above_dwap=signal.pct_above_dwap,
                     volume_ratio=signal.volume_ratio,
                     is_strong=signal.is_strong,
-                    sector=signal.sector
                 )
 
                 # Apply market regime filter

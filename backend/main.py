@@ -11636,26 +11636,6 @@ async def get_market_regime(user: User = Depends(require_valid_subscription)):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@app.get("/api/market/sectors")
-async def get_sector_strength(admin: User = Depends(get_admin_user)):
-    """
-    Get sector strength rankings
-
-    Returns sectors sorted by relative strength (0-100).
-    """
-    try:
-        await market_analysis_service.update_sector_strength()
-        return {
-            "sectors": market_analysis_service.sector_strength,
-            "strong_sectors": market_analysis_service.get_strong_sectors(),
-            "weak_sectors": market_analysis_service.get_weak_sectors(),
-            "updated": datetime.now().isoformat()
-        }
-    except Exception as e:
-        logger.error(f"Internal error: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
 @app.get("/api/market/summary")
 async def get_market_summary(admin: User = Depends(get_admin_user)):
     """
@@ -11663,15 +11643,9 @@ async def get_market_summary(admin: User = Depends(get_admin_user)):
     """
     try:
         state = await market_analysis_service.update_market_state()
-        await market_analysis_service.update_sector_strength()
 
         return {
             "regime": state.to_dict(),
-            "sectors": {
-                "rankings": market_analysis_service.sector_strength,
-                "strong": market_analysis_service.get_strong_sectors(),
-                "weak": market_analysis_service.get_weak_sectors()
-            },
             "trading_guidance": {
                 "regime": state.regime.value,
                 "recommendation": state.recommendation,
