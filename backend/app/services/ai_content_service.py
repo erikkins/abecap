@@ -608,38 +608,66 @@ class AIContentService:
             logger.error(f"Research-insight generation failed: {e}")
             return None
 
-    async def _call_claude(self, user_prompt: str) -> Optional[str]:
-        """Make a single Claude API call and return the text response."""
+    async def _call_claude(self, user_prompt: str, voice_retries: int = 2) -> Optional[str]:
+        """Make a Claude API call and return the voice-clean text response.
+
+        Brand-voice enforcement (the single choke point for every generation
+        method): negative prompts are unreliable — the model leaks banned terms
+        like "tape" despite explicit prohibition. So we VERIFY the draft against
+        voice_filters and retry with a corrective directive, then FAIL CLOSED
+        (return None → caller uses its clean template fallback) rather than ever
+        emit off-voice copy. Erik: never "tape", never DWAP in public prose.
+        """
+        from app.services.voice_filters import contains_banned, WORD_BANS, PHRASE_BANS
+
         headers = {
             "x-api-key": settings.ANTHROPIC_API_KEY,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
         }
 
-        payload = {
-            "model": CLAUDE_MODEL,
-            "max_tokens": 1024,
-            # Prompt-cache the (large, static) system prompt: randos generate
-            # twitter+threads back-to-back and bulk runs fire many calls, so the
-            # shared prefix is reused within the 5-min cache window (−90% on reads).
-            "system": [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
-            "messages": [
-                {"role": "user", "content": user_prompt}
-            ],
-        }
+        prompt = user_prompt
+        for attempt in range(voice_retries + 1):
+            payload = {
+                "model": CLAUDE_MODEL,
+                "max_tokens": 1024,
+                # Prompt-cache the (large, static) system prompt: randos generate
+                # twitter+threads back-to-back and bulk runs fire many calls, so the
+                # shared prefix is reused within the 5-min cache window (−90% on reads).
+                "system": [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ],
+            }
 
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(CLAUDE_API_URL, headers=headers, json=payload)
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(CLAUDE_API_URL, headers=headers, json=payload)
 
-        if resp.status_code != 200:
-            logger.error(f"Claude API error {resp.status_code}: {resp.text}")
-            return None
+            if resp.status_code != 200:
+                logger.error(f"Claude API error {resp.status_code}: {resp.text}")
+                return None
 
-        data = resp.json()
-        content = data.get("content", [])
-        if content and content[0].get("type") == "text":
-            return content[0]["text"].strip()
+            data = resp.json()
+            content = data.get("content", [])
+            text = content[0]["text"].strip() if content and content[0].get("type") == "text" else None
+            if not text:
+                return None
 
+            found = contains_banned(text)
+            if not found:
+                return text
+
+            terms = ", ".join(t for t, _ in found)
+            logger.warning(f"[ai_content] voice violation attempt {attempt + 1}: banned terms [{terms}]")
+            if attempt < voice_retries:
+                prompt = user_prompt + (
+                    f"\n\nCRITICAL VOICE FIX: your previous draft used BANNED words/phrases "
+                    f"[{terms}]. Rewrite WITHOUT any of these: {', '.join(WORD_BANS)}; "
+                    f"{', '.join(PHRASE_BANS)}. Use different words entirely — do NOT wrap them "
+                    f"in quotes or say 'so-called'. Say 'market', 'action', or 'conditions' for the market."
+                )
+
+        logger.error(f"[ai_content] all {voice_retries + 1} attempts failed voice filter — returning None (fail-closed)")
         return None
 
 

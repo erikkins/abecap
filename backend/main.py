@@ -9577,10 +9577,11 @@ RigaCap Admin · Biweekly TPE
 
                 # Build email
                 rows = []
+                import html as _html
                 for i, opp in enumerate(opportunities, 1):
-                    tweet_preview = opp["tweet_text"][:200]
-                    if len(opp["tweet_text"]) > 200:
-                        tweet_preview += "..."
+                    # Show the ENTIRE original post (no truncation) — Erik needs full context
+                    # to judge the suggested reply. HTML-escape: external/untrusted tweet text.
+                    tweet_preview = _html.escape(opp["tweet_text"] or "").replace("\n", "<br>")
                     topics = ", ".join(opp["matched_topics"][:4])
                     rows.append(f"""
                     <tr><td colspan="2" style="padding:12px 0 4px;border-top:1px solid #e5e7eb;">
