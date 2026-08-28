@@ -504,15 +504,25 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
     return () => { cancelled = true; };
   }, []);
 
-  // The book to mirror = your full ENTITLEMENT. Maximizer = Preserver base + breakout, combined.
-  const bookSyms = useMemo(() => {
-    const syms = [book, preserverBook].flatMap(b => (b?.holdings || []).map(h => (h.symbol || '').toUpperCase()));
-    return [...new Set(syms.filter(Boolean))];
-  }, [book, preserverBook]);
+  // The book to mirror = your full ENTITLEMENT, but tracked PER BOOK so a Maximizer
+  // subscriber sees which product each position belongs to (base vs breakout), not a
+  // flattened "aligned". For a Maximizer: tier_book = breakout, preserver_book = base.
+  // For a Preserver: tier_book IS the Preserver book (no breakout).
+  const isMax = tier === 'maximizer';
+  const symsOf = (b) => new Set(((b?.holdings) || []).map(h => (h.symbol || '').toUpperCase()).filter(Boolean));
+  const preserverSyms = useMemo(() => symsOf(isMax ? preserverBook : book), [isMax, book, preserverBook]);
+  const maximizerSyms = useMemo(() => symsOf(isMax ? book : null), [isMax, book]);
+  const bookSyms = useMemo(() => [...new Set([...preserverSyms, ...maximizerSyms])], [preserverSyms, maximizerSyms]);
   const bookSet = useMemo(() => new Set(bookSyms), [bookSyms]);
   const heldSet = useMemo(() => new Set(holdings), [holdings]);
+  const bookOf = (s) => {
+    const p = preserverSyms.has(s), m = maximizerSyms.has(s);
+    return m && p ? 'P·M' : m ? 'M' : p ? 'P' : null;
+  };
 
   const aligned = holdings.filter(s => bookSet.has(s));
+  const alignedP = aligned.filter(s => preserverSyms.has(s));
+  const alignedM = aligned.filter(s => maximizerSyms.has(s));
   const inBookNotHeld = bookSyms.filter(s => !heldSet.has(s));
   const notInBook = holdings.filter(s => !bookSet.has(s));
   // Set-driven buckets: ever-traded → drifted; else in-universe → no-signal; else outside.
@@ -551,9 +561,10 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
   };
   const del = (s) => setHoldings(h => h.filter(x => x !== s));
 
-  const Chip = ({ s, tone, sub, removable = true }) => (
+  const Chip = ({ s, tone, sub, badge, removable = true }) => (
     <span className={`group inline-flex items-center gap-1.5 pl-2.5 ${removable ? 'pr-1' : 'pr-2.5'} py-1 rounded-full border text-[0.8rem] font-mono ${tone}`}>
       <button onClick={() => onOpenChart?.({ type: 'signal', data: { symbol: s }, symbol: s })} className="hover:underline">{s}</button>
+      {badge && <span className={`text-[0.55rem] font-semibold leading-none px-1 py-0.5 rounded ${badge.includes('M') ? 'bg-claret/15 text-claret' : 'bg-ink/10 text-ink-mute'}`} title={badge === 'M' ? 'Maximizer breakout book' : badge === 'P' ? 'Preserver base book' : 'In both books'}>{badge}</span>}
       {sub && <span className="text-[0.62rem] opacity-70">{sub}</span>}
       {removable && (
         <button onClick={() => del(s)} className="opacity-30 group-hover:opacity-70 hover:!opacity-100 text-[0.85rem] leading-none px-0.5" title="remove" aria-label={`remove ${s}`}>×</button>
@@ -598,7 +609,13 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
           <div className="h-2 bg-rule rounded-full overflow-hidden">
             <div className="h-full bg-claret rounded-full transition-all" style={{ width: `${mirroredPct}%` }} />
           </div>
-          <p className="text-[0.68rem] text-ink-light mt-2">Your tier: <span className="text-ink-mute">{tierLabel}</span>{regimeName ? <> · Market regime today: <span className="text-ink-mute">{regimeName}</span></> : null}</p>
+          {isMax && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[0.72rem]">
+              <span className="text-ink-mute"><span className="inline-block w-2 h-2 rounded-sm bg-ink/25 align-middle mr-1" />Preserver base <span className="font-mono text-ink">{alignedP.length}/{preserverSyms.size}</span></span>
+              <span className="text-ink-mute"><span className="inline-block w-2 h-2 rounded-sm bg-claret/60 align-middle mr-1" />Maximizer breakout <span className="font-mono text-ink">{alignedM.length}/{maximizerSyms.size}</span></span>
+            </div>
+          )}
+          <p className="text-[0.68rem] text-ink-light mt-2">Your tier: <span className="text-ink-mute">{tierLabel}</span>{regimeName ? <> · Market regime today: <span className="text-ink-mute">{regimeName}</span></> : null}{isMax ? <> · <span className="text-ink-mute">P</span>/<span className="text-claret">M</span> badges show which book each name is in</> : null}</p>
         </div>
 
         <form onSubmit={add} className="flex gap-2 mb-5">
@@ -612,10 +629,10 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
         ) : (
           <>
             <Group label="In the model, and in your account" count={aligned.length} note="Aligned — the book holds these and so do you.">
-              {aligned.map(s => <Chip key={s} s={s} tone="border-positive/50 bg-positive/[0.07] text-ink" />)}
+              {aligned.map(s => <Chip key={s} s={s} badge={isMax ? bookOf(s) : null} tone="border-positive/50 bg-positive/[0.07] text-ink" />)}
             </Group>
             <Group label="In the model book, not in your account" count={inBookNotHeld.length} note="Current book positions your list doesn't include.">
-              {inBookNotHeld.map(s => <Chip key={s} s={s} tone="border-claret/50 bg-claret/[0.06] text-claret" removable={false} />)}
+              {inBookNotHeld.map(s => <Chip key={s} s={s} badge={isMax ? bookOf(s) : null} tone="border-claret/50 bg-claret/[0.06] text-claret" removable={false} />)}
             </Group>
             <Group label="In your account, no longer in the model" count={drifted.length} note="The model traded these before and has since exited.">
               {drifted.map(s => <Chip key={s} s={s} tone="border-rule bg-paper-deep text-ink-mute" sub={best[s] != null ? `${best[s] >= 0 ? '+' : ''}${best[s].toFixed(0)}%` : ''} />)}
