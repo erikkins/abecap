@@ -861,7 +861,7 @@ async def reset_password(
 # Email Preferences
 # ============================================================================
 
-ALLOWED_EMAIL_PREFS = {"daily_digest", "sell_alerts", "double_signals", "intraday_signals", "market_measured"}
+ALLOWED_EMAIL_PREFS = {"daily_digest", "sell_alerts", "intraday_signals", "market_measured"}
 
 
 @router.patch("/me/email-preferences")

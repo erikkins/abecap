@@ -1481,31 +1481,6 @@ resource "aws_lambda_permission" "engagement_opportunities" {
 }
 
 # ============================================================================
-# EventBridge - Double Signal Alerts (5 PM ET = 21:00 UTC during EDT)
-# ============================================================================
-
-resource "aws_cloudwatch_event_rule" "double_signals" {
-  name                = "${local.prefix}-double-signals"
-  description         = "Check for double signal alerts at 5 PM ET weekdays"
-  schedule_expression = "cron(0 21 ? * MON-FRI *)"
-}
-
-resource "aws_cloudwatch_event_target" "double_signals" {
-  rule      = aws_cloudwatch_event_rule.double_signals.name
-  target_id = "lambda-double-signals"
-  arn       = aws_lambda_function.worker.arn
-  input     = jsonencode({ double_signal_alerts = true })
-}
-
-resource "aws_lambda_permission" "double_signals" {
-  statement_id  = "AllowDoubleSignalsEventBridge"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.worker.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.double_signals.arn
-}
-
-# ============================================================================
 # EventBridge - Ticker Health Check (7 AM ET = 11:00 UTC during EDT)
 # ============================================================================
 

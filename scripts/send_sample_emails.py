@@ -160,22 +160,6 @@ async def send_all_samples(to_email: str):
         created_strategy_name="AI-Bull-2026-02"
     )
 
-    # 9. Double Signal Alert (with regime context + freshness)
-    print("9/9 Sending Double Signal Alert...")
-    results['double_signal'] = await svc.send_double_signal_alert(
-        to_email=to_email,
-        new_signals=[
-            {"symbol": "NVDA", "price": 892.50, "pct_above_dwap": 8.2, "momentum_rank": 1, "short_momentum": 12.5, "dwap_crossover_date": "Today", "days_since_crossover": 0},
-            {"symbol": "META", "price": 512.30, "pct_above_dwap": 6.7, "momentum_rank": 3, "short_momentum": 8.3, "dwap_crossover_date": "Today", "days_since_crossover": 0},
-            {"symbol": "AVGO", "price": 1345.00, "pct_above_dwap": 5.3, "momentum_rank": 7, "short_momentum": 6.1, "dwap_crossover_date": "2026-02-10", "days_since_crossover": 1},
-        ],
-        approaching=[
-            {"symbol": "AMZN", "price": 185.40, "pct_above_dwap": 4.2, "distance_to_trigger": 0.8},
-            {"symbol": "CRM", "price": 298.75, "pct_above_dwap": 3.8, "distance_to_trigger": 1.2},
-        ],
-        market_regime={"regime": "strong_bull", "spy_price": 523.45}
-    )
-
     # Print results
     print("\n" + "=" * 50)
     print(f"Results for {to_email}:")

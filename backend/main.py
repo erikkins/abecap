@@ -929,7 +929,7 @@ def handler(event, context):
     import asyncio
     import os
     # Defer scheduler_service to here — it's only used in the worker-side
-    # event paths below (send_daily_emails, check_double_signal_alerts, etc.)
+    # event paths below (send_daily_emails, check_ticker_health, etc.)
     # plus the FastAPI /health endpoint which has its own inline import.
     # Keeping it out of module-level shaves ~235ms off API Lambda cold start.
     from app.services.scheduler import scheduler_service
@@ -2372,82 +2372,6 @@ def handler(event, context):
             import traceback
             print(f"❌ calendar_audit failed: {e}\n{traceback.format_exc()}")
             return {'error': str(e)}
-
-    if event.get("probe_maximizer_holds"):
-        # READ-ONLY: replicate the previous-holds endpoint's maximizer_wf_trades read exactly,
-        # to see whether the artifact read + by_symbol lookup works in the Lambda env.
-        cfg = event.get("probe_maximizer_holds") or {}
-        sym = ((cfg.get("symbol") if isinstance(cfg, dict) else None) or "SMCI").upper()
-        import json as _j, boto3 as _b
-        _bkt = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
-        try:
-            raw = _b.client("s3", region_name="us-east-1").get_object(
-                Bucket=_bkt, Key="signals/maximizer_wf_trades.json")["Body"].read()
-            art = _j.loads(raw)
-            bs = art.get("by_symbol", {})
-            return {"bucket": _bkt, "art_bytes": len(raw), "total_symbols": len(bs),
-                    "generated_at": art.get("generated_at"), "trade_count": art.get("trade_count"),
-                    "sym": sym, "sym_holds": len(bs.get(sym, [])),
-                    "sample_keys": list(bs.keys())[:10], "sym_sample": (bs.get(sym, []) or [])[:2]}
-        except Exception as e:
-            import traceback
-            return {"error": str(e), "tb": traceback.format_exc()[:600], "bucket": _bkt}
-
-    if event.get("history_source_probe"):
-        # READ-ONLY: compare deep-history availability across sources for a symbol, to
-        # decide/validate the yfinance backfill fallback. Reports Alpaca RAW range+count,
-        # yfinance raw(auto_adjust=False) + adjusted(True) range+count, and the splits in
-        # both the corp-actions calendar and yfinance — so we can confirm (a) whether
-        # Alpaca truly lacks the history and (b) that storing a yfinance backfill won't
-        # double-adjust (the ASST failure mode). Writes nothing.
-        cfg = event.get("history_source_probe") or {}
-        syms = (cfg.get("symbols") if isinstance(cfg, dict) else None) or ["AZN"]
-        years = int(cfg.get("years", 6)) if isinstance(cfg, dict) else 6
-        def _probe():
-            import pandas as _pd, yfinance as _yf
-            from datetime import date as _date, timedelta as _td
-            from app.services import pitfwu_store as ps
-            start = _date.today() - _td(days=365 * years + 30)
-            end = _date.today()
-            araw = ps.fetch_raw_bars(syms, start, end)
-            out = {}
-            for s in syms:
-                d = {}
-                a = araw.get(s)
-                d['alpaca_raw'] = None if a is None or a.empty else {
-                    'bars': int(len(a)), 'first': str(a.index.min().date()),
-                    'last': str(a.index.max().date()), 'last_close': round(float(a['close'].iloc[-1]), 2)}
-                try:
-                    t = _yf.Ticker(s)
-                    def _yinfo(auto):
-                        h = t.history(start=start.isoformat(), end=end.isoformat(), auto_adjust=auto)
-                        if h is None or h.empty:
-                            return None
-                        info = {'bars': int(len(h)), 'first': str(h.index.min().date()),
-                                'last': str(h.index.max().date()),
-                                'first_close': round(float(h['Close'].iloc[0]), 2),   # oldest bar — reveals split-adj
-                                'last_close': round(float(h['Close'].iloc[-1]), 2)}
-                        if 'Stock Splits' in h.columns:
-                            sp = h[h['Stock Splits'] != 0]['Stock Splits']
-                            info['yf_splits'] = [(str(_pd.Timestamp(ix).date()), float(v)) for ix, v in sp.items()]
-                        return info
-                    d['yf_raw'] = _yinfo(False)
-                    d['yf_adj'] = _yinfo(True)
-                except Exception as e:
-                    d['yf_error'] = str(e)[:200]
-                try:
-                    d['calendar_splits'] = [(str(_pd.Timestamp(ex).date()), round(float(f), 4))
-                                            for ex, f in ps.split_factors(s)]
-                except Exception as e:
-                    d['calendar_splits_error'] = str(e)[:120]
-                out[s] = d
-            return out
-        try:
-            return {"status": "success", "years": years, "probe": _probe()}
-        except Exception as e:
-            import traceback
-            print(f"❌ history_source_probe failed: {e}\n{traceback.format_exc()}")
-            return {"error": str(e), "trace": traceback.format_exc()[:600]}
 
     if event.get("maximizer_preview"):
         # READ-ONLY prediction of the Maximizer book's next breakout entries. The breakout
@@ -7809,109 +7733,6 @@ def handler(event, context):
             import traceback
             return {"error": str(e), "trace": traceback.format_exc()[:1000]}
 
-    # Force-refetch specific symbols with SPLIT adjustment, overwrite in pickle.
-    # Used to fix known-split symbols (NVDA, CMG, WMT) that were cached with
-    # unadjusted prices. {"refetch_split_adjusted": {"symbols": ["NVDA"]}}
-    if event.get("fetch_scope_test"):
-        cfg = event.get("fetch_scope_test")
-        cfg = cfg if isinstance(cfg, dict) else {}
-        sample = int(cfg.get("sample", 300))
-        gap_days = int(cfg.get("gap_days", 75))
-        print(f"🔭 fetch-scope test: pool count + timed {sample}-symbol / {gap_days}d fetch")
-
-        def _scope():
-            import time as _t, pandas as _pd
-            from app.services import pitfwu_store as _ps
-            from app.services.symbol_metadata_service import symbol_metadata_service as _sms
-            from alpaca.trading.requests import GetAssetsRequest
-            from alpaca.trading.enums import AssetClass, AssetStatus
-            client = _sms._get_trading_client()
-            t_assets = _t.time()
-            assets = client.get_all_assets(GetAssetsRequest(
-                asset_class=AssetClass.US_EQUITY, status=AssetStatus.ACTIVE))
-            syms = [a.symbol for a in assets if getattr(a, "tradable", True)]
-            assets_secs = round(_t.time() - t_assets, 1)
-            end = _pd.Timestamp.now().date().isoformat()
-            start = (_pd.Timestamp.now().normalize() - _pd.Timedelta(days=gap_days)).date().isoformat()
-            chunk = syms[:sample]
-            t0 = _t.time()
-            got = _ps.fetch_raw_bars(chunk, start, end)
-            dt = _t.time() - t0
-            mb = 0.0
-            try:
-                mb = round(sum(float(g.memory_usage(deep=True).sum()) for g in got.values()) / 1e6, 1) if got else 0.0
-            except Exception:
-                pass
-            per = dt / max(1, len(chunk))
-            return {
-                "active_us_equity_tradable": len(syms),
-                "get_all_assets_secs": assets_secs,
-                "sample": len(chunk), "gap_days": gap_days, "fetched": len(got),
-                "chunk_secs": round(dt, 1), "sec_per_symbol": round(per, 3),
-                "sample_bars_mb": mb,
-                "full_pool_est_fetch_min": round(per * len(syms) / 60, 1),
-                "full_pool_mem_mb_if_all_held": round((mb / max(1, len(got))) * len(syms), 0),
-            }
-        try:
-            r = _scope()
-            print(f"🔭 fetch-scope: {r}")
-            return {"statusCode": 200, "body": r}
-        except Exception as e:
-            import traceback
-            return {"statusCode": 500, "error": str(e)[:300], "trace": traceback.format_exc()[:400]}
-
-    if event.get("read_perf_test"):
-        cfg = event.get("read_perf_test")
-        cfg = cfg if isinstance(cfg, dict) else {}
-        reps = int(cfg.get("reps", 3))
-        print(f"⏱️ read-perf test: all_data.parquet vs PITFWU, {reps} reps")
-
-        def _perf():
-            import time as _t, json as _j, boto3 as _b3
-            from app.services import pitfwu_store as _ps
-            bucket = os.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
-            s3 = _b3.client("s3", region_name="us-east-1")
-            topn = int(os.environ.get("PARQUET_SCOPE_TOPN", "600"))
-            objs = s3.list_objects_v2(Bucket=bucket, Prefix="signals/universe-history/")
-            keys = sorted(o["Key"] for o in objs.get("Contents", []) if o["Key"].endswith(".json"))
-            syms = []
-            if keys:
-                uni = _j.loads(s3.get_object(Bucket=bucket, Key=keys[-1])["Body"].read())
-                for r in uni.get("rankings", []):
-                    if len(syms) >= topn:
-                        break
-                    if r.get("symbol") and not r.get("is_excluded"):
-                        syms.append(r["symbol"])
-            syms_idx = syms + ["SPY", "^VIX", "^GSPC"]
-            non_idx = [s for s in syms if not s.startswith("^")]
-
-            def _timeit(fn):
-                ts, cnt = [], 0
-                for _ in range(reps):
-                    t0 = _t.time()
-                    res = fn()
-                    ts.append(round(_t.time() - t0, 2))
-                    cnt = len(res) if hasattr(res, "__len__") else 0
-                return ts, cnt
-
-            out = {"scoped_symbols": len(syms_idx), "reps": reps}
-            try:
-                from app.services.data_export import data_export_service as _dex
-                ts, cnt = _timeit(lambda: _dex.import_parquet(symbols=syms_idx))
-                out["all_data_scoped"] = {"secs_per_rep": ts, "symbols_loaded": cnt}
-            except Exception as e:
-                out["all_data_error"] = str(e)[:250]
-            try:
-                ts, cnt = _timeit(lambda: _ps.load_scoped(non_idx)[0])
-                out["pitfwu_scoped"] = {"secs_per_rep": ts, "symbols_loaded": cnt}
-            except Exception as e:
-                out["pitfwu_error"] = str(e)[:250]
-            return out
-
-        result = _perf()
-        print(f"⏱️ read-perf: {result}")
-        return {"statusCode": 200, "body": result}
-
     if event.get("build_signaled_symbols_5y"):
         cfg = event.get("build_signaled_symbols_5y")
         cfg = cfg if isinstance(cfg, dict) else {}
@@ -8683,25 +8504,6 @@ def handler(event, context):
                 symbol="MSFT", action="sell",
                 reason="Trailing stop triggered — 15% from high water mark",
                 current_price=408.30, entry_price=420.00, stop_price=411.60,
-                user_id=test_user_id,
-            ))
-
-            # 7. Double Signal Alert (breakout)
-            await _try("double_signal_alert", email_service.send_double_signal_alert(
-                to_email=to,
-                new_signals=[
-                    {"symbol": "NVDA", "price": 156.20, "pct_above_dwap": 7.3,
-                     "momentum_rank": 2, "short_momentum": 12.4,
-                     "dwap_crossover_date": "2026-02-17", "days_since_crossover": 0},
-                    {"symbol": "PLTR", "price": 97.30, "pct_above_dwap": 5.8,
-                     "momentum_rank": 5, "short_momentum": 9.1,
-                     "dwap_crossover_date": "2026-02-15", "days_since_crossover": 2},
-                ],
-                approaching=[
-                    {"symbol": "TSLA", "price": 312.40, "pct_above_dwap": 3.8, "distance_to_trigger": 1.2},
-                    {"symbol": "AMD", "price": 178.90, "pct_above_dwap": 4.1, "distance_to_trigger": 0.9},
-                ],
-                market_regime={"regime": "weak_bull", "spy_price": 580.50},
                 user_id=test_user_id,
             ))
 
@@ -10111,18 +9913,6 @@ RigaCap Admin
             print(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
-    # Handle double signal alerts (EventBridge: 5 PM ET Mon-Fri)
-    if event.get("double_signal_alerts"):
-        print("🔔 Double signal alerts triggered")
-        try:
-            result = _run_async(scheduler_service.check_double_signal_alerts())
-            return {"status": "success", "result": str(result)}
-        except Exception as e:
-            import traceback
-            print(f"❌ Double signal alerts failed: {e}")
-            print(traceback.format_exc())
-            return {"status": "error", "error": str(e)}
-
     # New user notification — sends admin email if any users signed up today
     if event.get("new_user_check"):
         print("👤 New user check triggered")
@@ -10664,24 +10454,6 @@ RigaCap Admin
                 results.append({"template": "daily_summary", "success": ok})
             except Exception as e:
                 results.append({"template": "daily_summary", "error": str(e)})
-
-            # 3. Double signal alert (breakout)
-            try:
-                ok = await email_service.send_double_signal_alert(
-                    to_email=to_email,
-                    new_signals=[
-                        {'symbol': 'NVDA', 'price': 142.50, 'pct_above_dwap': 8.2,
-                         'momentum_rank': 1, 'short_momentum': 12.5, 'dwap_crossover_date': '2026-02-13',
-                         'days_since_crossover': 0},
-                    ],
-                    approaching=[
-                        {'symbol': 'KLAC', 'price': 810.50, 'pct_above_dwap': 4.2, 'distance_to_trigger': 0.8},
-                    ],
-                    market_regime={'regime': 'strong_bull', 'spy_price': 605.20},
-                )
-                results.append({"template": "double_signal_alert", "success": ok})
-            except Exception as e:
-                results.append({"template": "double_signal_alert", "error": str(e)})
 
             # 4. Sell alert
             try:
@@ -12466,26 +12238,6 @@ async def get_stock_history(symbol: str, days: int = 252, user: User = Depends(r
     }
 
 
-@app.get("/api/debug/mxholds/{symbol}")
-async def _debug_mxholds(symbol: str):
-    """TEMP no-auth debug: replicate the maximizer_wf_trades read exactly, curlable directly
-    (bypasses auth/cache/browser) to see what the API Lambda reads for a symbol."""
-    import json as _j, boto3 as _b, os as _o
-    symbol = symbol.upper()
-    bkt = _o.environ.get("PRICE_DATA_BUCKET", "rigacap-prod-price-data-149218244179")
-    try:
-        raw = _b.client("s3", region_name="us-east-1").get_object(
-            Bucket=bkt, Key="signals/maximizer_wf_trades.json")["Body"].read()
-        art = _j.loads(raw)
-        bs = art.get("by_symbol", {})
-        rows = bs.get(symbol, []) or []
-        return {"symbol": symbol, "bkt": bkt, "bytes": len(raw), "artsyms": len(bs),
-                "rows": len(rows), "sample_keys": list(bs.keys())[:8], "sample": rows[:2]}
-    except Exception as e:
-        import traceback
-        return {"symbol": symbol, "error": str(e)[:300], "tb": traceback.format_exc()[:600]}
-
-
 @app.get("/api/stock/{symbol}/previous-holds")
 async def get_stock_previous_holds(
     symbol: str,
@@ -12524,7 +12276,7 @@ async def get_stock_previous_holds(
                 "exit_price": round(r.exit_price, 2) if r.exit_price else None,
                 "pnl_pct": _pnl(r.entry_price, r.exit_price),
                 "exit_reason": r.exit_reason,
-                "tier": "preserver", "source": "t30v", "is_walkforward": False,
+                "tier": "preserver", "source": "preserver", "is_walkforward": False,
             })
     except Exception as e:
         logger.warning(f"previous-holds ModelPosition failed for {symbol}: {e}")
@@ -12593,7 +12345,6 @@ async def get_stock_previous_holds(
     # Maximizer breakout WF trades (signals/maximizer_wf_trades.json) — the divergent holds the
     # breakout sleeve caught that the t30v core never takes. Breakout is Maximizer-only, so no
     # dedup vs the core WF. Flagged is_walkforward + tier='maximizer' for the cross-tier teaser.
-    _mx_dbg = {"ran": False, "iw": bool(include_walkforward)}
     if include_walkforward:
         try:
             import json as _mj, boto3 as _mb, os as _mo
@@ -12603,8 +12354,6 @@ async def get_stock_previous_holds(
             _art = _mj.loads(_raw)
             _bysym = _art.get("by_symbol", {})
             _mrows = _bysym.get(symbol, []) or []
-            _mx_dbg = {"ran": True, "bkt": _bkt, "bytes": len(_raw), "artsyms": len(_bysym), "rows": len(_mrows)}
-            print(f"[prevholds-mx] {symbol} {_mx_dbg}")
             for t in _mrows:
                 ep, xp = t.get("entry_price"), t.get("exit_price")
                 holds.append({
@@ -12617,13 +12366,11 @@ async def get_stock_previous_holds(
                     "tier": "maximizer", "source": "breakout", "is_walkforward": True,
                 })
         except Exception as e:
-            import traceback as _tb
-            _mx_dbg = {"ran": True, "error": str(e)[:200]}
-            print(f"[prevholds-mx] {symbol} EXC {e}\n{_tb.format_exc()[:500]}")
+            logger.warning(f"previous-holds maximizer WF failed for {symbol}: {e}")
 
     holds.sort(key=lambda h: h.get("entry_date") or "", reverse=True)
     response.headers["Cache-Control"] = "no-store"   # never cache — data updates as the book/WF do
-    return {"symbol": symbol, "count": len(holds), "holds": holds[:limit], "_mx_debug": _mx_dbg}
+    return {"symbol": symbol, "count": len(holds), "holds": holds[:limit]}
 
 
 # ============================================================================

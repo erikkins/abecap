@@ -819,7 +819,7 @@ class User(Base):
         which doesn't work with async SQLAlchemy. The subscription is loaded
         separately in the auth endpoints and added to the response.
         """
-        defaults = {"daily_digest": True, "sell_alerts": True, "double_signals": True, "intraday_signals": True, "regime_report": True}
+        defaults = {"daily_digest": True, "sell_alerts": True, "intraday_signals": True, "regime_report": True}
         prefs = {**defaults, **(self.email_preferences or {})}
         result = {
             "id": str(self.id),
