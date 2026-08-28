@@ -7,16 +7,20 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 28 2026 (Mirror tab LIVE & working; refinements + SnapTrade next)
+# Session snapshot — Aug 28 2026 (Mirror tab built out through 3 Erik catches; SnapTrade next)
 
 ## ▶▶ GO SLOW / BE PRECISE. NO "DWAP"/"t30v"/"tape"/"Consider adding" customer-facing. NO model change w/o full universe re-run. Research MUST map to prod. Worker payloads need TRUTHY value ({} → mangum error). SPA HARD-RELOAD after deploy.
 
-## ✅ SHIPPED main (all CI/CD ok): 0721a74 cleanup+t30v-leak; 06c7e1d sector-strength strip; 875d370 voice-guard(tape)+full-orig-post email; affe78d sector_rotation_study; 0b3c40c mean-rev test; 06bb951 weekly regime; 71fa38e MIRROR TAB.
+## ✅ SHIPPED main (all CI/CD ok): ...875d370 voice-guard; affe78d sector_rotation_study; 0b3c40c mean-rev; 06bb951 weekly regime; 71fa38e MIRROR tab; f4afca3 mirror universe-split+combined book; **daae733 mirror per-book P/M badges**.
 
-## 🪞 MIRROR TAB — LIVE, WORKING (Erik screenshot "now we're getting somewhere"). Admin-only History tab, MirrorCheck component. Manual add/del holdings→localStorage(rigacap_mirror_holdings); alignment auto vs live tier_book. 4 groups + gauge. Screenshot: Erik loaded megacaps (NVDA/AAPL/GOOGL/MSFT/META/TSLA) → 0 of 15 held / 0% mirrored (Maximizer book=OVV/SW/KO/FCX/RTX/TGT/DT/OKTA...). BIG INSIGHT surfaced: normal megacap portfolio ~0% overlaps our book = the differentiation-vs-consensus thesis made VISIBLE. Drifted row doubles as "we called it" proof (MU +82%, SNDK +107%).
-- **REFINEMENTS QUEUED (offered, awaiting Erik pick):** (1) QUICK COPY FIX — "Not part of the model" note wrongly says "Outside our universe (ETFs...)" but MSFT/META/TSLA ARE in universe (never signaled) → soften to "Not a current or past model position." (2) BETTER — split off-model into "in-universe-no-signal" vs "outside-universe(ETF/floors)" (needs client universe-membership check, wire off dashboard momentum universe). (3) drifted detection is PRESERVER-only (enrich filters tier==='preserver'); include maximizer for Maximizer viewers. Then SnapTrade wiring (Dev acct 5 free conns; Schwab ETF IRA → "not a mirroring account", no look-through).
-- Dead code: old WhereStocksSit component still defined but UNMOUNTED — offered to delete.
+## 🪞 MIRROR TAB (admin-only, History tab, MirrorCheck) — mirror-alignment vs live model book; manual add/del→localStorage; tool-safe copy+disclaimer. Refined via 3 Erik catches:
+1. MSFT "outside universe" wrong → added gated GET /api/signals/mirror-context (universe + ever-traded 'entered' sets; reuses _load_overlay_sets; membership only, reusable for SnapTrade). 5 buckets now: aligned / in-book-not-held / drifted(entered) / in-universe-no-signal(MSFT/META/TSLA) / outside(ETFs).
+2. AAPL "magically in model" → NOT new: entered 2026-07-20 (verified via worker {"model_portfolio":{"action":"summary","portfolio_type":"live"}} → AAPL entry_date Jul20, one of 20 live positions). Was mis-hidden because Mirror only compared vs Maximizer breakout book; FIXED = mirror vs FULL entitlement (tier_book + preserver_book combined).
+3. "which book is it in?" → per-book split: preserverSyms(base) vs maximizerSyms(breakout); gauge shows "Preserver base X/N · Maximizer breakout Y/M"; P/M badge on aligned+in-book chips (Preserver users see none). Cross-tier for Preserver users intentionally NOT surfaced (paid-book leak).
+- Old WhereStocksSit component still defined+UNMOUNTED (dead code, offered delete). tier_book=served book, preserver_book=base (present for Maximizer, signal_source='both').
 
-## 📊 SECTOR OBSERVATORY COMPLETE (chart same URL https://claude.ai/code/artifact/64243537-cd5b-4250-afe3-0c2e3dc690ae; source scratchpad/sector_observatory.html). Verdict: sector timing NOT forecastable; value=regime→leadership social content. Weekly ribbon shows COVID panic_crash. DISTRIBUTION (blog/PNG/living page) un-picked.
+## ⏳ NEXT: SnapTrade wiring (Dev acct 5 free conns) — "connect broker" pulls holdings into same per-book alignment; Schwab ETF IRA → ETFs land in "outside universe", 0% mirrored ("not a mirroring account"), no look-through. Also offered: "entered [date]" note on aligned chips.
 
-## ⏭️ Other open: regime half of _mas (ONE REGIME SOT — safe reporting unification vs scanner.py:675 needs re-run). Queued: DST EventBridge Scheduler (pre-Nov); scrub DWAP perf_numbers.js; retire get_universe(); X-reply ticker fix; perf-numbers SSOT audit. Worker invoke: rigacap-prod-worker --profile rigacap, async Event+poll S3, TRUTHY payload. Local venv Py3.9 str|None=RED HERRING (prod 3.12).
+## 📊 SECTOR OBSERVATORY COMPLETE (chart same URL https://claude.ai/code/artifact/64243537-cd5b-4250-afe3-0c2e3dc690ae; scratchpad/sector_observatory.html). Verdict: sector timing NOT forecastable; value=regime→leadership social content. DISTRIBUTION (blog/PNG/living page) un-picked.
+
+## ⏭️ Other open: regime half of _mas (ONE REGIME SOT — reporting unification vs scanner.py:675 needs re-run). Queued: DST EventBridge Scheduler (pre-Nov); scrub DWAP perf_numbers.js; retire get_universe(); X-reply ticker fix; perf-numbers SSOT audit. Worker invoke: rigacap-prod-worker --profile rigacap, sync ok w/ --cli-read-timeout 600+Bash 600000 OR async Event+poll S3, TRUTHY payload. Local venv Py3.9 str|None=RED HERRING (prod 3.12).
