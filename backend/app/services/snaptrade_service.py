@@ -53,8 +53,11 @@ async def _call(method: str, path: str, query_extra: Optional[dict] = None, body
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.request(method, url, content=data, headers=headers)
     if r.status_code >= 400:
+        # SECURITY: never let httpx's own error propagate — its message includes the full
+        # request URL, whose query string carries userSecret. Log status + path only, and
+        # raise a clean error so callers can't accidentally log the credential.
         logger.warning(f"snaptrade {method} {path} -> {r.status_code}: {r.text[:200]}")
-        r.raise_for_status()
+        raise RuntimeError(f"snaptrade {method} {path} -> {r.status_code}")
     return r.json() if r.content else None
 
 
@@ -80,26 +83,23 @@ async def list_accounts(user_id: str, user_secret: str) -> list:
 
 
 async def account_positions(user_id: str, user_secret: str, account_id: str) -> list:
+    # The legacy /positions and /holdings are 410 for accounts created after 2026-05-11.
+    # Current endpoint = /positions/all (equity + ETF + options + …); positions under "results".
     res = await _call(
-        "GET", f"/api/v1/accounts/{account_id}/positions",
+        "GET", f"/api/v1/accounts/{account_id}/positions/all",
         query_extra={"userId": user_id, "userSecret": user_secret},
     )
+    if isinstance(res, dict):
+        return res.get("results") or []
     return res or []
 
 
 def _extract_symbol(pos: dict) -> Optional[str]:
-    """SnapTrade nests the ticker under the position's universal symbol. Try the known
-    shapes defensively (verified against a live broker connect)."""
-    s = pos.get("symbol")
-    for path in (["symbol", "symbol"], ["symbol", "raw_symbol"], ["raw_symbol"], ["symbol"]):
-        cur = s
-        for k in path:
-            cur = cur.get(k) if isinstance(cur, dict) else None
-            if cur is None:
-                break
-        if isinstance(cur, str) and cur:
-            return cur.upper()
-    return None
+    """positions/all shape (verified live): {"instrument": {"kind","symbol","raw_symbol",…},
+    "units", "price", …}. The ticker is instrument.raw_symbol (fallback instrument.symbol)."""
+    inst = pos.get("instrument") or {}
+    sym = inst.get("raw_symbol") or inst.get("symbol")
+    return sym.upper() if isinstance(sym, str) and sym else None
 
 
 async def all_holdings(user_id: str, user_secret: str) -> dict:
