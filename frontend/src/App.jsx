@@ -869,7 +869,7 @@ function AlignmentEclipse({ pct = 0, max = 440 }) {
     canvas.width = S * dpr; canvas.height = S * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const stars = starsRef.current;
     function draw(a) {
-      const cx = S / 2, cy = S * 0.5, R = S * 0.205;
+      const cx = S / 2, cy = S * 0.43, R = S * 0.235;
       ctx.clearRect(0, 0, S, S);
       for (const s of stars) { ctx.globalAlpha = s.a * (0.6 + 0.4 * (1 - a)); ctx.fillStyle = '#F3ECDC'; ctx.beginPath(); ctx.arc(s.x * S, s.y * S, s.r, 0, 7); ctx.fill(); }
       ctx.globalAlpha = 1;
@@ -932,19 +932,25 @@ function MirrorCockpit() {
   })(); }, []);
   if (isAdmin === false) return <Navigate to="/app" replace />;
   return (
-    <div style={{ minHeight: '100vh', background: 'radial-gradient(120% 90% at 50% 12%, #1B1712 0%, #141210 42%, #0B0A08 100%)' }}>
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '16px 20px 56px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '4px 12px' }}>
-          <h1 style={{ fontFamily: "'Iowan Old Style',Palatino,Georgia,serif", fontWeight: 600, fontSize: 'clamp(18px,3.2vw,24px)', color: '#F3ECDC', margin: 0 }}>How closely are you mirroring the book?</h1>
-          <span style={{ fontFamily: "'Iowan Old Style',Georgia,serif", fontStyle: 'italic', color: '#9A917C', fontSize: 13 }}>book = sun · you = moon</span>
+    <div style={{ minHeight: '100vh', background: '#F5F1E8' }}>
+      {/* Night-sky hero — the eclipse needs the dark to read; the sky then DAWNS into the paper
+          content below (fade strip), so the drama up top flows into the editorial data. */}
+      <div style={{ position: 'relative', background: 'radial-gradient(125% 100% at 50% 6%, #211A12 0%, #16120D 44%, #0C0A08 82%)' }}>
+        <div style={{ maxWidth: 760, margin: '0 auto', padding: '14px 20px 76px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '4px 12px' }}>
+            <h1 style={{ fontFamily: "'Iowan Old Style',Palatino,Georgia,serif", fontWeight: 600, fontSize: 'clamp(19px,3.4vw,26px)', color: '#F3ECDC', margin: 0, letterSpacing: '-0.01em' }}>How closely are you mirroring the book?</h1>
+            <span style={{ fontFamily: "'Iowan Old Style',Georgia,serif", fontStyle: 'italic', color: '#B79A6E', fontSize: 13 }}>book = sun · you = moon</span>
+          </div>
+          <AlignmentEclipse pct={pct} max={360} />
+          <p style={{ textAlign: 'center', color: '#B7AE99', fontFamily: 'system-ui,sans-serif', fontSize: 13, marginTop: 2 }}>You hold {tally.aligned} of {tally.total} model positions</p>
         </div>
-        <AlignmentEclipse pct={pct} max={272} />
-        <p style={{ textAlign: 'center', color: '#B7AE99', fontFamily: 'system-ui,sans-serif', fontSize: 12.5, marginTop: -2 }}>You hold {tally.aligned} of {tally.total} model positions</p>
-        <div style={{ marginTop: 16 }}>
-          <MirrorCheck book={dash?.tier_book} preserverBook={dash?.preserver_book} tier={dash?.tier}
-            regimeName={dash?.regime_forecast?.current_regime_name} onOpenChart={() => {}}
-            onAlignment={(p, t) => { setPct(p); if (t) setTally(t); }} />
-        </div>
+        {/* dawn: sky → paper */}
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 96, background: 'linear-gradient(180deg, rgba(245,241,232,0) 0%, #F5F1E8 100%)', pointerEvents: 'none' }} />
+      </div>
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: '4px 20px 56px' }}>
+        <MirrorCheck book={dash?.tier_book} preserverBook={dash?.preserver_book} tier={dash?.tier}
+          regimeName={dash?.regime_forecast?.current_regime_name} onOpenChart={() => {}}
+          onAlignment={(p, t) => { setPct(p); if (t) setTally(t); }} />
       </div>
     </div>
   );
