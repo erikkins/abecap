@@ -3951,26 +3951,64 @@ async def calculate_what_if(
 # Newsletter Management
 # ============================================================================
 
+class NewsletterGenerateRequest(BaseModel):
+    topic_id: Optional[str] = None      # slot a specific queued story into this issue
+    force: Optional[bool] = None
+
+
 @router.post("/newsletter/generate")
 async def generate_newsletter_draft(
+    req: Optional[NewsletterGenerateRequest] = None,
     admin: User = Depends(get_admin_user),
 ):
-    """Generate a new newsletter draft using Claude via worker Lambda."""
+    """Generate a new newsletter draft via worker Lambda. Optional topic_id slots a
+    specific queued story into §02 (forces a regenerate of the current draft)."""
     import boto3, os
     worker_fn = os.environ.get("WORKER_FUNCTION_NAME", "rigacap-prod-worker")
+    cfg = {}
+    if req and req.topic_id:
+        cfg["topic_id"] = req.topic_id
+        cfg["force"] = True             # slotting a story means overwrite the current draft
+    if req and req.force is not None:
+        cfg["force"] = req.force
+    payload = {"generate_newsletter": cfg if cfg else True}
     try:
         lam = boto3.client("lambda", region_name="us-east-1")
-        lam.invoke(
-            FunctionName=worker_fn,
-            InvocationType="Event",
-            Payload=json.dumps({"generate_newsletter": True}).encode(),
-        )
+        lam.invoke(FunctionName=worker_fn, InvocationType="Event", Payload=json.dumps(payload).encode())
         return {"status": "generating", "message": "Newsletter generation started. Refresh in ~30 seconds."}
     except Exception as e:
         logger.warning(f"Failed to invoke worker for newsletter: {e}")
         from app.services.newsletter_generator_service import newsletter_generator
-        draft = newsletter_generator.generate_draft()
-        return draft
+        return newsletter_generator.generate_draft(
+            force=bool(cfg.get("force")), topic_id=cfg.get("topic_id") if isinstance(cfg, dict) else None)
+
+
+class NewsletterTopicRequest(BaseModel):
+    title: str = ""
+    concept: str = ""
+
+
+@router.get("/newsletter/queue")
+async def newsletter_queue_list(admin: User = Depends(get_admin_user)):
+    """The durable topic backlog — stories queued for future issues."""
+    from app.services.newsletter_generator_service import newsletter_generator
+    return {"queue": newsletter_generator.list_queue()}
+
+
+@router.post("/newsletter/queue")
+async def newsletter_queue_add(req: NewsletterTopicRequest, admin: User = Depends(get_admin_user)):
+    """Queue a topic — a title + a concept (a one-liner is fine; §02 regenerates from it)."""
+    from app.services.newsletter_generator_service import newsletter_generator
+    if not (req.title.strip() or req.concept.strip()):
+        raise HTTPException(status_code=400, detail="Give the topic a title or a concept")
+    item = newsletter_generator.add_topic(req.title, req.concept)
+    return {"added": item, "queue": newsletter_generator.list_queue()}
+
+
+@router.delete("/newsletter/queue/{topic_id}")
+async def newsletter_queue_remove(topic_id: str, admin: User = Depends(get_admin_user)):
+    from app.services.newsletter_generator_service import newsletter_generator
+    return {"queue": newsletter_generator.remove_topic(topic_id)}
 
 
 @router.get("/newsletter/draft")

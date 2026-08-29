@@ -367,8 +367,48 @@ class NewsletterGeneratorService:
         except Exception:
             pass
 
+    # --- Durable topic queue (the backlog Erik drives from the editor) ------------------------
+    # newsletter/topic_queue.json = ordered list of {id, title, concept, body_preserved?, added_at}.
+    # A one-liner/concept → §02 is regenerated from it; body_preserved → reused verbatim.
+    TOPIC_QUEUE_KEY = "newsletter/topic_queue.json"
+
+    def list_queue(self) -> list:
+        try:
+            q = json.loads(self.s3.get_object(Bucket=S3_BUCKET, Key=self.TOPIC_QUEUE_KEY)["Body"].read())
+            return q if isinstance(q, list) else []
+        except Exception:
+            return []
+
+    def _save_queue(self, q: list) -> None:
+        self.s3.put_object(Bucket=S3_BUCKET, Key=self.TOPIC_QUEUE_KEY,
+                           Body=json.dumps(q).encode(), ContentType="application/json")
+
+    def add_topic(self, title: str, concept: str, body_preserved: Optional[str] = None) -> dict:
+        import uuid
+        item = {"id": uuid.uuid4().hex[:12], "title": (title or "").strip() or "Untitled topic",
+                "concept": (concept or "").strip(), "added_at": datetime.now(timezone.utc).date().isoformat()}
+        if body_preserved:
+            item["body_preserved"] = body_preserved
+        q = self.list_queue(); q.append(item); self._save_queue(q)
+        return item
+
+    def remove_topic(self, topic_id: str) -> list:
+        q = [x for x in self.list_queue() if x.get("id") != topic_id]
+        self._save_queue(q); return q
+
+    def reorder_queue(self, ordered_ids: list) -> list:
+        by = {x["id"]: x for x in self.list_queue()}
+        new = [by[i] for i in ordered_ids if i in by] + [x for x in by.values() if x["id"] not in set(ordered_ids)]
+        self._save_queue(new); return new
+
+    def _pop_topic(self, topic_id: str) -> Optional[dict]:
+        q = self.list_queue(); item = next((x for x in q if x.get("id") == topic_id), None)
+        if item:
+            self._save_queue([x for x in q if x.get("id") != topic_id])
+        return item
+
     def generate_draft(self, target_date: Optional[datetime] = None, force: bool = False,
-                       lead_story: Optional[str] = None) -> dict:
+                       lead_story: Optional[str] = None, topic_id: Optional[str] = None) -> dict:
         if target_date is None:
             # Newsletter publishes on Sunday. Find the upcoming Sunday — including
             # today if today IS Sunday — so the filename matches the publish date.
@@ -551,8 +591,13 @@ class NewsletterGeneratorService:
             # from the WEEKLY MARKET MOVES block above. COUNTS come only from the structured data above.
             market_summary += f"\n\nLATEST DAILY BRIEFING (backdrop/texture only — do NOT cite its single-day % moves as the week; use WEEKLY MARKET MOVES for weekly figures; never take a signal/position/stop COUNT from here): {market_context}"
 
-        # Operator-set lead story: explicit param wins, else the pending S3 concept
-        lead_story = lead_story or self.get_pending_lead_story()
+        # Lead story: a PICKED queue topic wins (consumed/removed on slot), else the explicit
+        # param, else the legacy S3 slot. A picked topic may carry verbatim text (body_preserved).
+        picked = self._pop_topic(topic_id) if topic_id else None
+        if picked:
+            lead_story = picked.get("concept") or picked.get("title")
+        else:
+            lead_story = lead_story or self.get_pending_lead_story()
         lead_note = ""
         if lead_story:
             lead_note = (
@@ -591,7 +636,7 @@ IMPORTANT: Output ONLY the body paragraphs. Do NOT include any section header, t
         # §02 — One Idea, Explained
         if lead_story:
             topic = {"slug": "lead-story",
-                     "title": "This week's lead story.",
+                     "title": (picked.get("title") if picked else None) or "This week's lead story.",
                      "seed": lead_story + "\n\n(Also propose nothing about topics outside this lead story — this section IS the lead story this week.)"}
         else:
             topic = self._get_topic_for_week(target_date)
@@ -608,7 +653,11 @@ IMPORTANT: Output ONLY the body paragraphs. Do NOT include any section header, t
 
 200-300 words."""
 
-        s2_text = self._clean_body(self._call_claude(s2_prompt))
+        # Verbatim reuse when the picked topic carries preserved text; else regenerate from concept.
+        if picked and picked.get("body_preserved"):
+            s2_text = self._clean_body(picked["body_preserved"])
+        else:
+            s2_text = self._clean_body(self._call_claude(s2_prompt))
 
         # §03 — What the System is Not Doing
         s3_prompt = f"""Write §03 "What the System is Not Doing" for this week.

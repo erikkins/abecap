@@ -9141,6 +9141,7 @@ def handler(event, context):
             draft = newsletter_generator.generate_draft(
                 force=bool(_nl_cfg.get("force")),
                 lead_story=_nl_cfg.get("lead_story"),
+                topic_id=_nl_cfg.get("topic_id"),
             )
         except ValueError as ve:
             # Lock-protection guardrail — refusing to overwrite a locked draft

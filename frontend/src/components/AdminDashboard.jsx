@@ -2488,6 +2488,22 @@ function NewsletterTab({ fetchWithAuth }) {
   // focus-refresh effect to avoid clobbering work-in-progress.
   const dirtyRef = useRef(false);
 
+  // Durable topic queue — the backlog Erik drives from the editor.
+  const [queue, setQueue] = useState([]);
+  const [newTopic, setNewTopic] = useState({ title: '', concept: '' });
+  const loadQueue = async () => {
+    try { const r = await fetchWithAuth(`${API_URL}/api/admin/newsletter/queue`); if (r.ok) setQueue((await r.json()).queue || []); } catch { /* ignore */ }
+  };
+  const addTopic = async () => {
+    if (!newTopic.title.trim() && !newTopic.concept.trim()) return;
+    const r = await fetchWithAuth(`${API_URL}/api/admin/newsletter/queue`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newTopic) });
+    if (r.ok) { setQueue((await r.json()).queue || []); setNewTopic({ title: '', concept: '' }); }
+  };
+  const removeTopic = async (id) => {
+    const r = await fetchWithAuth(`${API_URL}/api/admin/newsletter/queue/${id}`, { method: 'DELETE' });
+    if (r.ok) setQueue((await r.json()).queue || []);
+  };
+
   const loadDraft = async () => {
     setLoading(true);
     try {
@@ -2506,6 +2522,7 @@ function NewsletterTab({ fetchWithAuth }) {
 
   useEffect(() => {
     loadDraft();
+    loadQueue();
     // Refresh when the window/tab regains focus — catches the case where
     // the cron generated a new draft while the admin tab was open.
     // Skip the refresh if the editor has unsaved edits; loadDraft() would
@@ -2515,11 +2532,13 @@ function NewsletterTab({ fetchWithAuth }) {
     return () => window.removeEventListener('focus', onFocus);
   }, []);
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (topicId = null) => {
     setGenerating(true);
     const prevGeneratedAt = draft?.generated_at || '';
     try {
-      await fetchWithAuth(`${API_URL}/api/admin/newsletter/generate`, { method: 'POST' });
+      await fetchWithAuth(`${API_URL}/api/admin/newsletter/generate`, topicId
+        ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic_id: topicId }) }
+        : { method: 'POST' });
       let attempts = 0;
       const poll = setInterval(async () => {
         attempts++;
@@ -2530,6 +2549,7 @@ function NewsletterTab({ fetchWithAuth }) {
             if (data.generated_at && data.generated_at !== prevGeneratedAt) {
               setDraft(data);
               setEditedSections(JSON.parse(JSON.stringify(data.sections)));
+              loadQueue();   // a slotted topic was consumed — refresh the backlog
               setGenerating(false);
               clearInterval(poll);
             }
@@ -2654,7 +2674,7 @@ function NewsletterTab({ fetchWithAuth }) {
           </button>
           {!draft && (
             <button
-              onClick={handleGenerate}
+              onClick={() => handleGenerate()}
               disabled={generating}
               className="flex items-center gap-2 px-4 py-2 bg-claret text-paper rounded hover:bg-ink transition-colors disabled:opacity-50"
             >
@@ -2665,7 +2685,7 @@ function NewsletterTab({ fetchWithAuth }) {
           {draft && !isLocked && (
             <>
               <button
-                onClick={handleGenerate}
+                onClick={() => handleGenerate()}
                 disabled={generating}
                 className="flex items-center gap-2 px-3 py-2 border border-rule text-ink-mute rounded hover:bg-paper-deep transition-colors disabled:opacity-50 text-sm"
               >
@@ -2724,6 +2744,44 @@ function NewsletterTab({ fetchWithAuth }) {
               {sending ? 'Sending...' : 'Send to All'}
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Story queue — durable backlog; pick one to slot into this issue's §02 */}
+      <div className="border border-rule rounded-lg p-4 bg-paper-card">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-ink">Story queue <span className="text-ink-light font-normal">({queue.length})</span></h3>
+          <span className="text-xs text-ink-light">&ldquo;Use in this issue&rdquo; slots a story into §02 and regenerates the draft</span>
+        </div>
+        {queue.length === 0 ? (
+          <p className="text-sm text-ink-mute mb-3">No queued topics. Add one below — a one-line concept is enough; §02 gets written from it.</p>
+        ) : (
+          <div className="space-y-2 mb-3">
+            {queue.map(t => (
+              <div key={t.id} className="flex items-start gap-3 border border-rule rounded p-2.5">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-ink">{t.title}</div>
+                  {t.concept && <div className="text-xs text-ink-mute truncate mt-0.5">{t.concept}</div>}
+                  <div className="text-[0.65rem] text-ink-light mt-1">{t.body_preserved ? 'full text saved · reused verbatim' : 'concept · regenerates fresh'}{t.added_at ? ` · added ${t.added_at}` : ''}</div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={() => handleGenerate(t.id)} disabled={generating || isLocked} title={isLocked ? 'Unlock the draft first' : 'Slot this story into §02 and regenerate'}
+                    className="px-2.5 py-1.5 text-xs bg-claret text-paper rounded hover:bg-ink transition-colors disabled:opacity-50 whitespace-nowrap">
+                    Use in this issue →
+                  </button>
+                  <button onClick={() => removeTopic(t.id)} title="Remove from queue"
+                    className="px-2 py-1.5 text-xs border border-rule text-ink-mute rounded hover:bg-paper-deep">×</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input value={newTopic.title} onChange={e => setNewTopic({ ...newTopic, title: e.target.value })} placeholder="Title (headline for §02)"
+            className="sm:w-1/3 px-3 py-2 text-sm border border-rule rounded bg-paper-deep text-ink placeholder:text-ink-light focus:outline-none focus:border-claret" />
+          <input value={newTopic.concept} onChange={e => setNewTopic({ ...newTopic, concept: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') addTopic(); }} placeholder="Concept / one-liner — the idea to explain"
+            className="flex-1 px-3 py-2 text-sm border border-rule rounded bg-paper-deep text-ink placeholder:text-ink-light focus:outline-none focus:border-claret" />
+          <button onClick={addTopic} className="px-4 py-2 text-sm bg-ink text-paper rounded hover:opacity-90 whitespace-nowrap">Queue it</button>
         </div>
       </div>
 
