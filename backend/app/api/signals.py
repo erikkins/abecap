@@ -3993,7 +3993,7 @@ async def snaptrade_connect(
         raise HTTPException(status_code=503, detail="Brokerage connect is not configured")
     row = (await db.execute(_select(SnaptradeUser).where(SnaptradeUser.user_id == user.id))).scalars().first()
     if row:
-        secret = row.user_secret
+        secret = st.decrypt_secret(row.user_secret)
     else:
         try:
             secret = await st.register_user(str(user.id))
@@ -4002,7 +4002,7 @@ async def snaptrade_connect(
             secret = None
         if not secret:
             raise HTTPException(status_code=502, detail="Could not start a brokerage connection")
-        db.add(SnaptradeUser(user_id=user.id, user_secret=secret))
+        db.add(SnaptradeUser(user_id=user.id, user_secret=st.encrypt_secret(secret)))
         await db.commit()
     redirect = (getattr(_settings, "FRONTEND_URL", None) or "https://rigacap.com") + "/app?snaptrade=connected"
     try:
@@ -4031,7 +4031,7 @@ async def snaptrade_holdings(
     if not row:
         return {"configured": True, "connected": False, "symbols": [], "sources": [], "account_count": 0}
     try:
-        h = await st.all_holdings(str(user.id), row.user_secret)
+        h = await st.all_holdings(str(user.id), st.decrypt_secret(row.user_secret))
     except Exception as e:
         logger.warning(f"snaptrade holdings failed for {user.id}: {e}")
         raise HTTPException(status_code=502, detail="Could not fetch holdings")
@@ -4059,7 +4059,7 @@ async def snaptrade_disconnect(
     if not row:
         raise HTTPException(status_code=404, detail="No brokerage connection")
     try:
-        await st.remove_authorization(str(user.id), row.user_secret, req.authorization_id)
+        await st.remove_authorization(str(user.id), st.decrypt_secret(row.user_secret), req.authorization_id)
     except Exception as e:
         logger.warning(f"snaptrade disconnect failed for {user.id}: {e}")
         raise HTTPException(status_code=502, detail="Could not disconnect the brokerage")

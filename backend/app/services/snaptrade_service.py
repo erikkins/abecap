@@ -34,6 +34,36 @@ def is_configured() -> bool:
     return bool(os.environ.get("SNAPTRADE_CLIENT_ID") and os.environ.get("SNAPTRADE_CONSUMER_KEY"))
 
 
+# --- At-rest encryption for the per-user userSecret (KMS-backed) -----------------------------
+# The userSecret is a credential. When SNAPTRADE_KMS_KEY_ID is set (production), it's encrypted
+# with KMS before it touches Postgres; without it (dev/test) we store plaintext. The "kms:"
+# prefix records the scheme, so decrypt is unambiguous and backward-compatible with existing
+# plaintext rows (they simply pass through). To activate: create a KMS key, grant the Lambda
+# role kms:Encrypt/Decrypt on it, and set SNAPTRADE_KMS_KEY_ID.
+
+_ENC_PREFIX = "kms:"
+
+
+def _kms_client():
+    import boto3
+    return boto3.client("kms", region_name="us-east-1")
+
+
+def encrypt_secret(plaintext: str) -> str:
+    key_id = os.environ.get("SNAPTRADE_KMS_KEY_ID")
+    if not key_id or not plaintext:
+        return plaintext                       # dev/test: inert pass-through
+    blob = _kms_client().encrypt(KeyId=key_id, Plaintext=plaintext.encode())["CiphertextBlob"]
+    return _ENC_PREFIX + base64.b64encode(blob).decode()
+
+
+def decrypt_secret(stored: str) -> str:
+    if not stored or not stored.startswith(_ENC_PREFIX):
+        return stored                          # legacy/plaintext row
+    blob = base64.b64decode(stored[len(_ENC_PREFIX):])
+    return _kms_client().decrypt(CiphertextBlob=blob)["Plaintext"].decode()
+
+
 def _sign(path: str, query: str, body) -> str:
     key = os.environ["SNAPTRADE_CONSUMER_KEY"]
     # Signature covers {content, path, query} in that key order, compact-serialized.
