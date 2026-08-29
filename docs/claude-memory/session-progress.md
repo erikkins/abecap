@@ -7,18 +7,20 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 29 2026 (newsletter queue shipped; Mirror cockpit /app/next live + hero compacted)
+# Session snapshot — Aug 29 2026 (Mirror cockpit /app/next: eclipse hero + book-ledger view + pinned eclipse)
 
-## ▶▶ GO SLOW / BE PRECISE. NO "DWAP"/"t30v"/"tape" customer-facing. Tool-safe=descriptive. Worker payloads TRUTHY. SPA HARD-RELOAD after deploy. NEVER bare `lambda --environment`. Tier-preview canonical=preview_tier; cockpit accepts preview-tier/product-tier variants too.
+## ▶▶ GO SLOW / BE PRECISE. NO "DWAP"/"t30v"/"tape" customer-facing. Worker payloads TRUTHY. SPA HARD-RELOAD after deploy. NEVER bare `lambda --environment`. Tier-preview canonical=preview_tier (cockpit accepts preview-tier/product-tier).
 
-## ✅ SHIPPED main today (CI/CD ok): 6a1df93 newsletter durable QUEUE; dc670f1 preview-tier aliases; 522f1a7 compact cockpit hero; (+ 6bc3255/0d2e1d6 cockpit scaffold; full Mirror+SnapTrade earlier).
+## 🔒 SCOPE RULE (Erik asked): ALL cockpit work is /app/next ONLY, gated behind MirrorCheck `heroMode` prop (only MirrorCockpit passes it). Main /app Dashboard renders MirrorCheck WITHOUT heroMode = original title bar + question + gauge + 5 pill buckets, UNTOUCHED. Keep it that way.
 
-## 🌑 MIRROR COCKPIT /app/next (admin-gated design studio) — alignment ECLIPSE (book=sun/portfolio=moon/100%=total eclipse+claret corona) React canvas, driven by REAL mirror % via MirrorCheck onAlignment; forwards preview_tier(+aliases). HERO JUST COMPACTED (Erik feedback: was ~50% of top): header+thesis one line, eclipse max=272 (was 440), % scales off max (0.15×), tight spacing, data surfaces faster. AlignmentEclipse takes `max` prop. Dials to tune: max, % ratio 0.15, header font clamp.
-- SLEEVE design LOCKED: eclipse=FIDELITY (name-only, sleeve-agnostic, total eclipse reachable by all); SIZING=separate $ readout (SnapTrade have it / CSV parse Market Value / free-entry declare).
-- NEXT cockpit build: dark cohesion (paper MirrorCheck card on dark sky = clash), drop redundant MirrorCheck gauge, DELTA feed, DRIFT-over-time chart, account-scoping picker, CSV market-value parse.
+## ✅ SHIPPED main today (CI/CD ~4min each): eclipse hero resized (max 272→360, discs bigger R0.235 + higher cy0.43) fixing "two M&Ms"; WARM DAWN fade (dark night-sky → claret/amber horizon glow → paper; killed the muddy grey band); MirrorCheck heroMode = drop redundant gauge/question/card-chrome; BOOK-LEDGER view (in-book buckets → ledger rows: held ● first then gaps ○, P/M badges, responsive grid) + non-book buckets collapsed behind "Also in your account — N not in the model ▸" disclosure; PINNED eclipse (SVG glyph on dark chip + %/phase/held, fixed top, slides in on scroll>430). AlignmentEclipse gained `compact` prop (hides text overlay). Last commit 613b550.
 
-## 📰 NEWSLETTER DURABLE QUEUE DONE (fixes dropped-story x2): newsletter/topic_queue.json ordered [{id,title,concept,body_preserved?,added_at}]. newsletter_generator_service: list/add/remove/reorder + generate_draft(topic_id)→§02 w/ real title, popped on slot; body_preserved=verbatim, concept-only=regen. admin.py: GET/POST/DELETE /newsletter/queue; /newsletter/generate takes topic_id. NewsletterTab "Story queue" panel (add/see/remove/"Use in this issue →"). TOMORROW 2026-08-30 = Pascal §02; three-signals preserved verbatim in queue.
+## 🧭 ERIK'S TWO-VIEW FRAMING (drives next work): (1) SETUP/data-mgmt view = get holdings in (input/Connect/CSV + diagnostic buckets), touched rarely. (2) BOOK / DAILY-PROGRESS view = daily return visit, eclipse prominent at all times + book ledger + "what moved today." Ledger + pinned eclipse = done. STILL MISSING = the DAILY-PROGRESS data layer.
 
-## ✅ Mirror+SnapTrade fully shipped: connect modal (snaptrade-react), multi-brokerage grouped-by-connection, disconnect DELETE /connection/{id}, one-shot-paint caches, KMS col-encrypt INERT until prod-swap. TEST key RIGACAP-LLC-TEST-EKAKS (rotate at swap). Paths: registerUser/login(customRedirect body)/GET accounts//accounts/{id}/positions/all (results[], instrument.raw_symbol)/DELETE connection/{id}.
+## ⏭️ NEXT (offered, Erik to pick): tiny worker job snapshots daily {date, book, alignment%} to S3 → a "Today" strip diffs it ("book entered OKTA · exited X · alignment 34% up from 33%") + drift sparkline over time. Needs backend (nothing stores yesterday yet). Also earlier-agreed: account-scoping picker (sleeve), CSV market-value parse for SIZING dimension. My dark-theme verdict stands: dark only in eclipse hero, dawns to paper (Erik seems happy now).
 
-## ⏭️ Also: prod-key swap runbook; make /app Dashboard tolerant of preview-tier aliases too (offered); sector observatory DONE; regime _mas SOT; DST Scheduler; scrub DWAP perf_numbers.js; retire WhereStocksSit.
+## 🌑 COCKPIT FACTS: /app/next admin-gated. AlignmentEclipse(pct,max,compact) canvas ~L925; MirrorCheck heroMode branch ~L827; MirrorCockpit ~L988 (pinned bar + dawn fade + hero). SLEEVE design LOCKED: eclipse=FIDELITY (name-only, sleeve-agnostic); SIZING=separate $ readout.
+
+## 📰 EARLIER THIS SESSION (done): newsletter durable QUEUE (topic_queue.json; Pascal §02=8/30; three-signals preserved verbatim). Mirror+SnapTrade fully shipped (connect/disconnect/multi-brokerage, KMS col-encrypt INERT till prod-swap; TEST key RIGACAP-LLC-TEST-EKAKS rotate at swap). Sector-rotation research verdict = not forecastable. Voice guard (tape) wired.
+
+## ⏭️ Backlog: prod-key swap runbook; /app tolerant of preview-tier aliases; regime _mas SOT; DST Scheduler (before Nov); scrub DWAP perf_numbers.js; retire WhereStocksSit. PLAN FILE unified-sauteeing-whale (verify public return #s consistent+correct→centralize perf_numbers.*) NOT started, needs Erik Gate-A sign-off.
