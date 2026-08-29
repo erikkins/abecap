@@ -515,7 +515,7 @@ function parseHoldingsCsv(text) {
 // Tool-safe by design: every line is a factual set-comparison of the PUBLISHED book vs
 // what the user holds — never an instruction. The user decides whether to close any gap.
 // Holdings are a manual, ad-hoc watchlist (localStorage); alignment recomputes off the book.
-const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAlignment }) => {
+const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAlignment, heroMode = false }) => {
   const KEY = 'rigacap_mirror_holdings';
   const [holdings, setHoldings] = useState(() => {
     try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; }
@@ -726,20 +726,36 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
   );
 
   return (
-    <div className="mb-6 border-2 border-claret/40 bg-paper-card rounded-lg overflow-hidden">
-      <div className="flex items-baseline justify-between px-5 py-3 border-b border-rule bg-claret/5">
-        <h2 className="font-display text-[1.1rem] font-medium text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>
-          Mirror
-          <em className="font-display italic text-ink-mute text-[0.8rem] ml-2" style={{ fontVariationSettings: '"opsz" 24' }}>preview · admin only</em>
-        </h2>
-        <span className="text-[0.62rem] font-medium tracking-[0.18em] uppercase text-claret px-2 py-1 border border-claret/40 rounded">Direction demo</span>
-      </div>
-      <div className="p-5">
-        <p className="text-sm text-ink-mute mb-1">How closely are you mirroring the book?</p>
-        <p className="text-[0.8rem] text-ink-light mb-4">Add the tickers you hold. We show how they line up with your tier&rsquo;s current model book — the facts, side by side. Whether to close the gap is your call.</p>
+    <div className={heroMode ? 'mb-6' : 'mb-6 border-2 border-claret/40 bg-paper-card rounded-lg overflow-hidden'}>
+      {!heroMode && (
+        <div className="flex items-baseline justify-between px-5 py-3 border-b border-rule bg-claret/5">
+          <h2 className="font-display text-[1.1rem] font-medium text-ink tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>
+            Mirror
+            <em className="font-display italic text-ink-mute text-[0.8rem] ml-2" style={{ fontVariationSettings: '"opsz" 24' }}>preview · admin only</em>
+          </h2>
+          <span className="text-[0.62rem] font-medium tracking-[0.18em] uppercase text-claret px-2 py-1 border border-claret/40 rounded">Direction demo</span>
+        </div>
+      )}
+      <div className={heroMode ? '' : 'p-5'}>
+        {!heroMode && (
+          <>
+            <p className="text-sm text-ink-mute mb-1">How closely are you mirroring the book?</p>
+            <p className="text-[0.8rem] text-ink-light mb-4">Add the tickers you hold. We show how they line up with your tier&rsquo;s current model book — the facts, side by side. Whether to close the gap is your call.</p>
+          </>
+        )}
 
-        {/* Alignment gauge — skeleton until holdings are known, then the whole thing at once */}
-        {!ready ? (
+        {/* Alignment gauge — skeleton until holdings are known, then the whole thing at once.
+            In hero mode the ECLIPSE above IS the gauge, so we drop this block entirely and
+            render only a slim context caption in its place (no duplicate %/bar). */}
+        {heroMode ? (
+          ready && (
+            <p className="text-[0.76rem] text-ink-mute text-center mb-5">
+              Your tier: <span className="text-ink">{tierLabel}</span>
+              {regimeName ? <> · Market regime today: <span className="text-ink">{regimeName}</span></> : null}
+              {isMax ? <> · <span className="text-ink">Preserver base</span> <span className="font-mono">{alignedP.length}/{preserverSyms.size}</span> · <span className="text-claret">Maximizer breakout</span> <span className="font-mono">{alignedM.length}/{maximizerSyms.size}</span></> : null}
+            </p>
+          )
+        ) : !ready ? (
           <div className="mb-4 p-4 bg-paper-deep border border-rule rounded-lg animate-pulse">
             <div className="h-7 w-48 bg-rule rounded mb-3" />
             <div className="h-2 bg-rule rounded-full" />
@@ -935,8 +951,8 @@ function MirrorCockpit() {
     <div style={{ minHeight: '100vh', background: '#F5F1E8' }}>
       {/* Night-sky hero — the eclipse needs the dark to read; the sky then DAWNS into the paper
           content below (fade strip), so the drama up top flows into the editorial data. */}
-      <div style={{ position: 'relative', background: 'radial-gradient(125% 100% at 50% 6%, #211A12 0%, #16120D 44%, #0C0A08 82%)' }}>
-        <div style={{ maxWidth: 760, margin: '0 auto', padding: '14px 20px 76px' }}>
+      <div style={{ position: 'relative', background: 'radial-gradient(125% 100% at 50% 4%, #241C12 0%, #16120D 40%, #0C0A08 78%)' }}>
+        <div style={{ maxWidth: 760, margin: '0 auto', padding: '14px 20px 92px' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '4px 12px' }}>
             <h1 style={{ fontFamily: "'Iowan Old Style',Palatino,Georgia,serif", fontWeight: 600, fontSize: 'clamp(19px,3.4vw,26px)', color: '#F3ECDC', margin: 0, letterSpacing: '-0.01em' }}>How closely are you mirroring the book?</h1>
             <span style={{ fontFamily: "'Iowan Old Style',Georgia,serif", fontStyle: 'italic', color: '#B79A6E', fontSize: 13 }}>book = sun · you = moon</span>
@@ -944,12 +960,14 @@ function MirrorCockpit() {
           <AlignmentEclipse pct={pct} max={360} />
           <p style={{ textAlign: 'center', color: '#B7AE99', fontFamily: 'system-ui,sans-serif', fontSize: 13, marginTop: 2 }}>You hold {tally.aligned} of {tally.total} model positions</p>
         </div>
-        {/* dawn: sky → paper */}
-        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 96, background: 'linear-gradient(180deg, rgba(245,241,232,0) 0%, #F5F1E8 100%)', pointerEvents: 'none' }} />
+        {/* Dawn: the night sky warms at the horizon (echoing the corona) before resolving to
+            paper — a real sunrise, not a grey fade. Two stacked layers: a warm claret/amber
+            glow riding just above the paper, then the paper itself. */}
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 150, background: 'linear-gradient(180deg, rgba(122,36,48,0) 0%, rgba(150,58,50,0.22) 34%, rgba(197,106,70,0.30) 62%, rgba(230,175,120,0.35) 82%, #F5F1E8 100%)', pointerEvents: 'none' }} />
       </div>
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '4px 20px 56px' }}>
         <MirrorCheck book={dash?.tier_book} preserverBook={dash?.preserver_book} tier={dash?.tier}
-          regimeName={dash?.regime_forecast?.current_regime_name} onOpenChart={() => {}}
+          regimeName={dash?.regime_forecast?.current_regime_name} onOpenChart={() => {}} heroMode
           onAlignment={(p, t) => { setPct(p); if (t) setTally(t); }} />
       </div>
     </div>
