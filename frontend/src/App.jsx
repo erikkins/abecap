@@ -477,6 +477,9 @@ const SellModal = ({ symbol, position, currentPrice, stockInfo, onClose, onSell 
 // and the best result, with a click-through to the full chart + previous-holds overlay. This is
 // the paid-customer direction (fed by SnapTrade/CSV import later); gated to admin while counsel
 // reviews the framing. Impersonal/backward-looking track record — NOT individualized advice.
+// SnapTrade connection-portal modal — lazy so it's never pulled into static prerender.
+const SnapTradeReact = lazy(() => import('snaptrade-react').then(m => ({ default: m.SnapTradeReact })));
+
 // Parse a holdings CSV — robust to broker exports (preamble rows + a Symbol/Ticker
 // column) OR a plain one-ticker-per-line list. Returns a clean, de-duped ticker array.
 function parseHoldingsCsv(text) {
@@ -522,6 +525,8 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
   const [best, setBest] = useState({});         // symbol -> best past pnl% (drifted flourish)
   const [snap, setSnap] = useState({ connected: false, sources: [], loading: false });
   const [snapSymbols, setSnapSymbols] = useState([]);   // live SnapTrade union — NOT persisted
+  const [snapOpen, setSnapOpen] = useState(false);      // connection-portal modal
+  const [snapLink, setSnapLink] = useState(null);
 
   useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(holdings)); } catch { /* ignore */ } }, [holdings]);
 
@@ -648,8 +653,8 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
     setSnap(s => ({ ...s, loading: true }));
     try {
       const r = await api.post('/api/signals/mirror/snaptrade/connect', {});
-      if (r?.redirect_uri) { window.location.href = r.redirect_uri; return; }
-    } catch { /* fall through */ }
+      if (r?.redirect_uri) { setSnapLink(r.redirect_uri); setSnapOpen(true); }   // open in-app modal
+    } catch { /* ignore */ }
     setSnap(s => ({ ...s, loading: false }));
   };
   const disconnectBroker = async (authId, label) => {
@@ -786,6 +791,18 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
           This compares your holdings to RigaCap&rsquo;s published model book. It is information, <span className="text-ink-mute">not investment advice</span> and not a recommendation to buy, sell, or hold any security. RigaCap is not your investment adviser. You decide what to follow and execute it through your own broker.
         </p>
       </div>
+      {snapOpen && snapLink && (
+        <Suspense fallback={null}>
+          <SnapTradeReact
+            loginLink={snapLink}
+            isOpen={snapOpen}
+            close={() => setSnapOpen(false)}
+            onSuccess={() => { setSnapOpen(false); fetchSnapHoldings(); }}
+            onError={() => setSnapOpen(false)}
+            onExit={() => setSnapOpen(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };
