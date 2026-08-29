@@ -918,7 +918,15 @@ function MirrorCockpit() {
   const [dash, setDash] = useState(null);
   const [pct, setPct] = useState(0);
   const [tally, setTally] = useState({ aligned: 0, total: 0 });
-  useEffect(() => { (async () => { try { setDash(await api.get('/api/signals/dashboard')); } catch { setDash({}); } })(); }, []);
+  useEffect(() => { (async () => {
+    // Forward ?preview_tier= (+ preview_state) so admin tier-preview works here too — same as /app.
+    const qp = new URLSearchParams(window.location.search);
+    const p = new URLSearchParams();
+    if (qp.get('preview_tier')) p.set('preview_tier', qp.get('preview_tier'));
+    if (qp.get('preview_state')) p.set('preview_state', qp.get('preview_state'));
+    const q = p.toString();
+    try { setDash(await api.get(`/api/signals/dashboard${q ? `?${q}` : ''}`)); } catch { setDash({}); }
+  })(); }, []);
   if (isAdmin === false) return <Navigate to="/app" replace />;
   return (
     <div style={{ minHeight: '100vh', background: 'radial-gradient(120% 90% at 50% 12%, #1B1712 0%, #141210 42%, #0B0A08 100%)' }}>
