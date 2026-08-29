@@ -512,14 +512,110 @@ function parseHoldingsCsv(text) {
 }
 
 // Mirror Check — how closely a follower's holdings line up with the LIVE model book.
-// Tool-safe by design: every line is a factual set-comparison of the PUBLISHED book vs
-// what the user holds — never an instruction. The user decides whether to close any gap.
-// Holdings are a manual, ad-hoc watchlist (localStorage); alignment recomputes off the book.
-const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAlignment, heroMode = false }) => {
+// Shared holdings source for the Mirror AND the main dashboard's "you hold this" bubbles.
+// Owns the user's manual/CSV list (localStorage) + live SnapTrade holdings, so both surfaces
+// read ONE held-set. Call once per page (Dashboard / MirrorCockpit) and thread down.
+function useMirrorHoldings() {
   const KEY = 'rigacap_mirror_holdings';
+  const SNAP_KEY = 'rigacap_mirror_snap';
   const [holdings, setHoldings] = useState(() => {
     try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; }
   });
+  useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(holdings)); } catch { /* ignore */ } }, [holdings]);
+
+  // Cache the last SnapTrade holdings so surfaces paint complete on load (live sync is 3-5s);
+  // still refresh in the background. Cache is overwritten each fetch (disconnect drops names).
+  const cachedSnap = (() => { try { return JSON.parse(localStorage.getItem(SNAP_KEY) || 'null'); } catch { return null; } })();
+  const [snap, setSnap] = useState(cachedSnap
+    ? { connected: (cachedSnap.sources || []).length > 0, sources: cachedSnap.sources || [], loading: false }
+    : { connected: false, sources: [], loading: false });
+  const [snapSymbols, setSnapSymbols] = useState(cachedSnap?.symbols || []);
+  const [snapReady, setSnapReady] = useState(!!cachedSnap);   // gate the alignment render until holdings are known
+  const [snapOpen, setSnapOpen] = useState(false);            // connection-portal modal
+  const [snapLink, setSnapLink] = useState(null);
+  const [csvMsg, setCsvMsg] = useState('');
+
+  const addSymbols = (syms) => {
+    const clean = [...new Set((syms || []).filter(Boolean))];
+    if (!clean.length) return;
+    setHoldings(h => [...new Set([...h, ...clean])].slice(0, 200));
+  };
+  const removeSymbol = (s) => setHoldings(h => h.filter(x => x !== s));
+  const onCsv = (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';                 // allow re-uploading the same file
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const syms = parseHoldingsCsv(String(reader.result || ''));
+      addSymbols(syms);
+      setCsvMsg(syms.length ? `Imported ${syms.length} ticker${syms.length === 1 ? '' : 's'} from ${f.name}` : `No tickers found in ${f.name}`);
+      setTimeout(() => setCsvMsg(''), 6000);
+    };
+    reader.readAsText(f);
+  };
+
+  // SnapTrade brokerage connect — read-only, multi-brokerage. Broker holdings live in
+  // snapSymbols (their own set), so disconnecting a broker just re-fetches and drops them.
+  const fetchSnapHoldings = async () => {
+    try {
+      const r = await api.get('/api/signals/mirror/snaptrade/holdings');
+      const symbols = Array.isArray(r?.symbols) ? r.symbols : [];
+      const sources = r?.sources || [];
+      setSnapSymbols(symbols);
+      setSnap({ connected: !!r?.connected, sources, loading: false });
+      try { localStorage.setItem(SNAP_KEY, JSON.stringify({ symbols, sources })); } catch { /* ignore */ }
+    } catch { setSnap(s => ({ ...s, loading: false })); }
+    finally { setSnapReady(true); }
+  };
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const justConnected = params.get('snaptrade') === 'connected';
+    fetchSnapHoldings();               // pull already-connected holdings on mount
+    if (justConnected) {               // returned from the portal — clean the URL
+      params.delete('snaptrade');
+      const qs = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
+    }
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  const connectBroker = async () => {
+    setSnap(s => ({ ...s, loading: true }));
+    try {
+      const r = await api.post('/api/signals/mirror/snaptrade/connect', {});
+      if (r?.redirect_uri) { setSnapLink(r.redirect_uri); setSnapOpen(true); }   // open in-app modal
+    } catch { /* ignore */ }
+    setSnap(s => ({ ...s, loading: false }));
+  };
+  const disconnectBroker = async (authId, label) => {
+    if (!authId) return;
+    if (!window.confirm(`Disconnect ${label}? This removes all of its accounts from your Mirror.`)) return;
+    // Optimistic: drop it from the header immediately (SnapTrade deletion is async/queued).
+    setSnap(s => ({ ...s, sources: s.sources.filter(x => x.authorization_id !== authId) }));
+    try { await api.post('/api/signals/mirror/snaptrade/disconnect', { authorization_id: authId }); } catch { /* ignore */ }
+    setTimeout(fetchSnapHoldings, 1800);   // reconcile after the async delete completes
+  };
+
+  const effective = useMemo(() => [...new Set([...holdings, ...snapSymbols])], [holdings, snapSymbols]);
+  const heldSet = useMemo(() => new Set(effective), [effective]);
+  const manualSet = useMemo(() => new Set(holdings), [holdings]);   // which chips get an individual ×
+  return {
+    holdings, effective, heldSet, manualSet,
+    snap, snapSymbols, snapReady, snapOpen, snapLink, setSnapOpen,
+    addSymbols, removeSymbol, onCsv, csvMsg,
+    connectBroker, disconnectBroker, fetchSnapHoldings,
+  };
+}
+
+// Tool-safe by design: every line is a factual set-comparison of the PUBLISHED book vs
+// what the user holds — never an instruction. The user decides whether to close any gap.
+// Holdings come from the shared useMirrorHoldings hook (holdingsApi); alignment recomputes off the book.
+const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAlignment, heroMode = false, holdingsApi }) => {
+  const {
+    holdings, effective, heldSet, manualSet,
+    snap, snapSymbols, snapReady, snapOpen, snapLink, setSnapOpen,
+    addSymbols, removeSymbol, onCsv, csvMsg,
+    connectBroker, disconnectBroker, fetchSnapHoldings,
+  } = holdingsApi;
   const [input, setInput] = useState('');
   const CTX_KEY = 'rigacap_mirror_ctx';
   const BEST_KEY = 'rigacap_mirror_best';
@@ -530,26 +626,12 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
   const [best, setBest] = useState(() => {      // symbol -> best past pnl% (drifted flourish), cached
     try { return JSON.parse(localStorage.getItem(BEST_KEY) || '{}'); } catch { return {}; }
   });
-  // Cache the last SnapTrade holdings so the Mirror paints complete on load (the live sync
-  // is 3-5s); we still refresh in the background and reconcile. Cache is refreshed every load
-  // and cleared implicitly when a broker is disconnected (re-fetch overwrites it).
-  const SNAP_KEY = 'rigacap_mirror_snap';
-  const cachedSnap = (() => { try { return JSON.parse(localStorage.getItem(SNAP_KEY) || 'null'); } catch { return null; } })();
-  const [snap, setSnap] = useState(cachedSnap
-    ? { connected: (cachedSnap.sources || []).length > 0, sources: cachedSnap.sources || [], loading: false }
-    : { connected: false, sources: [], loading: false });
-  const [snapSymbols, setSnapSymbols] = useState(cachedSnap?.symbols || []);
-  const [snapReady, setSnapReady] = useState(!!cachedSnap);   // gate the alignment render until holdings are known
-  const [snapOpen, setSnapOpen] = useState(false);            // connection-portal modal
-  const [snapLink, setSnapLink] = useState(null);
   const [showOther, setShowOther] = useState(false);          // heroMode: reveal non-book holdings (setup detail)
   // Rolling book history (heroMode only) → "Today" delta + alignment-drift sparkline. Cached
   // for a one-shot paint like the rest.
   const [bookHist, setBookHist] = useState(() => {
     try { return JSON.parse(localStorage.getItem('rigacap_mirror_bookhist') || 'null'); } catch { return null; }
   });
-
-  useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(holdings)); } catch { /* ignore */ } }, [holdings]);
 
   // Membership sets (universe + ever-traded), fetched once. Bucketing is set-driven, not per-ticker.
   useEffect(() => {
@@ -592,11 +674,7 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
   const maximizerSyms = useMemo(() => symsOf(isMax ? book : null), [isMax, book]);
   const bookSyms = useMemo(() => [...new Set([...preserverSyms, ...maximizerSyms])], [preserverSyms, maximizerSyms]);
   const bookSet = useMemo(() => new Set(bookSyms), [bookSyms]);
-  // Effective holdings = manual/CSV list (localStorage) ∪ live SnapTrade union. Broker symbols
-  // aren't persisted, so disconnecting a broker (re-fetch) cleanly drops its names.
-  const effective = useMemo(() => [...new Set([...holdings, ...snapSymbols])], [holdings, snapSymbols]);
-  const manualSet = useMemo(() => new Set(holdings), [holdings]);   // which chips get an individual ×
-  const heldSet = useMemo(() => new Set(effective), [effective]);
+  // effective / heldSet / manualSet now come from the shared useMirrorHoldings hook (above).
   const bookOf = (s) => {
     const p = preserverSyms.has(s), m = maximizerSyms.has(s);
     return m && p ? 'P·M' : m ? 'M' : p ? 'P' : null;
@@ -645,83 +723,15 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
     return () => { cancelled = true; };
   }, [drifted.join(',')]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Add/remove delegate to the shared holdings hook; input is the only local UI state here.
   const add = (e) => {
     e?.preventDefault();
     const syms = [...new Set((input.toUpperCase().match(/[A-Z][A-Z.\-]{0,6}/g) || []))];
     if (!syms.length) return;
-    setHoldings(h => [...new Set([...h, ...syms])].slice(0, 60));
+    addSymbols(syms);
     setInput('');
   };
-  const del = (s) => setHoldings(h => h.filter(x => x !== s));
-
-  const [csvMsg, setCsvMsg] = useState('');
-  const importTickers = (syms) => {
-    const clean = [...new Set(syms.filter(Boolean))];
-    if (!clean.length) return 0;
-    let added = 0;
-    setHoldings(h => {
-      const have = new Set(h);
-      const merged = [...h];
-      clean.forEach(s => { if (!have.has(s)) { merged.push(s); added++; } });
-      return [...new Set(merged)].slice(0, 200);
-    });
-    return clean.length;
-  };
-  const onCsv = (e) => {
-    const f = e.target.files?.[0];
-    e.target.value = '';                 // allow re-uploading the same file
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const syms = parseHoldingsCsv(String(reader.result || ''));
-      importTickers(syms);
-      setCsvMsg(syms.length ? `Imported ${syms.length} ticker${syms.length === 1 ? '' : 's'} from ${f.name}` : `No tickers found in ${f.name}`);
-      setTimeout(() => setCsvMsg(''), 6000);
-    };
-    reader.readAsText(f);
-  };
-
-  // SnapTrade brokerage connect — read-only, multi-brokerage. Broker holdings live in
-  // snapSymbols (their own set), so disconnecting a broker just re-fetches and drops them.
-  const fetchSnapHoldings = async () => {
-    try {
-      const r = await api.get('/api/signals/mirror/snaptrade/holdings');
-      const symbols = Array.isArray(r?.symbols) ? r.symbols : [];
-      const sources = r?.sources || [];
-      setSnapSymbols(symbols);
-      setSnap({ connected: !!r?.connected, sources, loading: false });
-      try { localStorage.setItem(SNAP_KEY, JSON.stringify({ symbols, sources })); } catch { /* ignore */ }
-    } catch { setSnap(s => ({ ...s, loading: false })); }
-    finally { setSnapReady(true); }
-  };
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const justConnected = params.get('snaptrade') === 'connected';
-    fetchSnapHoldings();               // pull already-connected holdings on mount
-    if (justConnected) {               // returned from the portal — clean the URL
-      params.delete('snaptrade');
-      const qs = params.toString();
-      window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
-    }
-  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
-  const connectBroker = async () => {
-    setSnap(s => ({ ...s, loading: true }));
-    try {
-      const r = await api.post('/api/signals/mirror/snaptrade/connect', {});
-      if (r?.redirect_uri) { setSnapLink(r.redirect_uri); setSnapOpen(true); }   // open in-app modal
-    } catch { /* ignore */ }
-    setSnap(s => ({ ...s, loading: false }));
-  };
-  const disconnectBroker = async (authId, label) => {
-    if (!authId) return;
-    if (!window.confirm(`Disconnect ${label}? This removes all of its accounts from your Mirror.`)) return;
-    // Optimistic: drop it from the header immediately (SnapTrade deletion is async/queued).
-    setSnap(s => ({ ...s, sources: s.sources.filter(x => x.authorization_id !== authId) }));
-    try {
-      await api.post('/api/signals/mirror/snaptrade/disconnect', { authorization_id: authId });
-    } catch { /* ignore */ }
-    setTimeout(fetchSnapHoldings, 1800);   // reconcile after the async delete completes
-  };
+  const del = (s) => removeSymbol(s);
 
   const Chip = ({ s, tone, sub, badge, removable = true }) => (
     <span className={`group inline-flex items-center gap-1.5 pl-2.5 ${removable ? 'pr-1' : 'pr-2.5'} py-1 rounded-full border text-[0.8rem] font-mono ${tone}`}>
@@ -1077,7 +1087,7 @@ function AlignmentEclipse({ pct = 0, max = 440, compact = false }) {
 // (MirrorCheck heroMode). Used by BOTH /app/next (MirrorCockpit) and the in-app "Mirror" tab.
 // The dark hero full-bleeds to the viewport and dawns into paper, so it drops cleanly into a
 // padded tab container or a bare page. `navOffset` lets the pinned bar sit below app chrome.
-function MirrorView({ book, preserverBook, tier, regimeName, onOpenChart, navOffset = 0, belowHeader = false }) {
+function MirrorView({ book, preserverBook, tier, regimeName, onOpenChart, navOffset = 0, belowHeader = false, holdingsApi }) {
   const [pct, setPct] = useState(0);
   const [tally, setTally] = useState({ aligned: 0, total: 0 });
   const [scrolled, setScrolled] = useState(false);
@@ -1093,8 +1103,9 @@ function MirrorView({ book, preserverBook, tier, regimeName, onOpenChart, navOff
     if (!belowHeader) return;
     const measure = () => setHdrH(document.querySelector('header')?.offsetHeight || 0);
     measure();
+    const raf = requestAnimationFrame(measure);   // settle after layout
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', measure); };
   }, [belowHeader]);
   const topOffset = belowHeader ? hdrH : navOffset;
   const a = Math.max(0, Math.min(1, pct / 100));
@@ -1105,7 +1116,7 @@ function MirrorView({ book, preserverBook, tier, regimeName, onOpenChart, navOff
     <>
       {/* Pinned alignment — an SVG eclipse glyph (own dark chip so it reads on paper) that
           slides in once the hero scrolls off, keeping the eclipse present as you work the book. */}
-      <div style={{ position: 'fixed', top: topOffset, left: 0, right: 0, zIndex: 40, transform: scrolled ? 'translateY(0)' : 'translateY(-110%)', transition: 'transform .28s ease', background: 'rgba(245,241,232,0.94)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderBottom: '1px solid #E4DDCB' }}>
+      <div style={{ position: 'fixed', top: topOffset, left: 0, right: 0, zIndex: 29, opacity: scrolled ? 1 : 0, visibility: scrolled ? 'visible' : 'hidden', transform: scrolled ? 'translateY(0)' : 'translateY(-6px)', pointerEvents: scrolled ? 'auto' : 'none', transition: 'opacity .25s ease, transform .25s ease, visibility .25s', background: 'rgba(245,241,232,0.94)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderBottom: '1px solid #E4DDCB' }}>
         <div style={{ maxWidth: 760, margin: '0 auto', padding: '7px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
           <svg width="30" height="30" viewBox="0 0 40 40" style={{ flexShrink: 0 }} aria-hidden="true">
             <defs><clipPath id="eclchip"><circle cx="20" cy="20" r="19" /></clipPath></defs>
@@ -1136,7 +1147,7 @@ function MirrorView({ book, preserverBook, tier, regimeName, onOpenChart, navOff
       </div>
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '4px 20px 56px' }}>
         <MirrorCheck book={book} preserverBook={preserverBook} tier={tier}
-          regimeName={regimeName} onOpenChart={onOpenChart || (() => {})} heroMode
+          regimeName={regimeName} onOpenChart={onOpenChart || (() => {})} heroMode holdingsApi={holdingsApi}
           onAlignment={(p, t) => { setPct(p); if (t) setTally(t); }} />
       </div>
     </>
@@ -1148,6 +1159,7 @@ function MirrorView({ book, preserverBook, tier, regimeName, onOpenChart, navOff
 function MirrorCockpit() {
   const { isAdmin } = useAuth();
   const [dash, setDash] = useState(null);
+  const holdingsApi = useMirrorHoldings();
   useEffect(() => { (async () => {
     // Forward the tier/state preview so admin preview works here too. Accept every spelling
     // (preview_tier / preview-tier / product_tier / product-tier) → forward the canonical one.
@@ -1164,7 +1176,7 @@ function MirrorCockpit() {
   return (
     <div style={{ minHeight: '100vh', background: '#F5F1E8' }}>
       <MirrorView book={dash?.tier_book} preserverBook={dash?.preserver_book} tier={dash?.tier}
-        regimeName={dash?.regime_forecast?.current_regime_name} navOffset={0} />
+        regimeName={dash?.regime_forecast?.current_regime_name} navOffset={0} holdingsApi={holdingsApi} />
     </div>
   );
 }
@@ -2745,6 +2757,10 @@ function WelcomeTour() {
 
 function Dashboard() {
   const { user, logout, isAdmin, isAuthenticated, loading: authLoading, refreshUser, hasValidSubscription } = useAuth();
+  // Shared holdings — drives the Mirror tab AND the "you hold this" bubbles on the main book.
+  const holdingsApi = useMirrorHoldings();
+  const heldSet = useMemo(() => new Set([...holdingsApi.heldSet].map(s => (s || '').toUpperCase())), [holdingsApi.heldSet]);
+  const isHeld = (sym) => heldSet.has((sym || '').toUpperCase());
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [signals, setSignals] = useState([]);
   const [positions, setPositions] = useState([]);
@@ -4019,7 +4035,7 @@ function Dashboard() {
 
         {activeTab === 'mirror' && isAdmin ? (
           <MirrorView book={tierBookLive} preserverBook={dashboardData?.preserver_book} tier={dashboardData?.tier}
-            regimeName={dashboardData?.regime_forecast?.current_regime_name} onOpenChart={setChartModal} belowHeader />
+            regimeName={dashboardData?.regime_forecast?.current_regime_name} onOpenChart={setChartModal} belowHeader holdingsApi={holdingsApi} />
         ) : activeTab === 'signals' ? (
           <>
             {/* Go to Cash Banner */}
@@ -4789,6 +4805,7 @@ function Dashboard() {
                             }}
                           >
                             <div className="flex items-baseline gap-2 min-w-0">
+                              {isHeld(s.symbol) && <span title="In your portfolio" className="text-positive text-[0.62rem] self-center shrink-0" aria-label="You hold this">●</span>}
                               <span className="font-display text-[1.1rem] font-medium tracking-tight truncate" style={{ fontVariationSettings: '"opsz" 48' }}>{s.symbol}</span>
                               {isBreakout && <span className="font-mono text-[0.58rem] tracking-[0.16em] uppercase text-claret border border-claret/40 px-1.5 py-0.5 whitespace-nowrap">Breakout</span>}
                               {!isBreakout && renderContinuityBadge(s)}
@@ -4840,6 +4857,7 @@ function Dashboard() {
                           }}
                         >
                           <td className="px-3 py-3">
+                            {isHeld(s.symbol) && <span title="In your portfolio" className="text-positive text-[0.62rem] mr-1.5" aria-label="You hold this">●</span>}
                             <span className="font-display text-[1.05rem] font-medium tracking-tight" style={{ fontVariationSettings: '"opsz" 48' }}>
                               {s.symbol}
                             </span>
