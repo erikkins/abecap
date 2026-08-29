@@ -760,7 +760,7 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
   // Book view (heroMode): the model book as a ledger, held first then gaps, your holdings
   // annotated onto it — instead of two flat walls of pills. Non-book names collapse below.
   const bookRows = bookSyms
-    .map(s => ({ s, held: heldSet.has(s), badge: isMax ? bookOf(s) : null }))
+    .map(s => ({ s, held: heldSet.has(s), manual: manualSet.has(s), badge: isMax ? bookOf(s) : null }))
     .sort((a, b) => (Number(b.held) - Number(a.held)) || a.s.localeCompare(b.s));
   const otherCount = drifted.length + inUniverse.length + outside.length;
 
@@ -926,12 +926,16 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
               </div>
               <div className="grid gap-x-8" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
                 {bookRows.map(r => (
-                  <div key={r.s} className={`flex items-center gap-2 py-[7px] border-b border-rule/50 ${r.held ? '' : 'opacity-90'}`}>
+                  <div key={r.s} className={`group flex items-center gap-2 py-[7px] border-b border-rule/50 ${r.held ? '' : 'opacity-90'}`}>
                     <span className={r.held ? 'text-positive' : 'text-claret/45'} style={{ fontSize: 10, lineHeight: 1 }}>{r.held ? '●' : '○'}</span>
                     <button onClick={() => onOpenChart?.({ type: 'signal', data: { symbol: r.s }, symbol: r.s })}
                       className={`font-display text-[0.98rem] hover:underline ${r.held ? 'text-ink font-medium' : 'text-ink-mute'}`} style={{ fontVariationSettings: '"opsz" 32' }}>{r.s}</button>
                     {isMax && r.badge && <span className={`text-[0.5rem] font-semibold leading-none px-1 py-0.5 rounded ${r.badge.includes('M') ? 'bg-claret/15 text-claret' : 'bg-ink/10 text-ink-mute'}`}>{r.badge}</span>}
                     <span className={`ml-auto text-[0.62rem] font-mono ${r.held ? 'text-positive' : 'text-ink-light'}`}>{r.held ? 'held' : 'gap'}</span>
+                    {r.manual && (
+                      <button onClick={() => del(r.s)} title={`Remove ${r.s}`} aria-label={`remove ${r.s}`}
+                        className="text-ink-light hover:text-claret text-[0.9rem] leading-none px-0.5 opacity-40 group-hover:opacity-100 transition-opacity">×</button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1024,12 +1028,15 @@ function Sparkline({ series, w = 104, h = 26 }) {
 // reads on both paper (inactive tab) and ink (active tab); the moon slides to total at 100%.
 function EclipseGlyph({ pct = 0, size = 18 }) {
   const a = Math.max(0, Math.min(1, (pct || 0) / 100));
+  // Match AlignmentEclipse: sun CENTERED, moon slides in from the right by (1-a)·R·2.16 — so 100%
+  // = total (moon centered), 0% = clear (moon off the disc), and 50% reads as a true half-eclipse.
+  const R = 14;
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" style={{ display: 'block', flexShrink: 0 }} aria-hidden="true">
       <defs><clipPath id="eclipse-glyph"><circle cx="20" cy="20" r="18" /></clipPath></defs>
       <g clipPath="url(#eclipse-glyph)">
-        <circle cx="16" cy="20" r="15.5" fill="#F4E9CE" />
-        <circle cx={16 + (1 - a) * 20} cy="20" r="15.5" fill="#201A13" />
+        <circle cx="20" cy="20" r={R} fill="#F4E9CE" />
+        <circle cx={20 + (1 - a) * R * 2.16} cy="20" r={R} fill="#201A13" />
       </g>
       <circle cx="20" cy="20" r="18" fill="none" stroke="#7A2430" strokeWidth="2.5" />
     </svg>
@@ -5041,6 +5048,7 @@ function Dashboard() {
                                   <div data-books-left>
                                     <TierBookView
                                       book={dashboardData.preserver_book}
+                                      isHeld={isHeld}
                                       compact
                                       marketNote={dashboardData.preserver_market_context}
                                       onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}
@@ -5053,6 +5061,7 @@ function Dashboard() {
                                   <div>
                                     <TierBookView
                                       book={dashboardData.tier_book}
+                                      isHeld={isHeld}
                                       actions={dashboardData.todays_actions}
                                       marketNote={dashboardData.maximizer_market_context}
                                       hideCapitalEditor
@@ -5119,6 +5128,7 @@ function Dashboard() {
                             <div className="px-4 pt-4">
                               <TierBookView
                                 book={tierBookLive || dashboardData.tier_book}
+                                isHeld={isHeld}
                                 radar={dashboardData.breakout_radar}
                                 actions={dashboardData.todays_actions}
                                 onRowClick={(h) => setChartModal({ type: 'position', data: h, symbol: h.symbol })}

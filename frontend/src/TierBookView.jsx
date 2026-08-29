@@ -38,7 +38,11 @@ function HoldingGauge({ entry, now, hwm, stop }) {
 // the book's positions to it (implied_shares = book_shares x capital/book_value) so their
 // portfolio auto-mirrors the book with zero per-trade entry. Maximizer = breakout book
 // (day-X/29 exits); Preserver = t30v book (30% trailing). (Jul 24 2026)
-export default function TierBookView({ book, onSetCapital, onRowClick, radar, actions, hideCapitalEditor = false, compact = false, marketNote = null }) {
+export default function TierBookView({ book, onSetCapital, onRowClick, radar, actions, hideCapitalEditor = false, compact = false, marketNote = null, isHeld = () => false }) {
+  // Green "you hold this" dot — the same held-language as the Mirror, on the mirror book.
+  const HeldDot = ({ sym }) => (isHeld(sym)
+    ? <span title="In your portfolio" aria-label="You hold this" className="text-positive text-[0.6rem] mr-1.5 align-middle">●</span>
+    : null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(book?.capital ?? 100000));
   const [saving, setSaving] = useState(false);
@@ -199,6 +203,7 @@ export default function TierBookView({ book, onSetCapital, onRowClick, radar, ac
                   className={`border-b border-rule/50 ${onRowClick ? 'cursor-pointer hover:bg-paper-deep transition-colors' : ''}`}
                 >
                   <td className="py-2.5 px-3 sm:px-5">
+                    <HeldDot sym={h.symbol} />
                     <span className="font-display text-[1rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{h.symbol}</span>
                     {h.is_new && (
                       <span className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-claret border border-claret/40 px-1 py-0.5 ml-2 align-middle">New</span>
@@ -272,6 +277,7 @@ export default function TierBookView({ book, onSetCapital, onRowClick, radar, ac
             >
               <div className="flex items-baseline justify-between gap-2 mb-2.5">
                 <div className="flex items-baseline gap-2 min-w-0">
+                  <HeldDot sym={h.symbol} />
                   <span className="font-display text-[1.1rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 32' }}>{h.symbol}</span>
                   {h.is_new && <span className="font-mono text-[0.55rem] uppercase tracking-[0.14em] text-claret border border-claret/40 px-1 py-0.5">New</span>}
                   <span className="font-mono text-[0.68rem] text-ink-mute whitespace-nowrap">{h.weight_pct}% of book</span>
