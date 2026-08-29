@@ -1,5 +1,8 @@
 # Stocker App - Key Learnings
 
+## ⚖️ MIRROR TAB — GATED ON COUNSEL before opening to all subs (Aug 29)
+- [Mirror tab counsel gate](project_mirror_tab_counsel_gate.md) — Mirror tab (eclipse cockpit) is ADMIN-ONLY; Erik: do NOT open to all subscribers until he hears back from counsel, then explicit go. To open = flip 2 `isAdmin` guards in App.jsx (tab button + content branch). Reason: compares user holdings vs model book = investment-advice territory, needs legal read. DON'T flip preemptively.
+
 ## 🧭 FREE-FIRST CONVERSION PIVOT — full build spec (Aug 24, DISCUSS→build)
 - [Free-first spec](project_free_first_spec.md) — 0 real subs → earn trust via FREE (no-card, delayed-proof) experience, card LATER (30-day money-back). New `free` state, RETIRE `trial`, `is_valid`=paid-only. Free shows whole engine DELAYED (lead personalized by ad door; tier choice at upgrade). Anti-leak = data-layer entitlement choke point + fail-closed pre-send guard. QA = preview_state/force_state. Every captured email→newsletter (+abandoned-signup recovery). Drip rewrite. OPEN: free/paid line, money-back length, intro pricing #s.
 
