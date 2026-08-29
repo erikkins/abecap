@@ -521,8 +521,15 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
     try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; }
   });
   const [input, setInput] = useState('');
-  const [ctx, setCtx] = useState(null);        // { universe:Set, entered:Set }
-  const [best, setBest] = useState({});         // symbol -> best past pnl% (drifted flourish)
+  const CTX_KEY = 'rigacap_mirror_ctx';
+  const BEST_KEY = 'rigacap_mirror_best';
+  const [ctx, setCtx] = useState(() => {        // { universe:Set, entered:Set } — hydrate from cache
+    try { const c = JSON.parse(localStorage.getItem(CTX_KEY) || 'null'); return c ? { universe: new Set(c.universe || []), entered: new Set(c.entered || []) } : null; }
+    catch { return null; }
+  });
+  const [best, setBest] = useState(() => {      // symbol -> best past pnl% (drifted flourish), cached
+    try { return JSON.parse(localStorage.getItem(BEST_KEY) || '{}'); } catch { return {}; }
+  });
   // Cache the last SnapTrade holdings so the Mirror paints complete on load (the live sync
   // is 3-5s); we still refresh in the background and reconcile. Cache is refreshed every load
   // and cleared implicitly when a broker is disconnected (re-fetch overwrites it).
@@ -544,8 +551,11 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
     (async () => {
       try {
         const r = await api.get('/api/signals/mirror-context');
-        if (!cancelled) setCtx({ universe: new Set(r?.universe || []), entered: new Set(r?.entered || []) });
-      } catch { if (!cancelled) setCtx({ universe: new Set(), entered: new Set() }); }
+        if (!cancelled) {
+          setCtx({ universe: new Set(r?.universe || []), entered: new Set(r?.entered || []) });
+          try { localStorage.setItem(CTX_KEY, JSON.stringify({ universe: r?.universe || [], entered: r?.entered || [] })); } catch { /* ignore */ }
+        }
+      } catch { if (!cancelled) setCtx(c => c || { universe: new Set(), entered: new Set() }); }   // keep cache on error
     })();
     return () => { cancelled = true; };
   }, []);
@@ -600,7 +610,11 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
           upd[s] = vals.length ? Math.max(...vals) : null;
         } catch { upd[s] = null; }
       }
-      if (!cancelled) setBest(b => ({ ...b, ...upd }));
+      if (!cancelled) setBest(b => {
+        const nb = { ...b, ...upd };
+        try { localStorage.setItem(BEST_KEY, JSON.stringify(nb)); } catch { /* ignore */ }
+        return nb;
+      });
     })();
     return () => { cancelled = true; };
   }, [drifted.join(',')]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -766,7 +780,7 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
           </button>
           {csvMsg && <span className="text-[0.72rem] text-positive">{csvMsg}</span>}
         </div>
-        {snap.connected && snap.sources.length > 0 && (
+        {ready && snap.connected && snap.sources.length > 0 && (
           <div className="mb-4 -mt-1">
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-[0.6rem] font-medium tracking-[0.18em] uppercase text-positive">Connected</span>
