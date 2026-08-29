@@ -1073,41 +1073,39 @@ function AlignmentEclipse({ pct = 0, max = 440, compact = false }) {
   );
 }
 
-// /app/next — private, admin-gated design studio for the reoriented Mirror COCKPIT.
-// The eclipse (hero) is driven by the REAL alignment reported by MirrorCheck below.
-function MirrorCockpit() {
-  const { isAdmin } = useAuth();
-  const [dash, setDash] = useState(null);
+// Reusable Mirror view — pinned eclipse readout + night-sky eclipse hero + book ledger
+// (MirrorCheck heroMode). Used by BOTH /app/next (MirrorCockpit) and the in-app "Mirror" tab.
+// The dark hero full-bleeds to the viewport and dawns into paper, so it drops cleanly into a
+// padded tab container or a bare page. `navOffset` lets the pinned bar sit below app chrome.
+function MirrorView({ book, preserverBook, tier, regimeName, onOpenChart, navOffset = 0, belowHeader = false }) {
   const [pct, setPct] = useState(0);
   const [tally, setTally] = useState({ aligned: 0, total: 0 });
   const [scrolled, setScrolled] = useState(false);
-  // Keep the eclipse "prominently visible at all times": once the hero scrolls away, a compact
-  // pinned eclipse + readout slides down and stays.
+  const [hdrH, setHdrH] = useState(0);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 430);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
-  useEffect(() => { (async () => {
-    // Forward the tier/state preview so admin preview works here too. Accept every spelling
-    // (preview_tier / preview-tier / product_tier / product-tier) → forward the canonical one.
-    const qp = new URLSearchParams(window.location.search);
-    const p = new URLSearchParams();
-    const pt = qp.get('preview_tier') || qp.get('preview-tier') || qp.get('product_tier') || qp.get('product-tier');
-    if (pt) p.set('preview_tier', pt);
-    const ps = qp.get('preview_state') || qp.get('preview-state');
-    if (ps) p.set('preview_state', ps);
-    const q = p.toString();
-    try { setDash(await api.get(`/api/signals/dashboard${q ? `?${q}` : ''}`)); } catch { setDash({}); }
-  })(); }, []);
-  if (isAdmin === false) return <Navigate to="/app" replace />;
+  // In-tab, the app's sticky <header> (z-30) sits at top:0 — measure it so the pinned bar
+  // (z-40) slots just below it rather than covering the nav. On /app/next there's no header.
+  useEffect(() => {
+    if (!belowHeader) return;
+    const measure = () => setHdrH(document.querySelector('header')?.offsetHeight || 0);
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [belowHeader]);
+  const topOffset = belowHeader ? hdrH : navOffset;
   const a = Math.max(0, Math.min(1, pct / 100));
   const phase = pct >= 100 ? 'Total eclipse' : pct >= 86 ? 'Near-total' : pct >= 40 ? 'Deep partial' : pct > 0 ? 'Partial' : 'No overlap';
+  // Full-bleed: extend to the viewport edges even inside a padded container (scrollbar-safe calc).
+  const bleed = { position: 'relative', marginLeft: 'calc(50% - 50vw)', marginRight: 'calc(50% - 50vw)' };
   return (
-    <div style={{ minHeight: '100vh', background: '#F5F1E8' }}>
+    <>
       {/* Pinned alignment — an SVG eclipse glyph (own dark chip so it reads on paper) that
           slides in once the hero scrolls off, keeping the eclipse present as you work the book. */}
-      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 40, transform: scrolled ? 'translateY(0)' : 'translateY(-110%)', transition: 'transform .28s ease', background: 'rgba(245,241,232,0.94)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderBottom: '1px solid #E4DDCB' }}>
+      <div style={{ position: 'fixed', top: topOffset, left: 0, right: 0, zIndex: 40, transform: scrolled ? 'translateY(0)' : 'translateY(-110%)', transition: 'transform .28s ease', background: 'rgba(245,241,232,0.94)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderBottom: '1px solid #E4DDCB' }}>
         <div style={{ maxWidth: 760, margin: '0 auto', padding: '7px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
           <svg width="30" height="30" viewBox="0 0 40 40" style={{ flexShrink: 0 }} aria-hidden="true">
             <defs><clipPath id="eclchip"><circle cx="20" cy="20" r="19" /></clipPath></defs>
@@ -1124,7 +1122,7 @@ function MirrorCockpit() {
       </div>
       {/* Night-sky hero — the eclipse needs the dark to read; the sky then DAWNS into the paper
           content below (fade strip), so the drama up top flows into the editorial data. */}
-      <div style={{ position: 'relative', background: 'radial-gradient(125% 100% at 50% 4%, #241C12 0%, #16120D 40%, #0C0A08 78%)' }}>
+      <div style={{ ...bleed, background: 'radial-gradient(125% 100% at 50% 4%, #241C12 0%, #16120D 40%, #0C0A08 78%)' }}>
         <div style={{ maxWidth: 760, margin: '0 auto', padding: '14px 20px 92px' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '4px 12px' }}>
             <h1 style={{ fontFamily: "'Iowan Old Style',Palatino,Georgia,serif", fontWeight: 600, fontSize: 'clamp(19px,3.4vw,26px)', color: '#F3ECDC', margin: 0, letterSpacing: '-0.01em' }}>How closely are you mirroring the book?</h1>
@@ -1133,16 +1131,40 @@ function MirrorCockpit() {
           <AlignmentEclipse pct={pct} max={360} />
           <p style={{ textAlign: 'center', color: '#B7AE99', fontFamily: 'system-ui,sans-serif', fontSize: 13, marginTop: 2 }}>You hold {tally.aligned} of {tally.total} model positions</p>
         </div>
-        {/* Dawn: the night sky warms at the horizon (echoing the corona) before resolving to
-            paper — a real sunrise, not a grey fade. Two stacked layers: a warm claret/amber
-            glow riding just above the paper, then the paper itself. */}
+        {/* Dawn: the night sky warms at the horizon (echoing the corona) before resolving to paper. */}
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 150, background: 'linear-gradient(180deg, rgba(122,36,48,0) 0%, rgba(150,58,50,0.22) 34%, rgba(197,106,70,0.30) 62%, rgba(230,175,120,0.35) 82%, #F5F1E8 100%)', pointerEvents: 'none' }} />
       </div>
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '4px 20px 56px' }}>
-        <MirrorCheck book={dash?.tier_book} preserverBook={dash?.preserver_book} tier={dash?.tier}
-          regimeName={dash?.regime_forecast?.current_regime_name} onOpenChart={() => {}} heroMode
+        <MirrorCheck book={book} preserverBook={preserverBook} tier={tier}
+          regimeName={regimeName} onOpenChart={onOpenChart || (() => {})} heroMode
           onAlignment={(p, t) => { setPct(p); if (t) setTally(t); }} />
       </div>
+    </>
+  );
+}
+
+// /app/next — private, admin-gated design studio for the reoriented Mirror COCKPIT.
+// Thin wrapper: fetches its own dashboard (with preview-tier forwarding) and renders MirrorView.
+function MirrorCockpit() {
+  const { isAdmin } = useAuth();
+  const [dash, setDash] = useState(null);
+  useEffect(() => { (async () => {
+    // Forward the tier/state preview so admin preview works here too. Accept every spelling
+    // (preview_tier / preview-tier / product_tier / product-tier) → forward the canonical one.
+    const qp = new URLSearchParams(window.location.search);
+    const p = new URLSearchParams();
+    const pt = qp.get('preview_tier') || qp.get('preview-tier') || qp.get('product_tier') || qp.get('product-tier');
+    if (pt) p.set('preview_tier', pt);
+    const ps = qp.get('preview_state') || qp.get('preview-state');
+    if (ps) p.set('preview_state', ps);
+    const q = p.toString();
+    try { setDash(await api.get(`/api/signals/dashboard${q ? `?${q}` : ''}`)); } catch { setDash({}); }
+  })(); }, []);
+  if (isAdmin === false) return <Navigate to="/app" replace />;
+  return (
+    <div style={{ minHeight: '100vh', background: '#F5F1E8' }}>
+      <MirrorView book={dash?.tier_book} preserverBook={dash?.preserver_book} tier={dash?.tier}
+        regimeName={dash?.regime_forecast?.current_regime_name} navOffset={0} />
     </div>
   );
 }
@@ -3593,6 +3615,11 @@ function Dashboard() {
             <button onClick={() => setActiveTab('signals')} className={`px-4 sm:px-5 py-2 text-[0.85rem] font-medium border-r border-rule-dark transition-colors ${activeTab === 'signals' ? 'bg-ink text-paper' : 'text-ink-mute hover:bg-paper hover:text-ink'}`}>
               Signals
             </button>
+            {isAdmin && (
+              <button onClick={() => setActiveTab('mirror')} className={`px-4 sm:px-5 py-2 text-[0.85rem] font-medium border-r border-rule-dark transition-colors ${activeTab === 'mirror' ? 'bg-ink text-paper' : 'text-ink-mute hover:bg-paper hover:text-ink'}`}>
+                Mirror
+              </button>
+            )}
             <button onClick={() => setActiveTab('history')} className={`px-4 sm:px-5 py-2 text-[0.85rem] font-medium border-r border-rule-dark transition-colors ${activeTab === 'history' ? 'bg-ink text-paper' : 'text-ink-mute hover:bg-paper hover:text-ink'}`}>
               Trade History
             </button>
@@ -3990,7 +4017,10 @@ function Dashboard() {
           </div>
         )}
 
-        {activeTab === 'signals' ? (
+        {activeTab === 'mirror' && isAdmin ? (
+          <MirrorView book={tierBookLive} preserverBook={dashboardData?.preserver_book} tier={dashboardData?.tier}
+            regimeName={dashboardData?.regime_forecast?.current_regime_name} onOpenChart={setChartModal} belowHeader />
+        ) : activeTab === 'signals' ? (
           <>
             {/* Go to Cash Banner */}
             {dashboardData?.regime_forecast?.recommended_action === 'go_to_cash' && !freeTier && (
@@ -5873,7 +5903,6 @@ function Dashboard() {
           </>
         ) : activeTab === 'history' ? (
           <div className="space-y-6">
-            {isAdmin && <MirrorCheck book={tierBookLive} preserverBook={dashboardData?.preserver_book} tier={dashboardData?.tier} regimeName={dashboardData?.regime_forecast?.current_regime_name} onOpenChart={setChartModal} />}
             <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-b border-ink py-4 mb-6">
               <MetricCard title="Total Trades" value={trades.length} />
               <MetricCard title="Win Rate" value={`${winRate.toFixed(0)}%`} subtitle={`${wins.length}W / ${trades.length - wins.length}L`} trend={winRate > 50 ? 'up' : 'down'} />
