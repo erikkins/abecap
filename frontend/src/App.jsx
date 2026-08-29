@@ -543,6 +543,11 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
   const [snapOpen, setSnapOpen] = useState(false);            // connection-portal modal
   const [snapLink, setSnapLink] = useState(null);
   const [showOther, setShowOther] = useState(false);          // heroMode: reveal non-book holdings (setup detail)
+  // Rolling book history (heroMode only) → "Today" delta + alignment-drift sparkline. Cached
+  // for a one-shot paint like the rest.
+  const [bookHist, setBookHist] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('rigacap_mirror_bookhist') || 'null'); } catch { return null; }
+  });
 
   useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(holdings)); } catch { /* ignore */ } }, [holdings]);
 
@@ -560,6 +565,22 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Book history for the "Today" delta + drift sparkline (heroMode / cockpit only).
+  useEffect(() => {
+    if (!heroMode) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.get('/api/signals/mirror/book-history?days=60');
+        if (!cancelled && Array.isArray(r?.history)) {
+          setBookHist(r.history);
+          try { localStorage.setItem('rigacap_mirror_bookhist', JSON.stringify(r.history)); } catch { /* ignore */ }
+        }
+      } catch { /* keep cache on error */ }
+    })();
+    return () => { cancelled = true; };
+  }, [heroMode]);
 
   // The book to mirror = your full ENTITLEMENT, but tracked PER BOOK so a Maximizer
   // subscriber sees which product each position belongs to (base vs breakout), not a
@@ -733,6 +754,27 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
     .sort((a, b) => (Number(b.held) - Number(a.held)) || a.s.localeCompare(b.s));
   const otherCount = drifted.length + inUniverse.length + outside.length;
 
+  // "Today" heartbeat + drift (heroMode). The book set for a given day mirrors the live
+  // bookSet logic: Maximizer = preserver ∪ maximizer, Preserver = preserver only. Drift %
+  // holds the user's CURRENT list fixed against each day's book (we don't store per-user
+  // holdings history) — it reads how the BOOK moved relative to what they hold.
+  const histSetFor = (day) => new Set(
+    (isMax ? [...(day.preserver || []), ...(day.maximizer || [])] : (day.preserver || [])).map(s => (s || '').toUpperCase())
+  );
+  const driftSeries = (bookHist || []).map(day => {
+    const bs = histSetFor(day);
+    const al = effective.filter(s => bs.has(s)).length;
+    return { date: day.date, pct: bs.size ? Math.round((al / bs.size) * 100) : 0 };
+  });
+  let entered = [], exited = [], alignDelta = 0;
+  if (bookHist && bookHist.length >= 2) {
+    const t = histSetFor(bookHist[bookHist.length - 1]);
+    const y = histSetFor(bookHist[bookHist.length - 2]);
+    entered = [...t].filter(s => !y.has(s)).sort();
+    exited = [...y].filter(s => !t.has(s)).sort();
+    alignDelta = driftSeries[driftSeries.length - 1].pct - driftSeries[driftSeries.length - 2].pct;
+  }
+
   return (
     <div className={heroMode ? 'mb-6' : 'mb-6 border-2 border-claret/40 bg-paper-card rounded-lg overflow-hidden'}>
       {!heroMode && (
@@ -788,6 +830,35 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
           )}
           <p className="text-[0.68rem] text-ink-light mt-2">Your tier: <span className="text-ink-mute">{tierLabel}</span>{regimeName ? <> · Market regime today: <span className="text-ink-mute">{regimeName}</span></> : null}{isMax ? <> · <span className="text-ink-mute">P</span>/<span className="text-claret">M</span> badges show which book each name is in</> : null}</p>
         </div>
+        )}
+
+        {/* TODAY — the daily heartbeat: alignment change + what the book did, with a drift trend. */}
+        {heroMode && ready && bookHist && bookHist.length >= 1 && (
+          <div className="mb-5 py-2.5 border-y border-rule flex items-center flex-wrap gap-x-5 gap-y-1.5">
+            <span className="font-body text-[0.6rem] font-medium tracking-[0.2em] uppercase text-ink-mute">Today</span>
+            {bookHist.length >= 2 ? (
+              <>
+                <span className="text-[0.86rem] text-ink">Alignment <span className="font-medium">{mirroredPct}%</span>
+                  {alignDelta !== 0 && <span className={`ml-1 font-mono text-[0.8rem] ${alignDelta > 0 ? 'text-positive' : 'text-negative'}`}>{alignDelta > 0 ? '▲' : '▼'}{Math.abs(alignDelta)}</span>}
+                </span>
+                {(entered.length || exited.length) ? (
+                  <span className="text-[0.8rem] text-ink-mute">
+                    {entered.length > 0 && <>Book entered <span className="text-claret font-medium">{entered.join(', ')}</span></>}
+                    {entered.length > 0 && exited.length > 0 && <span className="text-ink-light"> · </span>}
+                    {exited.length > 0 && <>exited <span className="text-ink font-medium">{exited.join(', ')}</span></>}
+                  </span>
+                ) : <span className="text-[0.8rem] text-ink-light">Book unchanged</span>}
+              </>
+            ) : (
+              <span className="text-[0.8rem] text-ink-light">Tracking your alignment from today.</span>
+            )}
+            {driftSeries.length >= 2 && (
+              <span className="ml-auto flex items-center gap-2">
+                <span className="text-[0.56rem] tracking-[0.14em] uppercase text-ink-light">{driftSeries.length}-day drift</span>
+                <Sparkline series={driftSeries} />
+              </span>
+            )}
+          </div>
         )}
 
         <form onSubmit={add} className="flex gap-2 mb-2">
@@ -919,6 +990,25 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
     </div>
   );
 };
+
+// Tiny inline-SVG sparkline for the alignment-drift trend. Autoscales to the data so small
+// week-to-week drift is visible; claret line + emphasized endpoint.
+function Sparkline({ series, w = 104, h = 26 }) {
+  if (!series || series.length < 2) return null;
+  const xs = series.map(d => d.pct);
+  const min = Math.min(...xs), max = Math.max(...xs), span = (max - min) || 1;
+  const step = w / (series.length - 1);
+  const y = v => (h - 3) - ((v - min) / span) * (h - 6);
+  const pts = series.map((d, i) => [i * step, y(d.pct)]);
+  const path = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+  const last = pts[pts.length - 1];
+  return (
+    <svg width={w} height={h} style={{ display: 'block', overflow: 'visible' }} aria-hidden="true">
+      <path d={path} fill="none" stroke="#7A2430" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={last[0].toFixed(1)} cy={last[1].toFixed(1)} r="2.3" fill="#7A2430" />
+    </svg>
+  );
+}
 
 // The alignment eclipse — book = sun, portfolio = moon, alignment = the eclipse (100% = total).
 // Canvas port of the prototype; driven by a live `pct`, tweened on change. React overlays the number.
