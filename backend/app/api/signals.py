@@ -3976,6 +3976,26 @@ async def get_mirror_context(
     }
 
 
+@router.get("/mirror/book-history")
+async def get_mirror_book_history(
+    days: int = 60,
+    user: User = Depends(require_valid_subscription),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rolling history of the model book's symbols per tier (written daily by the worker's
+    snapshot_book job). Powers the cockpit's 'what moved today' diff + alignment-drift chart.
+    Membership only (symbols), not signals or prices. Newest last."""
+    from app.services.data_export import data_export_service
+    doc = data_export_service.read_json("mirror/book_history.json") or {}
+    history = doc.get("history") or []
+    days = max(2, min(int(days or 60), 120))
+    return {
+        "history": history[-days:],
+        "updated_at": doc.get("updated_at"),
+        "count": len(history),
+    }
+
+
 @router.post("/mirror/snaptrade/connect")
 async def snaptrade_connect(
     user: User = Depends(require_valid_subscription),

@@ -2898,6 +2898,19 @@ def handler(event, context):
                 except Exception as ce:
                     print(f"⚠️ Failed to chain WF cache (non-fatal): {ce}")
 
+                # Chain the daily book snapshot (Mirror day-over-day diff) — process_entries above
+                # has finalized the live Preserver book, so the snapshot captures today's book.
+                try:
+                    import boto3, json as _json
+                    boto3.client('lambda', region_name='us-east-1').invoke(
+                        FunctionName=os.environ.get('WORKER_FUNCTION_NAME', 'rigacap-prod-worker'),
+                        InvocationType='Event',
+                        Payload=_json.dumps({"snapshot_book": True})
+                    )
+                    print("🌒 Chained book snapshot")
+                except Exception as ce:
+                    print(f"⚠️ Failed to chain book snapshot (non-fatal): {ce}")
+
             return result
 
         try:
@@ -2907,6 +2920,56 @@ def handler(event, context):
         except Exception as e:
             import traceback
             print(f"❌ Dashboard cache export failed: {e}")
+            traceback.print_exc()
+            return {"status": "failed", "error": str(e)}
+
+    # Daily book snapshot — a tiny rolling history of the model book's SYMBOLS (per tier) so the
+    # Mirror cockpit can diff day-over-day ("the book entered OKTA / exited AAPL today") and chart
+    # alignment drift over time. Pure DB reads (ModelPosition live/open = Preserver; latest
+    # MaximizerBookSnapshot = breakout) — no data_cache, safe on a cold worker. Idempotent:
+    # dedupes by date, so re-running (or a manual backfill invoke) is harmless.
+    if event.get("snapshot_book"):
+        print("🌒 Book snapshot requested")
+        async def _snapshot_book():
+            from app.core.database import MaximizerBookSnapshot, ModelPosition
+            from app.services.data_export import data_export_service
+            from datetime import datetime, timezone
+            from zoneinfo import ZoneInfo
+            async with async_session() as db:
+                prows = (await db.execute(
+                    select(ModelPosition).where(
+                        ModelPosition.portfolio_type == "live",
+                        ModelPosition.status == "open")
+                )).scalars().all()
+                preserver = sorted({(r.symbol or "").upper() for r in prows if r.symbol})
+                msnap = (await db.execute(
+                    select(MaximizerBookSnapshot).order_by(
+                        MaximizerBookSnapshot.snapshot_date.desc()).limit(1)
+                )).scalars().first()
+                maximizer = []
+                if msnap and isinstance(msnap.positions_json, dict):
+                    maximizer = sorted({
+                        (p.get("symbol") or "").upper()
+                        for p in (msnap.positions_json.get("positions") or [])
+                        if p.get("symbol")})
+            today_str = datetime.now(ZoneInfo('America/New_York')).date().isoformat()
+            doc = data_export_service.read_json("mirror/book_history.json") or {}
+            history = [h for h in (doc.get("history") or []) if h.get("date") != today_str]
+            history.append({"date": today_str, "preserver": preserver, "maximizer": maximizer})
+            history.sort(key=lambda h: h.get("date") or "")
+            history = history[-120:]   # ~4 trading-months of daily book states
+            out = {"updated_at": datetime.now(timezone.utc).isoformat(), "history": history}
+            data_export_service.write_json("mirror/book_history.json", out)
+            return {"status": "success", "date": today_str,
+                    "preserver": len(preserver), "maximizer": len(maximizer),
+                    "days_tracked": len(history)}
+        try:
+            result = _run_async(_snapshot_book())
+            print(f"🌒 Book snapshot: {result}")
+            return result
+        except Exception as e:
+            import traceback
+            print(f"❌ Book snapshot failed: {e}")
             traceback.print_exc()
             return {"status": "failed", "error": str(e)}
 
