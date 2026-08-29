@@ -7,19 +7,17 @@ metadata:
   originSessionId: 264056a8-f1e5-489c-9140-1fb57bda9825
 ---
 
-# Session snapshot — Aug 28 2026 (Mirror + SnapTrade LIVE + holdings-endpoint fixed; awaiting Erik refresh confirm)
+# Session snapshot — Aug 28-29 2026 (Mirror+SnapTrade full connect/disconnect loop working via modal)
 
-## ▶▶ GO SLOW / BE PRECISE. NO "DWAP"/"t30v"/"tape" customer-facing. Worker payloads need TRUTHY value. SPA HARD-RELOAD after deploy. NEVER bare `lambda update-function-configuration --environment` (wipes 52 keys) — fetch-all+append+verify (Erik pre-authorized WITH verify-no-drops). Never log SnapTrade full URL (userSecret in query).
+## ▶▶ GO SLOW / BE PRECISE. NO "DWAP"/"t30v"/"tape" customer-facing. Worker payloads TRUTHY. SPA HARD-RELOAD after deploy. NEVER bare `lambda ...--environment` (fetch-all+append+verify; Erik pre-authorized WITH verify-no-drops). Classifier blocks: direct prod-env mutate + SELECTing user_secret to transcript.
 
-## ✅ SHIPPED main (all CI/CD ok): 71fa38e MIRROR; f4afca3 universe-split+combined book; daae733 per-book P/M badges; 3efd3a1 CSV upload; f17db20 SnapTrade connect; **7a3e3bc SnapTrade /positions/all fix + secret-log redaction**.
+## ✅ SHIPPED main (all CI/CD ok): 71fa38e MIRROR; f4afca3 universe-split+combined book; daae733 P/M badges; 3efd3a1 CSV; f17db20 SnapTrade connect; 7a3e3bc positions/all+secret-redact; 152a9d2 group-broker+disconnect+clean-sourcing; 957e199 in-app MODAL (snaptrade-react); **d651651 disconnect DELETE /connection/{id}**.
 
-## 🔌 SNAPTRADE — WIRED, DEPLOYED, holdings endpoint FIXED. Awaiting Erik hard-reload confirm.
-- Creds TEST key (in transcript+briefly in logs → ROTATE for prod): ClientID RIGACAP-LLC-TEST-EKAKS. On rigacap-prod-api env (54 keys, verified).
-- Manual HMAC signing VERIFIED. Flow: register → login(customRedirect body) → accounts(GET /api/v1/accounts) → **positions: GET /api/v1/accounts/{id}/positions/all** (legacy /positions + /holdings are 410 for accounts made after 2026-05-11!). Positions under `results`; ticker = position.instrument.raw_symbol. Erik's Schwab IRA = 18 ETF positions (SCHI etc.), synced fine → will land in "Outside our universe", 0% mirrored ("not a mirroring account" = correct/expected).
-- Files: backend/app/services/snaptrade_service.py (register_user/login_redirect_uri/all_holdings union across accounts; clean error raise, no secret leak). snaptrade_users table (user_id,user_secret; created via run_migration custom sql). Endpoints POST/GET /api/signals/mirror/snaptrade/connect|holdings (gated). Frontend Connect button→portal→/app?snaptrade=connected→merge; "Connected · <broker>" header (header-only source design). CSV + manual add/del coexist.
-- run_migration event = 2 hardcoded ALTERs + custom `sql` param; big _run_schema_migrations runs via create_all on init.
-- Stray test SnapTrade user rigacap-mirror-test-1 (harmless).
+## 🔌 SNAPTRADE — FULL LOOP WORKING. TEST key (ROTATE for prod): ClientID RIGACAP-LLC-TEST-EKAKS on rigacap-prod-api env (54 keys verified). Manual HMAC signing (no py SDK). **SnapTrade sunset MANY v1 endpoints for accounts made after 2026-05-11 — mapped current ones the hard way:** register POST /snapTrade/registerUser; login POST /snapTrade/login (customRedirect body); list GET /accounts; positions **GET /accounts/{id}/positions/all** (results[], ticker=instrument.raw_symbol); disconnect **DELETE /connection/{id}** (async/queued 200). Legacy /holdings,/positions,/authorizations DELETE all =410.
+- Connect = IN-APP MODAL via snaptrade-react@3.2.5 (lazy-loaded, code-split, prerender-safe): backend /connect returns redirect_uri = modal loginLink; onSuccess→close+fetchSnapHoldings. Disconnect × per brokerage → optimistic header drop + re-fetch ~1.8s.
+- backend/app/services/snaptrade_service.py (clean error raise = no secret leak — VERIFIED). snaptrade_users table. Endpoints /api/signals/mirror/snaptrade/connect|holdings|disconnect (gated). Sources GROUPED by authorization: [{institution,authorization_id,accounts:[names]}]. E*Trade obscures acct number → NAME is differentiator.
+- Erik's live: Schwab IRA (18 ETFs→"outside universe") + E*Trade (2 accts=1 conn). Sandbox deleted during verify.
 
-## 🪞 MIRROR (admin-only History tab): mirror-alignment vs combined entitled book (tier_book+preserver_book); 5 buckets via GET /api/signals/mirror-context (universe+entered sets); per-book P/M badges (Maximizer). localStorage rigacap_mirror_holdings.
+## 🪞 MIRROR (admin-only History tab): alignment vs combined entitled book (tier_book+preserver_book); 5 buckets via GET /api/signals/mirror-context; per-book P/M badges; 3 inputs coexist (manual localStorage / CSV / SnapTrade snapSymbols separate, effective=union; per-chip × only on manual).
 
-## ⏭️ Also open: sector observatory DONE (distribution un-picked, chart https://claude.ai/code/artifact/64243537-cd5b-4250-afe3-0c2e3dc690ae); regime half of _mas SOT; DST Scheduler; scrub DWAP perf_numbers.js; old WhereStocksSit unmounted dead code. Worker invoke: rigacap-prod-worker --profile rigacap sync ok --cli-read-timeout 600+Bash 600000. WebSearch/WebFetch available (deferred, ToolSearch to load).
+## ⏭️ Also open: sector observatory DONE (dist un-picked, chart https://claude.ai/code/artifact/64243537-cd5b-4250-afe3-0c2e3dc690ae); regime half of _mas SOT; DST Scheduler; scrub DWAP perf_numbers.js; old WhereStocksSit unmounted dead code. WebSearch/WebFetch via ToolSearch. Worker invoke rigacap-prod-worker --profile rigacap.
