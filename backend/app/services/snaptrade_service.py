@@ -116,9 +116,10 @@ async def all_holdings(user_id: str, user_secret: str) -> dict:
     """Union of position tickers across EVERY connected account (multi-brokerage), plus the
     connected brokerages GROUPED BY CONNECTION (authorization) — so two accounts at one
     broker show as one entry, and each carries the authorization_id used to disconnect it."""
+    import asyncio
     accounts = await list_accounts(user_id, user_secret)
-    symbols = set()
-    brokers = {}   # authorization_id (or institution) -> {institution, authorization_id, accounts}
+    brokers = {}       # authorization_id (or institution) -> {institution, authorization_id, accounts}
+    account_ids = []
     for acct in accounts:
         aid = acct.get("id")
         auth = acct.get("brokerage_authorization")           # this API returns the auth id as a string
@@ -129,13 +130,20 @@ async def all_holdings(user_id: str, user_secret: str) -> dict:
         # E-Trade obscures the real account number (opaque token), so the NAME is the reliable
         # human differentiator between two accounts at one broker.
         b["accounts"].append(acct.get("name") or "Account")
-        if not aid:
+        if aid:
+            account_ids.append(aid)
+    # Fetch positions across accounts IN PARALLEL — each broker sync is ~1-2s; sequential stacks up.
+    results = await asyncio.gather(
+        *[account_positions(user_id, user_secret, aid) for aid in account_ids],
+        return_exceptions=True,
+    )
+    symbols = set()
+    for res in results:
+        if isinstance(res, Exception):
+            logger.warning(f"snaptrade positions failed: {res}")
             continue
-        try:
-            for p in await account_positions(user_id, user_secret, aid):
-                sym = _extract_symbol(p)
-                if sym:
-                    symbols.add(sym)
-        except Exception as e:
-            logger.warning(f"snaptrade positions {aid} failed: {e}")
+        for p in res:
+            sym = _extract_symbol(p)
+            if sym:
+                symbols.add(sym)
     return {"symbols": sorted(symbols), "sources": list(brokers.values()), "account_count": len(accounts)}

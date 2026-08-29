@@ -523,9 +523,17 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
   const [input, setInput] = useState('');
   const [ctx, setCtx] = useState(null);        // { universe:Set, entered:Set }
   const [best, setBest] = useState({});         // symbol -> best past pnl% (drifted flourish)
-  const [snap, setSnap] = useState({ connected: false, sources: [], loading: false });
-  const [snapSymbols, setSnapSymbols] = useState([]);   // live SnapTrade union — NOT persisted
-  const [snapOpen, setSnapOpen] = useState(false);      // connection-portal modal
+  // Cache the last SnapTrade holdings so the Mirror paints complete on load (the live sync
+  // is 3-5s); we still refresh in the background and reconcile. Cache is refreshed every load
+  // and cleared implicitly when a broker is disconnected (re-fetch overwrites it).
+  const SNAP_KEY = 'rigacap_mirror_snap';
+  const cachedSnap = (() => { try { return JSON.parse(localStorage.getItem(SNAP_KEY) || 'null'); } catch { return null; } })();
+  const [snap, setSnap] = useState(cachedSnap
+    ? { connected: (cachedSnap.sources || []).length > 0, sources: cachedSnap.sources || [], loading: false }
+    : { connected: false, sources: [], loading: false });
+  const [snapSymbols, setSnapSymbols] = useState(cachedSnap?.symbols || []);
+  const [snapReady, setSnapReady] = useState(!!cachedSnap);   // gate the alignment render until holdings are known
+  const [snapOpen, setSnapOpen] = useState(false);            // connection-portal modal
   const [snapLink, setSnapLink] = useState(null);
 
   useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(holdings)); } catch { /* ignore */ } }, [holdings]);
@@ -574,6 +582,9 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
   const outside = rest.filter(s => !ctx?.universe?.has(s));
   const mirroredPct = bookSyms.length ? Math.round((aligned.length / bookSyms.length) * 100) : 0;
   const tierLabel = tier === 'maximizer' ? 'Maximizer' : 'Preserver';
+  // Render the alignment as ONE unit — only once both the membership sets AND holdings are
+  // known — so it never paints in two stages (page first, brokerage sync 3-5s later).
+  const ready = ctx !== null && snapReady;
 
   // Best past result for drifted names (the "we caught it" flourish) — only for the few drifted.
   useEffect(() => {
@@ -635,9 +646,13 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
   const fetchSnapHoldings = async () => {
     try {
       const r = await api.get('/api/signals/mirror/snaptrade/holdings');
-      setSnapSymbols(Array.isArray(r?.symbols) ? r.symbols : []);
-      setSnap({ connected: !!r?.connected, sources: r?.sources || [], loading: false });
+      const symbols = Array.isArray(r?.symbols) ? r.symbols : [];
+      const sources = r?.sources || [];
+      setSnapSymbols(symbols);
+      setSnap({ connected: !!r?.connected, sources, loading: false });
+      try { localStorage.setItem(SNAP_KEY, JSON.stringify({ symbols, sources })); } catch { /* ignore */ }
     } catch { setSnap(s => ({ ...s, loading: false })); }
+    finally { setSnapReady(true); }
   };
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -705,7 +720,14 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
         <p className="text-sm text-ink-mute mb-1">How closely are you mirroring the book?</p>
         <p className="text-[0.8rem] text-ink-light mb-4">Add the tickers you hold. We show how they line up with your tier&rsquo;s current model book — the facts, side by side. Whether to close the gap is your call.</p>
 
-        {/* Alignment gauge */}
+        {/* Alignment gauge — skeleton until holdings are known, then the whole thing at once */}
+        {!ready ? (
+          <div className="mb-4 p-4 bg-paper-deep border border-rule rounded-lg animate-pulse">
+            <div className="h-7 w-48 bg-rule rounded mb-3" />
+            <div className="h-2 bg-rule rounded-full" />
+            <div className="h-3 w-56 bg-rule/60 rounded mt-3" />
+          </div>
+        ) : (
         <div className="mb-4 p-4 bg-paper-deep border border-rule rounded-lg">
           <div className="flex items-baseline justify-between mb-2">
             <span className="font-display text-[1.4rem] font-medium text-ink" style={{ fontVariationSettings: '"opsz" 48' }}>
@@ -724,6 +746,7 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
           )}
           <p className="text-[0.68rem] text-ink-light mt-2">Your tier: <span className="text-ink-mute">{tierLabel}</span>{regimeName ? <> · Market regime today: <span className="text-ink-mute">{regimeName}</span></> : null}{isMax ? <> · <span className="text-ink-mute">P</span>/<span className="text-claret">M</span> badges show which book each name is in</> : null}</p>
         </div>
+        )}
 
         <form onSubmit={add} className="flex gap-2 mb-2">
           <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Add tickers you hold — AAPL, NVDA…"
@@ -767,7 +790,7 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
           </div>
         )}
 
-        {(effective.length === 0) ? (
+        {ready && ((effective.length === 0) ? (
           <p className="text-sm text-ink-light py-4 text-center">Add a ticker you hold to see how you line up with the book.</p>
         ) : (
           <>
@@ -787,7 +810,7 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
               {outside.map(s => <Chip key={s} s={s} removable={manualSet.has(s)} tone="border-rule text-ink-light" />)}
             </Group>
           </>
-        )}
+        ))}
 
         <p className="text-[0.68rem] text-ink-light mt-4 pt-3 border-t border-rule leading-relaxed">
           This compares your holdings to RigaCap&rsquo;s published model book. It is information, <span className="text-ink-mute">not investment advice</span> and not a recommendation to buy, sell, or hold any security. RigaCap is not your investment adviser. You decide what to follow and execute it through your own broker.
