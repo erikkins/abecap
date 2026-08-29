@@ -919,11 +919,14 @@ function MirrorCockpit() {
   const [pct, setPct] = useState(0);
   const [tally, setTally] = useState({ aligned: 0, total: 0 });
   useEffect(() => { (async () => {
-    // Forward ?preview_tier= (+ preview_state) so admin tier-preview works here too — same as /app.
+    // Forward the tier/state preview so admin preview works here too. Accept every spelling
+    // (preview_tier / preview-tier / product_tier / product-tier) → forward the canonical one.
     const qp = new URLSearchParams(window.location.search);
     const p = new URLSearchParams();
-    if (qp.get('preview_tier')) p.set('preview_tier', qp.get('preview_tier'));
-    if (qp.get('preview_state')) p.set('preview_state', qp.get('preview_state'));
+    const pt = qp.get('preview_tier') || qp.get('preview-tier') || qp.get('product_tier') || qp.get('product-tier');
+    if (pt) p.set('preview_tier', pt);
+    const ps = qp.get('preview_state') || qp.get('preview-state');
+    if (ps) p.set('preview_state', ps);
     const q = p.toString();
     try { setDash(await api.get(`/api/signals/dashboard${q ? `?${q}` : ''}`)); } catch { setDash({}); }
   })(); }, []);
