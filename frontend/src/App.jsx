@@ -542,6 +542,7 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
   const [snapReady, setSnapReady] = useState(!!cachedSnap);   // gate the alignment render until holdings are known
   const [snapOpen, setSnapOpen] = useState(false);            // connection-portal modal
   const [snapLink, setSnapLink] = useState(null);
+  const [showOther, setShowOther] = useState(false);          // heroMode: reveal non-book holdings (setup detail)
 
   useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(holdings)); } catch { /* ignore */ } }, [holdings]);
 
@@ -725,6 +726,13 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
     ) : null
   );
 
+  // Book view (heroMode): the model book as a ledger, held first then gaps, your holdings
+  // annotated onto it — instead of two flat walls of pills. Non-book names collapse below.
+  const bookRows = bookSyms
+    .map(s => ({ s, held: heldSet.has(s), badge: isMax ? bookOf(s) : null }))
+    .sort((a, b) => (Number(b.held) - Number(a.held)) || a.s.localeCompare(b.s));
+  const otherCount = drifted.length + inUniverse.length + outside.length;
+
   return (
     <div className={heroMode ? 'mb-6' : 'mb-6 border-2 border-claret/40 bg-paper-card rounded-lg overflow-hidden'}>
       {!heroMode && (
@@ -826,6 +834,52 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
 
         {ready && ((effective.length === 0) ? (
           <p className="text-sm text-ink-light py-4 text-center">Add a ticker you hold to see how you line up with the book.</p>
+        ) : heroMode ? (
+          <>
+            {/* THE BOOK — a ledger of the model's positions, your holdings annotated onto it.
+                Held names first (●), then the gaps you don't hold (○). Not pill-soup. */}
+            <div className="mb-5">
+              <div className="flex items-baseline justify-between mb-1.5 pb-1.5 border-b border-ink/70">
+                <span className="font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute">The book · {bookSyms.length} positions</span>
+                <span className="font-mono text-[0.7rem] text-ink-light" style={{ fontFeatureSettings: '"tnum"' }}>{aligned.length} held · {inBookNotHeld.length} gaps</span>
+              </div>
+              <div className="grid gap-x-8" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+                {bookRows.map(r => (
+                  <div key={r.s} className={`flex items-center gap-2 py-[7px] border-b border-rule/50 ${r.held ? '' : 'opacity-90'}`}>
+                    <span className={r.held ? 'text-positive' : 'text-claret/45'} style={{ fontSize: 10, lineHeight: 1 }}>{r.held ? '●' : '○'}</span>
+                    <button onClick={() => onOpenChart?.({ type: 'signal', data: { symbol: r.s }, symbol: r.s })}
+                      className={`font-display text-[0.98rem] hover:underline ${r.held ? 'text-ink font-medium' : 'text-ink-mute'}`} style={{ fontVariationSettings: '"opsz" 32' }}>{r.s}</button>
+                    {isMax && r.badge && <span className={`text-[0.5rem] font-semibold leading-none px-1 py-0.5 rounded ${r.badge.includes('M') ? 'bg-claret/15 text-claret' : 'bg-ink/10 text-ink-mute'}`}>{r.badge}</span>}
+                    <span className={`ml-auto text-[0.62rem] font-mono ${r.held ? 'text-positive' : 'text-ink-light'}`}>{r.held ? 'held' : 'gap'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Non-book holdings — the setup/diagnostic detail, collapsed by default. */}
+            {otherCount > 0 && (
+              <div className="mb-2 border-t border-rule">
+                <button onClick={() => setShowOther(v => !v)} className="w-full flex items-baseline gap-2 py-2.5 text-left">
+                  <span className="font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute">Also in your account</span>
+                  <span className="font-mono text-[0.7rem] text-ink-light">{otherCount} not in the model</span>
+                  <span className="ml-auto text-ink-light text-[0.7rem]">{showOther ? '▾ hide' : '▸ show'}</span>
+                </button>
+                {showOther && (
+                  <div className="pt-1">
+                    <Group label="No longer in the model" count={drifted.length} note="The model traded these before and has since exited.">
+                      {drifted.map(s => <Chip key={s} s={s} removable={manualSet.has(s)} tone="border-rule bg-paper-deep text-ink-mute" sub={best[s] != null ? `${best[s] >= 0 ? '+' : ''}${best[s].toFixed(0)}%` : ''} />)}
+                    </Group>
+                    <Group label="In our universe, no signal" count={inUniverse.length} note="Liquid enough for us to track — the model has just never had a reason to buy them.">
+                      {inUniverse.map(s => <Chip key={s} s={s} removable={manualSet.has(s)} tone="border-rule bg-paper-deep text-ink-mute" />)}
+                    </Group>
+                    <Group label="Outside our universe" count={outside.length} note="ETFs, or below our price / liquidity floor — not names the model considers.">
+                      {outside.map(s => <Chip key={s} s={s} removable={manualSet.has(s)} tone="border-rule text-ink-light" />)}
+                    </Group>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         ) : (
           <>
             <Group label="In the model, and in your account" count={aligned.length} note="Aligned — the book holds these and so do you.">
@@ -868,7 +922,7 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
 
 // The alignment eclipse — book = sun, portfolio = moon, alignment = the eclipse (100% = total).
 // Canvas port of the prototype; driven by a live `pct`, tweened on change. React overlays the number.
-function AlignmentEclipse({ pct = 0, max = 440 }) {
+function AlignmentEclipse({ pct = 0, max = 440, compact = false }) {
   const ref = useRef(null);
   const curRef = useRef((pct || 0) / 100);
   const starsRef = useRef(null);
@@ -917,12 +971,14 @@ function AlignmentEclipse({ pct = 0, max = 440 }) {
   return (
     <div style={{ position: 'relative', width: '100%', maxWidth: max, margin: '0 auto' }}>
       <canvas ref={ref} style={{ width: '100%', aspectRatio: '1', display: 'block' }} />
+      {!compact && (
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: '9%', textAlign: 'center', pointerEvents: 'none' }}>
         <div style={{ fontFamily: "'Iowan Old Style',Palatino,Georgia,serif", fontWeight: 600, fontSize: Math.round(max * 0.15), lineHeight: 0.9, color: '#F3ECDC', fontVariantNumeric: 'tabular-nums', textShadow: '0 2px 30px rgba(197,106,70,.35)' }}>
           {Math.round(pct)}<span style={{ fontSize: '0.3em', color: '#8A8172', fontFamily: 'system-ui,sans-serif', marginLeft: 4 }}>% mirrored</span>
         </div>
         <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: pct >= 100 ? '#E9D6AE' : '#B0472E', marginTop: 5 }}>{phase}</div>
       </div>
+      )}
     </div>
   );
 }
@@ -934,6 +990,14 @@ function MirrorCockpit() {
   const [dash, setDash] = useState(null);
   const [pct, setPct] = useState(0);
   const [tally, setTally] = useState({ aligned: 0, total: 0 });
+  const [scrolled, setScrolled] = useState(false);
+  // Keep the eclipse "prominently visible at all times": once the hero scrolls away, a compact
+  // pinned eclipse + readout slides down and stays.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 430);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   useEffect(() => { (async () => {
     // Forward the tier/state preview so admin preview works here too. Accept every spelling
     // (preview_tier / preview-tier / product_tier / product-tier) → forward the canonical one.
@@ -947,8 +1011,27 @@ function MirrorCockpit() {
     try { setDash(await api.get(`/api/signals/dashboard${q ? `?${q}` : ''}`)); } catch { setDash({}); }
   })(); }, []);
   if (isAdmin === false) return <Navigate to="/app" replace />;
+  const a = Math.max(0, Math.min(1, pct / 100));
+  const phase = pct >= 100 ? 'Total eclipse' : pct >= 86 ? 'Near-total' : pct >= 40 ? 'Deep partial' : pct > 0 ? 'Partial' : 'No overlap';
   return (
     <div style={{ minHeight: '100vh', background: '#F5F1E8' }}>
+      {/* Pinned alignment — an SVG eclipse glyph (own dark chip so it reads on paper) that
+          slides in once the hero scrolls off, keeping the eclipse present as you work the book. */}
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 40, transform: scrolled ? 'translateY(0)' : 'translateY(-110%)', transition: 'transform .28s ease', background: 'rgba(245,241,232,0.94)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderBottom: '1px solid #E4DDCB' }}>
+        <div style={{ maxWidth: 760, margin: '0 auto', padding: '7px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <svg width="30" height="30" viewBox="0 0 40 40" style={{ flexShrink: 0 }} aria-hidden="true">
+            <defs><clipPath id="eclchip"><circle cx="20" cy="20" r="19" /></clipPath></defs>
+            <circle cx="20" cy="20" r="19" fill="#100D0A" />
+            <g clipPath="url(#eclchip)">
+              <circle cx="16.5" cy="20" r="10.5" fill="#F4E9CE" />
+              <circle cx={16.5 + (1 - a) * 22} cy="20" r="10.5" fill="#0E0B08" />
+            </g>
+          </svg>
+          <span style={{ fontFamily: "'Iowan Old Style',Georgia,serif", fontWeight: 600, fontSize: 17, color: '#141210', fontVariantNumeric: 'tabular-nums' }}>{Math.round(pct)}<span style={{ fontSize: 11, color: '#8A8172', marginLeft: 2 }}>%</span></span>
+          <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#7A2430' }}>{phase}</span>
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#6B6152', fontVariantNumeric: 'tabular-nums' }}>{tally.aligned} of {tally.total} held</span>
+        </div>
+      </div>
       {/* Night-sky hero — the eclipse needs the dark to read; the sky then DAWNS into the paper
           content below (fade strip), so the drama up top flows into the editorial data. */}
       <div style={{ position: 'relative', background: 'radial-gradient(125% 100% at 50% 4%, #241C12 0%, #16120D 40%, #0C0A08 78%)' }}>
