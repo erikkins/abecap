@@ -1020,6 +1020,22 @@ function Sparkline({ series, w = 104, h = 26 }) {
   );
 }
 
+// Small live eclipse glyph — the Mirror's identity in the tab bar. A claret corona ring so it
+// reads on both paper (inactive tab) and ink (active tab); the moon slides to total at 100%.
+function EclipseGlyph({ pct = 0, size = 18 }) {
+  const a = Math.max(0, Math.min(1, (pct || 0) / 100));
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" style={{ display: 'block', flexShrink: 0 }} aria-hidden="true">
+      <defs><clipPath id="eclipse-glyph"><circle cx="20" cy="20" r="18" /></clipPath></defs>
+      <g clipPath="url(#eclipse-glyph)">
+        <circle cx="16" cy="20" r="15.5" fill="#F4E9CE" />
+        <circle cx={16 + (1 - a) * 20} cy="20" r="15.5" fill="#201A13" />
+      </g>
+      <circle cx="20" cy="20" r="18" fill="none" stroke="#7A2430" strokeWidth="2.5" />
+    </svg>
+  );
+}
+
 // The alignment eclipse — book = sun, portfolio = moon, alignment = the eclipse (100% = total).
 // Canvas port of the prototype; driven by a live `pct`, tweened on change. React overlays the number.
 function AlignmentEclipse({ pct = 0, max = 440, compact = false }) {
@@ -1083,54 +1099,17 @@ function AlignmentEclipse({ pct = 0, max = 440, compact = false }) {
   );
 }
 
-// Reusable Mirror view — pinned eclipse readout + night-sky eclipse hero + book ledger
-// (MirrorCheck heroMode). Used by BOTH /app/next (MirrorCockpit) and the in-app "Mirror" tab.
-// The dark hero full-bleeds to the viewport and dawns into paper, so it drops cleanly into a
-// padded tab container or a bare page. `navOffset` lets the pinned bar sit below app chrome.
-function MirrorView({ book, preserverBook, tier, regimeName, onOpenChart, navOffset = 0, belowHeader = false, holdingsApi }) {
+// Reusable Mirror view — night-sky eclipse hero + book ledger (MirrorCheck heroMode). Used by
+// BOTH /app/next (MirrorCockpit) and the in-app "Mirror" tab. The dark hero full-bleeds to the
+// viewport and dawns into paper, so it drops cleanly into a padded tab container or a bare page.
+// The persistent alignment glyph lives in the Mirror TAB label (EclipseGlyph), not a scroll bar.
+function MirrorView({ book, preserverBook, tier, regimeName, onOpenChart, holdingsApi }) {
   const [pct, setPct] = useState(0);
   const [tally, setTally] = useState({ aligned: 0, total: 0 });
-  const [scrolled, setScrolled] = useState(false);
-  const [hdrH, setHdrH] = useState(0);
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 430);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-  // In-tab, the app's sticky <header> (z-30) sits at top:0 — measure it so the pinned bar
-  // (z-40) slots just below it rather than covering the nav. On /app/next there's no header.
-  useEffect(() => {
-    if (!belowHeader) return;
-    const measure = () => setHdrH(document.querySelector('header')?.offsetHeight || 0);
-    measure();
-    const raf = requestAnimationFrame(measure);   // settle after layout
-    window.addEventListener('resize', measure);
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', measure); };
-  }, [belowHeader]);
-  const topOffset = belowHeader ? hdrH : navOffset;
-  const a = Math.max(0, Math.min(1, pct / 100));
-  const phase = pct >= 100 ? 'Total eclipse' : pct >= 86 ? 'Near-total' : pct >= 40 ? 'Deep partial' : pct > 0 ? 'Partial' : 'No overlap';
   // Full-bleed: extend to the viewport edges even inside a padded container (scrollbar-safe calc).
   const bleed = { position: 'relative', marginLeft: 'calc(50% - 50vw)', marginRight: 'calc(50% - 50vw)' };
   return (
     <>
-      {/* Pinned alignment — an SVG eclipse glyph (own dark chip so it reads on paper) that
-          slides in once the hero scrolls off, keeping the eclipse present as you work the book. */}
-      <div style={{ position: 'fixed', top: topOffset, left: 0, right: 0, zIndex: 29, opacity: scrolled ? 1 : 0, visibility: scrolled ? 'visible' : 'hidden', transform: scrolled ? 'translateY(0)' : 'translateY(-6px)', pointerEvents: scrolled ? 'auto' : 'none', transition: 'opacity .25s ease, transform .25s ease, visibility .25s', background: 'rgba(245,241,232,0.94)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', borderBottom: '1px solid #E4DDCB' }}>
-        <div style={{ maxWidth: 760, margin: '0 auto', padding: '7px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <svg width="30" height="30" viewBox="0 0 40 40" style={{ flexShrink: 0 }} aria-hidden="true">
-            <defs><clipPath id="eclchip"><circle cx="20" cy="20" r="19" /></clipPath></defs>
-            <circle cx="20" cy="20" r="19" fill="#100D0A" />
-            <g clipPath="url(#eclchip)">
-              <circle cx="16.5" cy="20" r="10.5" fill="#F4E9CE" />
-              <circle cx={16.5 + (1 - a) * 22} cy="20" r="10.5" fill="#0E0B08" />
-            </g>
-          </svg>
-          <span style={{ fontFamily: "'Iowan Old Style',Georgia,serif", fontWeight: 600, fontSize: 17, color: '#141210', fontVariantNumeric: 'tabular-nums' }}>{Math.round(pct)}<span style={{ fontSize: 11, color: '#8A8172', marginLeft: 2 }}>%</span></span>
-          <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#7A2430' }}>{phase}</span>
-          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#6B6152', fontVariantNumeric: 'tabular-nums' }}>{tally.aligned} of {tally.total} held</span>
-        </div>
-      </div>
       {/* Night-sky hero — the eclipse needs the dark to read; the sky then DAWNS into the paper
           content below (fade strip), so the drama up top flows into the editorial data. */}
       <div style={{ ...bleed, background: 'radial-gradient(125% 100% at 50% 4%, #241C12 0%, #16120D 40%, #0C0A08 78%)' }}>
@@ -1176,7 +1155,7 @@ function MirrorCockpit() {
   return (
     <div style={{ minHeight: '100vh', background: '#F5F1E8' }}>
       <MirrorView book={dash?.tier_book} preserverBook={dash?.preserver_book} tier={dash?.tier}
-        regimeName={dash?.regime_forecast?.current_regime_name} navOffset={0} holdingsApi={holdingsApi} />
+        regimeName={dash?.regime_forecast?.current_regime_name} holdingsApi={holdingsApi} />
     </div>
   );
 }
@@ -3282,6 +3261,17 @@ function Dashboard() {
     return anyLive ? { ...tb, holdings, invested_value: Math.round(invested), _intraday: true } : tb;
   })();
 
+  // Live alignment % for the Mirror tab glyph — mirrors MirrorCheck's book logic (Maximizer =
+  // preserver base ∪ breakout; Preserver = tier book) against the shared held-set. Null = no book.
+  const mirrorPct = (() => {
+    const symsOf = (b) => ((b?.holdings) || []).map(h => (h.symbol || '').toUpperCase()).filter(Boolean);
+    const isMax = dashboardData?.tier === 'maximizer';
+    const bookSet = new Set([...symsOf(isMax ? dashboardData?.preserver_book : tierBookLive), ...(isMax ? symsOf(tierBookLive) : [])]);
+    if (!bookSet.size) return null;
+    let held = 0; bookSet.forEach(s => { if (heldSet.has(s)) held++; });
+    return Math.round((held / bookSet.size) * 100);
+  })();
+
   // Merge live quotes into dashboard positions_with_guidance (these take render priority)
   const guidanceWithLiveQuotes = (dashboardData?.positions_with_guidance || []).map(p => {
     const quote = liveQuotes[p.symbol];
@@ -3632,7 +3622,8 @@ function Dashboard() {
               Signals
             </button>
             {isAdmin && (
-              <button onClick={() => setActiveTab('mirror')} className={`px-4 sm:px-5 py-2 text-[0.85rem] font-medium border-r border-rule-dark transition-colors ${activeTab === 'mirror' ? 'bg-ink text-paper' : 'text-ink-mute hover:bg-paper hover:text-ink'}`}>
+              <button onClick={() => setActiveTab('mirror')} title={mirrorPct != null ? `${mirrorPct}% mirrored` : 'Mirror'} className={`px-4 sm:px-5 py-2 text-[0.85rem] font-medium border-r border-rule-dark transition-colors inline-flex items-center gap-2 ${activeTab === 'mirror' ? 'bg-ink text-paper' : 'text-ink-mute hover:bg-paper hover:text-ink'}`}>
+                <EclipseGlyph pct={mirrorPct || 0} size={16} />
                 Mirror
               </button>
             )}
@@ -4035,7 +4026,7 @@ function Dashboard() {
 
         {activeTab === 'mirror' && isAdmin ? (
           <MirrorView book={tierBookLive} preserverBook={dashboardData?.preserver_book} tier={dashboardData?.tier}
-            regimeName={dashboardData?.regime_forecast?.current_regime_name} onOpenChart={setChartModal} belowHeader holdingsApi={holdingsApi} />
+            regimeName={dashboardData?.regime_forecast?.current_regime_name} onOpenChart={setChartModal} holdingsApi={holdingsApi} />
         ) : activeTab === 'signals' ? (
           <>
             {/* Go to Cash Banner */}
