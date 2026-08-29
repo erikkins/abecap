@@ -660,10 +660,12 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
   const disconnectBroker = async (authId, label) => {
     if (!authId) return;
     if (!window.confirm(`Disconnect ${label}? This removes all of its accounts from your Mirror.`)) return;
+    // Optimistic: drop it from the header immediately (SnapTrade deletion is async/queued).
+    setSnap(s => ({ ...s, sources: s.sources.filter(x => x.authorization_id !== authId) }));
     try {
       await api.post('/api/signals/mirror/snaptrade/disconnect', { authorization_id: authId });
-      await fetchSnapHoldings();
     } catch { /* ignore */ }
+    setTimeout(fetchSnapHoldings, 1800);   // reconcile after the async delete completes
   };
 
   const Chip = ({ s, tone, sub, badge, removable = true }) => (

@@ -103,10 +103,11 @@ def _extract_symbol(pos: dict) -> Optional[str]:
 
 
 async def remove_authorization(user_id: str, user_secret: str, authorization_id: str) -> None:
-    """Disconnect a brokerage CONNECTION (removes all its accounts). SnapTrade removes at
-    the authorization level, so one E-Trade connection with two accounts is one removal."""
+    """Disconnect a brokerage CONNECTION (removes all its accounts). The legacy
+    DELETE /authorizations/{id} is 410; the current path is DELETE /connection/{id}
+    (connectionId == the authorization id). Async: 200 = queued for deletion."""
     await _call(
-        "DELETE", f"/api/v1/authorizations/{authorization_id}",
+        "DELETE", f"/api/v1/connection/{authorization_id}",
         query_extra={"userId": user_id, "userSecret": user_secret},
     )
 
