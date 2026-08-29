@@ -852,7 +852,7 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
 
 // The alignment eclipse — book = sun, portfolio = moon, alignment = the eclipse (100% = total).
 // Canvas port of the prototype; driven by a live `pct`, tweened on change. React overlays the number.
-function AlignmentEclipse({ pct = 0 }) {
+function AlignmentEclipse({ pct = 0, max = 440 }) {
   const ref = useRef(null);
   const curRef = useRef((pct || 0) / 100);
   const starsRef = useRef(null);
@@ -899,13 +899,13 @@ function AlignmentEclipse({ pct = 0 }) {
   }, [pct]);
   const phase = pct >= 100 ? 'Total eclipse' : pct >= 86 ? 'Near-total' : pct >= 40 ? 'Deep partial' : pct > 0 ? 'Partial' : 'No overlap';
   return (
-    <div style={{ position: 'relative', width: '100%', maxWidth: 440, margin: '0 auto' }}>
+    <div style={{ position: 'relative', width: '100%', maxWidth: max, margin: '0 auto' }}>
       <canvas ref={ref} style={{ width: '100%', aspectRatio: '1', display: 'block' }} />
-      <div style={{ position: 'absolute', left: 0, right: 0, bottom: '8%', textAlign: 'center', pointerEvents: 'none' }}>
-        <div style={{ fontFamily: "'Iowan Old Style',Palatino,Georgia,serif", fontWeight: 600, fontSize: 'clamp(44px,11vw,72px)', lineHeight: 0.9, color: '#F3ECDC', fontVariantNumeric: 'tabular-nums', textShadow: '0 2px 30px rgba(197,106,70,.35)' }}>
-          {Math.round(pct)}<span style={{ fontSize: '0.32em', color: '#8A8172', fontFamily: 'system-ui,sans-serif', marginLeft: 4 }}>% mirrored</span>
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: '9%', textAlign: 'center', pointerEvents: 'none' }}>
+        <div style={{ fontFamily: "'Iowan Old Style',Palatino,Georgia,serif", fontWeight: 600, fontSize: Math.round(max * 0.15), lineHeight: 0.9, color: '#F3ECDC', fontVariantNumeric: 'tabular-nums', textShadow: '0 2px 30px rgba(197,106,70,.35)' }}>
+          {Math.round(pct)}<span style={{ fontSize: '0.3em', color: '#8A8172', fontFamily: 'system-ui,sans-serif', marginLeft: 4 }}>% mirrored</span>
         </div>
-        <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 12, letterSpacing: '0.16em', textTransform: 'uppercase', color: pct >= 100 ? '#E9D6AE' : '#B0472E', marginTop: 8 }}>{phase}</div>
+        <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10.5, letterSpacing: '0.16em', textTransform: 'uppercase', color: pct >= 100 ? '#E9D6AE' : '#B0472E', marginTop: 5 }}>{phase}</div>
       </div>
     </div>
   );
@@ -933,13 +933,14 @@ function MirrorCockpit() {
   if (isAdmin === false) return <Navigate to="/app" replace />;
   return (
     <div style={{ minHeight: '100vh', background: 'radial-gradient(120% 90% at 50% 12%, #1B1712 0%, #141210 42%, #0B0A08 100%)' }}>
-      <div style={{ maxWidth: 640, margin: '0 auto', padding: '32px 20px 64px' }}>
-        <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, letterSpacing: '0.26em', textTransform: 'uppercase', color: '#B0472E', textAlign: 'center' }}>RigaCap · Mirror cockpit · preview</div>
-        <h1 style={{ fontFamily: "'Iowan Old Style',Palatino,Georgia,serif", fontWeight: 600, fontSize: 'clamp(23px,4vw,32px)', color: '#F3ECDC', textAlign: 'center', margin: '10px 0 2px', textWrap: 'balance' }}>How closely are you mirroring the book?</h1>
-        <p style={{ fontFamily: "'Iowan Old Style',Georgia,serif", fontStyle: 'italic', color: '#C9BFA9', textAlign: 'center', margin: '0 0 14px' }}>The book is the sun. Your portfolio is the moon.</p>
-        <AlignmentEclipse pct={pct} />
-        <p style={{ textAlign: 'center', color: '#B7AE99', fontFamily: 'system-ui,sans-serif', fontSize: 13, marginTop: 2 }}>You hold {tally.aligned} of {tally.total} model positions</p>
-        <div style={{ marginTop: 30 }}>
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '16px 20px 56px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '4px 12px' }}>
+          <h1 style={{ fontFamily: "'Iowan Old Style',Palatino,Georgia,serif", fontWeight: 600, fontSize: 'clamp(18px,3.2vw,24px)', color: '#F3ECDC', margin: 0 }}>How closely are you mirroring the book?</h1>
+          <span style={{ fontFamily: "'Iowan Old Style',Georgia,serif", fontStyle: 'italic', color: '#9A917C', fontSize: 13 }}>book = sun · you = moon</span>
+        </div>
+        <AlignmentEclipse pct={pct} max={272} />
+        <p style={{ textAlign: 'center', color: '#B7AE99', fontFamily: 'system-ui,sans-serif', fontSize: 12.5, marginTop: -2 }}>You hold {tally.aligned} of {tally.total} model positions</p>
+        <div style={{ marginTop: 16 }}>
           <MirrorCheck book={dash?.tier_book} preserverBook={dash?.preserver_book} tier={dash?.tier}
             regimeName={dash?.regime_forecast?.current_regime_name} onOpenChart={() => {}}
             onAlignment={(p, t) => { setPct(p); if (t) setTally(t); }} />
