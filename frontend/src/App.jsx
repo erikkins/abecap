@@ -520,6 +520,8 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
   const [input, setInput] = useState('');
   const [ctx, setCtx] = useState(null);        // { universe:Set, entered:Set }
   const [best, setBest] = useState({});         // symbol -> best past pnl% (drifted flourish)
+  const [snap, setSnap] = useState({ connected: false, sources: [], loading: false });
+  const [snapSymbols, setSnapSymbols] = useState([]);   // live SnapTrade union — NOT persisted
 
   useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(holdings)); } catch { /* ignore */ } }, [holdings]);
 
@@ -545,17 +547,21 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
   const maximizerSyms = useMemo(() => symsOf(isMax ? book : null), [isMax, book]);
   const bookSyms = useMemo(() => [...new Set([...preserverSyms, ...maximizerSyms])], [preserverSyms, maximizerSyms]);
   const bookSet = useMemo(() => new Set(bookSyms), [bookSyms]);
-  const heldSet = useMemo(() => new Set(holdings), [holdings]);
+  // Effective holdings = manual/CSV list (localStorage) ∪ live SnapTrade union. Broker symbols
+  // aren't persisted, so disconnecting a broker (re-fetch) cleanly drops its names.
+  const effective = useMemo(() => [...new Set([...holdings, ...snapSymbols])], [holdings, snapSymbols]);
+  const manualSet = useMemo(() => new Set(holdings), [holdings]);   // which chips get an individual ×
+  const heldSet = useMemo(() => new Set(effective), [effective]);
   const bookOf = (s) => {
     const p = preserverSyms.has(s), m = maximizerSyms.has(s);
     return m && p ? 'P·M' : m ? 'M' : p ? 'P' : null;
   };
 
-  const aligned = holdings.filter(s => bookSet.has(s));
+  const aligned = effective.filter(s => bookSet.has(s));
   const alignedP = aligned.filter(s => preserverSyms.has(s));
   const alignedM = aligned.filter(s => maximizerSyms.has(s));
   const inBookNotHeld = bookSyms.filter(s => !heldSet.has(s));
-  const notInBook = holdings.filter(s => !bookSet.has(s));
+  const notInBook = effective.filter(s => !bookSet.has(s));
   // Set-driven buckets: ever-traded → drifted; else in-universe → no-signal; else outside.
   const drifted = notInBook.filter(s => ctx?.entered?.has(s));
   const rest = notInBook.filter(s => !ctx?.entered?.has(s));
@@ -619,12 +625,12 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
     reader.readAsText(f);
   };
 
-  // SnapTrade brokerage connect — read-only holdings, multi-brokerage (union across accounts).
-  const [snap, setSnap] = useState({ connected: false, sources: [], loading: false });
+  // SnapTrade brokerage connect — read-only, multi-brokerage. Broker holdings live in
+  // snapSymbols (their own set), so disconnecting a broker just re-fetches and drops them.
   const fetchSnapHoldings = async () => {
     try {
       const r = await api.get('/api/signals/mirror/snaptrade/holdings');
-      if (Array.isArray(r?.symbols) && r.symbols.length) importTickers(r.symbols);
+      setSnapSymbols(Array.isArray(r?.symbols) ? r.symbols : []);
       setSnap({ connected: !!r?.connected, sources: r?.sources || [], loading: false });
     } catch { setSnap(s => ({ ...s, loading: false })); }
   };
@@ -645,6 +651,14 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
       if (r?.redirect_uri) { window.location.href = r.redirect_uri; return; }
     } catch { /* fall through */ }
     setSnap(s => ({ ...s, loading: false }));
+  };
+  const disconnectBroker = async (authId, label) => {
+    if (!authId) return;
+    if (!window.confirm(`Disconnect ${label}? This removes all of its accounts from your Mirror.`)) return;
+    try {
+      await api.post('/api/signals/mirror/snaptrade/disconnect', { authorization_id: authId });
+      await fetchSnapHoldings();
+    } catch { /* ignore */ }
   };
 
   const Chip = ({ s, tone, sub, badge, removable = true }) => (
@@ -723,35 +737,47 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
           {csvMsg && <span className="text-[0.72rem] text-positive">{csvMsg}</span>}
         </div>
         {snap.connected && snap.sources.length > 0 && (
-          <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-4 -mt-1">
-            <span className="text-[0.6rem] font-medium tracking-[0.18em] uppercase text-positive">Connected</span>
-            <span className="text-[0.75rem] text-ink-mute">
-              {snap.sources.map((s, i) => (
-                <span key={i}>{i > 0 ? ' · ' : ''}{s.institution || s.name}</span>
+          <div className="mb-4 -mt-1">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-[0.6rem] font-medium tracking-[0.18em] uppercase text-positive">Connected</span>
+              <button onClick={fetchSnapHoldings} className="text-[0.66rem] text-ink-light hover:text-claret underline">refresh</button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {snap.sources.map((b, i) => (
+                <span key={i} className="group inline-flex items-center gap-2 pl-2.5 pr-1.5 py-1 rounded-lg border border-rule bg-paper-deep text-[0.72rem]">
+                  <span className="text-ink font-medium">{b.institution}</span>
+                  {Array.isArray(b.accounts) && b.accounts.length > 0 && (
+                    <span className="text-ink-light">{b.accounts.join(' · ')}</span>
+                  )}
+                  {b.authorization_id && (
+                    <button onClick={() => disconnectBroker(b.authorization_id, b.institution)}
+                      className="opacity-40 group-hover:opacity-80 hover:!opacity-100 text-ink-mute text-[0.9rem] leading-none px-0.5"
+                      title={`Disconnect ${b.institution}`} aria-label={`disconnect ${b.institution}`}>×</button>
+                  )}
+                </span>
               ))}
-            </span>
-            <button onClick={fetchSnapHoldings} className="text-[0.68rem] text-ink-light hover:text-claret underline ml-1">refresh</button>
+            </div>
           </div>
         )}
 
-        {(holdings.length === 0) ? (
+        {(effective.length === 0) ? (
           <p className="text-sm text-ink-light py-4 text-center">Add a ticker you hold to see how you line up with the book.</p>
         ) : (
           <>
             <Group label="In the model, and in your account" count={aligned.length} note="Aligned — the book holds these and so do you.">
-              {aligned.map(s => <Chip key={s} s={s} badge={isMax ? bookOf(s) : null} tone="border-positive/50 bg-positive/[0.07] text-ink" />)}
+              {aligned.map(s => <Chip key={s} s={s} badge={isMax ? bookOf(s) : null} removable={manualSet.has(s)} tone="border-positive/50 bg-positive/[0.07] text-ink" />)}
             </Group>
             <Group label="In the model book, not in your account" count={inBookNotHeld.length} note="Current book positions your list doesn't include.">
               {inBookNotHeld.map(s => <Chip key={s} s={s} badge={isMax ? bookOf(s) : null} tone="border-claret/50 bg-claret/[0.06] text-claret" removable={false} />)}
             </Group>
             <Group label="In your account, no longer in the model" count={drifted.length} note="The model traded these before and has since exited.">
-              {drifted.map(s => <Chip key={s} s={s} tone="border-rule bg-paper-deep text-ink-mute" sub={best[s] != null ? `${best[s] >= 0 ? '+' : ''}${best[s].toFixed(0)}%` : ''} />)}
+              {drifted.map(s => <Chip key={s} s={s} removable={manualSet.has(s)} tone="border-rule bg-paper-deep text-ink-mute" sub={best[s] != null ? `${best[s] >= 0 ? '+' : ''}${best[s].toFixed(0)}%` : ''} />)}
             </Group>
             <Group label="In our universe, no signal" count={inUniverse.length} note="Liquid enough for us to track — the model has just never had a reason to buy them.">
-              {inUniverse.map(s => <Chip key={s} s={s} tone="border-rule bg-paper-deep text-ink-mute" />)}
+              {inUniverse.map(s => <Chip key={s} s={s} removable={manualSet.has(s)} tone="border-rule bg-paper-deep text-ink-mute" />)}
             </Group>
             <Group label="Outside our universe" count={outside.length} note="ETFs, or below our price / liquidity floor — not names the model considers.">
-              {outside.map(s => <Chip key={s} s={s} tone="border-rule text-ink-light" />)}
+              {outside.map(s => <Chip key={s} s={s} removable={manualSet.has(s)} tone="border-rule text-ink-light" />)}
             </Group>
           </>
         )}

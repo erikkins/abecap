@@ -102,16 +102,32 @@ def _extract_symbol(pos: dict) -> Optional[str]:
     return sym.upper() if isinstance(sym, str) and sym else None
 
 
+async def remove_authorization(user_id: str, user_secret: str, authorization_id: str) -> None:
+    """Disconnect a brokerage CONNECTION (removes all its accounts). SnapTrade removes at
+    the authorization level, so one E-Trade connection with two accounts is one removal."""
+    await _call(
+        "DELETE", f"/api/v1/authorizations/{authorization_id}",
+        query_extra={"userId": user_id, "userSecret": user_secret},
+    )
+
+
 async def all_holdings(user_id: str, user_secret: str) -> dict:
-    """Union of position tickers across EVERY connected account (multi-brokerage), plus
-    the connected-account/brokerage names for the Mirror's 'Connected' header."""
+    """Union of position tickers across EVERY connected account (multi-brokerage), plus the
+    connected brokerages GROUPED BY CONNECTION (authorization) — so two accounts at one
+    broker show as one entry, and each carries the authorization_id used to disconnect it."""
     accounts = await list_accounts(user_id, user_secret)
-    symbols, sources = set(), []
+    symbols = set()
+    brokers = {}   # authorization_id (or institution) -> {institution, authorization_id, accounts}
     for acct in accounts:
         aid = acct.get("id")
-        inst = (acct.get("institution_name")
-                or ((acct.get("brokerage_authorization") or {}).get("brokerage") or {}).get("name"))
-        sources.append({"name": acct.get("name") or "Account", "institution": inst})
+        auth = acct.get("brokerage_authorization")           # this API returns the auth id as a string
+        auth_id = auth if isinstance(auth, str) else (auth or {}).get("id") if isinstance(auth, dict) else None
+        inst = acct.get("institution_name") or "Brokerage"
+        key = auth_id or inst
+        b = brokers.setdefault(key, {"institution": inst, "authorization_id": auth_id, "accounts": []})
+        # E-Trade obscures the real account number (opaque token), so the NAME is the reliable
+        # human differentiator between two accounts at one broker.
+        b["accounts"].append(acct.get("name") or "Account")
         if not aid:
             continue
         try:
@@ -121,4 +137,4 @@ async def all_holdings(user_id: str, user_secret: str) -> dict:
                     symbols.add(sym)
         except Exception as e:
             logger.warning(f"snaptrade positions {aid} failed: {e}")
-    return {"symbols": sorted(symbols), "sources": sources, "account_count": len(accounts)}
+    return {"symbols": sorted(symbols), "sources": list(brokers.values()), "account_count": len(accounts)}

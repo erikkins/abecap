@@ -4038,6 +4038,34 @@ async def snaptrade_holdings(
     return {"configured": True, "connected": h.get("account_count", 0) > 0, **h}
 
 
+class SnaptradeDisconnectRequest(BaseModel):
+    authorization_id: str
+
+
+@router.post("/mirror/snaptrade/disconnect")
+async def snaptrade_disconnect(
+    req: SnaptradeDisconnectRequest,
+    user: User = Depends(require_valid_subscription),
+    db: AsyncSession = Depends(get_db),
+):
+    """Disconnect a brokerage CONNECTION (removes ALL its accounts at once — SnapTrade
+    removes at the authorization level) by authorization_id."""
+    from app.services import snaptrade_service as st
+    from app.core.database import SnaptradeUser
+    from sqlalchemy import select as _select
+    if not st.is_configured():
+        raise HTTPException(status_code=503, detail="Brokerage connect is not configured")
+    row = (await db.execute(_select(SnaptradeUser).where(SnaptradeUser.user_id == user.id))).scalars().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="No brokerage connection")
+    try:
+        await st.remove_authorization(str(user.id), row.user_secret, req.authorization_id)
+    except Exception as e:
+        logger.warning(f"snaptrade disconnect failed for {user.id}: {e}")
+        raise HTTPException(status_code=502, detail="Could not disconnect the brokerage")
+    return {"ok": True}
+
+
 @public_router.post("/portfolio-check")
 async def public_portfolio_check(
     req: PortfolioCheckRequest,
