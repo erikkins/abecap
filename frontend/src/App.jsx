@@ -515,7 +515,7 @@ function parseHoldingsCsv(text) {
 // Tool-safe by design: every line is a factual set-comparison of the PUBLISHED book vs
 // what the user holds — never an instruction. The user decides whether to close any gap.
 // Holdings are a manual, ad-hoc watchlist (localStorage); alignment recomputes off the book.
-const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => {
+const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAlignment }) => {
   const KEY = 'rigacap_mirror_holdings';
   const [holdings, setHoldings] = useState(() => {
     try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; }
@@ -595,6 +595,10 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
   // Render the alignment as ONE unit — only once both the membership sets AND holdings are
   // known — so it never paints in two stages (page first, brokerage sync 3-5s later).
   const ready = ctx !== null && snapReady;
+
+  // Report alignment up (the /app/next cockpit drives the eclipse off this).
+  useEffect(() => { if (ready) onAlignment?.(mirroredPct, { aligned: aligned.length, total: bookSyms.length }); },
+    [ready, mirroredPct, aligned.length, bookSyms.length]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // Best past result for drifted names (the "we caught it" flourish) — only for the few drifted.
   useEffect(() => {
@@ -845,6 +849,94 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart }) => 
     </div>
   );
 };
+
+// The alignment eclipse — book = sun, portfolio = moon, alignment = the eclipse (100% = total).
+// Canvas port of the prototype; driven by a live `pct`, tweened on change. React overlays the number.
+function AlignmentEclipse({ pct = 0 }) {
+  const ref = useRef(null);
+  const curRef = useRef((pct || 0) / 100);
+  const starsRef = useRef(null);
+  if (!starsRef.current) {
+    let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    starsRef.current = Array.from({ length: 90 }, () => ({ x: rnd(), y: rnd(), r: rnd() * 1.2 + 0.2, a: rnd() * 0.5 + 0.15 }));
+  }
+  useEffect(() => {
+    const canvas = ref.current; if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const S = 440;
+    canvas.width = S * dpr; canvas.height = S * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const stars = starsRef.current;
+    function draw(a) {
+      const cx = S / 2, cy = S * 0.5, R = S * 0.205;
+      ctx.clearRect(0, 0, S, S);
+      for (const s of stars) { ctx.globalAlpha = s.a * (0.6 + 0.4 * (1 - a)); ctx.fillStyle = '#F3ECDC'; ctx.beginPath(); ctx.arc(s.x * S, s.y * S, s.r, 0, 7); ctx.fill(); }
+      ctx.globalAlpha = 1;
+      const boost = 0.35 + 0.75 * a;
+      const cor = ctx.createRadialGradient(cx, cy, R * 0.82, cx, cy, R * 1.85);
+      cor.addColorStop(0, `rgba(197,106,70,${0.55 * boost})`); cor.addColorStop(0.35, `rgba(176,71,46,${0.34 * boost})`);
+      cor.addColorStop(0.7, `rgba(122,36,48,${0.16 * boost})`); cor.addColorStop(1, 'rgba(122,36,48,0)');
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = cor; ctx.beginPath(); ctx.arc(cx, cy, R * 1.85, 0, 7); ctx.fill(); ctx.restore();
+      const core = ctx.createRadialGradient(cx - R * 0.15, cy - R * 0.15, R * 0.1, cx, cy, R);
+      core.addColorStop(0, '#FFF9ED'); core.addColorStop(0.6, '#F6EBD2'); core.addColorStop(1, '#E9D6AE');
+      ctx.fillStyle = core; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
+      const dx = (1 - a) * R * 2.16, mx = cx + dx, my = cy;
+      const rim = ctx.createRadialGradient(mx - R, my, R * 0.2, mx, my, R * 1.06);
+      rim.addColorStop(0, 'rgba(197,106,70,0)'); rim.addColorStop(0.86, 'rgba(197,106,70,0)');
+      rim.addColorStop(0.97, `rgba(197,106,70,${0.5 * a + 0.15})`); rim.addColorStop(1, 'rgba(197,106,70,0)');
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = rim; ctx.beginPath(); ctx.arc(mx, my, R * 1.06, 0, 7); ctx.fill(); ctx.restore();
+      const moon = ctx.createRadialGradient(mx + R * 0.2, my + R * 0.2, R * 0.2, mx, my, R);
+      moon.addColorStop(0, '#1C1712'); moon.addColorStop(1, '#0C0A08');
+      ctx.fillStyle = moon; ctx.beginPath(); ctx.arc(mx, my, R, 0, 7); ctx.fill();
+    }
+    const target = Math.max(0, Math.min(1, (pct || 0) / 100));
+    if (reduce) { curRef.current = target; draw(target); return; }
+    let raf; const start = curRef.current, t0 = performance.now(), dur = 700;
+    const step = (now) => { let k = Math.min(1, (now - t0) / dur); k = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; const a = start + (target - start) * k; curRef.current = a; draw(a); if (k < 1) raf = requestAnimationFrame(step); };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [pct]);
+  const phase = pct >= 100 ? 'Total eclipse' : pct >= 86 ? 'Near-total' : pct >= 40 ? 'Deep partial' : pct > 0 ? 'Partial' : 'No overlap';
+  return (
+    <div style={{ position: 'relative', width: '100%', maxWidth: 440, margin: '0 auto' }}>
+      <canvas ref={ref} style={{ width: '100%', aspectRatio: '1', display: 'block' }} />
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: '8%', textAlign: 'center', pointerEvents: 'none' }}>
+        <div style={{ fontFamily: "'Iowan Old Style',Palatino,Georgia,serif", fontWeight: 600, fontSize: 'clamp(44px,11vw,72px)', lineHeight: 0.9, color: '#F3ECDC', fontVariantNumeric: 'tabular-nums', textShadow: '0 2px 30px rgba(197,106,70,.35)' }}>
+          {Math.round(pct)}<span style={{ fontSize: '0.32em', color: '#8A8172', fontFamily: 'system-ui,sans-serif', marginLeft: 4 }}>% mirrored</span>
+        </div>
+        <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 12, letterSpacing: '0.16em', textTransform: 'uppercase', color: pct >= 100 ? '#E9D6AE' : '#B0472E', marginTop: 8 }}>{phase}</div>
+      </div>
+    </div>
+  );
+}
+
+// /app/next — private, admin-gated design studio for the reoriented Mirror COCKPIT.
+// The eclipse (hero) is driven by the REAL alignment reported by MirrorCheck below.
+function MirrorCockpit() {
+  const { isAdmin } = useAuth();
+  const [dash, setDash] = useState(null);
+  const [pct, setPct] = useState(0);
+  const [tally, setTally] = useState({ aligned: 0, total: 0 });
+  useEffect(() => { (async () => { try { setDash(await api.get('/api/signals/dashboard')); } catch { setDash({}); } })(); }, []);
+  if (isAdmin === false) return <Navigate to="/app" replace />;
+  return (
+    <div style={{ minHeight: '100vh', background: 'radial-gradient(120% 90% at 50% 12%, #1B1712 0%, #141210 42%, #0B0A08 100%)' }}>
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: '32px 20px 64px' }}>
+        <div style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, letterSpacing: '0.26em', textTransform: 'uppercase', color: '#B0472E', textAlign: 'center' }}>RigaCap · Mirror cockpit · preview</div>
+        <h1 style={{ fontFamily: "'Iowan Old Style',Palatino,Georgia,serif", fontWeight: 600, fontSize: 'clamp(23px,4vw,32px)', color: '#F3ECDC', textAlign: 'center', margin: '10px 0 2px', textWrap: 'balance' }}>How closely are you mirroring the book?</h1>
+        <p style={{ fontFamily: "'Iowan Old Style',Georgia,serif", fontStyle: 'italic', color: '#C9BFA9', textAlign: 'center', margin: '0 0 14px' }}>The book is the sun. Your portfolio is the moon.</p>
+        <AlignmentEclipse pct={pct} />
+        <p style={{ textAlign: 'center', color: '#B7AE99', fontFamily: 'system-ui,sans-serif', fontSize: 13, marginTop: 2 }}>You hold {tally.aligned} of {tally.total} model positions</p>
+        <div style={{ marginTop: 30 }}>
+          <MirrorCheck book={dash?.tier_book} preserverBook={dash?.preserver_book} tier={dash?.tier}
+            regimeName={dash?.regime_forecast?.current_regime_name} onOpenChart={() => {}}
+            onAlignment={(p, t) => { setPct(p); if (t) setTally(t); }} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const WhereStocksSit = ({ onOpenChart }) => {
   const [input, setInput] = useState('NVDA, SMCI, PLTR, MSTR, IREN, AAPL');
@@ -5991,6 +6083,11 @@ export default function App() {
         <Route path="/blog/we-called-it-tgtx" element={<BlogWeCalledItTGTXPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/app/next" element={
+          <ProtectedRoute>
+            <MirrorCockpit />
+          </ProtectedRoute>
+        } />
         <Route path="/app" element={
           <ProtectedRoute>
             <Dashboard />
