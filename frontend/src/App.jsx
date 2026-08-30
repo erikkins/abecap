@@ -871,6 +871,7 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
           </div>
         )}
 
+        <div data-tour="mirror-connect">
         <form onSubmit={add} className="flex gap-2 mb-2">
           <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Add tickers you hold — AAPL, NVDA…"
             className="flex-1 px-3 py-2 text-sm bg-paper-deep border border-rule rounded-lg text-ink placeholder:text-ink-light focus:outline-none focus:border-claret" />
@@ -888,6 +889,7 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
             {snap.loading ? 'Opening…' : snap.connected ? 'Connect another brokerage' : 'Connect brokerage'}
           </button>
           {csvMsg && <span className="text-[0.72rem] text-positive">{csvMsg}</span>}
+        </div>
         </div>
         {ready && snap.connected && snap.sources.length > 0 && (
           <div className="mb-4 -mt-1">
@@ -1110,7 +1112,7 @@ function AlignmentEclipse({ pct = 0, max = 440, compact = false }) {
 // BOTH /app/next (MirrorCockpit) and the in-app "Mirror" tab. The dark hero full-bleeds to the
 // viewport and dawns into paper, so it drops cleanly into a padded tab container or a bare page.
 // The persistent alignment glyph lives in the Mirror TAB label (EclipseGlyph), not a scroll bar.
-function MirrorView({ book, preserverBook, tier, regimeName, onOpenChart, holdingsApi }) {
+function MirrorView({ book, preserverBook, tier, regimeName, onOpenChart, holdingsApi, onState }) {
   const [pct, setPct] = useState(0);
   const [tally, setTally] = useState({ aligned: 0, total: 0 });
   // Full-bleed: extend to the viewport edges even inside a padded container (scrollbar-safe calc).
@@ -1125,7 +1127,9 @@ function MirrorView({ book, preserverBook, tier, regimeName, onOpenChart, holdin
             <h1 style={{ fontFamily: "'Iowan Old Style',Palatino,Georgia,serif", fontWeight: 600, fontSize: 'clamp(19px,3.4vw,26px)', color: '#F3ECDC', margin: 0, letterSpacing: '-0.01em' }}>How closely are you mirroring the book?</h1>
             <span style={{ fontFamily: "'Iowan Old Style',Georgia,serif", fontStyle: 'italic', color: '#B79A6E', fontSize: 13 }}>book = sun · you = moon</span>
           </div>
-          <AlignmentEclipse pct={pct} max={360} />
+          <div data-tour="mirror-eclipse">
+            <AlignmentEclipse pct={pct} max={360} />
+          </div>
           <p style={{ textAlign: 'center', color: '#B7AE99', fontFamily: 'system-ui,sans-serif', fontSize: 13, marginTop: 2 }}>You hold {tally.aligned} of {tally.total} model positions</p>
         </div>
         {/* Dawn: the night sky warms at the horizon (echoing the corona) before resolving to paper. */}
@@ -1134,9 +1138,122 @@ function MirrorView({ book, preserverBook, tier, regimeName, onOpenChart, holdin
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '4px 20px 56px' }}>
         <MirrorCheck book={book} preserverBook={preserverBook} tier={tier}
           regimeName={regimeName} onOpenChart={onOpenChart || (() => {})} heroMode holdingsApi={holdingsApi}
-          onAlignment={(p, t) => { setPct(p); if (t) setTally(t); }} />
+          onAlignment={(p, t) => { setPct(p); if (t) setTally(t); onState?.({ pct: p, tally: t }); }} />
       </div>
     </>
+  );
+}
+
+// Small sleeve diagram for the tour — makes "10% of YOUR money → the WHOLE book" concrete.
+function SleeveDiagram() {
+  return (
+    <div className="w-full max-w-[260px]">
+      <div className="text-[0.6rem] tracking-[0.14em] uppercase text-ink-light mb-1.5 text-center">Your portfolio</div>
+      <div className="flex h-9 rounded overflow-hidden border border-rule">
+        <div className="bg-claret" style={{ width: '10%' }} />
+        <div className="bg-paper-card flex-1" />
+      </div>
+      <div className="flex justify-between mt-1.5 text-[0.6rem]">
+        <span className="text-claret font-medium">10% sleeve → the whole book</span>
+        <span className="text-ink-light">the rest, untouched</span>
+      </div>
+    </div>
+  );
+}
+
+// Mirror onboarding — concept beats (centered cards) that teach the model FIRST, then a spotlight
+// on the real Connect controls + the real eclipse. Prototype: mounted only on /app/next.
+const MIRROR_TOUR = [
+  { kind: 'modal', art: 'intro', eyebrow: 'The Mirror', title: 'One picture, honestly drawn',
+    body: 'Your portfolio, side by side with our model book — as facts, not instructions. What you do about the gap is always your call.' },
+  { kind: 'modal', art: 'eclipse', eyebrow: 'How to read it', title: 'Book = sun. You = moon.',
+    body: 'The more your holdings overlap the book, the more the moon covers the sun. Full overlap is a total eclipse — the one number that answers "am I actually running the strategy?"' },
+  { kind: 'modal', art: 'sleeve', eyebrow: 'How to run it', title: 'A sleeve — not thirty bets',
+    body: 'Commit a slice of your money — say 10% — and that slice holds the whole book at our weights. A few hundred dollars a name, not thirty big decisions. Half the book isn’t half the strategy; a total eclipse is when the track record is truly yours.' },
+  { kind: 'spotlight', target: '[data-tour="mirror-connect"]', eyebrow: 'Step one', title: 'Show it what you hold',
+    body: 'Connect your brokerage (read-only) or paste a few tickers. Nothing to buy yet — we just need to see where you stand today.' },
+  { kind: 'spotlight', target: '[data-tour="mirror-eclipse"]', eyebrow: 'Your starting point', title: 'Further along than you think',
+    body: 'This is your eclipse today. Most people start as a crescent — the gap is simply the distance to running the full book, at your pace and your size. The book you’re mirroring is right below.' },
+];
+
+function MirrorTour({ open, onClose }) {
+  const [step, setStep] = useState(0);
+  const [rect, setRect] = useState(null);
+  const [demo, setDemo] = useState(0);
+  const cur = MIRROR_TOUR[step] || MIRROR_TOUR[0];
+  const isSpot = cur.kind === 'spotlight';
+  const last = step === MIRROR_TOUR.length - 1;
+  const advance = () => { if (last) onClose(); else setStep(s => s + 1); };
+  const back = () => setStep(s => Math.max(0, s - 1));
+
+  useEffect(() => { if (open) { setStep(0); setRect(null); } }, [open]);
+  // Delight beat: sweep the demo eclipse 0 → 66% when the "how to read it" card shows.
+  useEffect(() => { if (open && cur.art === 'eclipse') { setDemo(0); const t = setTimeout(() => setDemo(66), 140); return () => clearTimeout(t); } }, [open, step, cur.art]);
+  // Measure the spotlight target (after scrolling it into view); re-measure on scroll/resize.
+  useEffect(() => {
+    if (!open || !isSpot) { setRect(null); return; }
+    const el = document.querySelector(cur.target);
+    if (!el) { setRect(null); return; }
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const measure = () => { const r = el.getBoundingClientRect(); setRect({ top: r.top, left: r.left, width: r.width, height: r.height }); };
+    const t = setTimeout(measure, 380);
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => { clearTimeout(t); window.removeEventListener('resize', measure); window.removeEventListener('scroll', measure, true); };
+  }, [open, step, isSpot, cur.target]);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e) => { if (e.key === 'Escape') onClose(); else if (e.key === 'ArrowRight') advance(); else if (e.key === 'ArrowLeft') back(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [open, step, last]);   // re-register with fresh closures
+
+  if (!open) return null;
+  const showSpot = isSpot && rect;
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const cardW = Math.min(vw * 0.92, 420);
+  const cx = rect ? rect.left + rect.width / 2 : vw / 2;
+  const cardLeft = Math.max(12, Math.min(cx - cardW / 2, vw - cardW - 12));
+  const above = rect && rect.top > vh * 0.58;
+  const art = cur.art === 'eclipse'
+    ? <div style={{ width: 150 }}><AlignmentEclipse pct={demo} max={150} /></div>
+    : cur.art === 'sleeve' ? <SleeveDiagram />
+    : <EclipseGlyph pct={45} size={76} />;
+
+  const card = (
+    <div className="relative bg-paper border border-rule rounded-lg shadow-2xl overflow-hidden" style={{ width: cardW }} onClick={(e) => e.stopPropagation()}>
+      <button onClick={onClose} title="Skip" aria-label="Skip tour" className="absolute top-2.5 right-2.5 text-ink-light hover:text-ink transition-colors z-10"><X size={18} /></button>
+      {cur.kind === 'modal' && (
+        <div className="h-40 bg-paper-deep flex items-center justify-center px-6 border-b border-rule">{art}</div>
+      )}
+      <div className="p-5">
+        <div className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-claret mb-1.5">{cur.eyebrow}</div>
+        <h3 className="font-display text-[1.35rem] font-medium text-ink tracking-tight mb-2 text-balance" style={{ fontVariationSettings: '"opsz" 48' }}>{cur.title}</h3>
+        <p className="text-[0.9rem] leading-relaxed text-ink-mute">{cur.body}</p>
+        <div className="flex items-center justify-between mt-5">
+          <div className="flex gap-1.5 items-center">
+            {MIRROR_TOUR.map((_, i) => (<span key={i} className={`h-1.5 rounded-full transition-all ${i === step ? 'w-5 bg-claret' : 'w-1.5 bg-rule'}`} />))}
+          </div>
+          <div className="flex items-center gap-1">
+            {step > 0 && <button onClick={back} className="text-[0.8rem] text-ink-light hover:text-ink px-3 py-1.5">Back</button>}
+            <button onClick={advance} className="text-[0.82rem] font-medium bg-ink text-paper px-4 py-1.5 rounded-lg hover:bg-claret transition-colors">{last ? 'Done' : 'Next'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (showSpot) {
+    return (
+      <div className="fixed inset-0" style={{ zIndex: 60 }}>
+        <div className="pointer-events-none" style={{ position: 'fixed', top: rect.top - 8, left: rect.left - 8, width: rect.width + 16, height: rect.height + 16, borderRadius: 14, boxShadow: '0 0 0 9999px rgba(20,18,16,0.74)', border: '2px solid #7A2430', transition: 'top .3s ease, left .3s ease, width .3s ease, height .3s ease' }} />
+        <div style={{ position: 'fixed', left: cardLeft, top: above ? undefined : rect.top + rect.height + 14, bottom: above ? (vh - rect.top + 14) : undefined }}>{card}</div>
+      </div>
+    );
+  }
+  return (
+    <div className="fixed inset-0 bg-ink/70 flex items-center justify-center p-4" style={{ zIndex: 60 }} onClick={onClose}>{card}</div>
   );
 }
 
@@ -1158,11 +1275,22 @@ function MirrorCockpit() {
     const q = p.toString();
     try { setDash(await api.get(`/api/signals/dashboard${q ? `?${q}` : ''}`)); } catch { setDash({}); }
   })(); }, []);
+  const [tourOpen, setTourOpen] = useState(() => {
+    const qp = new URLSearchParams(window.location.search);
+    if (qp.has('tour')) return true;                              // force for iteration
+    return localStorage.getItem('rigacap_mirror_tour_seen') !== 'true';   // auto on first visit
+  });
+  const closeTour = () => { setTourOpen(false); try { localStorage.setItem('rigacap_mirror_tour_seen', 'true'); } catch { /* ignore */ } };
   if (isAdmin === false) return <Navigate to="/app" replace />;
   return (
     <div style={{ minHeight: '100vh', background: '#F5F1E8' }}>
       <MirrorView book={dash?.tier_book} preserverBook={dash?.preserver_book} tier={dash?.tier}
         regimeName={dash?.regime_forecast?.current_regime_name} holdingsApi={holdingsApi} />
+      <MirrorTour open={tourOpen} onClose={closeTour} />
+      <button onClick={() => setTourOpen(true)}
+        className="fixed bottom-4 right-4 z-30 text-[0.75rem] font-medium px-3.5 py-2 rounded-full bg-ink text-paper shadow-lg hover:bg-claret transition-colors">
+        Take the tour
+      </button>
     </div>
   );
 }
