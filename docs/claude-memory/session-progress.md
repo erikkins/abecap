@@ -10,20 +10,19 @@ metadata:
 # Session progress — 2026-08-30
 
 ## This session
-- Fresh session, minimal so far. User opened by asking if I still had context from last time.
-- Re-oriented from memory + git log (no live prior-session transcript available).
+- Light session. Re-oriented from memory + git (no live prior transcript).
+- Filed a competitive-reference memory: **IBD MarketSurge "Blue Dot"** early-momentum indicator Erik saw in socials. FYI only, NOT a build. Captured as positioning contrast (they sell "enter earlier"; we sell discipline/behavioral edge; eclipse owns our momentum visual). See [[reference_ibd_bluedot]] + one-line entry added to MEMORY.md index.
 
 ## Where things stand (from git + memory)
-- Latest work = Mirror-first onboarding tour on `/app/next` (concept modals + spotlight), commit `dd318b9`.
-- Prior Mirror commits: eclipse→live crescent in Mirror tab (`592d2ca`), manual-ticker remove + green dots + glyph geometry (`91f6992`).
+- Latest code work = Mirror-first onboarding tour on `/app/next` (`dd318b9`); prior eclipse→crescent in Mirror tab.
 
 ## Key constraint (do NOT forget)
-- ⚖️ Mirror tab is ADMIN-ONLY, gated on counsel. Do NOT open to all subs until Erik hears back from lawyer + gives explicit go. Opening = flip 2 `isAdmin` guards in App.jsx. See [[project_mirror_tab_counsel_gate]].
+- ⚖️ Mirror tab ADMIN-ONLY, gated on counsel — do NOT open to all subs until Erik hears from lawyer + explicit go. Opening = flip 2 `isAdmin` guards in App.jsx. [[project_mirror_tab_counsel_gate]]
 
 ## In flight / next (open threads)
-- Free-first conversion pivot build spec [[project_free_first_spec]].
-- t30v display-parity sweep (audit all UI/email exit params) + `/for-advisers` sleeve revamp [[project_paul_adviser_feedback_jun23]].
+- Free-first conversion pivot spec [[project_free_first_spec]].
+- t30v display-parity sweep + `/for-advisers` sleeve revamp [[project_paul_adviser_feedback_jun23]].
 - Brand voice: no "DWAP"/"tape" customer-facing; claret+paper only.
 
 ## Note
-- No active task in progress; awaiting Erik to name the thread to resume.
+- No active task in progress; awaiting Erik to name the next thread.

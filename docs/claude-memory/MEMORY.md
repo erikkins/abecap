@@ -1,5 +1,8 @@
 # Stocker App - Key Learnings
 
+## 🔵 COMPETITIVE REF — IBD MarketSurge "Blue Dot" early-momentum indicator (Aug 30)
+- [IBD Blue Dot](reference_ibd_bluedot.md) — Erik spotted it in socials; FYI not a build. "Catch top stocks earlier" RS/accumulation early-momentum trigger, $49.95/6wk trial. Signal-earliness posture = opposite of ours; our momentum visual = the eclipse, edge = anti-capitulation/behavioral. Use for positioning contrast only.
+
 ## ⚖️ MIRROR TAB — GATED ON COUNSEL before opening to all subs (Aug 29)
 - [Mirror tab counsel gate](project_mirror_tab_counsel_gate.md) — Mirror tab (eclipse cockpit) is ADMIN-ONLY; Erik: do NOT open to all subscribers until he hears back from counsel, then explicit go. To open = flip 2 `isAdmin` guards in App.jsx (tab button + content branch). Reason: compares user holdings vs model book = investment-advice territory, needs legal read. DON'T flip preemptively.
 
