@@ -10,19 +10,18 @@ metadata:
 # Session progress — 2026-08-30
 
 ## This session
-- Light session. Re-oriented from memory + git (no live prior transcript).
-- Filed a competitive-reference memory: **IBD MarketSurge "Blue Dot"** early-momentum indicator Erik saw in socials. FYI only, NOT a build. Captured as positioning contrast (they sell "enter earlier"; we sell discipline/behavioral edge; eclipse owns our momentum visual). See [[reference_ibd_bluedot]] + one-line entry added to MEMORY.md index.
+- Filed competitive ref: IBD MarketSurge "Blue Dot" [[reference_ibd_bluedot]] (FYI, not a build; positioning contrast).
+- **Fixed the /app/next Mirror onboarding tour** (all in frontend/src/App.jsx, MIRROR_TOUR / MirrorTour / MirrorCockpit):
+  1. **Empty final state** — final eclipse step now has an `emptyVariant` ("A blank sky, waiting") that fires when live alignment pct===0, so a first-timer with 0 holdings isn't promised a "crescent" that isn't there. Reverts to "Further along than you think" once pct>0.
+  2. **Scroll jank** — spotlight measure effect rewritten: clears stale rect on step change, scrolls, then reveals the cutout ONLY after the smooth-scroll settles (rAF loop, top-stable-2-frames / 900ms bailout). Screen just dims during scroll; highlight+card land together. Card given matching easing transition. Also added a dim-only overlay for the settling window.
+  3. Wired live eclipse pct from MirrorView.onState → MirrorCockpit state → MirrorTour `pct` prop.
+- Verified: esbuild parse OK. Preview at `/app/next?tour=1`.
 
-## Where things stand (from git + memory)
-- Latest code work = Mirror-first onboarding tour on `/app/next` (`dd318b9`); prior eclipse→crescent in Mirror tab.
+## Not changed / open
+- Tour still visits connect (mid-page) then eclipse (top) = down-then-up scroll, but jank is hidden by dim-then-land. Offered to reorder to one-direction if Erik wants.
 
-## Key constraint (do NOT forget)
-- ⚖️ Mirror tab ADMIN-ONLY, gated on counsel — do NOT open to all subs until Erik hears from lawyer + explicit go. Opening = flip 2 `isAdmin` guards in App.jsx. [[project_mirror_tab_counsel_gate]]
+## Key constraint (unchanged)
+- ⚖️ Mirror tab ADMIN-ONLY, gated on counsel — do NOT open to all subs until Erik hears from lawyer + explicit go. [[project_mirror_tab_counsel_gate]]
 
-## In flight / next (open threads)
-- Free-first conversion pivot spec [[project_free_first_spec]].
-- t30v display-parity sweep + `/for-advisers` sleeve revamp [[project_paul_adviser_feedback_jun23]].
-- Brand voice: no "DWAP"/"tape" customer-facing; claret+paper only.
-
-## Note
-- No active task in progress; awaiting Erik to name the next thread.
+## Other open threads
+- Free-first pivot [[project_free_first_spec]]; t30v display-parity sweep + /for-advisers revamp [[project_paul_adviser_feedback_jun23]]; brand voice (no DWAP/tape; claret+paper).
