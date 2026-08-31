@@ -126,6 +126,31 @@ async def approve_post(
     return {"status": "approved", "post_id": post_id}
 
 
+@router.post("/posts/{post_id}/mark-posted")
+async def mark_post_posted(
+    post_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin=Depends(get_admin_user),
+):
+    """Mark a post as manually posted — for reply pass-throughs opened via the X web-intent
+    composer, which can't be auto-published on X's Free tier. Moves it out of the review queue
+    so approved replies don't pile up after you post them by hand."""
+    result = await db.execute(select(SocialPost).where(SocialPost.id == post_id))
+    post = result.scalar_one_or_none()
+
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    post.status = "posted"
+    post.posted_at = datetime.utcnow()
+    post.reviewed_by = admin.email
+    post.reviewed_at = datetime.utcnow()
+    post.scheduled_for = None
+    await db.commit()
+
+    return {"status": "posted", "post_id": post_id}
+
+
 @router.post("/posts/{post_id}/reject")
 async def reject_post(
     post_id: int,

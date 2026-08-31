@@ -167,6 +167,14 @@ export default function SocialTab({ fetchWithAuth }) {
     fetchPlatformToggles();
   }, [fetchStats, fetchPosts, fetchPlatformToggles]);
 
+  // "Mark posted" button (reply pass-throughs opened via the X composer) dispatches a window
+  // event so the deeply-nested ActionButtons doesn't need the handler threaded through every card.
+  useEffect(() => {
+    const h = (e) => handleAction(e.detail.id, `posts/${e.detail.id}/mark-posted`, 'POST');
+    window.addEventListener('social-mark-posted', h);
+    return () => window.removeEventListener('social-mark-posted', h);
+  });
+
   // Fetch previews for posts that have images
   useEffect(() => {
     posts.forEach(post => {
@@ -196,7 +204,7 @@ export default function SocialTab({ fetchWithAuth }) {
     }
   };
 
-  const approve = (id) => handleAction(id, `posts/${id}/approve`, 'POST', null, 'Post approved! Switch to "Approved" filter to see it.');
+  const approve = (id) => handleAction(id, `posts/${id}/approve`, 'POST');
   const reject = (id) => handleAction(id, `posts/${id}/reject`, 'POST', null, 'Post rejected.');
   const regenerate = (id) => handleAction(id, `posts/${id}/regenerate`);
   const deletePost = (id) => handleAction(id, `posts/${id}`, 'DELETE', 'Delete this post? This cannot be undone.');
@@ -1173,10 +1181,41 @@ function PostBadges({ post }) {
 function ActionButtons({ post, actionLoading, onApprove, onReject, onRegenerate, onDelete, onPublish, onSchedule, onCancel, publishingLive, extraButtons }) {
   const isLoading = !!actionLoading;
   const canModify = post.status === 'draft' || post.status === 'rejected' || post.status === 'scheduled' || post.status === 'posted';
+  // Replies can't be auto-posted (X Free tier 403s on programmatic replies) — they open the X
+  // web-intent composer pre-filled as a reply, same deep-link the approval email uses.
+  const isReply = !!post.reply_to_tweet_id || post.post_type === 'contextual_reply';
+  const openReplyInX = () => {
+    const text = post.text_content || '';
+    const url = post.reply_to_tweet_id
+      ? `https://twitter.com/intent/tweet?in_reply_to=${post.reply_to_tweet_id}&text=${encodeURIComponent(text)}`
+      : `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank', 'noopener');
+  };
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      {post.status === 'approved' && publishingLive && (
+      {isReply && post.status !== 'cancelled' && post.status !== 'rejected' && (
+        <button
+          onClick={openReplyInX}
+          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-black rounded-lg transition-colors"
+          title="Open the X composer pre-filled as a reply — then hit Post on X"
+        >
+          <MessageSquare size={13} />
+          Open in X
+        </button>
+      )}
+      {isReply && post.status !== 'posted' && post.status !== 'cancelled' && post.status !== 'rejected' && (
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('social-mark-posted', { detail: { id: post.id } }))}
+          disabled={isLoading}
+          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
+          title="Mark this reply as posted — once you've posted it on X"
+        >
+          {actionLoading === `posts/${post.id}/mark-posted` ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
+          Mark posted
+        </button>
+      )}
+      {post.status === 'approved' && publishingLive && !isReply && (
         <button
           onClick={() => onPublish(post.id)}
           disabled={isLoading}
