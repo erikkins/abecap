@@ -1,27 +1,26 @@
 ---
 name: session-progress
-description: "Rolling snapshot of the current session's progress for crash recovery"
+description: "Rolling snapshot of the current working session — accomplishments, in-flight work, key context for a fresh session"
 metadata: 
   node_type: memory
   type: project
-  originSessionId: d34a4a76-ba3c-45f8-beb3-aa074d8caa9f
+  originSessionId: b87c584c-343d-4a11-aca7-a450196570be
 ---
 
-# Session progress — 2026-08-30
+# Session progress — 2026-08-31
 
-## This session
-- Filed competitive ref: IBD MarketSurge "Blue Dot" [[reference_ibd_bluedot]] (FYI, not a build; positioning contrast).
-- **Fixed the /app/next Mirror onboarding tour** (all in frontend/src/App.jsx, MIRROR_TOUR / MirrorTour / MirrorCockpit):
-  1. **Empty final state** — final eclipse step now has an `emptyVariant` ("A blank sky, waiting") that fires when live alignment pct===0, so a first-timer with 0 holdings isn't promised a "crescent" that isn't there. Reverts to "Further along than you think" once pct>0.
-  2. **Scroll jank** — spotlight measure effect rewritten: clears stale rect on step change, scrolls, then reveals the cutout ONLY after the smooth-scroll settles (rAF loop, top-stable-2-frames / 900ms bailout). Screen just dims during scroll; highlight+card land together. Card given matching easing transition. Also added a dim-only overlay for the settling window.
-  3. Wired live eclipse pct from MirrorView.onState → MirrorCockpit state → MirrorTour `pct` prop.
-- Verified: esbuild parse OK. Preview at `/app/next?tour=1`.
+## Done this session
+1. **Mirror tour bounce fix** (App.jsx MIRROR_TOUR): final 2 spotlights jumped down-then-up because eclipse hero is at page top but Connect is below, yet tour visited Connect→Eclipse. Reordered spotlights **top-to-bottom (Eclipse → Connect)**; retargeted eclipse card closing line ("Here's how to draw it in / Here's where to start"); Connect eyebrow "Step one"→"Your move" (now the finale). Smooth-scroll logic untouched.
+2. **Heatmap year-label garble** (design/tools/sector-observatory.html): data starts 2016-12-29 (1 month) so 2016/2017 collided. Fix: collect year boundaries, skip label if next boundary <30px away → drops partial 2016, shows 2017→2026. Applied to source tool AND React port.
+3. **Sector Observatory → blog + social:**
+   - Blog `frontend/src/BlogSectorObservatoryPage.jsx` at `/blog/sector-observatory` — faithful port (live heatmap canvas + persistence/cadence/regime-table/drift/verdict), claret/paper. Data → `frontend/src/data/sectorObservatory.json`. Lazy-loaded, routed in App.jsx, featured FIRST on BlogIndexPage. Scrubbed "PITFWU" from customer copy. Prod build passes.
+   - 4 social cards (1080×1350) in `design/brand/sector-observatory-cards/` + `generate.py`. Iterated on Erik feedback: card1 subheader widened + no trailing preposition ("…that shaped it"); cards 2 & 4 = one-thought-per-row (3 full-width sentences, spaced); card4 CTA changed from long URL → **"link in bio"**.
 
-## Not changed / open
-- Tour still visits connect (mid-page) then eclipse (top) = down-then-up scroll, but jank is hidden by dim-then-land. Offered to reorder to one-direction if Erik wants.
+## Open / next (awaiting Erik)
+- Blog validated via prod build only, NOT live browser — offered to spin up dev server + screenshot `/blog/sector-observatory`.
+- Card 3 shows Strong Bull (only 2 months) — offered to trim thin regimes.
+- **NOTHING COMMITTED yet** — awaiting Erik go/adjust. When posting cards, blog URL must sit in IG/X bio link.
 
-## Key constraint (unchanged)
-- ⚖️ Mirror tab ADMIN-ONLY, gated on counsel — do NOT open to all subs until Erik hears from lawyer + explicit go. [[project_mirror_tab_counsel_gate]]
-
-## Other open threads
-- Free-first pivot [[project_free_first_spec]]; t30v display-parity sweep + /for-advisers revamp [[project_paul_adviser_feedback_jun23]]; brand voice (no DWAP/tape; claret+paper).
+## Context
+- Brand = claret/paper (NEVER navy/gold). Never say DWAP/tape/PITFWU to customers.
+- Social format = rendered PNG cards via headless-Chrome pipeline (not AI content engine).

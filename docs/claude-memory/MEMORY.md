@@ -1,5 +1,8 @@
 # Stocker App - Key Learnings
 
+## ⏱️ SESSION SNAPSHOT (auto-checkpoint) — read on resume
+- [session-progress](session-progress.md) — Aug 31: Mirror tour bounce fix (spotlights reordered top→bottom); heatmap 2016/2017 year-label garble fix; Sector Observatory ported to `/blog/sector-observatory` + 4 social cards. Uncommitted; awaiting Erik go/adjust.
+
 ## 🔵 COMPETITIVE REF — IBD MarketSurge "Blue Dot" early-momentum indicator (Aug 30)
 - [IBD Blue Dot](reference_ibd_bluedot.md) — Erik spotted it in socials; FYI not a build. "Catch top stocks earlier" RS/accumulation early-momentum trigger, $49.95/6wk trial. Signal-earliness posture = opposite of ours; our momentum visual = the eclipse, edge = anti-capitulation/behavioral. Use for positioning contrast only.
 
