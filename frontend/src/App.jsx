@@ -1173,14 +1173,20 @@ const MIRROR_TOUR = [
   { kind: 'spotlight', target: '[data-tour="mirror-connect"]', eyebrow: 'Step one', title: 'Show it what you hold',
     body: 'Connect your brokerage (read-only) or paste a few tickers. Nothing to buy yet — we just need to see where you stand today.' },
   { kind: 'spotlight', target: '[data-tour="mirror-eclipse"]', eyebrow: 'Your starting point', title: 'Further along than you think',
-    body: 'This is your eclipse today. Most people start as a crescent — the gap is simply the distance to running the full book, at your pace and your size. The book you’re mirroring is right below.' },
+    body: 'This is your eclipse today. Most people start as a crescent — the gap is simply the distance to running the full book, at your pace and your size. The book you’re mirroring is right below.',
+    // First run has no holdings yet, so the eclipse is a full sun — meet that honestly instead of
+    // promising a crescent that isn't there. Picked when the live alignment is still 0%.
+    emptyVariant: { eyebrow: 'Your starting point', title: 'A blank sky, waiting',
+      body: 'You haven’t added anything yet, so the sun’s in full view — that’s exactly where everyone begins. Add even one name above and the moon slides in; a total eclipse is when you hold the whole book, at your pace and your size. The book you’re mirroring is right below.' } },
 ];
 
-function MirrorTour({ open, onClose }) {
+function MirrorTour({ open, onClose, pct = 0 }) {
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState(null);
   const [demo, setDemo] = useState(0);
-  const cur = MIRROR_TOUR[step] || MIRROR_TOUR[0];
+  let cur = MIRROR_TOUR[step] || MIRROR_TOUR[0];
+  // Empty first run (no overlap yet) → swap the eclipse step to copy that meets a full sun honestly.
+  if (cur.emptyVariant && !(pct > 0)) cur = { ...cur, ...cur.emptyVariant };
   const isSpot = cur.kind === 'spotlight';
   const last = step === MIRROR_TOUR.length - 1;
   const advance = () => { if (last) onClose(); else setStep(s => s + 1); };
@@ -1189,17 +1195,31 @@ function MirrorTour({ open, onClose }) {
   useEffect(() => { if (open) { setStep(0); setRect(null); } }, [open]);
   // Delight beat: sweep the demo eclipse 0 → 66% when the "how to read it" card shows.
   useEffect(() => { if (open && cur.art === 'eclipse') { setDemo(0); const t = setTimeout(() => setDemo(66), 140); return () => clearTimeout(t); } }, [open, step, cur.art]);
-  // Measure the spotlight target (after scrolling it into view); re-measure on scroll/resize.
+  // Scroll the spotlight target into view, then reveal the cutout ONLY once the smooth-scroll
+  // has settled — otherwise the highlight snaps from the previous target's position through a
+  // moving frame (the "janky" jump). rect stays null while scrolling (screen just dims), then
+  // lands once the target stops moving; afterwards we track live scroll/resize.
   useEffect(() => {
     if (!open || !isSpot) { setRect(null); return; }
     const el = document.querySelector(cur.target);
     if (!el) { setRect(null); return; }
+    setRect(null);                                   // drop the stale rect so nothing renders mid-scroll
     el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    const measure = () => { const r = el.getBoundingClientRect(); setRect({ top: r.top, left: r.left, width: r.width, height: r.height }); };
-    const t = setTimeout(measure, 380);
-    window.addEventListener('resize', measure);
-    window.addEventListener('scroll', measure, true);
-    return () => { clearTimeout(t); window.removeEventListener('resize', measure); window.removeEventListener('scroll', measure, true); };
+    const measure = () => { const r = el.getBoundingClientRect(); return { top: r.top, left: r.left, width: r.width, height: r.height }; };
+    let raf, settled = false, prevTop = null, still = 0;
+    const t0 = performance.now();
+    const settle = (now) => {
+      const r = measure();
+      if (prevTop !== null && Math.abs(r.top - prevTop) < 0.5) still++; else still = 0;
+      prevTop = r.top;
+      if (still >= 2 || now - t0 > 900) { setRect(r); settled = true; return; }   // stable or bailout
+      raf = requestAnimationFrame(settle);
+    };
+    raf = requestAnimationFrame(settle);
+    const onMove = () => { if (settled) setRect(measure()); };
+    window.addEventListener('resize', onMove);
+    window.addEventListener('scroll', onMove, true);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onMove); window.removeEventListener('scroll', onMove, true); };
   }, [open, step, isSpot, cur.target]);
   useEffect(() => {
     if (!open) return;
@@ -1244,11 +1264,13 @@ function MirrorTour({ open, onClose }) {
     </div>
   );
 
+  // Spotlight step but the scroll hasn't settled yet → just dim; the cutout + card land together.
+  if (isSpot && !rect) return <div className="fixed inset-0 bg-ink/70" style={{ zIndex: 60 }} />;
   if (showSpot) {
     return (
       <div className="fixed inset-0" style={{ zIndex: 60 }}>
         <div className="pointer-events-none" style={{ position: 'fixed', top: rect.top - 8, left: rect.left - 8, width: rect.width + 16, height: rect.height + 16, borderRadius: 14, boxShadow: '0 0 0 9999px rgba(20,18,16,0.74)', border: '2px solid #7A2430', transition: 'top .3s ease, left .3s ease, width .3s ease, height .3s ease' }} />
-        <div style={{ position: 'fixed', left: cardLeft, top: above ? undefined : rect.top + rect.height + 14, bottom: above ? (vh - rect.top + 14) : undefined }}>{card}</div>
+        <div style={{ position: 'fixed', left: cardLeft, top: above ? undefined : rect.top + rect.height + 14, bottom: above ? (vh - rect.top + 14) : undefined, transition: 'top .3s ease, bottom .3s ease, left .3s ease' }}>{card}</div>
       </div>
     );
   }
@@ -1281,12 +1303,14 @@ function MirrorCockpit() {
     return localStorage.getItem('rigacap_mirror_tour_seen') !== 'true';   // auto on first visit
   });
   const closeTour = () => { setTourOpen(false); try { localStorage.setItem('rigacap_mirror_tour_seen', 'true'); } catch { /* ignore */ } };
+  const [mirrorPct, setMirrorPct] = useState(0);   // live eclipse alignment → tour's final-step copy
   if (isAdmin === false) return <Navigate to="/app" replace />;
   return (
     <div style={{ minHeight: '100vh', background: '#F5F1E8' }}>
       <MirrorView book={dash?.tier_book} preserverBook={dash?.preserver_book} tier={dash?.tier}
-        regimeName={dash?.regime_forecast?.current_regime_name} holdingsApi={holdingsApi} />
-      <MirrorTour open={tourOpen} onClose={closeTour} />
+        regimeName={dash?.regime_forecast?.current_regime_name} holdingsApi={holdingsApi}
+        onState={(s) => setMirrorPct(s?.pct || 0)} />
+      <MirrorTour open={tourOpen} onClose={closeTour} pct={mirrorPct} />
       <button onClick={() => setTourOpen(true)}
         className="fixed bottom-4 right-4 z-30 text-[0.75rem] font-medium px-3.5 py-2 rounded-full bg-ink text-paper shadow-lg hover:bg-claret transition-colors">
         Take the tour
