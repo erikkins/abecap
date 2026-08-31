@@ -9,24 +9,27 @@ metadata:
 
 # Session progress — 2026-08-31
 
-## Done this session
-1. **Mirror tour bounce fix** (App.jsx MIRROR_TOUR): reordered final spotlights **top-to-bottom (Eclipse → Connect)** so it scrolls one direction; retargeted eclipse closing line; Connect eyebrow "Step one"→"Your move".
-2. **Heatmap year-label garble** (design/tools/sector-observatory.html): data starts 2016-12-29 (1mo) so 2016/2017 collided. Fix: skip year label if next boundary <30px → shows 2017→2026. Applied to source tool AND React port.
-3. **Sector Observatory → blog + social:**
-   - Blog `frontend/src/BlogSectorObservatoryPage.jsx` at `/blog/sector-observatory`. Data → `frontend/src/data/sectorObservatory.json`. Lazy-loaded, routed, featured FIRST on BlogIndexPage. "PITFWU" scrubbed. Build passes.
-   - 4 social cards in `design/brand/sector-observatory-cards/` (+ `generate.py`, `post-copy.md`). Iterated per feedback: card1 wider subheader/no trailing preposition; cards 2&4 one-thought-per-row; card4 CTA "link in bio"; card2 headline 2 lines.
-   - Wrote post copy (IG carousel, X thread, LinkedIn) in post-copy.md.
+## Done this session (code changes UNCOMMITTED unless noted)
+1. **Mirror tour bounce fix** (App.jsx): spotlights reordered top-to-bottom (Eclipse→Connect); Connect eyebrow "Your move".
+2. **Heatmap year-label garble** (design/tools/sector-observatory.html + React port): skip label if next boundary <30px → 2017→2026.
+3. **Sector Observatory blog**: `frontend/src/BlogSectorObservatoryPage.jsx` at `/blog/sector-observatory`; data `frontend/src/data/sectorObservatory.json`; routed + featured first on BlogIndexPage. Build passes.
+4. **4 social cards** `design/brand/sector-observatory-cards/` (+generate.py, post-copy.md). Copy iterated per feedback.
+5. **Approve modal removed** (SocialTab.jsx): dropped successMsg on approve().
+6. **Reply pass-through UX** (SocialTab.jsx + backend social.py): "Open in X" button (web-intent deep-link, hides broken Publish for replies) + "Mark posted" button (fires window 'social-mark-posted' event → handleAction) + NEW backend `POST /posts/{id}/mark-posted`. Frontend build passes.
 
-## IN FLIGHT — loading cards as scheduled DRAFTS in Social tab
-- Erik said YES: load the 4 cards as scheduled drafts in the Social tab.
-- **Background Explore agent running** (mapping social posts DB model, post_scheduler_service, admin endpoints POST /schedule etc., image/media hosting, auto-publish path, generate_social_posts handler). Await its findings before creating rows.
-- KEY UNKNOWN: how images attach (public URL vs S3 key). Cards are local PNGs — likely need hosting (launch cards live at frontend/public/launch-cards/ → CDN). Resolve before insert.
+## Done LIVE (via worker Lambda run_migration custom SQL — the no-token/no-deploy path; AWS_PROFILE=rigacap)
+- Created 4 Instagram DRAFTS (ids 830-833), images at `s3://.../social/images/sector_observatory_{1..4}_20260831.png`.
+- Erik approved them, then asked to schedule → **SCHEDULED ids 830-833 for Sep 1,2,3,4 2026 @ 16:00:00 UTC (=12pm ET, EDT), status='scheduled'** (verified). Will auto-publish on cron.
+- NOTE: run_migration SELECT returning datetime → Lambda MarshalError (UPDATEs still commit); cast `scheduled_for::text` to read back.
 
-## Open / next
-- Blog validated via prod build only, NOT live browser.
-- Card 3 shows Strong Bull (only 2 months) — offered to trim thin regimes.
-- **NOTHING COMMITTED yet.** Bio link must point to rigacap.com/blog/sector-observatory before posting.
+## Next / OPEN
+- **DEPLOY NEEDED** for reply pass-through fix + approve-modal + blog + tour/heatmap (all frontend/backend uncommitted). Offered Erik: commit+push main (CI/CD) as grouped commits or one — awaiting his go.
+- Erik: set IG bio link to rigacap.com/blog/sector-observatory before Fri card4 ("link in bio").
+- Card 3 shows Strong Bull (2 months) — offered to trim thin regimes (not done).
+- Blog validated by prod build only, not live browser.
 
-## Context
-- Brand = claret/paper (NEVER navy/gold). Never say DWAP/tape/PITFWU to customers.
-- Card regen: edit scratchpad gen_cards.py → run → screenshot → cp png + generate.py to repo folder.
+## Context / mechanics
+- Brand claret/paper (NEVER navy/gold). Never say DWAP/tape/PITFWU to customers.
+- **Admin/data ops pattern = worker Lambda `run_migration` with event {"sql":[...]}, AWS_PROFILE=rigacap** (in-VPC DB access; NO token/API/deploy). Don't invent auth blockers.
+- SocialPost model: backend/app/core/database.py:486; single image per post (image_s3_key S3 key OR https). status draft won't auto-publish; scheduled/approved do. scheduled_for = naive UTC.
+- Card regen: edit scratchpad gen_cards.py → run → screenshot → cp to repo folder.
