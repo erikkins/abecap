@@ -6,6 +6,13 @@ import TopNav from './components/TopNav';
 
 const POSTS = [
   {
+    title: 'The Sector Observatory: What\'s Leading Under the Hood',
+    path: '/blog/sector-observatory',
+    description: 'Ten years of sector leadership, month by month, colored by market regime. Can you call the next hot sector? No — and here\'s the proof.',
+    category: 'Research',
+    icon: LineChart,
+  },
+  {
     title: 'We Found Our Own Backtest Was Lying',
     path: '/blog/honest-backtest',
     description: 'Survivorship bias and stock splits inflated our numbers. So we rebuilt everything and revised them down.',

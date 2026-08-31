@@ -38,6 +38,7 @@ const BlogTrailingStopsPage = lazy(() => import('./BlogTrailingStopsPage'));
 const BlogWalkForwardResultsPage = lazy(() => import('./BlogWalkForwardResultsPage'));
 const BlogWeCalledItMRNAPage = lazy(() => import('./BlogWeCalledItMRNAPage'));
 const BlogWeCalledItTGTXPage = lazy(() => import('./BlogWeCalledItTGTXPage'));
+const BlogSectorObservatoryPage = lazy(() => import('./BlogSectorObservatoryPage'));
 const BlogIndexPage = lazy(() => import('./BlogIndexPage'));
 const ForAdvisersPage = lazy(() => import('./ForAdvisersPage'));
 const NewsletterPage = lazy(() => import('./NewsletterPage'));
@@ -1170,14 +1171,16 @@ const MIRROR_TOUR = [
     body: 'The more your holdings overlap the book, the more the moon covers the sun. Full overlap is a total eclipse — the one number that answers "am I actually running the strategy?"' },
   { kind: 'modal', art: 'sleeve', eyebrow: 'How to run it', title: 'A sleeve — not thirty bets',
     body: 'Commit a slice of your money — say 10% — and that slice holds the whole book at our weights. A few hundred dollars a name, not thirty big decisions. Half the book isn’t half the strategy; a total eclipse is when the track record is truly yours.' },
-  { kind: 'spotlight', target: '[data-tour="mirror-connect"]', eyebrow: 'Step one', title: 'Show it what you hold',
-    body: 'Connect your brokerage (read-only) or paste a few tickers. Nothing to buy yet — we just need to see where you stand today.' },
+  // Spotlights run TOP-TO-BOTTOM to match the page layout — eclipse hero (top) first, then the
+  // Connect controls (below) — so the tour scrolls in one direction instead of bouncing down-then-up.
   { kind: 'spotlight', target: '[data-tour="mirror-eclipse"]', eyebrow: 'Your starting point', title: 'Further along than you think',
-    body: 'This is your eclipse today. Most people start as a crescent — the gap is simply the distance to running the full book, at your pace and your size. The book you’re mirroring is right below.',
+    body: 'This is your eclipse today. Most people start as a crescent — the gap is simply the distance to running the full book, at your pace and your size. Here’s how to draw it in.',
     // First run has no holdings yet, so the eclipse is a full sun — meet that honestly instead of
     // promising a crescent that isn't there. Picked when the live alignment is still 0%.
     emptyVariant: { eyebrow: 'Your starting point', title: 'A blank sky, waiting',
-      body: 'You haven’t added anything yet, so the sun’s in full view — that’s exactly where everyone begins. Add even one name above and the moon slides in; a total eclipse is when you hold the whole book, at your pace and your size. The book you’re mirroring is right below.' } },
+      body: 'You haven’t added anything yet, so the sun’s in full view — that’s exactly where everyone begins. Add even one name and the moon slides in; a total eclipse is when you hold the whole book, at your pace and your size. Here’s where to start.' } },
+  { kind: 'spotlight', target: '[data-tour="mirror-connect"]', eyebrow: 'Your move', title: 'Show it what you hold',
+    body: 'Connect your brokerage (read-only) or paste a few tickers. Nothing to buy yet — we just need to see where you stand today.' },
 ];
 
 function MirrorTour({ open, onClose, pct = 0 }) {
@@ -6490,6 +6493,7 @@ export default function App() {
         <Route path="/blog/market-regime-guide" element={<BlogMarketRegimeGuidePage />} />
         <Route path="/blog/we-called-it-mrna" element={<BlogWeCalledItMRNAPage />} />
         <Route path="/blog/we-called-it-tgtx" element={<BlogWeCalledItTGTXPage />} />
+        <Route path="/blog/sector-observatory" element={<BlogSectorObservatoryPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/app/next" element={

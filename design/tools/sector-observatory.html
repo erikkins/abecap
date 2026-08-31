@@ -219,16 +219,17 @@
       ctx.fillText(o.s, LEFT-8, y+(ROWH-2)/2);
       ctx.textAlign='left';
     }
-    // year axis
+    // year axis — collect year boundaries, then label with a min-gap so a short partial
+    // first year (data starts Dec 2016, a single month) doesn't garble into 2017's label.
     ctx.fillStyle='#8A8172'; ctx.font='10px ui-monospace,Menlo,monospace'; ctx.textAlign='center';
-    let lastY=null;
-    for(let j=0;j<NREG;j++){
-      const yr=M[j].d.slice(0,4);
-      if(yr!==lastY){ lastY=yr;
-        const x=LEFT+j*cw+cw/2;
-        ctx.strokeStyle='#E0D8C6'; ctx.beginPath(); ctx.moveTo(x, TOPBAND+GAP-3); ctx.lineTo(x, TOPBAND+GAP+ROWS*ROWH); ctx.stroke();
-        ctx.fillText(yr, x, TOPBAND+GAP+ROWS*ROWH+12);
-      }
+    const ybounds=[]; let lastY=null;
+    for(let j=0;j<NREG;j++){ const yr=M[j].d.slice(0,4); if(yr!==lastY){ lastY=yr; ybounds.push({yr, x:LEFT+j*cw+cw/2}); } }
+    for(let b=0;b<ybounds.length;b++){
+      const {yr,x}=ybounds[b];
+      ctx.strokeStyle='#E0D8C6'; ctx.beginPath(); ctx.moveTo(x, TOPBAND+GAP-3); ctx.lineTo(x, TOPBAND+GAP+ROWS*ROWH); ctx.stroke();
+      // skip a label that would collide with the next year (drops the partial first year)
+      if(b+1<ybounds.length && ybounds[b+1].x - x < 30) continue;
+      ctx.fillText(yr, x, TOPBAND+GAP+ROWS*ROWH+12);
     }
     ctx.textAlign='left';
   }
