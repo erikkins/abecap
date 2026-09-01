@@ -253,6 +253,7 @@ class EmailService:
         user_id: str = None,
         list_unsubscribe_url: Optional[str] = None,
         email_type: Optional[str] = None,
+        inline_images: Optional[Dict[str, str]] = None,
     ) -> bool:
         """
         Send an email to a single recipient with retry + exponential backoff.
@@ -321,6 +322,28 @@ class EmailService:
 
         html_part = MIMEText(html_content, 'html', 'utf-8')
         msg.attach(html_part)
+
+        # Inline images (cid:) — wrap the alternative body in a 'related' container so email
+        # clients render embedded <img src="cid:..."> (e.g. the digest hero). Backward-compatible:
+        # with no inline_images, msg stays a plain 'alternative' exactly as before.
+        if inline_images:
+            from email.mime.image import MIMEImage
+            related = MIMEMultipart('related')
+            for _h in ('Subject', 'From', 'To', 'Reply-To', 'List-Unsubscribe', 'List-Unsubscribe-Post'):
+                if msg.get(_h) is not None:
+                    related[_h] = msg[_h]
+                    del msg[_h]
+            related.attach(msg)
+            for _cid, _path in inline_images.items():
+                try:
+                    with open(_path, 'rb') as _f:
+                        _img = MIMEImage(_f.read(), _subtype='png')
+                    _img.add_header('Content-ID', f'<{_cid}>')
+                    _img.add_header('Content-Disposition', 'inline', filename=f'{_cid}.png')
+                    related.attach(_img)
+                except Exception as _ie:
+                    logger.warning(f"inline image '{_cid}' ({_path}) attach failed: {_ie}")
+            msg = related
 
         max_retries = 3
         for attempt in range(1, max_retries + 1):
@@ -1464,30 +1487,28 @@ class EmailService:
             else:
                 subject = f"◆ RigaCap Maximizer{date_label}: {held_ct} breakout{'s' if held_ct != 1 else ''} in play"
 
-        html = self.generate_daily_summary_html(
+        # v3 = dashboard-sourced editorial redesign (both tiers). Old generate_daily_summary_html
+        # is kept intact above as an instant one-line revert if needed.
+        from app.services import digest_v3
+        html = digest_v3.build_digest_v3(
+            tier=tier,
             signals=signals,
             market_regime=market_regime,
-            positions=positions,
-            missed_opportunities=missed_opportunities,
             watchlist=watchlist,
+            market_context=market_context,
             regime_forecast=regime_forecast,
             date=date,
-            user_id=user_id,
-            market_context=market_context,
-            tier=tier,
-            book=book,
             breakout_book=breakout_book,
-            breakout_tier_book=breakout_tier_book,
             breakout_radar=breakout_radar,
-            capital=capital,
             secondary_market_context=secondary_market_context,
-            todays_actions=todays_actions,
-            preserver_todays_actions=preserver_todays_actions,
         )
+        hero_path = digest_v3.digest_hero_path(market_regime)
+        inline_hero = {'hero': hero_path} if hero_path else None
 
         text = self.generate_plain_text(signals, market_regime, date=date, watchlist=watchlist)
 
-        return await self.send_email(to_email, subject, html, text, user_id=user_id, email_type="daily_digest")
+        return await self.send_email(to_email, subject, html, text, user_id=user_id,
+                                     email_type="daily_digest", inline_images=inline_hero)
 
     async def send_newsletter_confirmation(
         self,
