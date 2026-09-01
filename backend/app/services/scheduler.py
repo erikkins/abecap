@@ -1475,7 +1475,9 @@ class SchedulerService:
                     if regime_forecast:
                         regime = {
                             'regime': regime_forecast.get('current_regime', 'range_bound'),
+                            'regime_name': market_stats.get('regime_name') or regime_forecast.get('current_regime_name'),
                             'spy_price': market_stats.get('spy_price', 'N/A'),
+                            'spy_change_pct': market_stats.get('spy_change_pct'),
                             'vix_level': market_stats.get('vix_level', 'N/A'),
                         }
             except Exception as cache_err:
@@ -1489,9 +1491,17 @@ class SchedulerService:
                     vix_df = scanner_service.data_cache.get('^VIX')
                     if spy_df is not None and len(spy_df) >= 200:
                         regime_obj = market_regime_service.detect_regime(spy_df, scanner_service.data_cache, vix_df)
+                        _spy_chg = None
+                        try:
+                            if len(spy_df) >= 2:
+                                _spy_chg = round((float(spy_df['close'].iloc[-1]) / float(spy_df['close'].iloc[-2]) - 1) * 100, 2)
+                        except Exception:
+                            _spy_chg = None
                         regime = {
                             'regime': regime_obj.regime_type.value,
+                            'regime_name': getattr(regime_obj, 'regime_name', None),
                             'spy_price': round(float(spy_df['close'].iloc[-1]), 2),
+                            'spy_change_pct': _spy_chg,
                             'vix_level': round(float(vix_df['close'].iloc[-1]), 1) if vix_df is not None and len(vix_df) > 0 else 'N/A',
                         }
                 except Exception:

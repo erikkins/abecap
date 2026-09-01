@@ -29,6 +29,12 @@ def digest_hero_path(market_regime):
     return p if os.path.exists(p) else None
 
 
+def digest_dawn_path():
+    """Absolute path to the dawn-strip PNG (dark night-sky -> paper), or None if missing."""
+    p = os.path.abspath(os.path.join(_HERO_DIR, 'dawn.png'))
+    return p if os.path.exists(p) else None
+
+
 def _sector_of(symbol):
     """Best-effort real sector from the in-memory universe cache. Empty string if unavailable —
     never a fabricated/filler value."""
@@ -51,31 +57,37 @@ def _shell(inner):
             '</table></td></tr></table></body></html>')
 
 
-def _hero_text(hook, regime_name, date_str, spy, spy_chg, spy_up, fear, vix, tier_badge=''):
-    """Live-HTML hero text that sits just under the static ORB image (on paper): the honest hook,
-    regime·date, and the S&P/VIX read row. Nothing here is baked into the image."""
+def _hero_band(tier, hook, regime_name, date_str, spy, spy_chg, spy_up, fear, vix):
+    """The dark night-sky band that sits directly UNDER the static orb image (bgcolor matches the
+    image's flat-dark bottom, #0B0906, for a seamless join): tier wordmark + honest hook +
+    regime·date + S&P/VIX read — all cream-on-dark, live HTML (nothing baked into the image).
+    Followed by the dawn strip image, which transitions dark→paper."""
     arrow = '&#9650;' if spy_up else '&#9660;'
-    acol = '#2D5F3F' if spy_up else '#8F2D3D'
-    badge = ''
-    if tier_badge:
-        badge = ('<div style="font-family:%s;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;'
-                 'color:#7A2430;font-weight:bold;margin-bottom:8px">%s</div>' % (MONO, tier_badge))
+    acol = '#7FB08A' if spy_up else '#C96A5A'
+    wm_tier = 'Maximizer' if tier == 'maximizer' else 'Daily Signals'
     return (
-        '<tr><td style="padding:18px 22px 0;text-align:center">'
-        + badge +
-        ('<div style="font-family:%s;font-size:38px;font-weight:bold;color:#141210;line-height:1.06">%s</div>' % (SERIF, hook)) +
-        ('<div style="font-family:%s;font-style:italic;font-size:17px;color:#8A6A46;margin-top:6px">%s &middot; %s</div>' % (SERIF, regime_name, date_str)) +
-        '<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:16px auto 0;border-top:1px solid #DDD5C7;border-bottom:1px solid #DDD5C7">'
-        '<tr>'
-        + ('<td style="padding:12px 22px;border-right:1px solid #DDD5C7;text-align:center">'
-           '<div style="font-family:%s;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:#8A8172">S&amp;P 500</div>'
-           '<div style="font-family:%s;font-size:20px;color:#141210;margin-top:4px">%s <span style="color:%s;font-size:14px">%s%s</span></div></td>'
+        '<tr><td bgcolor="#0B0906" style="background:#0B0906;padding:8px 22px 30px;text-align:center">'
+        # tier wordmark
+        + ('<div style="font-family:%s;font-size:26px;font-weight:bold;color:#F3ECDC;letter-spacing:.01em">'
+           'RigaCap <span style="color:#D98A5A;font-weight:normal;font-style:italic">&middot; %s</span></div>'
+           % (SERIF, wm_tier))
+        # honest hook
+        + ('<div style="font-family:%s;font-size:34px;font-weight:bold;color:#F5EFE1;line-height:1.06;margin-top:18px">%s</div>' % (SERIF, hook))
+        # regime · date
+        + ('<div style="font-family:%s;font-style:italic;font-size:18px;color:#C99A6E;margin-top:8px">%s &middot; %s</div>' % (SERIF, regime_name, date_str))
+        # S&P / VIX read
+        + '<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:18px auto 0;border-top:1px solid rgba(243,236,220,.2);border-bottom:1px solid rgba(243,236,220,.2)"><tr>'
+        + ('<td style="padding:12px 24px;border-right:1px solid rgba(243,236,220,.2);text-align:center">'
+           '<div style="font-family:%s;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:#9A8E78">S&amp;P 500</div>'
+           '<div style="font-family:%s;font-size:21px;color:#F3ECDC;margin-top:5px">%s <span style="color:%s;font-size:14px">%s%s</span></div></td>'
            % (MONO, SERIF, spy, acol, arrow, spy_chg))
-        + ('<td style="padding:12px 22px;text-align:center">'
-           '<div style="font-family:%s;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:#8A8172">Volatility</div>'
-           '<div style="font-family:%s;font-size:20px;color:#141210;margin-top:4px">%s <span style="color:#8A8172;font-size:14px">&middot; VIX %s</span></div></td>'
+        + ('<td style="padding:12px 24px;text-align:center">'
+           '<div style="font-family:%s;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:#9A8E78">Volatility</div>'
+           '<div style="font-family:%s;font-size:21px;color:#F3ECDC;margin-top:5px">%s <span style="color:#9A8E78;font-size:14px">&middot; VIX %s</span></div></td>'
            % (MONO, SERIF, fear, vix))
-        + '</tr></table></td></tr>')
+        + '</tr></table></td></tr>'
+        # dawn strip: seamless dark -> paper
+        + '<tr><td style="font-size:0;line-height:0"><img src="cid:dawn" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0" alt=""></td></tr>')
 
 
 def _sec(label, count, sub):
@@ -157,9 +169,9 @@ def _build_preserver(signals, market_regime, watchlist, market_context, regime_f
 
     hook = ('%d new move%s today' % (len(todays_moves), '' if len(todays_moves) == 1 else 's')) if todays_moves else 'No new moves today'
 
-    body = ('<tr><td><img src="cid:hero" width="600" height="440" style="display:block;width:100%;max-width:600px;height:auto;border:0" alt="RigaCap Daily Signals"></td></tr>')
-    body += _hero_text(hook, name, date_str, spy, spy_chg, spy_up, fear, vix)
-    body += '<tr><td style="padding:0 22px 44px">'
+    body = ('<tr><td style="font-size:0;line-height:0"><img src="cid:hero" width="600" height="320" style="display:block;width:100%;max-width:600px;height:auto;border:0" alt="RigaCap Daily Signals"></td></tr>')
+    body += _hero_band('preserver', hook, name, date_str, spy, spy_chg, spy_up, fear, vix)
+    body += '<tr><td style="background:#F5F1E8;padding:8px 22px 44px">'
     body += _market_read(market_context)
 
     if todays_moves:
@@ -200,9 +212,9 @@ def _build_maximizer(breakout_book, market_regime, breakout_radar, market_contex
 
     hook = ('%d new breakout%s today' % (len(todays), '' if len(todays) == 1 else 's')) if todays else 'No new moves today'
 
-    body = ('<tr><td><img src="cid:hero" width="600" height="440" style="display:block;width:100%;max-width:600px;height:auto;border:0" alt="RigaCap Maximizer"></td></tr>')
-    body += _hero_text(hook, name, date_str, spy, spy_chg, spy_up, fear, vix, tier_badge='&#9670; Maximizer')
-    body += '<tr><td style="padding:0 22px 44px">'
+    body = ('<tr><td style="font-size:0;line-height:0"><img src="cid:hero" width="600" height="320" style="display:block;width:100%;max-width:600px;height:auto;border:0" alt="RigaCap Maximizer"></td></tr>')
+    body += _hero_band('maximizer', hook, name, date_str, spy, spy_chg, spy_up, fear, vix)
+    body += '<tr><td style="background:#F5F1E8;padding:8px 22px 44px">'
     body += _market_read(market_context)
 
     if todays:

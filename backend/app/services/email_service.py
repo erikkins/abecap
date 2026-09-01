@@ -1503,7 +1503,13 @@ class EmailService:
             secondary_market_context=secondary_market_context,
         )
         hero_path = digest_v3.digest_hero_path(market_regime)
-        inline_hero = {'hero': hero_path} if hero_path else None
+        dawn_path = digest_v3.digest_dawn_path()
+        inline_hero = {}
+        if hero_path:
+            inline_hero['hero'] = hero_path
+        if dawn_path:
+            inline_hero['dawn'] = dawn_path
+        inline_hero = inline_hero or None
 
         text = self.generate_plain_text(signals, market_regime, date=date, watchlist=watchlist)
 
