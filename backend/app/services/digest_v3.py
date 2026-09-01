@@ -19,12 +19,18 @@ HERO_REGIMES = {'strong_bull', 'rotating_bull', 'weak_bull', 'range_bound',
 _HERO_DIR = os.path.join(os.path.dirname(__file__), '..', 'assets', 'email_heroes')
 
 
-def digest_hero_path(market_regime):
-    """Absolute path to the static per-regime ORB hero PNG, or None if missing (header still
-    renders without the image). Falls back to range_bound for an unknown regime."""
+def digest_hero_path(market_regime, tier='preserver'):
+    """Absolute path to the static per-regime, per-tier ORB hero PNG (masthead = logo + tier
+    wordmark baked at top, orb below, ending flat dark), or None if missing (band still renders
+    without it). Falls back to range_bound for an unknown regime, and to the tier-less hero if a
+    tier variant is absent."""
     regime = (market_regime or {}).get('regime') or (market_regime or {}).get('current_regime') or 'range_bound'
     if regime not in HERO_REGIMES:
         regime = 'range_bound'
+    t = 'maximizer' if tier == 'maximizer' else 'preserver'
+    p = os.path.abspath(os.path.join(_HERO_DIR, f'hero_{regime}_{t}.png'))
+    if os.path.exists(p):
+        return p
     p = os.path.abspath(os.path.join(_HERO_DIR, f'hero_{regime}.png'))
     return p if os.path.exists(p) else None
 
@@ -35,9 +41,43 @@ def digest_dawn_path():
     return p if os.path.exists(p) else None
 
 
+_SECTORS_CACHE = None
+
+
+def _load_sectors():
+    """Load the S3 sectors cache (universe/sectors_cache.json) once — the reliable source in the
+    worker (symbol_info is empty there). Dict {SYMBOL: {"sector": ...}}. Never raises."""
+    global _SECTORS_CACHE
+    if _SECTORS_CACHE is not None:
+        return _SECTORS_CACHE
+    data = {}
+    try:
+        import json
+        import boto3
+        # Hardcoded key (do NOT import stock_universe — it drags in aiohttp and can fail in the
+        # worker, silently blanking sectors, which is exactly the bug this fixes).
+        bucket = os.getenv('PRICE_DATA_BUCKET', 'rigacap-prod-price-data-149218244179')
+        obj = boto3.client('s3').get_object(Bucket=bucket, Key='universe/sectors_cache.json')
+        data = json.loads(obj['Body'].read())
+    except Exception:
+        data = {}
+    _SECTORS_CACHE = data
+    return data
+
+
 def _sector_of(symbol):
-    """Best-effort real sector from the in-memory universe cache. Empty string if unavailable —
-    never a fabricated/filler value."""
+    """Best-effort real sector: S3 sectors cache first (reliable in the worker), then the in-memory
+    universe cache, else '' (OMIT — never a fabricated/filler value)."""
+    if not symbol:
+        return ''
+    try:
+        v = _load_sectors().get(symbol)
+        if isinstance(v, dict) and (v.get('sector') or v.get('industry')):
+            return v.get('sector') or v.get('industry')
+        if isinstance(v, str) and v:
+            return v
+    except Exception:
+        pass
     try:
         from app.services.stock_universe import stock_universe_service
         info = (stock_universe_service.symbol_info or {}).get(symbol) or {}
@@ -64,15 +104,10 @@ def _hero_band(tier, hook, regime_name, date_str, spy, spy_chg, spy_up, fear, vi
     Followed by the dawn strip image, which transitions dark→paper."""
     arrow = '&#9650;' if spy_up else '&#9660;'
     acol = '#7FB08A' if spy_up else '#C96A5A'
-    wm_tier = 'Maximizer' if tier == 'maximizer' else 'Daily Signals'
     return (
-        '<tr><td bgcolor="#0B0906" style="background:#0B0906;padding:8px 22px 30px;text-align:center">'
-        # tier wordmark
-        + ('<div style="font-family:%s;font-size:26px;font-weight:bold;color:#F3ECDC;letter-spacing:.01em">'
-           'RigaCap <span style="color:#D98A5A;font-weight:normal;font-style:italic">&middot; %s</span></div>'
-           % (SERIF, wm_tier))
-        # honest hook
-        + ('<div style="font-family:%s;font-size:34px;font-weight:bold;color:#F5EFE1;line-height:1.06;margin-top:18px">%s</div>' % (SERIF, hook))
+        '<tr><td bgcolor="#0B0906" style="background:#0B0906;padding:4px 22px 30px;text-align:center">'
+        # honest hook (the logo + tier wordmark masthead is baked into the hero image above)
+        + ('<div style="font-family:%s;font-size:34px;font-weight:bold;color:#F5EFE1;line-height:1.06;margin-top:6px">%s</div>' % (SERIF, hook))
         # regime · date
         + ('<div style="font-family:%s;font-style:italic;font-size:18px;color:#C99A6E;margin-top:8px">%s &middot; %s</div>' % (SERIF, regime_name, date_str))
         # S&P / VIX read
@@ -167,9 +202,9 @@ def _build_preserver(signals, market_regime, watchlist, market_context, regime_f
     holding = [s for s in sigs if s.get('entry_status') == 'extended']
     wl = watchlist or []
 
-    hook = ('%d new move%s today' % (len(todays_moves), '' if len(todays_moves) == 1 else 's')) if todays_moves else 'No new moves today'
+    hook = ('%d new move%s today.' % (len(todays_moves), '' if len(todays_moves) == 1 else 's')) if todays_moves else 'No new moves today.'
 
-    body = ('<tr><td style="font-size:0;line-height:0"><img src="cid:hero" width="600" height="320" style="display:block;width:100%;max-width:600px;height:auto;border:0" alt="RigaCap Daily Signals"></td></tr>')
+    body = ('<tr><td style="font-size:0;line-height:0"><img src="cid:hero" width="600" height="400" style="display:block;width:100%;max-width:600px;height:auto;border:0" alt="RigaCap Daily Signals"></td></tr>')
     body += _hero_band('preserver', hook, name, date_str, spy, spy_chg, spy_up, fear, vix)
     body += '<tr><td style="background:#F5F1E8;padding:8px 22px 44px">'
     body += _market_read(market_context)
@@ -210,9 +245,9 @@ def _build_maximizer(breakout_book, market_regime, breakout_radar, market_contex
     radar = breakout_radar or []
     todays = [p for p in book if (p.get('status') == 'new' or p.get('is_fresh'))]
 
-    hook = ('%d new breakout%s today' % (len(todays), '' if len(todays) == 1 else 's')) if todays else 'No new moves today'
+    hook = ('%d new breakout%s today.' % (len(todays), '' if len(todays) == 1 else 's')) if todays else 'No new moves today.'
 
-    body = ('<tr><td style="font-size:0;line-height:0"><img src="cid:hero" width="600" height="320" style="display:block;width:100%;max-width:600px;height:auto;border:0" alt="RigaCap Maximizer"></td></tr>')
+    body = ('<tr><td style="font-size:0;line-height:0"><img src="cid:hero" width="600" height="400" style="display:block;width:100%;max-width:600px;height:auto;border:0" alt="RigaCap Maximizer"></td></tr>')
     body += _hero_band('maximizer', hook, name, date_str, spy, spy_chg, spy_up, fear, vix)
     body += '<tr><td style="background:#F5F1E8;padding:8px 22px 44px">'
     body += _market_read(market_context)

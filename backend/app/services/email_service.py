@@ -1502,7 +1502,7 @@ class EmailService:
             breakout_radar=breakout_radar,
             secondary_market_context=secondary_market_context,
         )
-        hero_path = digest_v3.digest_hero_path(market_regime)
+        hero_path = digest_v3.digest_hero_path(market_regime, tier)
         dawn_path = digest_v3.digest_dawn_path()
         inline_hero = {}
         if hero_path:
