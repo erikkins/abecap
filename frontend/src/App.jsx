@@ -697,8 +697,13 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
   // known — so it never paints in two stages (page first, brokerage sync 3-5s later).
   const ready = ctx !== null && snapReady;
 
-  // Report alignment up (the /app/next cockpit drives the eclipse off this).
-  useEffect(() => { if (ready) onAlignment?.(mirroredPct, { aligned: aligned.length, total: bookSyms.length }); },
+  // Report alignment up (the /app/next cockpit drives the eclipse off this). Carry the per-book
+  // split so the caption can read "X of 20 Preserver · Y of 15 Maximizer" instead of a merged total.
+  useEffect(() => { if (ready) onAlignment?.(mirroredPct, {
+    aligned: aligned.length, total: bookSyms.length, isMax,
+    preserver: { aligned: alignedP.length, total: preserverSyms.size },
+    maximizer: { aligned: alignedM.length, total: maximizerSyms.size },
+  }); },
     [ready, mirroredPct, aligned.length, bookSyms.length]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // Best past result for drifted names (the "we caught it" flourish) — only for the few drifted.
@@ -760,10 +765,39 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
 
   // Book view (heroMode): the model book as a ledger, held first then gaps, your holdings
   // annotated onto it — instead of two flat walls of pills. Non-book names collapse below.
-  const bookRows = bookSyms
+  // Split PER BOOK so a subscriber sees the Preserver book and the Maximizer breakout book
+  // as separate, labeled sections (a user may run only one) — never a confusing merged count.
+  const rowsFor = (symSet) => [...symSet]
     .map(s => ({ s, held: heldSet.has(s), manual: manualSet.has(s), badge: isMax ? bookOf(s) : null }))
     .sort((a, b) => (Number(b.held) - Number(a.held)) || a.s.localeCompare(b.s));
+  const preserverRows = rowsFor(preserverSyms);
+  const maximizerRows = rowsFor(maximizerSyms);
   const otherCount = drifted.length + inUniverse.length + outside.length;
+
+  // One book's ledger — header (held/gaps) + the annotated grid. Reused per section.
+  const BookLedger = ({ label, rows }) => (
+    <div className="mb-5">
+      <div className="flex items-baseline justify-between mb-1.5 pb-1.5 border-b border-ink/70">
+        <span className="font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute">{label} · {rows.length} positions</span>
+        <span className="font-mono text-[0.7rem] text-ink-light" style={{ fontFeatureSettings: '"tnum"' }}>{rows.filter(r => r.held).length} held · {rows.filter(r => !r.held).length} gaps</span>
+      </div>
+      <div className="grid gap-x-8" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+        {rows.map(r => (
+          <div key={r.s} className={`group flex items-center gap-2 py-[7px] border-b border-rule/50 ${r.held ? '' : 'opacity-90'}`}>
+            <span className={r.held ? 'text-positive' : 'text-claret/45'} style={{ fontSize: 10, lineHeight: 1 }}>{r.held ? '●' : '○'}</span>
+            <button onClick={() => onOpenChart?.({ type: 'signal', data: { symbol: r.s }, symbol: r.s })}
+              className={`font-display text-[0.98rem] hover:underline ${r.held ? 'text-ink font-medium' : 'text-ink-mute'}`} style={{ fontVariationSettings: '"opsz" 32' }}>{r.s}</button>
+            {isMax && r.badge === 'P·M' && <span className="text-[0.5rem] font-semibold leading-none px-1 py-0.5 rounded bg-claret/15 text-claret" title="Also in your other book">both</span>}
+            <span className={`ml-auto text-[0.62rem] font-mono ${r.held ? 'text-positive' : 'text-ink-light'}`}>{r.held ? 'held' : 'gap'}</span>
+            {r.manual && (
+              <button onClick={() => del(r.s)} title={`Remove ${r.s}`} aria-label={`remove ${r.s}`}
+                className="text-ink-light hover:text-claret text-[0.9rem] leading-none px-0.5 opacity-40 group-hover:opacity-100 transition-opacity">×</button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   // "Today" heartbeat + drift (heroMode). The book set for a given day mirrors the live
   // bookSet logic: Maximizer = preserver ∪ maximizer, Preserver = preserver only. Drift %
@@ -920,29 +954,13 @@ const MirrorCheck = ({ book, preserverBook, tier, regimeName, onOpenChart, onAli
           <p className="text-sm text-ink-light py-4 text-center">Add a ticker you hold to see how you line up with the book.</p>
         ) : heroMode ? (
           <>
-            {/* THE BOOK — a ledger of the model's positions, your holdings annotated onto it.
-                Held names first (●), then the gaps you don't hold (○). Not pill-soup. */}
-            <div className="mb-5">
-              <div className="flex items-baseline justify-between mb-1.5 pb-1.5 border-b border-ink/70">
-                <span className="font-body text-[0.62rem] font-medium tracking-[0.2em] uppercase text-ink-mute">The book · {bookSyms.length} positions</span>
-                <span className="font-mono text-[0.7rem] text-ink-light" style={{ fontFeatureSettings: '"tnum"' }}>{aligned.length} held · {inBookNotHeld.length} gaps</span>
-              </div>
-              <div className="grid gap-x-8" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
-                {bookRows.map(r => (
-                  <div key={r.s} className={`group flex items-center gap-2 py-[7px] border-b border-rule/50 ${r.held ? '' : 'opacity-90'}`}>
-                    <span className={r.held ? 'text-positive' : 'text-claret/45'} style={{ fontSize: 10, lineHeight: 1 }}>{r.held ? '●' : '○'}</span>
-                    <button onClick={() => onOpenChart?.({ type: 'signal', data: { symbol: r.s }, symbol: r.s })}
-                      className={`font-display text-[0.98rem] hover:underline ${r.held ? 'text-ink font-medium' : 'text-ink-mute'}`} style={{ fontVariationSettings: '"opsz" 32' }}>{r.s}</button>
-                    {isMax && r.badge && <span className={`text-[0.5rem] font-semibold leading-none px-1 py-0.5 rounded ${r.badge.includes('M') ? 'bg-claret/15 text-claret' : 'bg-ink/10 text-ink-mute'}`}>{r.badge}</span>}
-                    <span className={`ml-auto text-[0.62rem] font-mono ${r.held ? 'text-positive' : 'text-ink-light'}`}>{r.held ? 'held' : 'gap'}</span>
-                    {r.manual && (
-                      <button onClick={() => del(r.s)} title={`Remove ${r.s}`} aria-label={`remove ${r.s}`}
-                        className="text-ink-light hover:text-claret text-[0.9rem] leading-none px-0.5 opacity-40 group-hover:opacity-100 transition-opacity">×</button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* THE BOOK(S) — a ledger of the model's positions, your holdings annotated onto it.
+                Held names first (●), then the gaps you don't hold (○). Split into labeled
+                Preserver / Maximizer sections so each product's alignment stands on its own. */}
+            <BookLedger label={isMax ? 'The Preserver book' : 'The book'} rows={preserverRows} />
+            {isMax && maximizerRows.length > 0 && (
+              <BookLedger label="The Maximizer breakout book" rows={maximizerRows} />
+            )}
 
             {/* Non-book holdings — the setup/diagnostic detail, collapsed by default. */}
             {otherCount > 0 && (
@@ -1131,7 +1149,11 @@ function MirrorView({ book, preserverBook, tier, regimeName, onOpenChart, holdin
           <div data-tour="mirror-eclipse">
             <AlignmentEclipse pct={pct} max={360} />
           </div>
-          <p style={{ textAlign: 'center', color: '#B7AE99', fontFamily: 'system-ui,sans-serif', fontSize: 13, marginTop: 2 }}>You hold {tally.aligned} of {tally.total} model positions</p>
+          <p style={{ textAlign: 'center', color: '#B7AE99', fontFamily: 'system-ui,sans-serif', fontSize: 13, marginTop: 2 }}>
+            {tally.isMax && tally.maximizer?.total
+              ? <>You hold {tally.preserver?.aligned ?? 0} of {tally.preserver?.total ?? 0} Preserver &middot; {tally.maximizer.aligned} of {tally.maximizer.total} Maximizer positions</>
+              : <>You hold {tally.preserver?.aligned ?? tally.aligned} of {tally.preserver?.total ?? tally.total} model positions</>}
+          </p>
         </div>
         {/* Dawn: the night sky warms at the horizon (echoing the corona) before resolving to paper. */}
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 150, background: 'linear-gradient(180deg, rgba(122,36,48,0) 0%, rgba(150,58,50,0.22) 34%, rgba(197,106,70,0.30) 62%, rgba(230,175,120,0.35) 82%, #F5F1E8 100%)', pointerEvents: 'none' }} />
@@ -2911,11 +2933,26 @@ function Dashboard() {
   const [backtest, setBacktest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Captured on first render (before the persist effect overwrites sessionStorage) so we can tell a
+  // fresh session (no saved tab) apart from a returning one.
+  const hadSavedTabRef = useRef(sessionStorage.getItem('rigacap_active_tab'));
   const [activeTab, setActiveTab] = useState(() => {
-    const saved = sessionStorage.getItem('rigacap_active_tab');
-    if (saved === 'admin' && !isAdmin) return 'signals';
-    return saved || 'signals';
+    const saved = hadSavedTabRef.current;
+    if (saved && !(saved === 'admin' && !isAdmin)) return saved;
+    // Pre-entitlement default = Signals (safe: never briefly flashes the paid Mirror to a free user).
+    // Upgraded to Mirror for paid/admin once auth resolves, in the effect below.
+    return 'signals';
   });
+  // Once auth entitlement resolves on a fresh session, land PAID/admin users on the Mirror (the
+  // flagship default) and leave FREE / proof-floor users on Signals. Runs once.
+  const tabDefaultedRef = useRef(false);
+  useEffect(() => {
+    if (authLoading || tabDefaultedRef.current) return;
+    tabDefaultedRef.current = true;
+    if (!hadSavedTabRef.current) {
+      setActiveTab((isAdmin || hasValidSubscription) ? 'mirror' : 'signals');
+    }
+  }, [authLoading, isAdmin, hasValidSubscription]);
   const [dashboardData, setDashboardData] = useState(null); // Unified dashboard data
   // FREE/proof-floor vs full layout decision. For real users it's driven PURELY by the stable auth
   // entitlement (hasValidSubscription, resolved from /me before the dashboard fetch) — so the correct
@@ -3780,15 +3817,13 @@ function Dashboard() {
           </div>
 
           <nav className="flex items-center border border-rule-dark bg-paper-card">
+            <button onClick={() => setActiveTab('mirror')} title={mirrorPct != null ? `${mirrorPct}% mirrored` : 'Mirror'} className={`px-4 sm:px-5 py-2 text-[0.85rem] font-medium border-r border-rule-dark transition-colors inline-flex items-center gap-2 ${activeTab === 'mirror' ? 'bg-ink text-paper' : 'text-ink-mute hover:bg-paper hover:text-ink'}`}>
+              <EclipseGlyph pct={mirrorPct || 0} size={16} />
+              Mirror
+            </button>
             <button onClick={() => setActiveTab('signals')} className={`px-4 sm:px-5 py-2 text-[0.85rem] font-medium border-r border-rule-dark transition-colors ${activeTab === 'signals' ? 'bg-ink text-paper' : 'text-ink-mute hover:bg-paper hover:text-ink'}`}>
               Signals
             </button>
-            {isAdmin && (
-              <button onClick={() => setActiveTab('mirror')} title={mirrorPct != null ? `${mirrorPct}% mirrored` : 'Mirror'} className={`px-4 sm:px-5 py-2 text-[0.85rem] font-medium border-r border-rule-dark transition-colors inline-flex items-center gap-2 ${activeTab === 'mirror' ? 'bg-ink text-paper' : 'text-ink-mute hover:bg-paper hover:text-ink'}`}>
-                <EclipseGlyph pct={mirrorPct || 0} size={16} />
-                Mirror
-              </button>
-            )}
             <button onClick={() => setActiveTab('history')} className={`px-4 sm:px-5 py-2 text-[0.85rem] font-medium border-r border-rule-dark transition-colors ${activeTab === 'history' ? 'bg-ink text-paper' : 'text-ink-mute hover:bg-paper hover:text-ink'}`}>
               Trade History
             </button>
@@ -4186,7 +4221,7 @@ function Dashboard() {
           </div>
         )}
 
-        {activeTab === 'mirror' && isAdmin ? (
+        {activeTab === 'mirror' ? (
           <MirrorView book={tierBookLive} preserverBook={dashboardData?.preserver_book} tier={dashboardData?.tier}
             regimeName={dashboardData?.regime_forecast?.current_regime_name} onOpenChart={setChartModal} holdingsApi={holdingsApi} />
         ) : activeTab === 'signals' ? (
