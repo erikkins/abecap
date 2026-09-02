@@ -2953,6 +2953,18 @@ function Dashboard() {
       setActiveTab((isAdmin || hasValidSubscription) ? 'mirror' : 'signals');
     }
   }, [authLoading, isAdmin, hasValidSubscription]);
+  // Mirror onboarding tour — now that the Mirror is the live default tab, run it the first time a
+  // user lands on the tab (seen-flag in localStorage). mirrorLivePct is the post-holdings-sync
+  // alignment that drives the tour's final-step copy. (Also relaunchable via the "Take the tour" btn.)
+  const [mirrorTourOpen, setMirrorTourOpen] = useState(false);
+  const [mirrorLivePct, setMirrorLivePct] = useState(0);
+  const closeMirrorTour = () => { setMirrorTourOpen(false); try { localStorage.setItem('rigacap_mirror_tour_seen', 'true'); } catch { /* ignore */ } };
+  useEffect(() => {
+    if (activeTab !== 'mirror') return;
+    if (localStorage.getItem('rigacap_mirror_tour_seen') === 'true') return;
+    const t = setTimeout(() => setMirrorTourOpen(true), 400);   // let MirrorView paint its spotlight targets first
+    return () => clearTimeout(t);
+  }, [activeTab]);
   const [dashboardData, setDashboardData] = useState(null); // Unified dashboard data
   // FREE/proof-floor vs full layout decision. For real users it's driven PURELY by the stable auth
   // entitlement (hasValidSubscription, resolved from /me before the dashboard fetch) — so the correct
@@ -4222,8 +4234,16 @@ function Dashboard() {
         )}
 
         {activeTab === 'mirror' ? (
-          <MirrorView book={tierBookLive} preserverBook={dashboardData?.preserver_book} tier={dashboardData?.tier}
-            regimeName={dashboardData?.regime_forecast?.current_regime_name} onOpenChart={setChartModal} holdingsApi={holdingsApi} />
+          <>
+            <MirrorView book={tierBookLive} preserverBook={dashboardData?.preserver_book} tier={dashboardData?.tier}
+              regimeName={dashboardData?.regime_forecast?.current_regime_name} onOpenChart={setChartModal} holdingsApi={holdingsApi}
+              onState={(s) => setMirrorLivePct(s?.pct || 0)} />
+            <MirrorTour open={mirrorTourOpen} onClose={closeMirrorTour} pct={mirrorLivePct} />
+            <button onClick={() => setMirrorTourOpen(true)}
+              className="fixed bottom-4 right-4 z-30 text-[0.75rem] font-medium px-3.5 py-2 rounded-full bg-ink text-paper shadow-lg hover:bg-claret transition-colors">
+              Take the tour
+            </button>
+          </>
         ) : activeTab === 'signals' ? (
           <>
             {/* Go to Cash Banner */}
