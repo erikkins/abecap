@@ -1202,7 +1202,7 @@ const MIRROR_TOUR = [
     emptyVariant: { eyebrow: 'Your starting point', title: 'A blank sky, waiting',
       body: 'You haven’t added anything yet, so the sun’s in full view — that’s exactly where everyone begins. Add even one name and the moon slides in; a total eclipse is when you hold the whole book, at your pace and your size. Here’s where to start.' } },
   { kind: 'spotlight', target: '[data-tour="mirror-connect"]', eyebrow: 'Your move', title: 'Show it what you hold',
-    body: 'Connect your brokerage (read-only) or paste a few tickers. Nothing to buy yet — we just need to see where you stand today.' },
+    body: 'Connect your brokerage (read-only) or paste a few tickers — that’s all the mirror needs. It simply shows how your holdings line up with the book; what you do with that is always yours to decide.' },
 ];
 
 function MirrorTour({ open, onClose, pct = 0 }) {
