@@ -7,25 +7,32 @@ metadata:
   originSessionId: b87c584c-343d-4a11-aca7-a450196570be
 ---
 
-# Session progress — updated 2026-09-02 (~noon ET)
+# Session progress — updated 2026-09-02 (~afternoon ET)
 
-## ✅ LIVE IN PROD (shipped)
-- **Daily digest redesign v3** (both tiers, dashboard-sourced, per-regime+tier heroes) — deployed + broadcast to all subs last night; cron `rigacap-prod-daily-emails` re-enabled. Old digest fn intact = 1-line revert (email_service.send_daily_summary).
-- **Mirror go-live** — first+default tab (paid→mirror/free→signals), two labeled Preserver/Maximizer sections, admin gate removed. In origin/main.
-- **Mirror tour → real portal** — JUST pushed (origin/main 33eb01a, deploying). Wired MirrorTour into the in-app Mirror tab (was admin /app/next only): auto-opens on first Mirror-tab visit (localStorage 'rigacap_mirror_tour_seen', 400ms delay), MirrorView onState→mirrorLivePct feeds tour final step, + "Take the tour" relaunch btn. Build passed. Erik: "add it to the real mirror tab and we can continue iterating" — he'll iterate on the tour live.
+## ✅ LIVE IN PROD
+- Daily digest redesign v3 (both tiers) — deployed + broadcast to all subs; cron re-enabled. Old digest fn = 1-line revert.
+- Mirror go-live — first+default tab (paid→mirror/free→signals), two labeled Preserver/Maximizer sections, admin gate removed.
+- **Mirror tour in the real portal** (origin/main 33eb01a): auto-opens on first Mirror-tab visit (localStorage 'rigacap_mirror_tour_seen', 400ms delay), MirrorView onState→mirrorLivePct feeds final step, "Take the tour" relaunch btn.
+- **Tour copy fix** (origin/main bd45dc8, deploying): "Your move" step reworded — removed "Nothing to buy yet" (buy-push) → "…that's all the mirror needs. It simply shows how your holdings line up with the book; what you do with that is always yours to decide."
 
-## ⏭️ THIS MORNING'S ASKS (Erik) — sequence proposed, awaiting his steer
-1. **Mirror tour** — shipped, iterate live (his active focus).
-2. **Landing "The Mirror" section** (LandingPageV2.jsx = ACTIVE, routed at /). Currently NO mention of Mirror/eclipse → new paid signups land on the eclipse (default tab) COLD. Add an intro section (honest "facts, not instructions" framing). IMPLEMENTATION NOTE: AlignmentEclipse (App.jsx:1069) + EclipseGlyph (1050) are NOT exported and LandingPageV2 is imported BY App.jsx (circular) → to use the real eclipse, EXTRACT AlignmentEclipse → components/AlignmentEclipse.jsx (import in both). Alt = static eclipse PNG. My rec = extract (it's the signature visual). ASKED Erik: start landing now vs hold; sequence ok vs pull drips forward.
-3. **Drips** — productionize redesigned 6-step onboarding drip into email_service.send_onboarding_email (steps D1/D3/D7/D12/D15/D22) on the v3/editorial system (eclipse heroes per step, inline cid). Samples built in scratchpad: build_drip.py (D1/D7/D12), build_drip2.py (settings/wound/door D3/D15/D22), build_welcome.py, build_regime.py. Digest v3 (backend/app/services/digest_v3.py) is the pattern to follow (inline_images cid heroes + editorial HTML).
-4. **Other surfaces** — password reset, win-back/churn.
+## ⏳ OPEN DECISION — tour firing scope (Erik asked; awaiting A/B/C)
+- Current = **A**: localStorage flag = per-BROWSER not per-account. Fires for anyone who hasn't seen it → incl. ALL existing subscribers on next login (Mirror is default). Re-fires on new device; wrong on shared browser (prior user's flag blocks new user).
+- **B** = per-account server flag (add user.mirror_tour_seen DB field + API set-on-close; fires once/user across devices).
+- **C** = B + only auto-fire for NEW signups (existing users use the "Take the tour" button; don't surprise base).
 
-## LANDING V2 STRUCTURE (for the Mirror section)
-- LandingPageV2.jsx: Hero → ValuePropSection(190 "What You're Paying For") → EdgeSection(223) → PerformanceSection → FounderSection → HowItWorksSection(~415) → Pricing → FAQ. Page body composes <XSection/> at ~725. SectionLabel component at :17. Brand: font-display (Fraunces), claret accents, paper-card sections, max-w-[800]/[1120].
+## TOUR STRINGS (Erik reviewing/iterating)
+- "Your starting point" (eclipse step) has 2 variants by pct>0: DEFAULT title "Further along than you think" / EMPTY-variant title "A blank sky, waiting" (App.jsx ~1198). Erik approved these.
+- MIRROR_TOUR array at App.jsx:1189; MirrorTour component ~1208; empty switch ~1214 `if (cur.emptyVariant && !(pct>0))`.
+
+## ⏭️ THIS MORNING'S ASK QUEUE (Erik) — sequence, awaiting steer
+1. Mirror tour — shipped; ITERATING live (his active focus; more copy tweaks likely).
+2. **Landing "The Mirror" section** (LandingPageV2.jsx ACTIVE at /). No Mirror/eclipse mention → new signups land on eclipse cold. Add intro (honest "facts not instructions"). IMPL: AlignmentEclipse (App.jsx:1069) NOT exported + circular (LandingPageV2 imported by App) → EXTRACT to components/AlignmentEclipse.jsx (rec) OR static PNG. Structure: page body composes <XSection/> ~725; SectionLabel :17.
+3. **Drips** — productionize redesigned 6-step onboarding (email_service.send_onboarding_email D1/D3/D7/D12/D15/D22) on v3 editorial system (eclipse heroes per step, inline cid). Samples: scratchpad build_drip.py/build_drip2.py/build_welcome.py. Pattern = backend/app/services/digest_v3.py.
+4. Password reset + win-back surfaces.
 
 ## KEY FACTS / RULES
-- Send email tests to erik@rigacap.com (NOT ekins@cookma.com=this window's Claude login). AWS_PROFILE=rigacap. SMTP from worker Lambda env.
-- Single source of truth = today's dashboard; email GENERATES NOTHING; NEVER truncate lists; each tier own read.
+- Email tests → erik@rigacap.com (NOT ekins@cookma.com=this window's login). AWS_PROFILE=rigacap. SMTP from worker Lambda env.
+- Single source = today's dashboard; email GENERATES NOTHING; NEVER truncate lists; each tier own read.
 - Brand claret/paper (#F5F1E8/#141210/#7A2430); NEVER navy/gold/olive; no DWAP/tape/PITFWU to customers.
-- Mirror concept: book=sun, you=moon; more alignment = moon covers sun; total eclipse+corona = fully running strategy (the reward, live/data-driven for honesty). Orb (not eclipse) = digests (regime color).
-- Auto-snapshot hook sometimes commits staged files under its own msg. Forks drifted/rate-limited on the digest yesterday.
+- Mirror = book:sun/you:moon; more align=moon covers sun; total eclipse+corona=fully running (live/data-driven, honesty). Orb=digests(regime).
+- Auto-snapshot hook sometimes commits staged files under its own msg. Deploys ~4min via push to main (CI Deploy RigaCap).
