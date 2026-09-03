@@ -9,26 +9,27 @@ metadata:
 
 # Session progress — updated 2026-09-03
 
-## ✅ JUST FIXED — Morning Health email "DWAP valid 590/591" (Erik's daily annoyance)
-- Root cause: **^VIX** — index carries ZERO volume; DWAP = volume-weighted avg → sum(price×0)/sum(0) = NaN → always the "1 invalid" of 591 (it has 1770 bars ≥200 so it was counted). MA50/MA200 are price-only so they showed 100%. Confirmed via `{"parquet_query":{"sql":...}}` worker event (found ^VIX, dwap=NaN, volume=0).
-- Fix (pushed 51086e1, deploying): exclude `^`-prefixed index symbols from indicator-validity counts in BOTH main.py places — the Morning Health email builder (~10034) AND the daily-scan canary (~1490, so <90% alert isn't skewed). Also NAME any remaining offender in the email row + scan log ("DWAP valid X/Y — invalid: SYM") so it's never an unactionable bare count again. Tomorrow's email → DWAP valid 590/590 (100%).
-- Aside (not fixed, cosmetic): ^VIX bars in the parquet store are stale (last 2026-06-15); live VIX for regime comes fresh from yfinance at scan time so signals unaffected. Offered Erik to refresh parquet ^VIX separately.
-- Useful tool discovered: worker event `{"parquet_query":{"sql":"... FROM prices ..."}}` runs arbitrary DuckDB on the parquet, returns up to 200 rows. Great for data diagnosis. Also `{"parquet_diagnose":true}`.
+## ✅ FIXED + DEPLOYED — Morning Health "DWAP valid 590/591" annoyance
+- Root cause = **^VIX** (index, zero volume → volume-weighted DWAP always NaN; 1770 bars so counted as the 1 invalid of 591). Fix (pushed 51086e1, deployed): exclude `^`-prefixed indices from indicator-validity counts in BOTH main.py spots (Morning Health email builder ~10034 AND daily-scan canary ~1490); also NAME any remaining offender in the email row + scan log. Tomorrow → DWAP valid 590/590 (100%).
 
-## ✅ EARLIER TODAY (all live in prod)
-- Mirror tour → real portal (auto-opens first Mirror visit, "Take the tour" btn). Copy fix: "Your move" step no longer says "Nothing to buy yet" (removed buy-push) → comparison framing (pushed bd45dc8).
-- Mirror go-live (first+default tab paid→mirror/free→signals, two Preserver/Maximizer sections). Daily digest v3 (both tiers) live + broadcast; cron on.
+## 🔎 VIX STALENESS — investigated, NOT a live bug (Erik asked)
+- `all_data.parquet` monolith `^VIX` frozen at 2026-06-15 (close 16.2) — froze at the mid-June PITFWU migration (indices read from all_data as base). Confirmed via `{"parquet_query":{"sql":...}}`.
+- LIVE regime/dashboard VIX is FRESH: read from scanner_service.data_cache['^VIX'] (signals.py:854/1164/1172); ^VIX is a REQUIRED_SYMBOL re-fetched from yfinance every scan (market_data_provider forces indices→yfinance). Proof: Sep-1 dashboard vix_level=16.34 ≠ June parquet 16.2 → fetch is fresh; parquet just never gets index bars written back.
+- Net: regime/signals/digests/Morning-Health VIX all fine. ONLY risk = research/walk-forward that reads ^VIX DIRECTLY from the parquet (no ^VIX after 2026-06-15). **ASKED Erik**: fix parquet persistence (write fresh ^VIX/index bars each scan) or leave it. Awaiting.
 
-## ⏳ OPEN — Mirror tour firing scope (Erik asked, undecided)
-- Current = A: localStorage flag = per-BROWSER; fires for anyone who hasn't seen it (incl. all existing subs next login; re-fires new device; wrong on shared browser). B = per-account server flag. C = B + new-signups-only. Awaiting Erik.
+## ✅ EARLIER (live in prod)
+- Mirror tour → real portal (auto-open first visit, "Take the tour" btn); "Your move" copy de-buy-pushed (bd45dc8). Mirror go-live (first+default tab). Daily digest v3 both tiers live + broadcast; cron on.
 
-## ⏭️ QUEUED (this morning's asks, not yet done)
-1. **Landing "The Mirror" section** (LandingPageV2.jsx ACTIVE at /) — prime new signups for the eclipse (now default tab). Impl: extract AlignmentEclipse (App.jsx:1069) → components/AlignmentEclipse.jsx (it's not exported + circular) OR static PNG. Honest "facts not instructions" framing.
-2. **Drips** — productionize redesigned 6-step onboarding into email_service.send_onboarding_email (D1/D3/D7/D12/D15/D22) on v3 editorial system; samples in scratchpad build_drip.py/build_drip2.py/build_welcome.py; pattern = backend/app/services/digest_v3.py (inline_images cid heroes).
-3. Password reset + win-back surfaces.
+## ⏳ OPEN DECISIONS / QUEUE
+- **Tour firing scope** (A/B/C): current A = localStorage per-browser (fires for anyone unseen, incl all existing subs next login). B=per-account server flag. C=B+new-signups-only. Awaiting Erik.
+- **VIX parquet persistence** fix — awaiting Erik (above).
+- **Landing "The Mirror" section** (LandingPageV2.jsx ACTIVE at /) — prime new signups for eclipse default tab; extract AlignmentEclipse (App.jsx:1069, not exported + circular) → components/AlignmentEclipse.jsx OR static PNG; honest "facts not instructions".
+- **Drips** — productionize redesigned 6-step onboarding into email_service.send_onboarding_email (D1/D3/D7/D12/D15/D22) on v3 editorial system; samples scratchpad build_drip.py/build_drip2.py/build_welcome.py; pattern = backend/app/services/digest_v3.py.
+- Password reset + win-back surfaces.
 
 ## KEY FACTS / RULES
-- Email tests → erik@rigacap.com (NOT ekins@cookma.com = this window's Claude login). AWS_PROFILE=rigacap. Deploys ~4min via push to main (CI Deploy RigaCap). Gmail MCP token EXPIRED (can't read inbox).
+- Email tests → erik@rigacap.com (NOT ekins@cookma.com = this window's Claude login). AWS_PROFILE=rigacap. Deploys ~4min via push to main. Gmail MCP token EXPIRED.
+- Worker diag tools: {"parquet_query":{"sql":"...FROM prices..."}} (DuckDB, ≤200 rows), {"parquet_diagnose":true}, run_migration {"sql":[...]} (Postgres), maximizer_preview. All AWS_PROFILE=rigacap.
 - Single source of truth = today's dashboard; email GENERATES NOTHING; NEVER truncate lists; each tier own read.
-- Brand claret/paper (#F5F1E8/#141210/#7A2430); NEVER navy/gold/olive; no DWAP/tape/PITFWU to CUSTOMERS (internal/admin like Morning Health is fine).
-- Worker admin/data ops: run_migration {"sql":[...]} (Postgres), parquet_query {"sql":...} (DuckDB parquet), maximizer_preview, all AWS_PROFILE=rigacap.
+- Brand claret/paper (#F5F1E8/#141210/#7A2430); NEVER navy/gold/olive; no DWAP/tape/PITFWU to CUSTOMERS (admin/internal like Morning Health is fine).
+- Data flow: live read = PITFWU per-symbol store; indices/missing/short-history fall back to all_data.parquet (frozen ~June). Regime reads data_cache (fresh via daily fetch).
