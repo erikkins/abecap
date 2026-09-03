@@ -7,32 +7,28 @@ metadata:
   originSessionId: b87c584c-343d-4a11-aca7-a450196570be
 ---
 
-# Session progress — updated 2026-09-02 (~afternoon ET)
+# Session progress — updated 2026-09-03
 
-## ✅ LIVE IN PROD
-- Daily digest redesign v3 (both tiers) — deployed + broadcast to all subs; cron re-enabled. Old digest fn = 1-line revert.
-- Mirror go-live — first+default tab (paid→mirror/free→signals), two labeled Preserver/Maximizer sections, admin gate removed.
-- **Mirror tour in the real portal** (origin/main 33eb01a): auto-opens on first Mirror-tab visit (localStorage 'rigacap_mirror_tour_seen', 400ms delay), MirrorView onState→mirrorLivePct feeds final step, "Take the tour" relaunch btn.
-- **Tour copy fix** (origin/main bd45dc8, deploying): "Your move" step reworded — removed "Nothing to buy yet" (buy-push) → "…that's all the mirror needs. It simply shows how your holdings line up with the book; what you do with that is always yours to decide."
+## ✅ JUST FIXED — Morning Health email "DWAP valid 590/591" (Erik's daily annoyance)
+- Root cause: **^VIX** — index carries ZERO volume; DWAP = volume-weighted avg → sum(price×0)/sum(0) = NaN → always the "1 invalid" of 591 (it has 1770 bars ≥200 so it was counted). MA50/MA200 are price-only so they showed 100%. Confirmed via `{"parquet_query":{"sql":...}}` worker event (found ^VIX, dwap=NaN, volume=0).
+- Fix (pushed 51086e1, deploying): exclude `^`-prefixed index symbols from indicator-validity counts in BOTH main.py places — the Morning Health email builder (~10034) AND the daily-scan canary (~1490, so <90% alert isn't skewed). Also NAME any remaining offender in the email row + scan log ("DWAP valid X/Y — invalid: SYM") so it's never an unactionable bare count again. Tomorrow's email → DWAP valid 590/590 (100%).
+- Aside (not fixed, cosmetic): ^VIX bars in the parquet store are stale (last 2026-06-15); live VIX for regime comes fresh from yfinance at scan time so signals unaffected. Offered Erik to refresh parquet ^VIX separately.
+- Useful tool discovered: worker event `{"parquet_query":{"sql":"... FROM prices ..."}}` runs arbitrary DuckDB on the parquet, returns up to 200 rows. Great for data diagnosis. Also `{"parquet_diagnose":true}`.
 
-## ⏳ OPEN DECISION — tour firing scope (Erik asked; awaiting A/B/C)
-- Current = **A**: localStorage flag = per-BROWSER not per-account. Fires for anyone who hasn't seen it → incl. ALL existing subscribers on next login (Mirror is default). Re-fires on new device; wrong on shared browser (prior user's flag blocks new user).
-- **B** = per-account server flag (add user.mirror_tour_seen DB field + API set-on-close; fires once/user across devices).
-- **C** = B + only auto-fire for NEW signups (existing users use the "Take the tour" button; don't surprise base).
+## ✅ EARLIER TODAY (all live in prod)
+- Mirror tour → real portal (auto-opens first Mirror visit, "Take the tour" btn). Copy fix: "Your move" step no longer says "Nothing to buy yet" (removed buy-push) → comparison framing (pushed bd45dc8).
+- Mirror go-live (first+default tab paid→mirror/free→signals, two Preserver/Maximizer sections). Daily digest v3 (both tiers) live + broadcast; cron on.
 
-## TOUR STRINGS (Erik reviewing/iterating)
-- "Your starting point" (eclipse step) has 2 variants by pct>0: DEFAULT title "Further along than you think" / EMPTY-variant title "A blank sky, waiting" (App.jsx ~1198). Erik approved these.
-- MIRROR_TOUR array at App.jsx:1189; MirrorTour component ~1208; empty switch ~1214 `if (cur.emptyVariant && !(pct>0))`.
+## ⏳ OPEN — Mirror tour firing scope (Erik asked, undecided)
+- Current = A: localStorage flag = per-BROWSER; fires for anyone who hasn't seen it (incl. all existing subs next login; re-fires new device; wrong on shared browser). B = per-account server flag. C = B + new-signups-only. Awaiting Erik.
 
-## ⏭️ THIS MORNING'S ASK QUEUE (Erik) — sequence, awaiting steer
-1. Mirror tour — shipped; ITERATING live (his active focus; more copy tweaks likely).
-2. **Landing "The Mirror" section** (LandingPageV2.jsx ACTIVE at /). No Mirror/eclipse mention → new signups land on eclipse cold. Add intro (honest "facts not instructions"). IMPL: AlignmentEclipse (App.jsx:1069) NOT exported + circular (LandingPageV2 imported by App) → EXTRACT to components/AlignmentEclipse.jsx (rec) OR static PNG. Structure: page body composes <XSection/> ~725; SectionLabel :17.
-3. **Drips** — productionize redesigned 6-step onboarding (email_service.send_onboarding_email D1/D3/D7/D12/D15/D22) on v3 editorial system (eclipse heroes per step, inline cid). Samples: scratchpad build_drip.py/build_drip2.py/build_welcome.py. Pattern = backend/app/services/digest_v3.py.
-4. Password reset + win-back surfaces.
+## ⏭️ QUEUED (this morning's asks, not yet done)
+1. **Landing "The Mirror" section** (LandingPageV2.jsx ACTIVE at /) — prime new signups for the eclipse (now default tab). Impl: extract AlignmentEclipse (App.jsx:1069) → components/AlignmentEclipse.jsx (it's not exported + circular) OR static PNG. Honest "facts not instructions" framing.
+2. **Drips** — productionize redesigned 6-step onboarding into email_service.send_onboarding_email (D1/D3/D7/D12/D15/D22) on v3 editorial system; samples in scratchpad build_drip.py/build_drip2.py/build_welcome.py; pattern = backend/app/services/digest_v3.py (inline_images cid heroes).
+3. Password reset + win-back surfaces.
 
 ## KEY FACTS / RULES
-- Email tests → erik@rigacap.com (NOT ekins@cookma.com=this window's login). AWS_PROFILE=rigacap. SMTP from worker Lambda env.
-- Single source = today's dashboard; email GENERATES NOTHING; NEVER truncate lists; each tier own read.
-- Brand claret/paper (#F5F1E8/#141210/#7A2430); NEVER navy/gold/olive; no DWAP/tape/PITFWU to customers.
-- Mirror = book:sun/you:moon; more align=moon covers sun; total eclipse+corona=fully running (live/data-driven, honesty). Orb=digests(regime).
-- Auto-snapshot hook sometimes commits staged files under its own msg. Deploys ~4min via push to main (CI Deploy RigaCap).
+- Email tests → erik@rigacap.com (NOT ekins@cookma.com = this window's Claude login). AWS_PROFILE=rigacap. Deploys ~4min via push to main (CI Deploy RigaCap). Gmail MCP token EXPIRED (can't read inbox).
+- Single source of truth = today's dashboard; email GENERATES NOTHING; NEVER truncate lists; each tier own read.
+- Brand claret/paper (#F5F1E8/#141210/#7A2430); NEVER navy/gold/olive; no DWAP/tape/PITFWU to CUSTOMERS (internal/admin like Morning Health is fine).
+- Worker admin/data ops: run_migration {"sql":[...]} (Postgres), parquet_query {"sql":...} (DuckDB parquet), maximizer_preview, all AWS_PROFILE=rigacap.
