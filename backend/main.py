@@ -1488,7 +1488,13 @@ def handler(event, context):
                 import pandas as _pd
                 total_checked = 0
                 valid_dwap = 0
+                _invalid_syms = []
                 for _sym, _df in scanner_service.data_cache.items():
+                    # Skip index symbols (^VIX, ^GSPC, …): they carry no volume, so DWAP
+                    # (a volume-weighted average) is always NaN. They aren't tradeable and
+                    # were the perpetual "1 invalid" in the Morning Health email.
+                    if _sym.startswith('^'):
+                        continue
                     if _df is None or len(_df) < 200:
                         continue
                     total_checked += 1
@@ -1496,8 +1502,13 @@ def handler(event, context):
                     _dwap = _last.get('dwap')
                     if _dwap is not None and not _pd.isna(_dwap) and _dwap > 0:
                         valid_dwap += 1
+                    else:
+                        _invalid_syms.append(_sym)
                 validity_pct = (valid_dwap / total_checked * 100) if total_checked else 0
                 canary_msg = f"{valid_dwap}/{total_checked} ({validity_pct:.1f}%) valid dwap on latest bar"
+                if _invalid_syms:
+                    # Name the offenders so the count is actionable, never a bare "N-1/N".
+                    canary_msg += f" — invalid: {', '.join(sorted(_invalid_syms)[:15])}"
                 if validity_pct < 90 and total_checked > 0:
                     print(f"🚨 INDICATOR CANARY FAIL: {canary_msg}")
                     _log_step("Indicator Canary", "critical", canary_msg)
@@ -10020,13 +10031,21 @@ RigaCap Admin &middot; "Post now" publishes the draft immediately (one click, no
             valid_dwap = 0
             valid_ma50 = 0
             valid_ma200 = 0
+            _invalid_dwap_syms = []
             for _sym, _df in cache.items():
+                # Index symbols (^VIX, ^GSPC, …) carry no volume, so DWAP — a volume-weighted
+                # average — is always NaN for them. They aren't tradeable and were the perpetual
+                # "1 invalid DWAP" in this email. Exclude indices from the indicator-validity counts.
+                if _sym.startswith('^'):
+                    continue
                 if _df is None or len(_df) < 200:
                     continue
                 total += 1
                 _last = _df.iloc[-1]
                 if not _pd.isna(_last.get('dwap')) and _last.get('dwap', 0) > 0:
                     valid_dwap += 1
+                else:
+                    _invalid_dwap_syms.append(_sym)
                 if not _pd.isna(_last.get('ma_50')) and _last.get('ma_50', 0) > 0:
                     valid_ma50 += 1
                 if not _pd.isna(_last.get('ma_200')) and _last.get('ma_200', 0) > 0:
@@ -10112,7 +10131,8 @@ RigaCap Admin &middot; "Post now" publishes the draft immediately (one click, no
 
             scan_rows = (
                 _row("Universe", f"{total} symbols (200+ days)")
-                + _row("DWAP valid", f"{valid_dwap}/{total} ({_pct(valid_dwap, total)})", bold=True)
+                + _row("DWAP valid", f"{valid_dwap}/{total} ({_pct(valid_dwap, total)})"
+                       + (f" — invalid: {', '.join(sorted(_invalid_dwap_syms)[:10])}" if _invalid_dwap_syms else ""), bold=True)
                 + _row("MA50 valid", _pct(valid_ma50, total))
                 + _row("MA200 valid", _pct(valid_ma200, total))
             )
