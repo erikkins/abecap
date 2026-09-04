@@ -19,10 +19,10 @@ function LongTermRecord() {
   const raw = PERF.benchmarks.raw_mom_21yr;
   const y08 = PERF.supporting.yr2008;
   const Row = ({ label, cagr, maxdd, accent }) => (
-    <div className="flex items-center justify-between py-1.5 text-sm">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3 py-1.5 text-sm">
       <span className={`font-medium ${accent ? 'text-claret' : 'text-ink'}`}>{label}</span>
-      <span className="tabular-nums text-ink">{cagr}%<span className="text-ink-mute">/yr</span></span>
-      <span className="tabular-nums text-ink-mute">{maxdd}% max DD</span>
+      <span className="tabular-nums text-ink text-center whitespace-nowrap">{cagr}%<span className="text-ink-mute">/yr</span></span>
+      <span className="tabular-nums text-ink-mute text-right whitespace-nowrap">{maxdd}% max DD</span>
     </div>
   );
   return (
@@ -132,10 +132,10 @@ export default function FreeProofView({ data, user, upgradeLoading, onSubscribe,
           <p className="text-xs text-ink-mute mb-2">Closed walk-forward trades — names shown after the trade finished.</p>
           <div className="divide-y divide-ink/5">
             {winners.slice(0, 6).map((w, i) => (
-              <div key={i} className="flex items-center justify-between py-1.5 text-sm">
+              <div key={i} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3 py-1.5 text-sm">
                 <span className="font-medium text-ink">{w.symbol}</span>
-                <span className="text-xs text-ink-mute">{w.days_held ? `${w.days_held}d` : ''}</span>
-                <span className="tabular-nums font-medium text-positive">{pctText(w.would_be_return)}</span>
+                <span className="text-xs text-ink-mute text-center whitespace-nowrap">{w.days_held ? `${w.days_held}d` : ''}</span>
+                <span className="tabular-nums font-medium text-positive text-right whitespace-nowrap">{pctText(w.would_be_return)}</span>
               </div>
             ))}
           </div>
