@@ -486,6 +486,7 @@ class NewsletterGeneratorService:
         open_count = 0
         stops_count = 0
         profit_exits_count = 0
+        max_time_stops = 0   # Maximizer breakout positions that reached their ~29-day time-stop this week
         week_wins = []  # real closed WINNERS this week: (pnl_pct, days_held) — no tickers
         try:
             import asyncio
@@ -493,7 +494,7 @@ class NewsletterGeneratorService:
             from sqlalchemy import text as sa_text
 
             async def _fetch_portfolio():
-                nonlocal open_count, stops_count, profit_exits_count, week_wins
+                nonlocal open_count, stops_count, profit_exits_count, max_time_stops, week_wins
                 async with async_session() as db:
                     row = await db.execute(sa_text(
                         "SELECT COUNT(*) FROM model_positions WHERE status = 'open' AND portfolio_type = 'live'"
@@ -520,6 +521,21 @@ class NewsletterGeneratorService:
                                 days = None
                             week_wins.append((round(float(pnl), 1), days))
                     week_wins.sort(key=lambda w: w[0], reverse=True)
+
+                    # Maximizer runs a SEPARATE breakout book whose exits are time-stops (sold on
+                    # reaching their ~29-day hold), NOT trailing/loss stops — so they live in
+                    # tier_fills (reason='hold_exit'), not model_positions. Count this week's so the
+                    # newsletter can say "0 Preserver stops, but N Maximizer positions timed out"
+                    # instead of implying nothing exited anywhere. Aggregate count only — no tickers.
+                    try:
+                        mrow = await db.execute(sa_text(
+                            "SELECT COUNT(*) FROM tier_fills "
+                            "WHERE tier = 'maximizer' AND side = 'sell' AND reason = 'hold_exit' "
+                            "AND fill_date >= CURRENT_DATE - INTERVAL '7 days'"
+                        ))
+                        max_time_stops = mrow.scalar() or 0
+                    except Exception as _e:
+                        logger.warning(f"Could not load Maximizer time-stop count: {_e}")
 
             loop = asyncio.get_event_loop()
             if loop.is_running():
@@ -577,9 +593,19 @@ class NewsletterGeneratorService:
             market_summary += f" VIX at {vix:.0f}."
         market_summary += f"\nFresh signals this week: {fresh_count}. Monitoring: {monitoring_count}. Watchlist: {len(watchlist)}."
         market_summary += f"\nOpen positions: {open_count}."
-        market_summary += f"\nStops triggered this week: {stops_count}."
+        market_summary += f"\nPreserver stops triggered this week: {stops_count} (trailing/loss/regime exits in the core Preserver book)."
         if profit_exits_count:
             market_summary += f"\nProfit exits this week: {profit_exits_count}."
+        # Maximizer time-stops are a DIFFERENT thing from Preserver stops: a breakout position
+        # is sold when it reaches its ~29-day hold, whether up or down — a scheduled exit, not a
+        # loss-cut. Report it as its own fact so the newsletter never conflates the two (and never
+        # implies "nothing exited" when the Preserver stop count is 0 but the Maximizer book turned over).
+        market_summary += (
+            f"\nMaximizer time-stops this week: {max_time_stops} "
+            f"(breakout positions that reached their ~29-day hold and were sold on schedule — "
+            f"this is a SCHEDULED exit on the clock, NOT a loss-cutting stop; describe it that way, "
+            f"and NEVER call it a 'stop-loss' or imply the position was cut for going against us)."
+        )
         # Real WEEKLY facts (regime-run length + week-over-week asset moves + biggest S&P day) so
         # §01 recaps the WEEK and never invents a regime-duration. Prefer these over the daily briefing.
         weekly_pack = self._weekly_market_pack()
@@ -618,7 +644,7 @@ THIS IS A WEEKLY RECAP — describe what happened over the WEEK, not just the la
 - Use the WEEKLY MARKET MOVES block (week-over-week % for the S&P, Nasdaq, small caps, gold, treasuries) and the "biggest single S&P day" for the week's action. Do NOT present a single-day figure from the daily briefing as if it were the week.
 - REGIME DURATION: if you note how long the regime has run, state it ONLY using the REGIME RUN figure provided (e.g. "~16 weeks"). NEVER invent a count like "second week running" — a wrong duration is an instant credibility hit. If no REGIME RUN figure is given, don't state a duration at all.
 
-You may reference: number of fresh signals, watchlist count, open positions, stops triggered, profit exits — but ONLY the exact numbers from the "Market data" block above, and the S&P move + VIX. Do NOT make up any numbers. If the data says 1 stop, say 1; if 0, say 0.
+You may reference: number of fresh signals, watchlist count, open positions, Preserver stops triggered, Maximizer time-stops, profit exits — but ONLY the exact numbers from the "Market data" block above, and the S&P move + VIX. Do NOT make up any numbers. If the data says 1 stop, say 1; if 0, say 0. TWO DIFFERENT EXIT TYPES: "Preserver stops" are trailing/loss/regime exits in the core book; "Maximizer time-stops" are breakout positions sold on reaching their ~29-day hold (a scheduled exit on the clock, not a loss-cut). Keep them distinct — if Preserver stops are 0 but Maximizer time-stops are >0, say so plainly (nothing was stopped out for losing, but the breakout book turned over on schedule); never let "0 stops" imply the whole engine was idle.
 
 HARD NUMBER DISCIPLINE (this is where trust is won or lost):
 - COUNTS are authoritative ONLY from the structured data (fresh signals, watchlist, open positions, stops). NEVER take a count from the MARKET COLOR briefing, and NEVER invent a prior-week comparison ("up from 9 to 14") — you are not given last week's counts.
@@ -669,7 +695,7 @@ Market context:
 
 Based on the current regime and market conditions, write EXACTLY 3 items — things the system is NOT doing right now, and why.
 
-TIER BALANCE (required): we run TWO settings — Preserver (protect) and Maximizer (grow, a breakout book). AT LEAST ONE of the 3 items MUST be about the Maximizer/breakout side, so the section never reads Preserver-only. A good mix is 2 Preserver-side + 1 Maximizer-side. Keep Maximizer behavior CONCEPTUAL (it hunts breakouts, holds on a ~29-day clock, sells on a hard time-stop, throttles exposure with a volatility target) — do NOT attach the core book's position/signal counts to it.
+TIER BALANCE (required): we run TWO settings — Preserver (protect) and Maximizer (grow, a breakout book). AT LEAST ONE of the 3 items MUST be about the Maximizer/breakout side, so the section never reads Preserver-only. A good mix is 2 Preserver-side + 1 Maximizer-side. Keep Maximizer behavior CONCEPTUAL (it hunts breakouts, holds on a ~29-day clock, sells on a hard time-stop, throttles exposure with a volatility target) — do NOT attach the core book's position/signal counts to it. EXCEPTION — the ONE Maximizer number you MAY cite is "Maximizer time-stops this week" from the Market context block: if it is >0, you may ground the Maximizer item in it (e.g. "a few breakout positions reached their ~29-day exit and were sold on the clock"), framed as a scheduled exit that keeps a winner from round-tripping — never as a loss-cut, never with tickers.
 
 Format: Wrap the ENTIRE first sentence of each item in **...** (the whole sentence bold, not just a lead-in phrase), then 1-2 more sentences unbolded. Example:
 **The system isn't chasing the extended tech names this week.** The momentum scores have diverged from price in ways that historically precede pullbacks. We might miss more upside. That's fine.
